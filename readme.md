@@ -58,11 +58,3 @@ If you're new, start with:
   /connectors
   /workers
 ```
-
----
-
-If you'd like, I can also:
-
-* Add badges and project branding to this README,
-* Create a `/docs/index.html` static docs site, or
-* Generate a GitHub Pages site for all your documentation.
