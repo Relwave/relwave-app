@@ -2,8 +2,16 @@ import { Client } from 'pg';
 import QueryStream from 'pg-query-stream';
 import { Readable } from 'stream';
 
-export type PGConfig = { host: string; port?: number; user?: string; password?: string; database?: string };
+export type PGConfig = {
+  host: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  database?: string;
+  // optionally add ssl, application_name, etc.
+};
 
+/** existing testConnection (unchanged) */
 export async function testConnection(cfg: PGConfig) {
   const client = new Client(cfg);
   try {
@@ -16,47 +24,122 @@ export async function testConnection(cfg: PGConfig) {
 }
 
 /**
- * streamQuery: runs a query using pg-query-stream and calls onBatch for each batch.
- * - cfg: PG connection config
- * - sql: query text
- * - batchSize: maximum rows per batch (pg-query-stream controls batching)
- * - onBatch: async callback(rows, columns)
- * - onDone: optional callback when done
+ * streamQueryCancelable
+ * - Returns an object { promise, cancel }.
+ * - promise resolves when streaming completes (or rejects on error).
+ * - cancel attempts to stop the stream and close the client/connection.
+ *
+ * onBatch(rows, columns) is called with arrays of rows and a columns descriptor.
+ * onDone() is called when stream ends successfully.
  */
-export async function streamQuery(cfg: PGConfig, sql: string, batchSize = 200, onBatch: (rows:any[], columns:any[])=>Promise<void>, onDone?: ()=>void) {
+export function streamQueryCancelable(
+  cfg: PGConfig,
+  sql: string,
+  batchSize: number,
+  onBatch: (rows: any[], columns: { name: string }[]) => Promise<void> | void,
+  onDone?: () => void
+): { promise: Promise<void>; cancel: () => Promise<void> } {
   const client = new Client(cfg);
-  await client.connect();
-  const qs = new QueryStream(sql, [], { batchSize });
-  const stream: Readable = (client.query as any)(qs);
+  let stream: Readable | null = null;
+  let finished = false;
+  let cancelled = false;
 
-  return new Promise<void>((resolve, reject) => {
-    let columns: any[] | null = null;
+  const promise = (async () => {
+    await client.connect();
+    const qs = new QueryStream(sql, [], { batchSize });
+    // @ts-ignore - pg typings may not allow QueryStream here directly
+    stream = (client.query as any)(qs) as Readable;
+
+    let columns: { name: string }[] | null = null;
     let buffer: any[] = [];
 
     const flush = async () => {
       if (buffer.length === 0) return;
       const rows = buffer.splice(0, buffer.length);
-      try { await onBatch(rows, columns || []); } catch (e) { /* ignore */ }
+      await onBatch(rows, columns || []);
     };
 
-    stream.on('data', (row: any) => {
-      if (!columns) {
-        columns = Object.keys(row).map(k => ({ name: k }));
+    try {
+      return await new Promise<void>((resolve, reject) => {
+        stream!.on('data', async (row: any) => {
+          if (columns === null) {
+            columns = Object.keys(row).map((k) => ({ name: k }));
+          }
+          buffer.push(row);
+          if (buffer.length >= batchSize) {
+            // flush but don't await to avoid blocking the event loop inside 'data'
+            flush().catch((e) => {
+              // forward error to reject
+              try { reject(e); } catch {}
+            });
+          }
+        });
+
+        stream!.on('end', async () => {
+          try {
+            await flush();
+            finished = true;
+            if (onDone) onDone();
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        });
+
+        stream!.on('error', (err) => {
+          reject(err);
+        });
+      });
+    } finally {
+      // ensure client clean-up
+      try {
+        if (!finished) {
+          // attempt to drain/close
+          // nothing special here, just end
+        }
+      } finally {
+        try { await client.end(); } catch (e) {}
       }
-      buffer.push(row);
-      if (buffer.length >= batchSize) flush();
-    });
+    }
+  })();
 
-    stream.on('end', async () => {
-      await flush();
-      try { await client.end(); } catch (e) {}
-      onDone && onDone();
-      resolve();
-    });
+  // cancel function: best-effort
+  async function cancel() {
+    if (finished || cancelled) return;
+    cancelled = true;
+    // attempt to destroy the stream if possible
+    try {
+      if (stream && typeof (stream as any).destroy === 'function') {
+        (stream as any).destroy(new Error('cancelled'));
+      }
+    } catch (e) {
+      // ignore
+    }
+    // additionally try to close client
+    try {
+      await client.end();
+    } catch (e) {
+      // ignore
+    }
+  }
 
-    stream.on('error', async (err) => {
-      try { await client.end(); } catch (e) {}
-      reject(err);
-    });
-  });
+  return { promise, cancel };
+}
+
+/**
+ * pgCancel: use a new connection to request pg_cancel_backend on target PID.
+ * Returns true if cancel command succeeded (note: pg_cancel_backend returns bool).
+ */
+export async function pgCancel(cfg: PGConfig, targetPid: number) {
+  const c = new Client(cfg);
+  try {
+    await c.connect();
+    // pg_cancel_backend returns boolean; use parameterized query
+    const res = await c.query('SELECT pg_cancel_backend($1) AS cancelled', [targetPid]);
+    await c.end();
+    return res.rows?.[0]?.cancelled === true;
+  } catch (err) {
+    try { await c.end(); } catch (e) {}
+    throw err;
+  }
 }
