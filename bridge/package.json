@@ -5,17 +5,20 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:client": "node test/client.js",
+    "test:stream": "node test/stream_test_client.js",
+    "test:cancel": "node test/cancel_test_client.js"
   },
   "dependencies": {
     "keytar": "^7.9.0",
     "pg": "^8.16.3",
     "pg-query-stream": "^4.10.3",
-    "pino": "^10.1.0",
-    "uuid": "^13.0.0"
+    "pino": "^10.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.15.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"
   }
