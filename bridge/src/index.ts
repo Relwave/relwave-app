@@ -1,19 +1,16 @@
+// bridge/src/index.ts
 import { JsonStdio } from "./jsonRpc";
-import { randomUUID } from "node:crypto";
 import logger from "./services/logger";
-import { testConnection, streamQueryCancelable } from "./connectors/postgres";
-import { SessionManager } from "./sessionManager";
+import { testConnection } from "./connectors/postgres";
 import { registerDbHandlers } from "./jsonRpcHandler";
+import { SessionManager } from "./sessionManager";
 
 const rpc = new JsonStdio();
 const sessions = new SessionManager();
-
 // --- Adapter: expose global rpcRegister so handlers can register themselves ---
-// This adapter does two things:
-// 1) If the dispatcher exposes a registration API (on/register/registerMethod/addHandler) we attempt to use it.
-// 2) Always ensure globalThis.rpcRegister writes into globalThis._rpcHandlers (the fallback map).
+// This adapter writes handlers into a global fallback map and also attempts
+// to register with the dispatcher if it exposes a registration API.
 function attachRpcRegister(rpcDispatcher: any) {
-  // fallback map
   (globalThis as any)._rpcHandlers = (globalThis as any)._rpcHandlers || {};
 
   const registerFn = (
@@ -22,18 +19,16 @@ function attachRpcRegister(rpcDispatcher: any) {
   ) => {
     if (!method || typeof handler !== "function") return;
 
-    // Always store in fallback global map (guaranteed)
+    // Always keep the fallback map for lookup inside the main request loop
     (globalThis as any)._rpcHandlers[method] = handler;
 
-    // Also attempt to register with dispatcher if it offers an API
+    // Try to register with the dispatcher if it provides an API
     try {
       if (typeof rpcDispatcher.on === "function") {
         rpcDispatcher.on(method, handler);
         return;
       }
-    } catch (e) {
-      // ignore and continue to try others
-    }
+    } catch (e) {}
     try {
       if (typeof rpcDispatcher.register === "function") {
         rpcDispatcher.register(method, handler);
@@ -57,18 +52,22 @@ function attachRpcRegister(rpcDispatcher: any) {
   (globalThis as any).rpcRegister = registerFn;
 }
 
-// attach to rpc dispatcher
+// Attach registration adapter to RPC dispatcher
 attachRpcRegister(rpc);
 
+// Load external JSON-RPC handlers (db.* etc.)
 try {
   if (typeof registerDbHandlers === "function") {
-    registerDbHandlers(rpc, logger);
+    registerDbHandlers(rpc, logger, sessions);
     logger.info("Registered external JSON-RPC handlers (db.*)");
   } else {
     logger.debug("No external jsonRpcHandlers.registerDbHandlers found");
   }
 } catch (e) {
-  logger.debug({ e }, "jsonRpcHandlers not found or failed to register (this is okay in some builds)");
+  logger.debug(
+    { e },
+    "jsonRpcHandlers not found or failed to register (this is okay in some builds)"
+  );
 }
 
 logger.info("Bridge (JSON-RPC) starting");
@@ -81,23 +80,6 @@ rpc.on("notification", (n: any) => {
   logger.debug({ notification: n }, "received notification (one-way)");
 });
 
-// helper to send a query error notification
-function notifyQueryError(sessionId: string, err: any) {
-  try {
-    rpc.sendNotification("query.error", {
-      sessionId,
-      error: { message: String(err) },
-    });
-  } catch (e) {
-    /* ignore */
-  }
-}
-
-// utility: safe sleep
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 rpc.on("request", async (req: any) => {
   const id = req.id;
   const method = req.method;
@@ -105,24 +87,26 @@ rpc.on("request", async (req: any) => {
   logger.info({ id, method }, "incoming request");
 
   try {
-    // --- First: consult any global handlers registered by jsonRpcHandlers or other modules ---
+    // First: consult global fallback handlers if provided by other modules
     const handlersMap =
       (globalThis as any)._rpcHandlers ||
       (globalThis as any).rpcHandlers ||
-      (globalThis as any).rpcHandlers; // defensive
+      undefined;
 
     if (handlersMap && handlersMap[method]) {
       try {
-        // call external handler and let it respond using rpc.sendResponse / rpc.sendError
         await handlersMap[method](params, id);
-        return;
+        return; // external handler is expected to call rpc.sendResponse / rpc.sendError
       } catch (eh: any) {
         logger.error({ eh, method, id }, "external rpc handler threw");
-        return rpc.sendError(id, { code: "HANDLER_ERROR", message: String(eh) });
+        return rpc.sendError(id, {
+          code: "HANDLER_ERROR",
+          message: String(eh),
+        });
       }
     }
 
-    // --- Fallback: built-in switch/case handlers ---
+    // Built-in fallback handlers (small / safe)
     switch (method) {
       case "ping": {
         rpc.sendResponse(id, { ok: true, data: { msg: "pong", echo: params } });
@@ -138,147 +122,10 @@ rpc.on("request", async (req: any) => {
       }
 
       case "connection.test": {
+        // params: { config: PGConfig | connectionString }
         const cfg = params?.config;
         const res = await testConnection(cfg);
         rpc.sendResponse(id, { ok: res.ok, message: res.message });
-        break;
-      }
-
-      case "query.createSession": {
-        const sessionId = randomUUID();
-        sessions.create(sessionId, {});
-        rpc.sendResponse(id, { ok: true, data: { sessionId } });
-        break;
-      }
-
-      case "query.run": {
-        /**
-         * params: { sessionId, connection: PGConfig, sql, batchSize? }
-         * Emits:
-         *  - query.started { sessionId, info }
-         *  - query.result { sessionId, batchIndex, rows, columns, complete:false }
-         *  - query.progress { sessionId, rowsSoFar, elapsedMs }
-         *  - query.done { sessionId, rows, timeMs, status }
-         */
-        const { sessionId, connection, sql, batchSize = 200 } = params || {};
-        if (!sessionId)
-          return rpc.sendError(id, {
-            code: "NO_SESSION",
-            message: "Missing sessionId",
-          });
-
-        let cancelled = false;
-        const cancelState: { fn: (() => Promise<void>) | null } = { fn: null };
-
-        // notify that query is starting
-        rpc.sendNotification("query.started", {
-          sessionId,
-          info: { sqlPreview: (sql || "").slice(0, 200) },
-        });
-
-        // progress state
-        const start = Date.now();
-        let batchIndex = 0;
-        let totalRows = 0;
-        let lastProgressEmit = Date.now();
-
-        // Create cancellable runner with onBatch/onDone implemented
-        const runner = streamQueryCancelable(
-          connection,
-          sql,
-          batchSize,
-          async (rows, columns) => {
-            if (cancelled) throw new Error("query cancelled");
-            totalRows += rows.length;
-
-            // send batch
-            rpc.sendNotification("query.result", {
-              sessionId,
-              batchIndex: batchIndex++,
-              rows,
-              columns,
-              complete: false,
-            });
-
-            // emit progress at most every 500ms
-            const now = Date.now();
-            if (now - lastProgressEmit >= 500) {
-              lastProgressEmit = now;
-              rpc.sendNotification("query.progress", {
-                sessionId,
-                rowsSoFar: totalRows,
-                elapsedMs: now - start,
-              });
-            }
-          },
-          () => {
-            rpc.sendNotification("query.done", {
-              sessionId,
-              rows: totalRows,
-              timeMs: Date.now() - start,
-              status: "success",
-            });
-          }
-        );
-
-        // set cancel function synchronously to avoid race
-        cancelState.fn = async () => {
-          try {
-            await runner.cancel();
-          } catch (e) {
-            /* ignore */
-          }
-        };
-
-        // register cancel handler with session manager
-        sessions.registerCancel(sessionId, async () => {
-          cancelled = true;
-          if (cancelState.fn) await cancelState.fn();
-        });
-
-        // run the promise in background
-        (async () => {
-          try {
-            await runner.promise;
-          } catch (err: any) {
-            if (String(err).toLowerCase().includes("cancel") || cancelled) {
-              rpc.sendNotification("query.done", {
-                sessionId,
-                rows: totalRows,
-                timeMs: Date.now() - start,
-                status: "cancelled",
-              });
-            } else {
-              logger.error({ err, sessionId }, "streamQuery error");
-              notifyQueryError(sessionId, err);
-            }
-          } finally {
-            // final progress emit before cleanup
-            try {
-              rpc.sendNotification("query.progress", {
-                sessionId,
-                rowsSoFar: totalRows,
-                elapsedMs: Date.now() - start,
-              });
-            } catch (e) {}
-            sessions.remove(sessionId);
-            cancelState.fn = null;
-          }
-        })();
-
-        rpc.sendResponse(id, { ok: true });
-        break;
-      }
-
-      case "query.cancel": {
-        const { sessionId } = params || {};
-        if (!sessionId)
-          return rpc.sendError(id, {
-            code: "NO_SESSION",
-            message: "Missing sessionId",
-          });
-        const ok = await sessions.cancel(sessionId);
-        rpc.sendResponse(id, { ok: true, data: { cancelled: ok } });
         break;
       }
 
@@ -295,7 +142,7 @@ rpc.on("request", async (req: any) => {
   }
 });
 
-// graceful shutdown logging
+// graceful shutdown logs
 process.on("SIGINT", () => {
   logger.info("Bridge received SIGINT — exiting");
   process.exit(0);

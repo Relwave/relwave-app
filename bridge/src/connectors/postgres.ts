@@ -13,9 +13,12 @@ export type PGConfig = {
   sslmode?: string;
 };
 
-/** test connection quickly */
-export async function testConnection(cfg: PGConfig) {
-  const client = new Client({
+/**
+ * Creates a new Client instance from the config.
+ * Encapsulates the configuration mapping logic.
+ */
+function createClient(cfg: PGConfig): Client {
+  return new Client({
     host: cfg.host,
     port: cfg.port,
     user: cfg.user,
@@ -23,6 +26,11 @@ export async function testConnection(cfg: PGConfig) {
     password: cfg.password || undefined,
     database: cfg.database || undefined,
   });
+}
+
+/** test connection quickly */
+export async function testConnection(cfg: PGConfig) {
+  const client = createClient(cfg);
   try {
     await client.connect();
     await client.end();
@@ -37,7 +45,7 @@ export async function testConnection(cfg: PGConfig) {
  * Returns true if successful (pg_cancel_backend returns boolean).
  */
 export async function pgCancel(cfg: PGConfig, targetPid: number) {
-  const c = new Client(cfg);
+  const c = createClient(cfg);
   try {
     await c.connect();
     const res = await c.query("SELECT pg_cancel_backend($1) AS cancelled", [
@@ -48,6 +56,68 @@ export async function pgCancel(cfg: PGConfig, targetPid: number) {
   } catch (err) {
     try {
       await c.end();
+    } catch (e) {}
+    throw err;
+  }
+}
+
+/**
+ * Executes a simple SELECT * query to fetch all data from a single table.
+ * @param config - The PostgreSQL connection configuration.
+ * @param schemaName - The schema the table belongs to (e.g., 'public').
+ * @param tableName - The name of the table to query.
+ * @returns A Promise resolving to the query result rows (Array<any>).
+ */
+export async function fetchTableData(
+  config: PGConfig,
+  schemaName: string,
+  tableName: string
+): Promise<any[]> {
+  const client = createClient(config);
+  try {
+    await client.connect();
+
+    // Use quoting for identifiers to prevent SQL injection vulnerabilities from table/schema names.
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+
+    const query = `SELECT * FROM ${safeSchema}.${safeTable};`;
+
+    const result = await client.query(query);
+
+    return result.rows;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch data from ${schemaName}.${tableName}: ${error}`
+    );
+  } finally {
+    try {
+      await client.end();
+    } catch (e) {
+      /* ignore client end errors */
+    }
+  }
+}
+
+/**
+ * listTables: Retrieves all user-defined tables and views.
+ */
+export async function listTables(connection: PGConfig) {
+  const client = createClient(connection);
+
+  try {
+    await client.connect();
+    const res = await client.query(
+      `SELECT table_schema as schema, table_name as name, table_type as type
+FROM information_schema.tables
+WHERE table_schema NOT IN ('pg_catalog','information_schema')
+ORDER BY table_schema, table_name;`
+    );
+    await client.end();
+    return res.rows; // [{schema, name, type}, ...]
+  } catch (err) {
+    try {
+      await client.end();
     } catch (e) {}
     throw err;
   }
@@ -66,7 +136,7 @@ export function streamQueryCancelable(
   onBatch: (rows: any[], columns: { name: string }[]) => Promise<void> | void,
   onDone?: () => void
 ): { promise: Promise<void>; cancel: () => Promise<void> } {
-  const client = new Client(cfg);
+  const client = createClient(cfg);
   let stream: Readable | null = null;
   let finished = false;
   let cancelled = false;
@@ -173,32 +243,4 @@ export function streamQueryCancelable(
   }
 
   return { promise, cancel };
-}
-
-export async function listTables(connection: PGConfig) {
-  const client = new Client({
-    host: connection.host,
-    port: connection.port,
-    user: connection.user,
-    password: connection.password || undefined,
-    database: connection.database || undefined,
-    ssl: connection.ssl || undefined,
-  });
-
-  try {
-    await client.connect();
-    const res = await client.query(
-      `SELECT table_schema as schema, table_name as name, table_type as type
-FROM information_schema.tables
-WHERE table_schema NOT IN ('pg_catalog','information_schema')
-ORDER BY table_schema, table_name;`
-    );
-    await client.end();
-    return res.rows; // [{schema, name, type}, ...]
-  } catch (err) {
-    try {
-      await client.end();
-    } catch (e) {}
-    throw err;
-  }
 }

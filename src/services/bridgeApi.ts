@@ -48,7 +48,97 @@ export interface ConnectionTestResult {
   message?: string;
 }
 
+// --- NEW INTERFACES FOR QUERY/SESSION HANDLING ---
+
+export interface TableRow extends Record<string, any> {}
+
+export interface TableColumn {
+  name: string;
+  // Add other metadata fields as needed (e.g., dataType, nullable)
+}
+
 class BridgeApiService {
+  // ------------------------------------
+  // 1. SESSION MANAGEMENT METHODS (query.*)
+  // ------------------------------------
+
+  /**
+   * Creates a new query session on the bridge server.
+   * @param connectionConfig - (Optional) Connection details if needed for session meta.
+   * @returns The unique sessionId string.
+   */
+  async createSession(connectionConfig?: any): Promise<string> {
+    try {
+      const result = await bridgeRequest("query.createSession", {
+        config: connectionConfig,
+      });
+      const sessionId = result?.data?.sessionId;
+      if (!sessionId) {
+        throw new Error("Server failed to return a session ID.");
+      }
+      return sessionId;
+    } catch (error: any) {
+      console.error("Failed to create query session:", error);
+      throw new Error(`Failed to create query session: ${error.message}`);
+    }
+  }
+
+  /**
+   * Cancels an active query session on the bridge server.
+   * @param sessionId - The ID of the session to cancel.
+   * @returns true if the query was successfully cancelled or false if it was not running.
+   */
+  async cancelSession(sessionId: string): Promise<boolean> {
+    try {
+      if (!sessionId) {
+        throw new Error("Session ID is required for cancellation.");
+      }
+      const result = await bridgeRequest("query.cancel", { sessionId });
+      return result?.data?.cancelled === true;
+    } catch (error: any) {
+      console.error("Failed to cancel session:", error);
+      // We might treat a cancellation error as a successful stop if the session is just gone.
+      throw new Error(`Failed to cancel session: ${error.message}`);
+    }
+  }
+
+  // ------------------------------------
+  // 2. DATA RETRIEVAL METHODS (query.*)
+  // ------------------------------------
+
+  /**
+   * Fetches all data (SELECT *) from a specific table in a database.
+   * NOTE: This is for smaller tables. Large tables should use query.run streaming.
+   * @param dbId - The ID of the database connection to use.
+   * @param schemaName - The schema containing the table (e.g., 'public').
+   * @param tableName - The name of the table.
+   * @returns An array of rows (objects).
+   */
+  async fetchTableData(
+    dbId: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<TableRow[]> {
+    try {
+      if (!dbId || !schemaName || !tableName) {
+        throw new Error("Database ID, schema, and table name are required.");
+      }
+      const result = await bridgeRequest("query.fetchTableData", {
+        dbId,
+        schemaName,
+        tableName,
+      });
+      return result?.data || [];
+    } catch (error: any) {
+      console.error("Failed to fetch table data:", error);
+      throw new Error(`Failed to fetch table data: ${error.message}`);
+    }
+  }
+
+  // ------------------------------------
+  // 3. DATABASE CRUD/METADATA METHODS (db.*)
+  // ------------------------------------
+
   /**
    * List all database connections
    */
@@ -184,7 +274,8 @@ class BridgeApiService {
   /**
    * List all tables in a database
    */
-  async listTables(id: string): Promise<string[]> {
+  async listTables(id: string): Promise<any[]> {
+    // Changed return type to any[] to match typical result shape [{schema, name, type}]
     try {
       if (!id) {
         throw new Error("Database ID is required");
@@ -198,11 +289,17 @@ class BridgeApiService {
     }
   }
 
+  // ------------------------------------
+  // 4. BRIDGE UTILITY METHODS
+  // ------------------------------------
+
   /**
    * Ping the bridge to check if it's alive
    */
   async ping(): Promise<boolean> {
     try {
+      // Note: The original server-side ping was removed/moved,
+      // but this client method can check connection health.
       const result = await bridgeRequest("ping", {});
       return result?.ok === true;
     } catch (error) {

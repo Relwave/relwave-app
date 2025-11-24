@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Database, Table2, Play, Download, ArrowLeft, RefreshCw, GitBranch, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,14 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { DataTable } from "@/components/DataTable";
 import { ChartVisualization } from "@/components/ChartVisualization";
 import { toast } from "sonner";
-import { bridgeApi } from "@/services/bridgeApi";
+import { bridgeApi, TableRow } from "@/services/bridgeApi"; // Import TableRow
 
-const mockUserData = [
-  { id: 1, name: "John Doe", email: "john@example.com", role: "Admin", created_at: "2024-01-15" },
-  { id: 2, name: "Jane Smith", email: "jane@example.com", role: "User", created_at: "2024-02-20" },
-  { id: 3, name: "Bob Johnson", email: "bob@example.com", role: "User", created_at: "2024-03-10" },
-  { id: 4, name: "Alice Williams", email: "alice@example.com", role: "Editor", created_at: "2024-03-25" },
-];
+// NOTE: mockUserData will be replaced by API results
+const mockUserData: TableRow[] = [];
 
 interface TableInfo {
   schema: string;
@@ -24,89 +20,117 @@ interface TableInfo {
 }
 
 const DatabaseDetail = () => {
-  const { id } = useParams();
-  const [selectedTable, setSelectedTable] = useState<string>("");
+  const { id: dbId } = useParams<{ id: string }>(); // Rename ID for clarity
+  const [databaseName, setDatabaseName] = useState<string>('Database');
+  const [selectedTable, setSelectedTable] = useState<{ schema: string, name: string } | null>(null);
   const [query, setQuery] = useState("SELECT * FROM users LIMIT 100;");
   const [isExecuting, setIsExecuting] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDatabaseDetails = async () => {
-      if (!id) return;
+  // --- NEW STATES FOR QUERY RESULTS ---
+  const [tableData, setTableData] = useState<TableRow[]>(mockUserData);
+  const [rowCount, setRowCount] = useState<number>(0);
 
-      try {
-        setLoading(true);
-        const data = await bridgeApi.listTables(id);
-        console.log("Raw table data:", data);
+  const fetchTables = useCallback(async () => {
+    if (!dbId) return;
 
-        // Parse the complex nested structure from bridge
-        const parsedTables: TableInfo[] = data.map((item: any) => {
-          // Handle nested structure: item.name.name is the actual table info
-          if (item?.name?.name && typeof item.name.name === 'object') {
-            return {
-              schema: item.name.name.schema || 'public',
-              name: item.name.name.name || 'unknown',
-              type: item.name.name.type || 'table'
-            };
-          }
-          // Fallback for simpler structure
-          else if (typeof item === 'string') {
-            return {
-              schema: 'public',
-              name: item,
-              type: 'table'
-            };
-          }
-          // Another fallback
-          else if (item?.name && typeof item.name === 'string') {
-            return {
-              schema: item.schema || 'public',
-              name: item.name,
-              type: item.type || 'table'
-            };
-          }
+    try {
+      setLoading(true);
+      setError(null);
 
-          return {
-            schema: 'public',
-            name: 'unknown',
-            type: 'table'
-          };
-        });
+      // 1. Fetch tables list
+      const tableListResult = await bridgeApi.listTables(dbId);
 
-        setTables(parsedTables);
+      // 2. Fetch database name
+      const dbDetails = await bridgeApi.getDatabase(dbId);
+      setDatabaseName(dbDetails?.name || 'Database');
 
-        // Set first table as selected if available
-        if (parsedTables.length > 0 && !selectedTable) {
-          setSelectedTable(parsedTables[0].name);
-          setQuery(`SELECT * FROM ${parsedTables[0].schema}.${parsedTables[0].name} LIMIT 100;`);
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch tables:", error);
-        setError(error.message || "Database connect ECONNREFUSED ::1:5432");
-        toast.error("Failed to load tables", {
-          description: error.message
-        });
-      } finally {
-        setLoading(false);
+      // The data structure from bridgeApi.listTables is already simplified in jsonRPCHandler.ts, 
+      // returning [{schema, name, type}]. We can simplify the parsing logic here.
+      const parsedTables: TableInfo[] = tableListResult.map((item: any) => ({
+        schema: item.schema || 'public',
+        name: item.name || 'unknown',
+        type: item.type || 'table'
+      }));
+
+      setTables(parsedTables);
+
+      // Set first table as selected if available
+      if (parsedTables.length > 0 && !selectedTable) {
+        const firstTable = {
+          schema: parsedTables[0].schema,
+          name: parsedTables[0].name
+        };
+        setSelectedTable(firstTable);
+        setQuery(`SELECT * FROM ${firstTable.schema}.${firstTable.name} LIMIT 100;`);
+        // Automatically fetch data for the first table
+        await handleTableSelect(firstTable.name, firstTable.schema);
       }
-    };
+    } catch (err: any) {
+      console.error("Failed to fetch tables:", err);
+      setError(err.message || "Connection failed.");
+      toast.error("Failed to load tables", {
+        description: err.message
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [dbId, selectedTable]);
 
-    fetchDatabaseDetails();
-  }, [id]);
+  useEffect(() => {
+    fetchTables();
+  }, [fetchTables]);
 
-  const handleTableSelect = (tableName: string, schema: string) => {
-    setSelectedTable(tableName);
-    setQuery(`SELECT * FROM ${schema}.${tableName} LIMIT 100;`);
+
+  // --- UPDATED HANDLER TO FETCH DATA USING bridgeApi.fetchTableData ---
+  const handleTableSelect = async (tableName: string, schemaName: string) => {
+    if (!dbId) return;
+
+    setSelectedTable({ schema: schemaName, name: tableName });
+    setQuery(`SELECT * FROM ${schemaName}.${tableName} LIMIT 100;`);
+
+    setIsExecuting(true);
+    setTableData([]);
+    setRowCount(0);
+
+    try {
+      // Call the new API to fetch all table data
+      const data = await bridgeApi.fetchTableData(dbId, schemaName, tableName);
+
+      setTableData(data);
+      setRowCount(data.length);
+
+      toast.success("Table data retrieved", {
+        description: `${data.length} rows loaded for ${schemaName}.${tableName}.`,
+        duration: 1500
+      });
+    } catch (error: any) {
+      console.error("Error fetching table data:", error);
+      setTableData([]);
+      setRowCount(0);
+      toast.error("Data fetch failed", {
+        description: error.message,
+      });
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
+  // Placeholder for when you implement query.run (for custom SQL)
   const handleExecuteQuery = () => {
+    // TODO: Replace this mock with a call to bridgeApi.runQuery or streamQuery
     setIsExecuting(true);
+    toast.info("Executing custom query...", { duration: 1500 });
+
+    // This is where you would typically create a session, run the query, 
+    // and handle the streaming notifications (query.result, query.done).
     setTimeout(() => {
+      setTableData(mockUserData); // Replace with real query results
       setIsExecuting(false);
       toast.success("Query executed successfully", {
-        description: "Data for " + selectedTable + " has been retrieved.",
+        description: "Custom query results displayed.",
       });
     }, 1000);
   };
@@ -140,8 +164,9 @@ const DatabaseDetail = () => {
               <Button
                 className="mt-4"
                 variant="outline"
-                onClick={() => window.location.reload()}
+                onClick={() => fetchTables()} // Retry logic
               >
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
               </Button>
               <Link to={'/'}>
@@ -149,6 +174,7 @@ const DatabaseDetail = () => {
                   className="mt-4"
                   variant={'outline'}
                 >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   Go Back
                 </Button>
               </Link>
@@ -158,7 +184,6 @@ const DatabaseDetail = () => {
       </div>
     );
   }
-
 
 
   return (
@@ -179,20 +204,20 @@ const DatabaseDetail = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-cyan-400 to-fuchsia-600">
-                    Database: {id}
+                    Database: {databaseName}
                   </h1>
                   <p className="text-sm text-gray-400">PostgreSQL | Connected</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Link to={`/${id}/query-builder`}>
+              <Link to={`/${dbId}/query-builder`}>
                 <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
                   <GitBranch className="h-4 w-4 mr-2" />
                   Builder
                 </Button>
               </Link>
-              <Link to={`/${id}/er-diagram`}>
+              <Link to={`/${dbId}/er-diagram`}>
                 <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   ER Diagram
@@ -202,7 +227,7 @@ const DatabaseDetail = () => {
                 <Download className="h-4 w-4 mr-2" />
                 Backup
               </Button>
-              <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+              <Button variant="outline" size="sm" onClick={() => fetchTables()} className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
@@ -240,7 +265,7 @@ const DatabaseDetail = () => {
                     <button
                       key={`${table.schema}.${table.name}`}
                       onClick={() => handleTableSelect(table.name, table.schema)}
-                      className={`w-full text-left p-4 rounded-lg transition-all duration-200 flex flex-col hover:bg-gray-800 ${selectedTable === table.name
+                      className={`w-full text-left p-4 rounded-lg transition-all duration-200 flex flex-col hover:bg-gray-800 ${selectedTable?.name === table.name
                         ? "bg-linear-to-r from-cyan-600/30 to-fuchsia-700/30 border border-cyan-500/50 shadow-lg text-white"
                         : "bg-gray-800/60 border border-transparent text-gray-300"
                         }`}
@@ -285,14 +310,21 @@ const DatabaseDetail = () => {
                 <Card className="bg-gray-900/50 border border-primary/10 rounded-xl shadow-2xl">
                   <CardHeader className="border-b border-primary/10 pb-4">
                     <CardTitle className="font-mono text-xl text-white">
-                      {selectedTable || "Select a table"} Data
+                      {selectedTable ? `${selectedTable.schema}.${selectedTable.name}` : "Select a table"} Data
                     </CardTitle>
                     <CardDescription className="text-gray-400">
-                      Showing {mockUserData.length} of {mockUserData.length} rows
+                      {isExecuting ? "Loading data..." : `Showing ${rowCount} rows`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6">
-                    <DataTable data={mockUserData} />
+                    {isExecuting ? (
+                      <div className="text-center py-20 text-gray-400">
+                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+                        Fetching data from {selectedTable?.name || 'table'}...
+                      </div>
+                    ) : (
+                      <DataTable data={tableData} />
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -338,7 +370,7 @@ const DatabaseDetail = () => {
                     <CardDescription className="text-gray-400">Displaying the output of your SQL query</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6">
-                    <DataTable data={mockUserData} />
+                    <DataTable data={tableData} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -347,7 +379,7 @@ const DatabaseDetail = () => {
                 <Card className="bg-gray-900/50 border border-primary/10 rounded-xl shadow-2xl p-6">
                   <CardTitle className="text-xl text-white mb-4">Data Visualizations</CardTitle>
                   <CardDescription className="text-gray-400 mb-6">Explore your data with interactive charts.</CardDescription>
-                  <ChartVisualization data={mockUserData} />
+                  <ChartVisualization data={tableData} />
                 </Card>
               </TabsContent>
             </Tabs>

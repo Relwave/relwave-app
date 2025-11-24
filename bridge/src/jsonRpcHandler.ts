@@ -15,8 +15,14 @@
     - sendError(id, { code, message })
 */
 
-import { listTables, testConnection } from "./connectors/postgres";
+import {
+  listTables,
+  testConnection,
+  fetchTableData,
+} from "./connectors/postgres"; // <-- ADDED fetchTableData
 import * as dbStore from "./services/dbStore";
+import { SessionManager } from "./sessionManager";
+import { randomUUID } from "node:crypto";
 
 type Rpc = {
   sendResponse: (id: number | string, payload: any) => void;
@@ -27,9 +33,96 @@ type Rpc = {
   sendNotification?: (method: string, params?: any) => void;
 };
 
-export function registerDbHandlers(rpc: Rpc, logger: any) {
+// 1. UPDATED: Added SessionManager to the function signature
+export function registerDbHandlers(
+  rpc: Rpc,
+  logger: any,
+  sessions: SessionManager // <-- NEW PARAMETER
+) {
+  // --- SESSION MANAGEMENT HANDLERS (query.*) ---
+
+  // query.createSession
+  rpcRegister(
+    "query.createSession",
+    async (params: any, id: number | string) => {
+      try {
+        const sessionId = randomUUID();
+        // You can store any initial configuration or state here
+        sessions.create(sessionId, params?.config || {});
+        rpc.sendResponse(id, { ok: true, data: { sessionId } });
+      } catch (e: any) {
+        logger?.error({ e }, "query.createSession failed");
+        rpc.sendError(id, { code: "INTERNAL_ERROR", message: String(e) });
+      }
+    }
+  );
+
+  // query.cancel
+  rpcRegister("query.cancel", async (params: any, id: number | string) => {
+    try {
+      const { sessionId } = params || {};
+      if (!sessionId) {
+        return rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing sessionId",
+        });
+      }
+      // Call the cancel function registered in the SessionManager
+      const ok = await sessions.cancel(sessionId);
+      rpc.sendResponse(id, { ok: true, data: { cancelled: ok } });
+    } catch (e: any) {
+      logger?.error({ e }, "query.cancel failed");
+      rpc.sendError(id, { code: "INTERNAL_ERROR", message: String(e) });
+    }
+  });
+
+  // --- QUERY HANDLERS (query.*) ---
+
+  // query.fetchTableData - NEW HANDLER
+  rpcRegister(
+    "query.fetchTableData",
+    async (params: any, id: number | string) => {
+      try {
+        const { dbId, schemaName, tableName } = params || {};
+        if (!dbId || !tableName || !schemaName)
+          return rpc.sendError(id, {
+            code: "BAD_REQUEST",
+            message: "Missing dbId, schemaName, or tableName",
+          });
+
+        const db = await dbStore.getDB(dbId);
+        if (!db)
+          return rpc.sendError(id, {
+            code: "NOT_FOUND",
+            message: "DB not found",
+          });
+
+        const pwd = await dbStore.getPasswordFor(db);
+        const conn = {
+          host: db.host,
+          port: db.port,
+          user: db.user,
+          password: pwd ?? undefined,
+          ssl: db.ssl,
+          database: db.database,
+        };
+
+        // Call the new connector function
+        const data = await fetchTableData(conn, schemaName, tableName);
+
+        rpc.sendResponse(id, { ok: true, data: data });
+      } catch (e: any) {
+        logger?.error({ e }, "query.fetchTableData failed");
+        rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+      }
+    }
+  );
+
+  // --- DATABASE HANDLERS (db.*) ---
+
   // db.list
   rpcRegister("db.list", async (params: any, id: number | string) => {
+    // ... (unchanged db.list implementation)
     try {
       const dbs = await dbStore.listDBs();
       // Do not return credentialId/passwords in list — just metadata
@@ -43,6 +136,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.get
   rpcRegister("db.get", async (params: any, id: number | string) => {
+    // ... (unchanged db.get implementation)
     try {
       const { id: dbId } = params || {};
       if (!dbId)
@@ -66,6 +160,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.add
   rpcRegister("db.add", async (params: any, id: number | string) => {
+    // ... (unchanged db.add implementation)
     try {
       const payload = params || {};
       const required = ["name", "host", "port", "user", "database"];
@@ -85,6 +180,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.update
   rpcRegister("db.update", async (params: any, id: number | string) => {
+    // ... (unchanged db.update implementation)
     try {
       const payload = params || {};
       if (!payload.id)
@@ -102,6 +198,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.delete
   rpcRegister("db.delete", async (params: any, id: number | string) => {
+    // ... (unchanged db.delete implementation)
     try {
       const { id: dbId } = params || {};
       if (!dbId)
@@ -119,6 +216,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.connectTest
   rpcRegister("db.connectTest", async (params: any, id: number | string) => {
+    // ... (unchanged db.connectTest implementation)
     try {
       const { id: dbId, connection } = params || {};
       let conn: any = null;
@@ -161,6 +259,7 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
 
   // db.listTables
   rpcRegister("db.listTables", async (params: any, id: number | string) => {
+    // ... (unchanged db.listTables implementation)
     try {
       const { id: dbId } = params || {};
       if (!dbId)
@@ -196,15 +295,12 @@ export function registerDbHandlers(rpc: Rpc, logger: any) {
     method: string,
     fn: (params: any, id: number | string) => Promise<void> | void
   ) {
-    // `globalThis.rpcRegister` is expected to be provided by your jsonRpc.ts dispatcher.
-    // If your project has a different registration API, adapt this function to call it.
     if (
       (globalThis as any).rpcRegister &&
       typeof (globalThis as any).rpcRegister === "function"
     ) {
       (globalThis as any).rpcRegister(method, fn);
     } else {
-      // If no rpcRegister helper, try to attach to a global rpcHandlers object
       (globalThis as any).rpcHandlers = (globalThis as any).rpcHandlers || {};
       (globalThis as any).rpcHandlers[method] = fn;
     }
