@@ -1,0 +1,543 @@
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { ChevronRight, ChevronDown, Database, Layers, Table, Eye, FileCode, Copy, Download, Key, Link2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+
+interface Column {
+    name: string;
+    type: string;
+    nullable: boolean;
+    defaultValue?: string;
+    isPrimaryKey?: boolean;
+    isForeignKey?: boolean;
+    isUnique?: boolean;
+    foreignKeyRef?: string;
+}
+
+interface TableSchema {
+    name: string;
+    type: "table" | "view";
+    columns: Column[];
+}
+
+interface Schema {
+    name: string;
+    tables: TableSchema[];
+}
+
+interface DatabaseSchema {
+    name: string;
+    schemas: Schema[];
+}
+
+// Mock data
+const mockDatabases: DatabaseSchema[] = [
+    {
+        name: "production_db",
+        schemas: [
+            {
+                name: "public",
+                tables: [
+                    {
+                        name: "users",
+                        type: "table",
+                        columns: [
+                            { name: "id", type: "INTEGER", nullable: false, isPrimaryKey: true, isUnique: true },
+                            { name: "email", type: "VARCHAR(255)", nullable: false, isUnique: true },
+                            { name: "username", type: "VARCHAR(100)", nullable: false, isUnique: true },
+                            { name: "created_at", type: "TIMESTAMP", nullable: false, defaultValue: "NOW()" },
+                            { name: "is_active", type: "BOOLEAN", nullable: false, defaultValue: "true" },
+                        ],
+                    },
+                    {
+                        name: "orders",
+                        type: "table",
+                        columns: [
+                            { name: "id", type: "INTEGER", nullable: false, isPrimaryKey: true, isUnique: true },
+                            { name: "user_id", type: "INTEGER", nullable: false, isForeignKey: true, foreignKeyRef: "users(id)" },
+                            { name: "total", type: "DECIMAL(10,2)", nullable: false },
+                            { name: "status", type: "VARCHAR(50)", nullable: false, defaultValue: "'pending'" },
+                            { name: "created_at", type: "TIMESTAMP", nullable: false, defaultValue: "NOW()" },
+                        ],
+                    },
+                    {
+                        name: "products",
+                        type: "table",
+                        columns: [
+                            { name: "id", type: "INTEGER", nullable: false, isPrimaryKey: true, isUnique: true },
+                            { name: "name", type: "VARCHAR(255)", nullable: false },
+                            { name: "price", type: "DECIMAL(10,2)", nullable: false },
+                            { name: "stock", type: "INTEGER", nullable: false, defaultValue: "0" },
+                            { name: "description", type: "TEXT", nullable: true },
+                        ],
+                    },
+                ],
+            },
+            {
+                name: "analytics",
+                tables: [
+                    {
+                        name: "user_events",
+                        type: "view",
+                        columns: [
+                            { name: "user_id", type: "INTEGER", nullable: false },
+                            { name: "event_type", type: "VARCHAR(100)", nullable: false },
+                            { name: "event_count", type: "BIGINT", nullable: false },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+];
+
+export default function SchemaExplorer() {
+    const { id } = useParams();
+    const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set(["production_db"]));
+    const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set(["public"]));
+    const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+    const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+    const toggleDatabase = (dbName: string) => {
+        const newExpanded = new Set(expandedDatabases);
+        if (newExpanded.has(dbName)) {
+            newExpanded.delete(dbName);
+        } else {
+            newExpanded.add(dbName);
+        }
+        setExpandedDatabases(newExpanded);
+    };
+
+    const toggleSchema = (schemaName: string) => {
+        const newExpanded = new Set(expandedSchemas);
+        if (newExpanded.has(schemaName)) {
+            newExpanded.delete(schemaName);
+        } else {
+            newExpanded.add(schemaName);
+        }
+        setExpandedSchemas(newExpanded);
+    };
+
+    const toggleTable = (tableName: string) => {
+        const newExpanded = new Set(expandedTables);
+        if (newExpanded.has(tableName)) {
+            newExpanded.delete(tableName);
+        } else {
+            newExpanded.add(tableName);
+        }
+        setExpandedTables(newExpanded);
+    };
+
+    const handlePreviewRows = (tableName: string) => {
+        toast.success(`Showing preview for ${tableName}`);
+    };
+
+    const handleShowDDL = (tableName: string) => {
+        toast.success(`Generated DDL for ${tableName}`);
+    };
+
+    const handleCopy = (text: string, type: string) => {
+        // Use document.execCommand('copy') as navigator.clipboard.writeText() may not work in iframes
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+
+        toast.success(`${type} copied to clipboard`);
+    };
+
+    const handleExport = (tableName: string) => {
+        toast.success(`Exported ${tableName} successfully`);
+    };
+
+    return (
+        // Main Container: Light: bg-white, Dark: bg-gray-950
+        <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col text-black dark:text-white">
+            {/* Header: Light: bg-gray-100 border-gray-200, Dark: bg-gray-900 border-gray-800 */}
+            <header className="border-b border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 px-6 py-4 shrink-0">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Link to={`/${id}`}>
+                            <Button variant="outline" size="sm">
+                                ← Back
+                            </Button>
+                        </Link>
+                        <div>
+                            {/* Title: Light: text-gray-900, Dark: text-white */}
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Schema Explorer</h1>
+                            {/* Subtitle: Light: text-gray-600, Dark: text-gray-400 */}
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Browse database structure and metadata</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Content */}
+            <div className="flex-1 flex overflow-hidden">
+                {/* Tree View Panel: Light: bg-white border-r-gray-200, Dark: bg-gray-900 border-r-gray-800 */}
+                <div className="w-96 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+                    <ScrollArea className="h-full">
+                        <div className="p-4">
+                            {mockDatabases.map((database) => (
+                                <div key={database.name} className="mb-2">
+                                    {/* Database Level */}
+                                    <div
+                                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer 
+                                            hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors 
+                                            ${selectedItem === database.name ? "bg-gray-200 dark:bg-gray-800" : ""
+                                            }`}
+                                        onClick={() => {
+                                            toggleDatabase(database.name);
+                                            setSelectedItem(database.name);
+                                        }}
+                                    >
+                                        {expandedDatabases.has(database.name) ? (
+                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                        ) : (
+                                            <ChevronRight className="h-4 w-4 text-gray-500" />
+                                        )}
+                                        {/* Icon: Using a stable, accent color that works in both modes */}
+                                        <Database className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                                        <span className="font-semibold text-sm text-gray-900 dark:text-white">{database.name}</span>
+                                    </div>
+
+                                    {/* Schema Level */}
+                                    {expandedDatabases.has(database.name) && (
+                                        <div className="ml-6 mt-1">
+                                            {database.schemas.map((schema) => (
+                                                <div key={schema.name} className="mb-1">
+                                                    <div
+                                                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer 
+                                                            hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors 
+                                                            ${selectedItem === `${database.name}.${schema.name}` ? "bg-gray-200 dark:bg-gray-800" : ""
+                                                            }`}
+                                                        onClick={() => {
+                                                            toggleSchema(schema.name);
+                                                            setSelectedItem(`${database.name}.${schema.name}`);
+                                                        }}
+                                                    >
+                                                        {expandedSchemas.has(schema.name) ? (
+                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                        ) : (
+                                                            <ChevronRight className="h-4 w-4 text-gray-500" />
+                                                        )}
+                                                        {/* Icon: Layers (Schema) */}
+                                                        <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                                        <span className="font-medium text-sm text-gray-900 dark:text-white">{schema.name}</span>
+                                                    </div>
+
+                                                    {/* Table Level */}
+                                                    {expandedSchemas.has(schema.name) && (
+                                                        <div className="ml-6 mt-1">
+                                                            {schema.tables.map((table) => (
+                                                                <ContextMenu key={table.name}>
+                                                                    <ContextMenuTrigger>
+                                                                        <div className="mb-1">
+                                                                            <div
+                                                                                className={`flex items-center gap-2 p-2 rounded-md cursor-pointer 
+                                                                                    hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors 
+                                                                                    ${selectedItem === `${database.name}.${schema.name}.${table.name}` ? "bg-gray-200 dark:bg-gray-800" : ""
+                                                                                    }`}
+                                                                                onClick={() => {
+                                                                                    toggleTable(table.name);
+                                                                                    setSelectedItem(`${database.name}.${schema.name}.${table.name}`);
+                                                                                }}
+                                                                            >
+                                                                                {expandedTables.has(table.name) ? (
+                                                                                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                                ) : (
+                                                                                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                                                                                )}
+                                                                                {/* Icon: Table */}
+                                                                                <Table className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                                                                                <span className="text-sm text-gray-900 dark:text-white">{table.name}</span>
+                                                                                {table.type === "view" && (
+                                                                                    <Badge variant="outline" className="ml-auto text-xs text-blue-600 dark:text-blue-400 border-blue-600/50">
+                                                                                        VIEW
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Column Level */}
+                                                                            {expandedTables.has(table.name) && (
+                                                                                <div className="ml-6 mt-1">
+                                                                                    {table.columns.map((column) => (
+                                                                                        <ContextMenu key={column.name}>
+                                                                                            <ContextMenuTrigger>
+                                                                                                <div className="mb-0.5">
+                                                                                                    <div
+                                                                                                        className={`flex items-center justify-between gap-2 p-1.5 rounded-md cursor-pointer text-xs 
+                                                                                                            hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors
+                                                                                                            ${selectedItem === `${database.name}.${schema.name}.${table.name}.${column.name}`
+                                                                                                                ? "bg-gray-200 dark:bg-gray-800"
+                                                                                                                : ""
+                                                                                                            }`}
+                                                                                                        onClick={() =>
+                                                                                                            setSelectedItem(`${database.name}.${schema.name}.${table.name}.${column.name}`)
+                                                                                                        }
+                                                                                                    >
+                                                                                                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                                                                                                            {/* PK Icon */}
+                                                                                                            {column.isPrimaryKey && <Key className="h-3 w-3 text-yellow-600 dark:text-yellow-400 shrink-0" />}
+                                                                                                            {/* FK Icon */}
+                                                                                                            {column.isForeignKey && <Link2 className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />}
+                                                                                                            {/* Column Name */}
+                                                                                                            <span className="truncate text-gray-800 dark:text-gray-200">{column.name}</span>
+                                                                                                        </div>
+                                                                                                        {/* Column Type */}
+                                                                                                        <span className="text-gray-500 dark:text-gray-400 text-xs">{column.type}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </ContextMenuTrigger>
+                                                                                            {/* Context Menu Content: Light: bg-white border-gray-300, Dark: bg-gray-900 border-gray-700 */}
+                                                                                            <ContextMenuContent className="bg-white border-gray-300 dark:bg-gray-900 dark:border-gray-700">
+                                                                                                <ContextMenuItem onClick={() => handleCopy(column.name, "Column name")}>
+                                                                                                    <Copy className="h-4 w-4 mr-2" />
+                                                                                                    Copy Column Name
+                                                                                                </ContextMenuItem>
+                                                                                            </ContextMenuContent>
+                                                                                        </ContextMenu>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </ContextMenuTrigger>
+                                                                    {/* Context Menu Content: Light: bg-white border-gray-300, Dark: bg-gray-900 border-gray-700 */}
+                                                                    <ContextMenuContent className="bg-white border-gray-300 dark:bg-gray-900 dark:border-gray-700">
+                                                                        <ContextMenuItem onClick={() => handlePreviewRows(table.name)}>
+                                                                            <Eye className="h-4 w-4 mr-2" />
+                                                                            Preview Rows
+                                                                        </ContextMenuItem>
+                                                                        <ContextMenuItem onClick={() => handleShowDDL(table.name)}>
+                                                                            <FileCode className="h-4 w-4 mr-2" />
+                                                                            Show DDL
+                                                                        </ContextMenuItem>
+                                                                        <ContextMenuItem onClick={() => handleCopy(table.name, "Table name")}>
+                                                                            <Copy className="h-4 w-4 mr-2" />
+                                                                            Copy Table Name
+                                                                        </ContextMenuItem>
+                                                                        <ContextMenuItem onClick={() => handleExport(table.name)}>
+                                                                            <Download className="h-4 w-4 mr-2" />
+                                                                            Export Table
+                                                                        </ContextMenuItem>
+                                                                    </ContextMenuContent>
+                                                                </ContextMenu>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Metadata Panel */}
+                <div className="flex-1 overflow-auto bg-white dark:bg-gray-950">
+                    <ScrollArea className="h-full">
+                        <div className="p-6">
+                            {selectedItem ? (
+                                (() => {
+                                    const parts = selectedItem.split(".");
+
+                                    if (parts.length === 4) {
+                                        // Column selected
+                                        const [dbName, schemaName, tableName, columnName] = parts;
+                                        const db = mockDatabases.find((d) => d.name === dbName);
+                                        const schema = db?.schemas.find((s) => s.name === schemaName);
+                                        const table = schema?.tables.find((t) => t.name === tableName);
+                                        const column = table?.columns.find((c) => c.name === columnName);
+
+                                        return (
+                                            <div className="space-y-6">
+                                                <div>
+                                                    {/* Title */}
+                                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{columnName}</h2>
+                                                    {/* Breadcrumb: Light: text-gray-500, Dark: text-gray-400 */}
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {dbName}.{schemaName}.{tableName}.{columnName}
+                                                    </p>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {/* Detail Card 1: Light: bg-gray-100 border-gray-300, Dark: bg-gray-900 border-gray-700 */}
+                                                    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Data Type</div>
+                                                        <div className="text-lg font-mono text-gray-900 dark:text-white">{column?.type}</div>
+                                                    </div>
+                                                    {/* Detail Card 2 */}
+                                                    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Nullable</div>
+                                                        <div className="text-lg text-gray-900 dark:text-white">{column?.nullable ? "Yes" : "No"}</div>
+                                                    </div>
+                                                    {column?.defaultValue && (
+                                                        <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900 col-span-2">
+                                                            <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Default Value</div>
+                                                            <div className="text-lg font-mono text-gray-900 dark:text-white">{column.defaultValue}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Constraints</h3>
+                                                    <div className="space-y-2">
+                                                        {column?.isPrimaryKey && (
+                                                            <div className="flex items-center gap-2 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                                <Key className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-900 dark:text-white">Primary Key</div>
+                                                                    <div className="text-sm text-gray-500 dark:text-gray-400">This column is a primary key</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {column?.isForeignKey && (
+                                                            <div className="flex items-center gap-2 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                                <Link2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-900 dark:text-white">Foreign Key</div>
+                                                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                                        References: {column.foreignKeyRef}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {column?.isUnique && (
+                                                            <div className="flex items-center gap-2 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                                <AlertCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-900 dark:text-white">Unique</div>
+                                                                    <div className="text-sm text-gray-500 dark:text-gray-400">Values must be unique</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    } else if (parts.length === 3) {
+                                        // Table selected
+                                        const [dbName, schemaName, tableName] = parts;
+                                        const db = mockDatabases.find((d) => d.name === dbName);
+                                        const schema = db?.schemas.find((s) => s.name === schemaName);
+                                        const table = schema?.tables.find((t) => t.name === tableName);
+
+                                        return (
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{tableName}</h2>
+                                                        {table?.type === "view" && (
+                                                            <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-600/50">VIEW</Badge>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {dbName}.{schemaName}.{tableName}
+                                                    </p>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-4">
+                                                    {/* Stat Card 1 */}
+                                                    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Columns</div>
+                                                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{table?.columns.length}</div>
+                                                    </div>
+                                                    {/* Stat Card 2 */}
+                                                    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Primary Keys</div>
+                                                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                                            {table?.columns.filter((c) => c.isPrimaryKey).length}
+                                                        </div>
+                                                    </div>
+                                                    {/* Stat Card 3 */}
+                                                    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-900">
+                                                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">Foreign Keys</div>
+                                                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                                            {table?.columns.filter((c) => c.isForeignKey).length}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Columns</h3>
+                                                    {/* Table Container: border-gray-300 dark:border-gray-700 */}
+                                                    <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+                                                        <table className="w-full">
+                                                            {/* Table Header: Light: bg-gray-100, Dark: bg-gray-800 */}
+                                                            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                                                                <tr>
+                                                                    <th className="text-left p-3 text-sm font-semibold">Name</th>
+                                                                    <th className="text-left p-3 text-sm font-semibold">Type</th>
+                                                                    <th className="text-left p-3 text-sm font-semibold">Nullable</th>
+                                                                    <th className="text-left p-3 text-sm font-semibold">Constraints</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {table?.columns.map((column) => (
+                                                                    // Table Row: border-gray-200 dark:border-gray-800
+                                                                    <tr key={column.name} className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                                        <td className="p-3 font-mono text-sm text-gray-900 dark:text-white">{column.name}</td>
+                                                                        <td className="p-3 font-mono text-sm text-gray-500 dark:text-gray-400">{column.type}</td>
+                                                                        <td className="p-3 text-sm text-gray-900 dark:text-white">{column.nullable ? "Yes" : "No"}</td>
+                                                                        <td className="p-3 text-sm">
+                                                                            <div className="flex gap-1">
+                                                                                {column.isPrimaryKey && (
+                                                                                    <Badge variant="outline" className="text-xs text-yellow-600 dark:text-yellow-400 border-yellow-600/50">
+                                                                                        PK
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {column.isForeignKey && (
+                                                                                    <Badge variant="outline" className="text-xs text-blue-600 dark:text-blue-400 border-blue-600/50">
+                                                                                        FK
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {column.isUnique && (
+                                                                                    <Badge variant="outline" className="text-xs text-purple-600 dark:text-purple-400 border-purple-600/50">
+                                                                                        UNIQUE
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                                            Select a database, schema, or column to view metadata
+                                        </div>
+                                    );
+                                })()
+                            ) : (
+                                <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                                    Select an item from the tree to view details
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </div >
+        </div >
+    );
+}

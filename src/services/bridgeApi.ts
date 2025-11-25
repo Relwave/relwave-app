@@ -57,6 +57,14 @@ export interface TableColumn {
   // Add other metadata fields as needed (e.g., dataType, nullable)
 }
 
+// Interface for initiating a query
+export interface RunQueryParams {
+  sessionId: string;
+  dbId: string;
+  sql: string;
+  batchSize?: number;
+}
+
 class BridgeApiService {
   // ------------------------------------
   // 1. SESSION MANAGEMENT METHODS (query.*)
@@ -97,7 +105,6 @@ class BridgeApiService {
       return result?.data?.cancelled === true;
     } catch (error: any) {
       console.error("Failed to cancel session:", error);
-      // We might treat a cancellation error as a successful stop if the session is just gone.
       throw new Error(`Failed to cancel session: ${error.message}`);
     }
   }
@@ -105,6 +112,27 @@ class BridgeApiService {
   // ------------------------------------
   // 2. DATA RETRIEVAL METHODS (query.*)
   // ------------------------------------
+
+  /**
+   * Executes a streaming/long-running SQL query.
+   * The actual results, progress, and completion status are sent via asynchronous notifications
+   * (query.started, query.result, query.done, query.error) handled by bridgeClient listeners.
+   * @param params - Contains sessionId, dbId, SQL query, and optional batchSize.
+   * @returns Promise resolves when the query is successfully *initiated* on the server.
+   */
+  async runQuery(params: RunQueryParams): Promise<void> {
+    try {
+      if (!params.sessionId || !params.dbId || !params.sql) {
+        throw new Error("sessionId, dbId, and sql are required.");
+      }
+
+      // The server returns immediately after starting the background job.
+      await bridgeRequest("query.run", params);
+    } catch (error: any) {
+      console.error("Failed to initiate query execution:", error);
+      throw new Error(`Failed to run query: ${error.message}`);
+    }
+  }
 
   /**
    * Fetches all data (SELECT *) from a specific table in a database.
@@ -298,8 +326,6 @@ class BridgeApiService {
    */
   async ping(): Promise<boolean> {
     try {
-      // Note: The original server-side ping was removed/moved,
-      // but this client method can check connection health.
       const result = await bridgeRequest("ping", {});
       return result?.ok === true;
     } catch (error) {
