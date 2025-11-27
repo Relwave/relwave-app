@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ChevronRight, ChevronDown, Database, Layers, Table, Eye, FileCode, Copy, Download, Key, Link2, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown, Database, Layers, Table, Eye, FileCode, Copy, Download, Key, Link2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { bridgeApi, DatabaseSchemaDetails, ColumnDetails, TableSchemaDetails, SchemaGroup } from "@/services/bridgeApi"; // Import API and types
+import Loader from "@/components/Loader";
 
 interface Column extends ColumnDetails {
     foreignKeyRef?: string; // Add if foreignKeyRef detail is manually available
@@ -127,7 +128,7 @@ export default function SchemaExplorer() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 text-black dark:text-white">
-                <Loader2 className="h-10 w-10 animate-spin text-cyan-600 dark:text-cyan-400" />
+                <Loader />
             </div>
         );
     }

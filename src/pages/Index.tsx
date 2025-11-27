@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Plus, Search, Server, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Database, Plus, Search, Server, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatabaseCard } from "@/components/DatabaseCard";
@@ -24,6 +24,7 @@ import { bridgeApi, type DatabaseConnection } from "@/services/bridgeApi";
 import { startBridgeListeners, stopBridgeListeners, isBridgeReady } from "@/services/bridgeClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ModeToggle } from "@/components/mode-toggle";
+import Loader from "@/components/Loader";
 
 // Type for database stats
 interface DatabaseStats {
@@ -294,7 +295,7 @@ const Index = () => {
     return (
       <div className="h-screen bg-gray-50 dark:bg-[#050505] text-black dark:text-white flex items-center justify-center overflow-hidden">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-cyan-500 mx-auto mb-4" />
+          <Loader />
           <h2 className="text-xl font-semibold mb-2 text-gray-800 dark:text-white">Initializing Database Bridge</h2>
           <p className="text-gray-500 dark:text-gray-400">Please wait while we connect to the bridge...</p>
         </div>
@@ -542,7 +543,7 @@ const Index = () => {
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+              <Loader />
             </div>
           ) : (
             <>

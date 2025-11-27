@@ -12,11 +12,12 @@ import ReactFlow, {
   useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { ArrowLeft, Download, Database, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Database } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { toPng, toSvg } from 'html-to-image';
 import { bridgeApi, DatabaseSchemaDetails, TableSchemaDetails, ColumnDetails } from "@/services/bridgeApi";
+import Loader from "@/components/Loader";
 
 interface Column extends ColumnDetails {
   fkRef?: string; // e.g., "roles.id"
@@ -30,6 +31,7 @@ interface TableNodeData {
 type ExportFormat = "png" | "svg" | string;
 
 type BackendColumn = Omit<ColumnDetails, 'type'> & { type: string, foreignKeyRef?: string };
+
 type BackendTable = Omit<TableSchemaDetails, 'columns'> & { columns: BackendColumn[] };
 
 
@@ -256,8 +258,7 @@ const ERDiagramContent: React.FC = () => {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
-        <p className="ml-3 text-lg text-gray-700 dark:text-gray-300">Generating ER Diagram...</p>
+        <Loader />
       </div>
     );
   }
