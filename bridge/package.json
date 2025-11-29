@@ -1,11 +1,12 @@
 {
   "name": "db-visualizer-bridge",
   "version": "0.1.0",
-  "main": "dist/index.js",
+  "type": "commonjs",
+  "main": "dist/index.cjs",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
+    "start": "node dist/index.cjs",
     "test:client": "node test/client.js",
     "test:stream": "node test/stream_test_client.js",
     "test:cancel": "node test/cancel_test_client.js"
@@ -14,12 +15,13 @@
     "keytar": "^7.9.0",
     "pg": "^8.16.3",
     "pg-query-stream": "^4.10.3",
-    "pino": "^10.1.0",
-    "uuid": "^13.0.0"
+    "pino": "^9.14.0",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/pg": "^8.15.6",
+    "esbuild": "^0.27.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"
   }

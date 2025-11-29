@@ -1,22 +1,21 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::{Child, Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
 use std::sync::{Arc, Mutex};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::{Manager, State, Emitter};
 
 struct BridgeProcess(Arc<Mutex<Option<Child>>>);
 
 #[tauri::command]
 fn bridge_write(data: String, state: State<'_, BridgeProcess>) -> Result<(), String> {
-  let guard = state.0.lock().unwrap();
-  if let Some(child) = guard.as_ref() {
-    if let Some(stdin) = child.stdin.as_ref() {
-      let mut handle = stdin;
-      handle.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
-      handle.write_all(b"\n").map_err(|e| e.to_string())?;
-      handle.flush().map_err(|e| e.to_string())?;
+  let mut guard = state.0.lock().unwrap();
+  if let Some(child) = guard.as_mut() {
+    if let Some(stdin) = child.stdin.as_mut() {
+      stdin.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+      stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+      stdin.flush().map_err(|e| e.to_string())?;
       return Ok(());
     } else {
       return Err("bridge stdin missing".into());
@@ -32,83 +31,322 @@ fn try_spawn(program: &str, args: &[&str]) -> Result<Child, String> {
   for a in args { cmd.arg(a); }
   cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
   match cmd.spawn() {
-    Ok(child) => Ok(child),
+    Ok(child) => {
+      eprintln!("tauri: successfully spawned process with pid {}", child.id());
+      Ok(child)
+    },
     Err(e) => Err(format!("failed to spawn '{}': {}", program, e)),
+  }
+}
+
+/// Get the resource directory path for bundled resources
+fn get_resource_path(app_handle: &tauri::AppHandle) -> Option<PathBuf> {
+  match app_handle.path().resource_dir() {
+    Ok(path) => {
+      eprintln!("tauri: resource dir: {:?}", path);
+      Some(path)
+    },
+    Err(e) => {
+      eprintln!("tauri: failed to get resource dir: {}", e);
+      None
+    }
+  }
+}
+
+/// Get the directory where the executable is located
+fn get_exe_dir() -> Option<PathBuf> {
+  match std::env::current_exe() {
+    Ok(exe_path) => {
+      if let Some(exe_dir) = exe_path.parent() {
+        eprintln!("tauri: exe dir: {:?}", exe_dir);
+        return Some(exe_dir.to_path_buf());
+      }
+      None
+    },
+    Err(e) => {
+      eprintln!("tauri: failed to get exe path: {}", e);
+      None
+    }
   }
 }
 
 /// Resolve candidate bridge paths and try spawn strategies in order.
 /// Returns Ok(child) if any strategy succeeds, otherwise Err(msg).
-fn spawn_bridge_process() -> Result<Child, String> {
-  // 1) BRIDGE_DEV_CMD override
+fn spawn_bridge_process(app_handle: &tauri::AppHandle) -> Result<Child, String> {
+  eprintln!("tauri: starting bridge spawn process");
+  
+  // 1) BRIDGE_DEV_CMD override (for development/testing)
   if let Ok(cmdline) = std::env::var("BRIDGE_DEV_CMD") {
+    eprintln!("tauri: found BRIDGE_DEV_CMD: {}", cmdline);
     let parts: Vec<&str> = cmdline.split_whitespace().collect();
     if !parts.is_empty() {
       let prog = parts[0];
       let args: Vec<&str> = parts.iter().skip(1).copied().collect();
       match try_spawn(prog, &args) {
-        Ok(c) => return Ok(c),
+        Ok(c) => {
+          eprintln!("tauri: BRIDGE_DEV_CMD spawn succeeded");
+          return Ok(c);
+        },
         Err(e) => eprintln!("tauri: BRIDGE_DEV_CMD spawn failed: {}", e),
       }
     }
   }
 
-  // 2) Prefer built JS in ./bridge/dist/index.js (inside project)
-  let cand_local = Path::new("bridge").join("dist").join("index.js");
-  if cand_local.exists() {
-    if let Ok(abs) = cand_local.canonicalize() {
-      match try_spawn("node", &[abs.to_str().unwrap()]) {
-        Ok(c) => return Ok(c),
-        Err(e) => eprintln!("tauri: node spawn failed for local dist: {}", e),
+  // 2) Try bundled bridge executable (PRODUCTION - compiled with pkg)
+  if let Some(resource_path) = get_resource_path(app_handle) {
+    #[cfg(target_os = "windows")]
+    let bridge_exe = resource_path.join("bridge.exe");
+    #[cfg(not(target_os = "windows"))]
+    let bridge_exe = resource_path.join("bridge");
+
+    // check direct resource /bridge.exe
+    eprintln!("tauri: checking bundled bridge executable at {:?}", bridge_exe);
+    if bridge_exe.exists() {
+      eprintln!("tauri: found bundled bridge executable");
+      if let Some(exe_str) = bridge_exe.to_str() {
+        match try_spawn(exe_str, &[]) {
+          Ok(c) => {
+            eprintln!("tauri: bundled bridge executable spawn succeeded");
+            return Ok(c);
+          },
+          Err(e) => eprintln!("tauri: bundled bridge executable spawn failed: {}", e),
+        }
+      }
+    } else {
+      eprintln!("tauri: bundled bridge executable not found at {:?}", bridge_exe);
+      // some installers extract under _up_ - check there as well
+      let bridge_exe_up = resource_path.join("_up_").join("bridge.exe");
+      eprintln!("tauri: checking bundled bridge executable at {:?}", bridge_exe_up);
+      if bridge_exe_up.exists() {
+        eprintln!("tauri: found bundled bridge executable (in _up_)");
+        if let Some(exe_str) = bridge_exe_up.to_str() {
+          match try_spawn(exe_str, &[]) {
+            Ok(c) => {
+              eprintln!("tauri: bundled bridge executable (_up_) spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: bundled bridge executable (_up_) spawn failed: {}", e),
+          }
+        }
+      }
+    }
+
+    // 2b) Try bundled scripts in resources
+    eprintln!("tauri: resource dir: {:?}", resource_path);
+    
+    // Check if files are in bridge/dist/ subdirectory
+    let bridge_dist = resource_path.join("bridge").join("dist");
+    for ext in &["cjs", "js"] {
+      let bridge_script = bridge_dist.join(format!("index.{}", ext));
+      eprintln!("tauri: checking bundled bridge script at {:?}", bridge_script);
+      
+      if bridge_script.exists() {
+        eprintln!("tauri: found bundled bridge script");
+        if let Some(bridge_str) = bridge_script.to_str() {
+          match try_spawn("node", &[bridge_str]) {
+            Ok(c) => {
+              eprintln!("tauri: bundled bridge script spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for bundled bridge: {}", e),
+          }
+        }
+      }
+    }
+    
+    // Also check if files are directly in resources (not in subdirectory)
+    for ext in &["cjs", "js"] {
+      let bridge_script = resource_path.join(format!("index.{}", ext));
+      eprintln!("tauri: checking direct bundled script at {:?}", bridge_script);
+      
+      if bridge_script.exists() {
+        eprintln!("tauri: found direct bundled bridge script");
+        if let Some(bridge_str) = bridge_script.to_str() {
+          match try_spawn("node", &[bridge_str]) {
+            Ok(c) => {
+              eprintln!("tauri: direct bundled bridge script spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for direct bundled bridge: {}", e),
+          }
+        }
+      }
+    }
+
+    // Also check resource_dir/_up_/bridge/dist
+    let bridge_dist_up = resource_path.join("_up_").join("bridge").join("dist");
+    for ext in &["cjs", "js"] {
+      let bridge_script = bridge_dist_up.join(format!("index.{}", ext));
+      eprintln!("tauri: checking bundled bridge script at {:?}", bridge_script);
+      if bridge_script.exists() {
+        eprintln!("tauri: found bundled bridge script in _up_");
+        if let Some(bridge_str) = bridge_script.to_str() {
+          match try_spawn("node", &[bridge_str]) {
+            Ok(c) => {
+              eprintln!("tauri: bundled bridge script (_up_) spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for bundled bridge (_up_): {}", e),
+          }
+        }
       }
     }
   }
 
-  // 3) Check sibling ../bridge/dist/index.js (if bridge lives outside)
-  let cand_parent = Path::new("..").join("bridge").join("dist").join("index.js");
-  if cand_parent.exists() {
-    if let Ok(abs) = cand_parent.canonicalize() {
-      match try_spawn("node", &[abs.to_str().unwrap()]) {
-        Ok(c) => return Ok(c),
-        Err(e) => eprintln!("tauri: node spawn failed for parent dist: {}", e),
+  // 3) Try exe directory (where the .exe is located)
+  if let Some(exe_dir) = get_exe_dir() {
+    for ext in &["cjs", "js"] {
+      let bridge_script = exe_dir.join("bridge").join("dist").join(format!("index.{}", ext));
+      eprintln!("tauri: checking exe dir bridge script at {:?}", bridge_script);
+      
+      if bridge_script.exists() {
+        eprintln!("tauri: found bridge script in exe dir");
+        if let Some(bridge_str) = bridge_script.to_str() {
+          match try_spawn("node", &[bridge_str]) {
+            Ok(c) => {
+              eprintln!("tauri: exe dir bridge script spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for exe dir bridge: {}", e),
+          }
+        }
+      }
+
+      // check exe_dir/_up_/bridge/dist
+      let bridge_script_up = exe_dir.join("_up_").join("bridge").join("dist").join(format!("index.{}", ext));
+      eprintln!("tauri: checking exe dir bridge script at {:?}", bridge_script_up);
+      if bridge_script_up.exists() {
+        eprintln!("tauri: found bridge script in exe_dir/_up_");
+        if let Some(bridge_str) = bridge_script_up.to_str() {
+          match try_spawn("node", &[bridge_str]) {
+            Ok(c) => {
+              eprintln!("tauri: exe dir (_up_) bridge script spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for exe_dir (_up_) bridge: {}", e),
+          }
+        }
+      }
+    }
+
+    // Also try exe_dir/_up_/bridge.exe (native exe in exe location)
+    #[cfg(target_os = "windows")]
+    {
+      let exe_bridge = exe_dir.join("bridge.exe");
+      eprintln!("tauri: checking exe dir for bundled bridge executable at {:?}", exe_bridge);
+      if exe_bridge.exists() {
+        if let Some(exe_str) = exe_bridge.to_str() {
+          match try_spawn(exe_str, &[]) {
+            Ok(c) => {
+              eprintln!("tauri: exe_dir bundled bridge executable spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: exe_dir bundled bridge executable spawn failed: {}", e),
+          }
+        }
+      }
+
+      let exe_bridge_up = exe_dir.join("_up_").join("bridge.exe");
+      eprintln!("tauri: checking exe dir for bundled bridge executable at {:?}", exe_bridge_up);
+      if exe_bridge_up.exists() {
+        if let Some(exe_str) = exe_bridge_up.to_str() {
+          match try_spawn(exe_str, &[]) {
+            Ok(c) => {
+              eprintln!("tauri: exe_dir (_up_) bundled bridge executable spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: exe_dir (_up_) bundled bridge executable spawn failed: {}", e),
+          }
+        }
       }
     }
   }
 
-  // 4) Try pnpm --prefix bridge dev (windows aware)
-  #[cfg(target_os = "windows")]
-  {
-    // Use cmd /C to run a composite command in windows shell context
-    match try_spawn("cmd", &["/C", "pnpm", "--prefix", "bridge", "dev"]) {
-      Ok(c) => return Ok(c),
-      Err(e) => eprintln!("tauri: pnpm spawn (local) failed: {}", e),
-    }
-    // also try parent prefix
-    match try_spawn("cmd", &["/C", "pnpm", "--prefix", "..\\bridge", "dev"]) {
-      Ok(c) => return Ok(c),
-      Err(e) => eprintln!("tauri: pnpm spawn (parent) failed: {}", e),
-    }
-  }
-  #[cfg(not(target_os = "windows"))]
-  {
-    match try_spawn("pnpm", &["--prefix", "bridge", "dev"]) {
-      Ok(c) => return Ok(c),
-      Err(e) => eprintln!("tauri: pnpm spawn (local) failed: {}", e),
-    }
-    match try_spawn("pnpm", &["--prefix", "../bridge", "dev"]) {
-      Ok(c) => return Ok(c),
-      Err(e) => eprintln!("tauri: pnpm spawn (parent) failed: {}", e),
+  // 4) Try local development path ./bridge/dist
+  for ext in &["cjs", "js"] {
+    let cand_local = Path::new("bridge").join("dist").join(format!("index.{}", ext));
+    eprintln!("tauri: checking local bridge at {:?}", cand_local);
+    if cand_local.exists() {
+      eprintln!("tauri: found local bridge script");
+      if let Ok(abs) = cand_local.canonicalize() {
+        if let Some(abs_str) = abs.to_str() {
+          match try_spawn("node", &[abs_str]) {
+            Ok(c) => {
+              eprintln!("tauri: local bridge spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for local dist: {}", e),
+          }
+        }
+      }
     }
   }
 
-  Err("All bridge spawn attempts failed. Ensure BRIDGE_DEV_CMD, pnpm or node is available and bridge/dist/index.js exists.".into())
+  // 5) Check ../../bridge/dist (two levels up from target/release)
+  for ext in &["cjs", "js"] {
+    let cand_parent = Path::new("..").join("..").join("bridge").join("dist").join(format!("index.{}", ext));
+    eprintln!("tauri: checking parent bridge at {:?}", cand_parent);
+    
+    if cand_parent.exists() {
+      eprintln!("tauri: found parent bridge script");
+      if let Ok(abs) = cand_parent.canonicalize() {
+        if let Some(abs_str) = abs.to_str() {
+          match try_spawn("node", &[abs_str]) {
+            Ok(c) => {
+              eprintln!("tauri: parent bridge spawn succeeded");
+              return Ok(c);
+            },
+            Err(e) => eprintln!("tauri: node spawn failed for parent dist: {}", e),
+          }
+        }
+      }
+    }
+  }
+
+  // 6) Try pnpm --prefix ../../bridge dev (adjusted path)
+  // Only try pnpm dev in debug builds (development convenience)
+  #[cfg(debug_assertions)]
+  {
+    #[cfg(target_os = "windows")]
+    {
+      eprintln!("tauri: trying pnpm dev (Windows - debug only)");
+      match try_spawn("cmd", &["/C", "pnpm", "--prefix", "..\\bridge", "dev"]) {
+        Ok(c) => {
+          eprintln!("tauri: pnpm dev succeeded");
+          return Ok(c);
+        },
+        Err(e) => eprintln!("tauri: pnpm spawn failed: {}", e),
+      }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+      eprintln!("tauri: trying pnpm dev (Unix - debug only)");
+      match try_spawn("pnpm", &["--prefix", "../bridge", "dev"]) {
+        Ok(c) => {
+          eprintln!("tauri: pnpm dev succeeded");
+          return Ok(c);
+        },
+        Err(e) => eprintln!("tauri: pnpm spawn failed: {}", e),
+      }
+    }
+  }
+
+  let error_msg = "All bridge spawn attempts failed. \
+    For production: ensure bridge files are bundled and Node.js is installed. \
+    For development: ensure bridge/dist/index.cjs or index.js exists. \
+    Try setting BRIDGE_DEV_CMD environment variable.";
+  
+  eprintln!("tauri: {}", error_msg);
+  Err(error_msg.into())
 }
 
 /// Spawn the bridge and connect its stdout/stderr to events for the frontend.
 fn spawn_bridge(app_handle: tauri::AppHandle) -> Result<Child, String> {
-  let mut child = spawn_bridge_process()?;
+  eprintln!("tauri: spawning bridge process");
+  let mut child = spawn_bridge_process(&app_handle)?;
+  
   // log pid
-  eprintln!("tauri: spawned bridge pid {}", child.id());
+  eprintln!("tauri: spawned bridge with pid {}", child.id());
 
   // forward stdout lines to renderer as "bridge-stdout" events
   if let Some(stdout) = child.stdout.take() {
@@ -116,9 +354,13 @@ fn spawn_bridge(app_handle: tauri::AppHandle) -> Result<Child, String> {
     std::thread::spawn(move || {
       let reader = BufReader::new(stdout);
       for line in reader.lines().flatten() {
+        eprintln!("bridge stdout: {}", line);
         let _ = ah.emit("bridge-stdout", line.clone());
       }
+      eprintln!("bridge stdout thread ended");
     });
+  } else {
+    eprintln!("tauri: warning - no stdout handle for bridge");
   }
 
   // forward stderr lines to renderer as "bridge-stderr" events
@@ -127,9 +369,13 @@ fn spawn_bridge(app_handle: tauri::AppHandle) -> Result<Child, String> {
     std::thread::spawn(move || {
       let reader = BufReader::new(stderr);
       for line in reader.lines().flatten() {
+        eprintln!("bridge stderr: {}", line);
         let _ = ah2.emit("bridge-stderr", line.clone());
       }
+      eprintln!("bridge stderr thread ended");
     });
+  } else {
+    eprintln!("tauri: warning - no stderr handle for bridge");
   }
 
   Ok(child)
@@ -138,16 +384,18 @@ fn spawn_bridge(app_handle: tauri::AppHandle) -> Result<Child, String> {
 fn main() {
   tauri::Builder::default()
     .setup(|app| {
+      eprintln!("tauri: application setup starting");
       let handle = app.handle();
       match spawn_bridge(handle.clone()) {
         Ok(child) => {
           app.manage(BridgeProcess(Arc::new(Mutex::new(Some(child)))));
-          eprintln!("tauri: bridge attached to app state");
+          eprintln!("tauri: bridge attached to app state successfully");
           Ok(())
         }
         Err(err_msg) => {
           // Log and continue without bridge attached (helpful in dev)
           eprintln!("ERROR: could not start bridge: {}", err_msg);
+          eprintln!("tauri: application will continue without bridge process");
           app.manage(BridgeProcess(Arc::new(Mutex::new(None))));
           Ok(())
         }

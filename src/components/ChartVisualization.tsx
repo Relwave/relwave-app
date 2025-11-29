@@ -108,7 +108,7 @@ export const ChartVisualization = ({ data }: ChartVisualizationProps) => {
               <Legend wrapperStyle={{ color: rechartsTheme.stroke, paddingTop: '10px' }} />
               <Bar dataKey="y" fill={rechartsTheme.lineStroke} name={yAxis}>
                 {/* Individual coloring for aesthetic appeal */}
-                {chartData.map((entry, index) => (
+                {chartData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>
@@ -150,7 +150,7 @@ export const ChartVisualization = ({ data }: ChartVisualizationProps) => {
                 outerRadius={120}
                 dataKey="y"
               >
-                {chartData.map((entry, index) => (
+                {chartData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke={rechartsTheme.tooltipBg} strokeWidth={3} />
                 ))}
               </Pie>

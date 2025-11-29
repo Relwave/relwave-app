@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "cd bridge && pnpm build && cd .. && tauri ",
+    "tauri": "tauri ",
     "beforeDevCommand": "npm --prefix bridge run dev"
   },
   "dependencies": {
