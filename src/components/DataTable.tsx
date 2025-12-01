@@ -16,7 +16,7 @@ interface DataTableProps {
 export const DataTable = ({ data }: DataTableProps) => {
   if (!data || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 rounded-lg border border-dashed border-gray-700 bg-gray-900/50 text-gray-500 p-6">
+      <div className="flex flex-col items-center justify-center h-48 rounded-lg border border-dashed border-gray-700 bg-[#3C3D37]/50 text-gray-500 p-6">
         <Info className="h-8 w-8 mb-3 text-gray-600" />
         <p className="text-lg font-semibold text-gray-400">No Data Available</p>
         <p className="text-sm text-gray-500">The query returned an empty result set.</p>
@@ -28,11 +28,11 @@ export const DataTable = ({ data }: DataTableProps) => {
 
   return (
     // ScrollArea ensures horizontal scrolling for many columns and vertical for many rows
-    <ScrollArea className="h-[400px] w-full rounded-xl border border-primary/20 bg-gray-900/70 shadow-lg">
+    <ScrollArea className="h-[400px] w-full rounded-xl border border-primary/20 bg-[#3C3D37] shadow-lg">
       {/* Container to force table to stretch to the content needed, enabling horizontal scroll */}
       <div className="relative w-full overflow-auto">
         <Table className="w-full">
-          <TableHeader className="sticky top-0 bg-gray-900 backdrop-blur-sm border-b border-primary/10">
+          <TableHeader className="sticky top-0 bg-[#3C3D37] backdrop-blur-sm border-b border-primary/10">
             <TableRow className="hover:bg-transparent">
               {columns.map((column) => (
                 <TableHead key={column} className="font-mono font-bold text-white uppercase text-xs tracking-wider min-w-[120px]">
