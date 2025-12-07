@@ -9,11 +9,20 @@ import type { Connection as RawConnection } from "mysql2";
 
 export type MySQLConfig = PoolOptions;
 
+// Cache for table lists to avoid repeated slow queries
+const tableListCache = new Map<
+  string,
+  { data: TableInfo[]; timestamp: number }
+>();
+const CACHE_TTL = 60000; // 1 minute cache
+
+function getCacheKey(cfg: MySQLConfig): string {
+  return `${cfg.host}:${cfg.port}:${cfg.database}`;
+}
+
 function createPoolConfig(cfg: MySQLConfig): PoolOptions {
   const sslOption: unknown = (cfg as unknown as { ssl?: unknown }).ssl;
 
-  // If user passed an object, use it. If they passed true, don't force TLS —
-  // leave undefined (driver will connect without forcing TLS). If false/absent -> undefined.
   const ssl =
     sslOption && typeof sslOption === "object"
       ? (sslOption as PoolOptions["ssl"])
@@ -313,23 +322,19 @@ export async function getDBStats(
   try {
     connection = await pool.getConnection();
 
+    // OPTIMIZED: Use simpler, faster query
     const query = `
       SELECT
-        (
-          SELECT COUNT(*)
-          FROM information_schema.tables
-          WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
-        ) AS total_tables,
+        COUNT(*) AS total_tables,
         COALESCE(
-          CAST(
-            (SUM(data_length + index_length)) / (1024 * 1024)
-          AS DECIMAL(10, 2)),
+          ROUND(SUM(data_length + index_length) / (1024 * 1024), 2),
           0
         ) AS total_db_size_mb
       FROM 
         information_schema.tables
       WHERE 
-        table_schema = DATABASE() AND table_type = 'BASE TABLE';
+        table_schema = DATABASE() 
+        AND table_type = 'BASE TABLE';
     `;
 
     const [rows] = await connection.execute<RowDataPacket[]>(query);
@@ -398,40 +403,85 @@ export async function listTables(
   cfg: MySQLConfig,
   schemaName?: string
 ): Promise<TableInfo[]> {
+  // Check cache first
+  const cacheKey = getCacheKey(cfg);
+  const cached = tableListCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log("[MySQL] Using cached table list");
+    return schemaName
+      ? cached.data.filter((t) => t.schema === schemaName)
+      : cached.data;
+  }
+
   const pool = mysql.createPool(createPoolConfig(cfg));
   let connection: PoolConnection | null = null;
 
   try {
     connection = await pool.getConnection();
 
-    let query = `
-      SELECT 
-        table_schema AS \`schema\`, 
-        table_name AS name, 
-        table_type AS type 
-      FROM 
-        information_schema.tables
-      WHERE 
-        table_type IN ('BASE TABLE', 'VIEW')
-      AND 
-        table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
-    `;
-
-    const queryParams: string[] = [];
+    // CRITICAL OPTIMIZATION: Query only the current database schema
+    // This avoids scanning the entire information_schema which can be VERY slow
+    let query: string;
+    let queryParams: string[] = [];
 
     if (schemaName) {
-      query += ` AND table_schema = ?`;
-      queryParams.push(schemaName);
+      // If specific schema requested, only fetch that
+      query = `
+        SELECT 
+          table_schema AS \`schema\`, 
+          table_name AS name, 
+          table_type AS type 
+        FROM 
+          information_schema.tables
+        WHERE 
+          table_schema = ?
+          AND table_type IN ('BASE TABLE', 'VIEW')
+        ORDER BY table_name;
+      `;
+      queryParams = [schemaName];
+    } else {
+      // Otherwise, only fetch tables from the CURRENT database (not all databases!)
+      query = `
+        SELECT 
+          table_schema AS \`schema\`, 
+          table_name AS name, 
+          table_type AS type 
+        FROM 
+          information_schema.tables
+        WHERE 
+          table_schema = DATABASE()
+          AND table_type IN ('BASE TABLE', 'VIEW')
+        ORDER BY table_name;
+      `;
     }
 
-    query += ` ORDER BY table_schema, table_name;`;
+    console.log(
+      `[MySQL] Executing listTables query for schema: ${
+        schemaName || "DATABASE()"
+      }`
+    );
+    const startTime = Date.now();
 
     const [rows] = await connection.execute<RowDataPacket[]>(
       query,
       queryParams
     );
-    return rows as TableInfo[];
+
+    const elapsed = Date.now() - startTime;
+    console.log(
+      `[MySQL] listTables completed in ${elapsed}ms, found ${rows.length} tables`
+    );
+
+    const result = rows as TableInfo[];
+
+    // Cache the full result (only when not filtering by schema)
+    if (!schemaName) {
+      tableListCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    }
+
+    return result;
   } catch (error) {
+    console.error("[MySQL] listTables error:", error);
     throw new Error(`Failed to list tables: ${(error as Error).message}`);
   } finally {
     if (connection) {
@@ -447,6 +497,13 @@ export async function listTables(
       // Ignore
     }
   }
+}
+
+// Function to clear cache for a specific database (call after schema changes)
+export function clearTableListCache(cfg: MySQLConfig) {
+  const cacheKey = getCacheKey(cfg);
+  tableListCache.delete(cacheKey);
+  console.log(`[MySQL] Cleared table list cache for ${cacheKey}`);
 }
 
 export async function getTableDetails(

@@ -98,16 +98,38 @@ export function stopBridgeListeners(): void {
 }
 
 /**
+ * Get appropriate timeout for different operations
+ */
+function getTimeoutForMethod(method: string): number {
+  // Schema operations can be very slow on large databases
+  if (method === 'db.getSchema') return 180000; // 3 minutes
+  
+  // Table listing can be slow on MySQL
+  if (method === 'db.listTables') return 120000; // 2 minutes
+  
+  // Stats queries are usually fast but can be slow on large DBs
+  if (method === 'db.getStats') return 60000; // 1 minute
+  
+  // Query operations need longer timeouts
+  if (method.startsWith('query.')) return 300000; // 5 minutes
+  
+  // Default for other operations
+  return 30000; // 30 seconds
+}
+
+/**
  * bridgeRequest - Send a JSON-RPC request to the bridge process
  * @param method - The JSON-RPC method name
  * @param params - The parameters for the method
- * @param timeoutMs - Request timeout in milliseconds
+ * @param timeoutMs - Request timeout in milliseconds (auto-determined if not provided)
  */
 export async function bridgeRequest(
   method: string,
   params?: any,
-  timeoutMs = 300000000
+  timeoutMs?: number
 ): Promise<any> {
+  // Use method-specific timeout if not explicitly provided
+  const timeout = timeoutMs ?? getTimeoutForMethod(method);
   if (!hasTauriInvoke()) {
     return Promise.reject(
       new Error(
@@ -128,21 +150,31 @@ export async function bridgeRequest(
   const req = { id, method, params };
   const payload = JSON.stringify(req);
 
+  // Add timing for debugging
+  const startTime = performance.now();
+  console.debug(`[Bridge Request ${id}] ${method}`, params);
+
   const promise = new Promise((resolve, reject) => {
     const timeoutHandle = setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
-        reject(new Error(`Bridge request timeout after ${timeoutMs}ms`));
+        const elapsed = performance.now() - startTime;
+        console.error(`[Bridge Timeout ${id}] ${method} after ${elapsed.toFixed(0)}ms (limit: ${timeout}ms)`);
+        reject(new Error(`Bridge request timeout after ${timeout}ms: ${method}`));
       }
-    }, timeoutMs);
+    }, timeout);
 
     const wrappedResolve = (v: any) => {
       clearTimeout(timeoutHandle);
+      const elapsed = performance.now() - startTime;
+      console.debug(`[Bridge Response ${id}] ${method} completed in ${elapsed.toFixed(0)}ms`);
       resolve(v);
     };
 
     const wrappedReject = (e: any) => {
       clearTimeout(timeoutHandle);
+      const elapsed = performance.now() - startTime;
+      console.error(`[Bridge Error ${id}] ${method} failed after ${elapsed.toFixed(0)}ms`, e);
       reject(e);
     };
 
@@ -165,4 +197,23 @@ export async function bridgeRequest(
  */
 export function isBridgeReady(): boolean {
   return hasTauriInvoke() && isInitialized;
+}
+
+/**
+ * Batch multiple bridge requests to improve performance
+ */
+export async function bridgeRequestBatch(
+  requests: Array<{ method: string; params?: any }>,
+  timeoutMs = 30000
+): Promise<any[]> {
+  // Send all requests in parallel
+  const promises = requests.map(req => 
+    bridgeRequest(req.method, req.params, timeoutMs)
+      .catch(error => {
+        console.warn(`Batch request failed: ${req.method}`, error);
+        return null; // Return null for failed requests instead of breaking the whole batch
+      })
+  );
+  
+  return Promise.all(promises);
 }
