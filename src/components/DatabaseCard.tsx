@@ -67,16 +67,19 @@ export const DatabaseCard = ({
   onTest
 }: DatabaseCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [result, setResult] = useState<DatabaseStats | null>([] as unknown as DatabaseStats);
+  // Initial state should reflect null or undefined to correctly check if data has loaded
+  const [result, setResult] = useState<DatabaseStats | null>(null);
 
   // Dynamic colors based on status
   const isConnected = status === "connected";
-  // The badge background and border are kept static as they are color indicators, not theme indicators.
+  // Used standard utility classes for the badge colors
   const statusColorClass = isConnected
     ? "bg-emerald-600/20 text-emerald-600 border-emerald-500/50 dark:text-emerald-300"
     : "bg-red-600/20 text-red-600 border-red-500/50 dark:text-red-300";
 
+  // Use the Cyan accent color for connected state, Red for disconnected
   const iconColor = isConnected ? "text-cyan-600 dark:text-cyan-400" : "text-red-600 dark:text-red-400";
+  // Use the accent color for the prominent hover border effect
   const hoverGlow = isConnected ? "hover:border-cyan-500/80" : "hover:border-red-500/80";
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -100,7 +103,6 @@ export const DatabaseCard = ({
     async function loadStats() {
       try {
         const res = await bridgeApi.getDatabaseStats(id);
-        console.log(res)
         // Ensure the response matches the expected shape before setting state
         if (res && typeof res === "object" && "stats" in res && "db" in res) {
           setResult(res as DatabaseStats);
@@ -109,7 +111,7 @@ export const DatabaseCard = ({
           setResult(null);
         }
       } catch (error) {
-        console.log(error)
+        console.log("Failed to load stats:", error);
       }
     }
     loadStats();
@@ -117,29 +119,35 @@ export const DatabaseCard = ({
 
   return (
     <>
-      <Card className={`bg-white dark:bg-gray-900/70 border border-gray-300 dark:border-primary/20 rounded-xl shadow-md dark:shadow-2xl transition-all duration-300 cursor-pointer h-full group ${hoverGlow} hover:bg-gray-50 dark:hover:bg-gray-800/80 relative`}>
+      {/* Card Styling:
+        - shadow-elevated: Consistent shadow from QueryBuilder
+        - bg-card/70: Slightly translucent background for depth
+        - border-border: Standard border color, accented by ${hoverGlow}
+        - group hover:bg-card/90: Subtle hover state 
+      */}
+      <Card className={`shadow-elevated bg-card/70 border border-border rounded-xl transition-all duration-300 cursor-pointer h-full group ${hoverGlow} hover:bg-card/90 relative`}>
         <CardHeader className="p-4 sm:p-6">
           <div className="flex items-start justify-between">
             {/* Database Info - Clickable Link */}
             <Link to={`/${id}`} className="flex items-center gap-3 min-w-0 flex-1 pr-1">
               <div
-                // Icon BG: Light: bg-cyan/red-600/10, Dark: bg-cyan/red-600/30
+                // Icon BG uses the accent color for connection status
                 className={`p-3 rounded-xl transition-colors shrink-0 
-                  ${isConnected ? "bg-cyan-600/10 dark:bg-cyan-600/30" : "bg-red-600/10 dark:bg-red-600/30"}`}
+                ${isConnected ? "bg-cyan-600/10 dark:bg-cyan-600/30" : "bg-red-600/10 dark:bg-red-600/30"}`}
               >
                 <Database className={`h-6 w-6 ${iconColor}`} />
               </div>
 
               <div className="truncate min-w-0 flex-1">
                 <CardTitle
-                  // Title: Light: text-gray-900, Dark: text-white. Hover: text-cyan-600/400
-                  className="text-xl mb-1 text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors truncate"
+                  // Title text: Standard foreground color, shifts to Cyan on hover (accent)
+                  className="text-xl mb-1 text-foreground group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors truncate"
                 >
                   {name}
                 </CardTitle>
                 <CardDescription
-                  // Description: Light: text-gray-500, Dark: text-gray-500 (stays gray)
-                  className="font-mono text-xs text-gray-500 truncate"
+                  // Description text: Muted foreground color
+                  className="font-mono text-xs text-muted-foreground truncate"
                 >
                   {
                     host.length > 30 && host != 'localhost' ? `${host.slice(0, 15)}...${host.slice(-15)}` : host
@@ -148,7 +156,7 @@ export const DatabaseCard = ({
               </div>
             </Link>
 
-            {/* Actions Menu and Badge - fixed size, flex-shrink-0 */}
+            {/* Actions Menu and Badge */}
             <div className="flex items-center gap-1 shrink-0 ml-1">
               <Badge
                 variant="outline"
@@ -163,31 +171,29 @@ export const DatabaseCard = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    // Menu Button: Light: text-gray-600 hover:text-black hover:bg-gray-100, Dark: text-gray-400 hover:text-white hover:bg-gray-800
-                    className="h-8 w-8 text-gray-600 hover:text-black hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800 transition-colors"
+                    // Menu Button: Uses standard muted/accent color hover
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  // Dropdown Content: Light: bg-white border-gray-300, Dark: bg-gray-900 border-gray-700
-                  className="bg-white border-gray-300 text-black dark:bg-gray-900 dark:border-gray-700 dark:text-white shadow-lg"
+                  // Dropdown Content: Uses standard popover styles
+                  className="bg-popover border-border text-foreground shadow-lg"
                 >
                   <DropdownMenuItem
                     onClick={handleTest}
-                    // Dropdown Item Hover: Light: hover:bg-gray-100, Dark: hover:bg-gray-800
-                    className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 dark:hover:bg-gray-800 dark:focus:bg-gray-800"
+                    className="cursor-pointer hover:bg-accent focus:bg-accent"
                   >
                     <TestTube className="h-4 w-4 mr-2 text-cyan-600 dark:text-cyan-400" />
                     Test Connection
                   </DropdownMenuItem>
-                  {/* Separator: Light: bg-gray-200, Dark: bg-gray-700 */}
-                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem
                     onClick={handleDelete}
-                    // Delete Item: Light/Dark: text-red-600/400
-                    className="cursor-pointer text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 focus:bg-red-50 dark:focus:bg-red-900/20"
+                    // Delete Item: Uses destructive color
+                    className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Connection
@@ -204,14 +210,12 @@ export const DatabaseCard = ({
 
               {/* Database Type */}
               <div
-                // Border: Light: border-gray-200, Dark: border-gray-800
-                className="flex items-center justify-between text-sm border-b border-gray-200 dark:border-gray-800 pb-2"
+                className="flex items-center justify-between text-sm border-b border-border pb-2"
               >
-                {/* Label: Light: text-gray-600, Dark: text-gray-400 */}
-                <span className="text-gray-600 dark:text-gray-400">Database Engine</span>
+                <span className="text-muted-foreground">Database Engine</span>
                 <span
-                  // Badge: Light: text-black bg-gray-100, Dark: text-white bg-gray-800/70
-                  className="font-mono font-medium text-black dark:text-white px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/70 truncate max-w-[50%]"
+                  // Badge: Standard subtle background
+                  className="font-mono font-medium text-foreground px-2 py-0.5 rounded-md bg-accent truncate max-w-[50%]"
                 >
                   {type}
                 </span>
@@ -219,23 +223,27 @@ export const DatabaseCard = ({
 
               {/* Tables Count */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2 shrink-0">
+                <span className="text-muted-foreground flex items-center gap-2 shrink-0">
                   <Table2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   Total Tables
                 </span>
-                <span className="font-mono font-medium text-lg text-black dark:text-white">
-                  <span className="text-right inline-block">{id === result?.db?.id ? parseInt(result.stats.total_tables) : 0}</span>
+                <span className="font-mono font-medium text-lg text-foreground">
+                  <span className="text-right inline-block">
+                    {id === result?.db?.id ? parseInt(result.stats.total_tables) : 0}
+                  </span>
                 </span>
               </div>
 
               {/* Size */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2 shrink-0">
+                <span className="text-muted-foreground flex items-center gap-2 shrink-0">
                   <HardDrive className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   Storage Used
                 </span>
-                <span className="font-mono font-medium text-lg text-black dark:text-white">
-                  <span className="text-right inline-block">{id === result?.db?.id ? parseFloat(result.stats.total_db_size_mb).toFixed(2) : "0.00"} MB</span>
+                <span className="font-mono font-medium text-lg text-foreground">
+                  <span className="text-right inline-block">
+                    {id === result?.db?.id ? `${parseFloat(result.stats.total_db_size_mb).toFixed(2)} MB` : "0.00 MB"}
+                  </span>
                 </span>
               </div>
 
@@ -246,27 +254,25 @@ export const DatabaseCard = ({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        {/* Alert Content: Light: bg-white border-gray-300, Dark: bg-gray-900 border-gray-700 */}
-        <AlertDialogContent className="bg-white border-gray-300 text-black dark:bg-gray-900 dark:border-gray-700 dark:text-white">
+        <AlertDialogContent className="bg-background border-border text-foreground">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-black dark:text-white">
+            <AlertDialogTitle className="text-xl font-bold text-foreground">
               Delete Database Connection?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
-              Are you sure you want to delete <span className="font-semibold text-black dark:text-white">{name}</span>?
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{name}</span>?
               This action cannot be undone. The connection configuration will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              // Cancel Button: Light: bg-gray-100 border-gray-300 text-gray-700, Dark: bg-gray-800 border-gray-700 text-gray-300
-              className="bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+              className="bg-accent border-border text-foreground hover:bg-muted"
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-white"
             >
               Delete
             </AlertDialogAction>

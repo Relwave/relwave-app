@@ -1,25 +1,18 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useState, useCallback } from "react";
-import ReactFlow, {
+import {
   Node,
-  Edge,
-  Controls,
-  Background,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
-  BackgroundVariant,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { ArrowLeft, Play, Trash2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { DataTable } from "@/components/DataTable";
 import { toast } from "sonner";
+import Header from "@/components/queryBuilder/Header";
+import ControlPanel from "@/components/queryBuilder/ControlPanel";
+import VisualBuilder from "@/components/queryBuilder/VisualBuilder";
 
 const mockTables = ["users", "orders", "products", "categories", "roles"];
 
@@ -55,14 +48,14 @@ const QueryBuilder = () => {
 
   const addTable = useCallback(() => {
     if (!selectedTable) return;
-    
+
     const newNode: Node = {
       id: `${selectedTable}-${Date.now()}`,
       type: "table",
       position: { x: Math.random() * 400 + 50, y: Math.random() * 300 + 50 },
       data: { label: selectedTable },
     };
-    
+
     setNodes((nds) => [...nds, newNode]);
     toast.success(`Added ${selectedTable} table`);
   }, [selectedTable, setNodes]);
@@ -118,201 +111,38 @@ const QueryBuilder = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to={`/${id}`}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold">Visual Query Builder</h1>
-              <p className="text-sm text-muted-foreground">Build queries visually for {id}</p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header id={id || "database"} />
 
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Panel - Controls */}
-          <div className="space-y-4">
-            <Card className="shadow-elevated">
-              <CardHeader>
-                <CardTitle className="text-lg">Add Tables</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Select value={selectedTable} onValueChange={setSelectedTable}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockTables.map((table) => (
-                      <SelectItem key={table} value={table}>
-                        {table}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={addTable} className="w-full gradient-primary">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Table
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-elevated">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Filters</CardTitle>
-                  <Button size="sm" variant="outline" onClick={addFilter}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {filters.map((filter, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Column"
-                      value={filter.column}
-                      onChange={(e) => {
-                        const newFilters = [...filters];
-                        newFilters[index].column = e.target.value;
-                        setFilters(newFilters);
-                      }}
-                      className="text-sm"
-                    />
-                    <Select
-                      value={filter.operator}
-                      onValueChange={(val) => {
-                        const newFilters = [...filters];
-                        newFilters[index].operator = val;
-                        setFilters(newFilters);
-                      }}
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="=">=</SelectItem>
-                        <SelectItem value="!=">!=</SelectItem>
-                        <SelectItem value=">">{">"}</SelectItem>
-                        <SelectItem value="<">{"<"}</SelectItem>
-                        <SelectItem value="LIKE">LIKE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Value"
-                      value={filter.value}
-                      onChange={(e) => {
-                        const newFilters = [...filters];
-                        newFilters[index].value = e.target.value;
-                        setFilters(newFilters);
-                      }}
-                      className="text-sm"
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeFilter(index)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-                {filters.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">No filters added</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-elevated">
-              <CardHeader>
-                <CardTitle className="text-lg">Sort & Group</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Sort By</label>
-                  <Input
-                    placeholder="column_name"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Group By</label>
-                  <Input
-                    placeholder="column_name"
-                    value={groupBy}
-                    onChange={(e) => setGroupBy(e.target.value)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button onClick={generateSQL} className="w-full gradient-primary">
-              Generate SQL
-            </Button>
-          </div>
-
+          <ControlPanel
+            selectedTable={selectedTable}
+            setSelectedTable={setSelectedTable}
+            addTable={addTable}
+            filters={filters}
+            setFilters={setFilters}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            groupBy={groupBy}
+            setGroupBy={setGroupBy}
+            mockTables={mockTables}
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            generateSQL={generateSQL}
+          />
           {/* Middle Panel - Visual Builder */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="shadow-elevated h-[400px]">
-              <CardHeader>
-                <CardTitle className="text-lg">Visual Diagram</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Drag tables to arrange • Connect tables to create joins
-                </p>
-              </CardHeader>
-              <CardContent className="h-[320px] p-0">
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  nodeTypes={nodeTypes}
-                  fitView
-                >
-                  <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-                  <Controls />
-                </ReactFlow>
-              </CardContent>
-            </Card>
-
-            {generatedSQL && (
-              <Card className="shadow-elevated">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Generated SQL</CardTitle>
-                    <Button size="sm" onClick={executeQuery}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Execute
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <pre className="bg-muted p-4 rounded-lg text-sm font-mono overflow-x-auto">
-                    {generatedSQL}
-                  </pre>
-                </CardContent>
-              </Card>
-            )}
-
-            {queryResults.length > 0 && (
-              <Card className="shadow-elevated">
-                <CardHeader>
-                  <CardTitle className="text-lg">Results</CardTitle>
-                  <Badge>{queryResults.length} rows</Badge>
-                </CardHeader>
-                <CardContent>
-                  <DataTable data={queryResults} />
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <VisualBuilder
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            generatedSQL={generatedSQL}
+            executeQuery={executeQuery}
+            queryResults={queryResults}
+            nodeTypes={nodeTypes}
+          />
         </div>
       </div>
     </div>

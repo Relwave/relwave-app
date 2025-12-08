@@ -29,9 +29,9 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/:id" element={<DatabaseDetail />} />
-            <Route path="/:id/query-builder" element={<QueryBuilder />} />
-            <Route path="/:id/er-diagram" element={<ERDiagram />} />
-            <Route path='/:id/schema-explorer' element={<SchemaExplorer />} />
+            <Route path="/database/:id/query-builder" element={<QueryBuilder />} />
+            <Route path="/database/:id/er-diagram" element={<ERDiagram />} />
+            <Route path='/database/:id/schema-explorer' element={<SchemaExplorer />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

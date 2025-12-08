@@ -10,7 +10,7 @@ import {
     SelectLabel,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"; // Import your Select components
+} from "@/components/ui/select";
 
 interface TableSelectorDropdownProps {
     tables: TableInfo[];
@@ -49,40 +49,41 @@ const TableSelectorDropdown: React.FC<TableSelectorDropdownProps> = ({
     return (
         <div className="w-full sm:w-64">
             {loading ? (
-                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Loading tables...</span>
                 </div>
             ) : (
                 <Select value={selectedValue} onValueChange={handleValueChange} disabled={tables.length === 0}>
-                    {/* Refined SelectTrigger for cleaner SaaS look */}
+                    {/* SelectTrigger: uses bg-input/border/hover-border-primary for clean look */}
                     <SelectTrigger
-                        className="w-full text-base font-mono bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+                        className="w-full text-base font-mono bg-input border-border hover:border-primary transition-colors"
                     >
-                        {/* Accent color for the icon */}
-                        <Table2 className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-400" />
+                        {/* Accent color for the icon: using text-primary */}
+                        <Table2 className="h-4 w-4 mr-2 text-primary" />
                         <SelectValue placeholder="Select a Table..." className="truncate">
                             {selectedTable ? selectedTable.name : "Select a Table..."}
                         </SelectValue>
                     </SelectTrigger>
 
-                    {/* Select Content uses standard dark/light shading */}
-                    <SelectContent className="max-h-[300px] bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
+                    {/* Select Content uses standard popover styles */}
+                    <SelectContent className="max-h-[300px] bg-popover border-border">
                         {tables.length === 0 ? (
                             <SelectItem value="no-tables" disabled>No tables found</SelectItem>
                         ) : (
                             Object.entries(tablesBySchema).map(([schema, tables]) => (
                                 <SelectGroup key={schema}>
-                                    {/* Accent color for the schema label */}
-                                    <SelectLabel className="font-bold text-blue-600 dark:text-blue-400">{schema}</SelectLabel>
+                                    {/* Accent color for the schema label: using text-primary */}
+                                    <SelectLabel className="font-bold text-primary">{schema}</SelectLabel>
                                     {tables.map((table) => (
                                         <SelectItem
                                             key={`${table.schema}.${table.name}`}
                                             value={`${table.schema}.${table.name}`}
-                                            className="font-mono focus:bg-blue-100 dark:focus:bg-blue-900/50"
+                                            // Highlight uses accent color (e.g., hover:bg-accent or focus:bg-primary/10)
+                                            className="font-mono focus:bg-accent"
                                         >
                                             <span className="font-semibold">{table.name}</span>
-                                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({table.type})</span>
+                                            <span className="ml-2 text-xs text-muted-foreground">({table.type})</span>
                                         </SelectItem>
                                     ))}
                                 </SelectGroup>

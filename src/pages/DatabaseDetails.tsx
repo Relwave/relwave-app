@@ -1,15 +1,15 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { bridgeApi, TableRow } from "@/services/bridgeApi";
-import DatabasePageHeader from "@/components/databaseDetails/header";
-import QueryContentTabs from "@/components/databaseDetails/QueryContentTabs";
-import TableSelectorDropdown from "@/components/databaseDetails/TableSidebar"; // Assuming this is now TableSelectorDropdown
 
-// ... (Interface definitions remain unchanged)
+import QueryContentTabs from "@/components/databaseDetails/QueryContentTabs";
+import TableSelectorDropdown from "@/components/databaseDetails/TableSidebar";
+import DatabasePageHeader from "@/components/databaseDetails/DatabasePageHeader";
+
 export interface TableInfo {
   schema: string;
   name: string;
@@ -26,25 +26,20 @@ export interface QueryProgress {
   elapsed: number;
 }
 
-
 const DatabaseDetail = () => {
   const { id: dbId } = useParams<{ id: string }>();
   const [databaseName, setDatabaseName] = useState<string>('Database');
   const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
-  // Set initial query to null/empty so the first table load updates it
   const [query, setQuery] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Query execution states
   const [tableData, setTableData] = useState<TableRow[]>([]);
   const [rowCount, setRowCount] = useState<number>(0);
   const [querySessionId, setQuerySessionId] = useState<string | null>(null);
   const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null);
-
-  // --- API Handlers (functions remain unchanged) ---
 
   const handleTableSelect = useCallback(async (tableName: string, schemaName: string) => {
     if (!dbId) return;
@@ -54,25 +49,35 @@ const DatabaseDetail = () => {
 
     setSelectedTable({ schema: schemaName, name: tableName });
     const newQuery = `SELECT * FROM ${schemaName}.${tableName} LIMIT 100;`;
-    setQuery(newQuery); // Update query box
+    setQuery(newQuery);
 
     setIsExecuting(true);
     setTableData([]);
     setRowCount(0);
 
+    const loadingToast = toast.loading(`Loading data from ${schemaName}.${tableName}...`);
+
     try {
+      const startTime = performance.now();
       const data = await bridgeApi.fetchTableData(dbId, schemaName, tableName);
+      const elapsed = performance.now() - startTime;
+
       setTableData(data);
       setRowCount(data.length);
+
       toast.success("Table data retrieved", {
-        description: `${data.length} rows loaded for ${schemaName}.${tableName}.`,
-        duration: 1500
+        id: loadingToast,
+        description: `${data.length} rows loaded in ${(elapsed / 1000).toFixed(2)}s`,
+        duration: 2000
       });
     } catch (error: any) {
       console.error("Error fetching table data:", error);
       setTableData([]);
       setRowCount(0);
-      toast.error("Data fetch failed", { description: error.message });
+      toast.error("Data fetch failed", {
+        id: loadingToast,
+        description: error.message
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -82,11 +87,27 @@ const DatabaseDetail = () => {
     if (!dbId) return;
 
     try {
-      setLoading(true);
+      setLoadingTables(true);
       setError(null);
 
-      const tableListResult = await bridgeApi.listTables(dbId);
-      const dbDetails = await bridgeApi.getDatabase(dbId);
+      console.log('[DatabaseDetail] Fetching database details...');
+
+      // Show loading toast for slow operations
+      const loadingToast = toast.loading("Loading database schema...", {
+        description: "This may take a moment for large databases"
+      });
+
+      const startTime = performance.now();
+
+      // Fetch database metadata and table list in parallel
+      const [dbDetails, tableListResult] = await Promise.all([
+        bridgeApi.getDatabase(dbId),
+        bridgeApi.listTables(dbId)
+      ]);
+
+      const elapsed = performance.now() - startTime;
+      console.log(`[DatabaseDetail] Loaded ${tableListResult.length} tables in ${elapsed.toFixed(0)}ms`);
+
       setDatabaseName(dbDetails?.name || 'Database');
 
       const parsedTables: TableInfo[] = tableListResult.map((item: any) => ({
@@ -97,20 +118,28 @@ const DatabaseDetail = () => {
 
       setTables(parsedTables);
 
+      toast.success("Database loaded", {
+        id: loadingToast,
+        description: `Found ${parsedTables.length} tables in ${(elapsed / 1000).toFixed(2)}s`,
+        duration: 2000
+      });
+
       // Automatically select the first table if none is selected
       if (parsedTables.length > 0 && !selectedTable) {
         await handleTableSelect(parsedTables[0].name, parsedTables[0].schema);
       } else if (selectedTable) {
-        // If a table was already selected, make sure to re-fetch its data 
-        // after the list is refreshed (optional, but safer)
+        // Re-fetch data for currently selected table
         await handleTableSelect(selectedTable.name, selectedTable.schema);
       }
     } catch (err: any) {
       console.error("Failed to fetch tables:", err);
       setError(err.message || "Connection failed.");
-      toast.error("Failed to load tables", { description: err.message });
+      toast.error("Failed to load database", {
+        description: err.message || "Connection failed"
+      });
     } finally {
       setLoading(false);
+      setLoadingTables(false);
     }
   }, [dbId, selectedTable, handleTableSelect]);
 
@@ -163,7 +192,6 @@ const DatabaseDetail = () => {
       if (cancelled) {
         toast.info("Cancelling query...", { description: "Stopping query execution" });
       }
-      // Cleanup happens via the query.done notification
     } catch (error: any) {
       console.error("Error cancelling query:", error);
       toast.error("Failed to cancel query", { description: error.message });
@@ -177,15 +205,12 @@ const DatabaseDetail = () => {
     }, 2000);
   };
 
-  // --- Effect Hooks (remain unchanged) ---
-
   useEffect(() => {
-    // Clear initial query if tables haven't loaded yet
     if (!selectedTable) setQuery('');
     fetchTables();
   }, [fetchTables]);
 
-  // Setup query result listeners (rest of the effect hook remains the same)
+  // Setup query result listeners
   useEffect(() => {
     const handleResult = (event: CustomEvent) => {
       if (event.detail.sessionId !== querySessionId) return;
@@ -244,32 +269,42 @@ const DatabaseDetail = () => {
     };
   }, [querySessionId]);
 
-
   if (error) {
-    // Error boundary rendering: Updated background classes for error card
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950 text-black dark:text-white">
-        <Card className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-xl shadow-lg dark:shadow-2xl p-6">
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
+        {/* Updated Error Card Styling */}
+        <Card className="bg-card shadow-elevated border border-border rounded-xl p-6">
           <CardHeader>
-            <CardTitle className="text-2xl text-gray-900 dark:text-white mb-4">Error Loading Database</CardTitle>
+            <CardTitle className="text-2xl text-foreground mb-4">Error Loading Database</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 dark:text-gray-400">An error occurred while connecting to the database:</p>
-            <pre className="bg-gray-100 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-700 text-red-600 dark:text-red-400 p-4 rounded-lg mt-4 whitespace-pre-wrap text-sm font-mono">
+            <p className="text-muted-foreground">An error occurred while connecting to the database:</p>
+            <pre className="bg-muted border border-border text-destructive p-4 rounded-lg mt-4 whitespace-pre-wrap text-sm font-mono">
               {error}
             </pre>
             <div className="mt-6 flex gap-3">
               <Button
-                className="mt-4 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                variant="outline"
+                // Solid Cyan Retry Button (Primary Accent)
+                className="bg-cyan-500 hover:bg-cyan-600 transition-all shadow-md shadow-cyan-500/30 text-white"
                 onClick={() => fetchTables()}
+                disabled={loadingTables}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry
+                {loadingTables ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </>
+                )}
               </Button>
               <Link to={'/'}>
                 <Button
-                  className="mt-4 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  // Outline button styling
+                  className="border-border text-foreground hover:bg-accent"
                   variant={'outline'}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
@@ -284,21 +319,18 @@ const DatabaseDetail = () => {
   }
 
   return (
-    <div className="min-h-screen **bg-gray-100 dark:bg-gray-950** text-black dark:text-white">
+    <div className="min-h-screen bg-background dark:bg-[#050505] text-foreground">
       <DatabasePageHeader
         dbId={dbId || ''}
         databaseName={databaseName}
         onRefresh={fetchTables}
         onBackup={handleBackup}
+        loading={loadingTables}
       />
 
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-6">
-          {/* Table Selector Dropdown Section (Header Text is fine) */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-              Data View
-            </h2>
+          <div className="flex items-center justify-end">
             <TableSelectorDropdown
               tables={tables}
               selectedTable={selectedTable}
