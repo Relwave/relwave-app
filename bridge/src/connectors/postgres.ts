@@ -260,19 +260,34 @@ export function streamQueryCancelable(
   return { promise, cancel };
 }
 
-export async function getDBStats(connection: PGConfig) {
+export async function getDBStats(connection: PGConfig): Promise<{
+  total_tables: number;
+  total_db_size_mb: number;
+  total_rows: number;
+}> {
   const client = createClient(connection);
   try {
     await client.connect();
     const res = await client.query(`
       SELECT
-    (SELECT COUNT(*)
-     FROM information_schema.tables
-     WHERE table_schema = current_schema()) AS total_tables,
-    pg_size_pretty(pg_database_size(current_database())) AS total_db_size,
-    (pg_database_size(current_database()) / (1024.0 * 1024.0)) AS total_db_size_mb;`);
+        (SELECT COUNT(*) 
+         FROM information_schema.tables
+         WHERE table_schema = current_schema() AND table_type = 'BASE TABLE') AS total_tables,
+        (SELECT COALESCE(SUM(n_live_tup), 0)
+         FROM pg_stat_user_tables 
+         WHERE schemaname = current_schema()) AS total_rows, -- <-- NEW: Aggregated row count
+        (pg_database_size(current_database()) / (1024.0 * 1024.0)) AS total_db_size_mb;
+    `);
+
+    // CRITICAL: Ensure the pg client is closed after a successful query
     await client.end();
-    return res.rows?.[0];
+
+    // CRITICAL: Update the return type structure
+    return res.rows?.[0] as {
+      total_tables: number;
+      total_db_size_mb: number;
+      total_rows: number;
+    };
   } catch (error) {
     // 5. CRITICAL: Handle the error (log it and re-throw it or return null/undefined)
     console.error("Error fetching database stats:", error);
@@ -286,7 +301,6 @@ export async function getDBStats(connection: PGConfig) {
     throw error;
   }
 }
-
 /**
  * Retrieves list of schemas in the database.
  */

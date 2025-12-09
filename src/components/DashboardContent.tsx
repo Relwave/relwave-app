@@ -12,6 +12,7 @@ interface DashboardContentProps {
     connectedCount: number;
     totalTables: number | string;
     totalSize: string;
+    totalRows: number;
     loading: boolean;
     statsLoading: boolean;
     searchQuery: string;
@@ -28,6 +29,7 @@ const DashboardContent = ({
     connectedCount,
     totalTables,
     totalSize,
+    totalRows,
     loading,
     searchQuery,
     setSearchQuery,
@@ -44,6 +46,7 @@ const DashboardContent = ({
                     connectedCount={connectedCount}
                     totalTables={totalTables}
                     totalSize={totalSize}
+                    totalRows={totalRows}
                     statsLoading={loading}
                 />
 

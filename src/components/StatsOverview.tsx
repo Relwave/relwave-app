@@ -8,11 +8,11 @@ export interface StatsOverviewProps {
     connectedCount: number
     totalTables: number | string
     totalSize: string
+    totalRows: number
     statsLoading: boolean
 }
 
-
-const StatsOverview = ({ databases, connectedCount, totalTables, totalSize, statsLoading }: StatsOverviewProps) => {
+const StatsOverview = ({ databases, connectedCount, totalTables, totalSize, statsLoading, totalRows }: StatsOverviewProps) => {
     return (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {/* Card 1: Total Connections (Cyan) */}
@@ -57,6 +57,21 @@ const StatsOverview = ({ databases, connectedCount, totalTables, totalSize, stat
                                 {statsLoading ? "..." : totalTables}
                             </p>
                             <p className="text-sm text-muted-foreground">Total Schemas/Tables</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+            <Card className="shadow-elevated hover:border-violet-500/50 transition-all duration-300">
+                <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-violet-500/20 rounded-xl">
+                            <Database className="h-6 w-6 text-violet-400" />
+                        </div>
+                        <div>
+                            <p className="text-3xl font-extrabold text-foreground">
+                                {statsLoading ? "..." : totalRows}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Total Rows</p>
                         </div>
                     </div>
                 </CardContent>

@@ -1,6 +1,6 @@
 // src/renderer/src/services/bridgeClient.ts
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 type Pending = { resolve: (v: any) => void; reject: (e: any) => void };
 const pending = new Map<number, Pending>();
@@ -12,7 +12,7 @@ let unlistenStderr: UnlistenFn | null = null;
 
 /** Check if we're running in Tauri environment */
 export function hasTauriInvoke(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
+  return typeof window !== "undefined" && !!(window as any).__TAURI__;
 }
 
 /**
@@ -22,38 +22,42 @@ export function hasTauriInvoke(): boolean {
  */
 export async function startBridgeListeners(): Promise<void> {
   if (isInitialized) {
-    console.warn('bridgeClient: Already initialized');
+    console.warn("bridgeClient: Already initialized");
     return;
   }
 
   if (!hasTauriInvoke()) {
-    console.warn('bridgeClient: Tauri invoke not available — running in browser fallback mode.');
+    console.warn(
+      "bridgeClient: Tauri invoke not available — running in browser fallback mode."
+    );
     return;
   }
 
   try {
     // Listen to bridge stdout forwarded by Rust
-    unlistenStdout = await listen<string>('bridge-stdout', (event) => {
+    unlistenStdout = await listen<string>("bridge-stdout", (event) => {
       try {
         const payload = JSON.parse(event.payload);
-        if (payload && typeof payload === 'object') {
+        if (payload && typeof payload === "object") {
           // Handle notification (no id field)
           if (payload.method && payload.id === undefined) {
             window.dispatchEvent(
-              new CustomEvent(`bridge:${payload.method}`, { detail: payload.params })
+              new CustomEvent(`bridge:${payload.method}`, {
+                detail: payload.params,
+              })
             );
             return;
           }
-          
+
           // Handle response (has id field)
           if (payload.id !== undefined) {
             const p = pending.get(payload.id);
             if (!p) {
-              console.warn('bridge: orphan response', payload);
+              // console.warn('bridge: orphan response', payload);
               return;
             }
             pending.delete(payload.id);
-            if ('result' in payload) {
+            if ("result" in payload) {
               p.resolve(payload.result);
             } else {
               p.reject(payload.error);
@@ -62,19 +66,19 @@ export async function startBridgeListeners(): Promise<void> {
           }
         }
       } catch (e) {
-        console.warn('bridge: invalid json from stdout', event.payload, e);
+        console.warn("bridge: invalid json from stdout", event.payload, e);
       }
     });
 
     // Listen to bridge stderr for logs
-    unlistenStderr = await listen<string>('bridge-stderr', (event) => {
-      console.debug('bridge-log:', event.payload);
+    unlistenStderr = await listen<string>("bridge-stderr", (event) => {
+      console.debug("bridge-log:", event.payload);
     });
 
     isInitialized = true;
-    console.log('bridgeClient: Listeners initialized');
+    console.log("bridgeClient: Listeners initialized");
   } catch (error) {
-    console.error('bridgeClient: Failed to initialize listeners', error);
+    console.error("bridgeClient: Failed to initialize listeners", error);
     throw error;
   }
 }
@@ -94,7 +98,7 @@ export function stopBridgeListeners(): void {
     unlistenStderr = null;
   }
   isInitialized = false;
-  console.log('bridgeClient: Listeners stopped');
+  console.log("bridgeClient: Listeners stopped");
 }
 
 /**
@@ -102,17 +106,17 @@ export function stopBridgeListeners(): void {
  */
 function getTimeoutForMethod(method: string): number {
   // Schema operations can be very slow on large databases
-  if (method === 'db.getSchema') return 180000; // 3 minutes
-  
+  if (method === "db.getSchema") return 180000; // 3 minutes
+
   // Table listing can be slow on MySQL
-  if (method === 'db.listTables') return 120000; // 2 minutes
-  
+  if (method === "db.listTables") return 120000; // 2 minutes
+
   // Stats queries are usually fast but can be slow on large DBs
-  if (method === 'db.getStats') return 60000; // 1 minute
-  
+  if (method === "db.getStats") return 60000; // 1 minute
+
   // Query operations need longer timeouts
-  if (method.startsWith('query.')) return 300000; // 5 minutes
-  
+  if (method.startsWith("query.")) return 300000; // 5 minutes
+
   // Default for other operations
   return 30000; // 30 seconds
 }
@@ -133,7 +137,7 @@ export async function bridgeRequest(
   if (!hasTauriInvoke()) {
     return Promise.reject(
       new Error(
-        'Tauri runtime not available. Run inside the Tauri app (pnpm tauri dev) or provide a browser fallback.'
+        "Tauri runtime not available. Run inside the Tauri app (pnpm tauri dev) or provide a browser fallback."
       )
     );
   }
@@ -141,7 +145,7 @@ export async function bridgeRequest(
   if (!isInitialized) {
     return Promise.reject(
       new Error(
-        'Bridge client not initialized. Call startBridgeListeners() first.'
+        "Bridge client not initialized. Call startBridgeListeners() first."
       )
     );
   }
@@ -159,22 +163,33 @@ export async function bridgeRequest(
       if (pending.has(id)) {
         pending.delete(id);
         const elapsed = performance.now() - startTime;
-        console.error(`[Bridge Timeout ${id}] ${method} after ${elapsed.toFixed(0)}ms (limit: ${timeout}ms)`);
-        reject(new Error(`Bridge request timeout after ${timeout}ms: ${method}`));
+        console.error(
+          `[Bridge Timeout ${id}] ${method} after ${elapsed.toFixed(
+            0
+          )}ms (limit: ${timeout}ms)`
+        );
+        reject(
+          new Error(`Bridge request timeout after ${timeout}ms: ${method}`)
+        );
       }
     }, timeout);
 
     const wrappedResolve = (v: any) => {
       clearTimeout(timeoutHandle);
       const elapsed = performance.now() - startTime;
-      console.debug(`[Bridge Response ${id}] ${method} completed in ${elapsed.toFixed(0)}ms`);
+      console.debug(
+        `[Bridge Response ${id}] ${method} completed in ${elapsed.toFixed(0)}ms`
+      );
       resolve(v);
     };
 
     const wrappedReject = (e: any) => {
       clearTimeout(timeoutHandle);
       const elapsed = performance.now() - startTime;
-      console.error(`[Bridge Error ${id}] ${method} failed after ${elapsed.toFixed(0)}ms`, e);
+      console.error(
+        `[Bridge Error ${id}] ${method} failed after ${elapsed.toFixed(0)}ms`,
+        e
+      );
       reject(e);
     };
 
@@ -183,7 +198,7 @@ export async function bridgeRequest(
 
   try {
     // Write to bridge stdin through Tauri command: bridge_write
-    await invoke('bridge_write', { data: payload });
+    await invoke("bridge_write", { data: payload });
   } catch (error) {
     pending.delete(id);
     throw new Error(`Failed to send bridge request: ${error}`);
@@ -207,13 +222,12 @@ export async function bridgeRequestBatch(
   timeoutMs = 30000
 ): Promise<any[]> {
   // Send all requests in parallel
-  const promises = requests.map(req => 
-    bridgeRequest(req.method, req.params, timeoutMs)
-      .catch(error => {
-        console.warn(`Batch request failed: ${req.method}`, error);
-        return null; // Return null for failed requests instead of breaking the whole batch
-      })
+  const promises = requests.map((req) =>
+    bridgeRequest(req.method, req.params, timeoutMs).catch((error) => {
+      console.warn(`Batch request failed: ${req.method}`, error);
+      return null; // Return null for failed requests instead of breaking the whole batch
+    })
   );
-  
+
   return Promise.all(promises);
 }

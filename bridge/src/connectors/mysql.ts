@@ -313,19 +313,22 @@ export interface TableInfo {
   type: string;
 }
 
-export async function getDBStats(
-  cfg: MySQLConfig
-): Promise<{ total_tables: number; total_db_size_mb: number }> {
+export async function getDBStats(cfg: MySQLConfig): Promise<{
+  total_tables: number;
+  total_db_size_mb: number;
+  total_rows: number;
+}> {
   const pool = mysql.createPool(createPoolConfig(cfg));
   let connection: PoolConnection | null = null;
 
   try {
     connection = await pool.getConnection();
 
-    // OPTIMIZED: Use simpler, faster query
+    // MODIFIED: Added SUM(table_rows) AS total_rows
     const query = `
       SELECT
         COUNT(*) AS total_tables,
+        SUM(table_rows) AS total_rows,  -- <-- NEW: Aggregated row count
         COALESCE(
           ROUND(SUM(data_length + index_length) / (1024 * 1024), 2),
           0
@@ -338,12 +341,18 @@ export async function getDBStats(
     `;
 
     const [rows] = await connection.execute<RowDataPacket[]>(query);
-    return rows[0] as { total_tables: number; total_db_size_mb: number };
+    // CRITICAL: Update the return type structure
+    return rows[0] as {
+      total_tables: number;
+      total_db_size_mb: number;
+      total_rows: number;
+    };
   } catch (error) {
     throw new Error(
-      `Failed to fetch database stats: ${(error as Error).message}`
+      `Failed to fetch MySQL database stats: ${(error as Error).message}`
     );
   } finally {
+    // ... (finally block remains the same for connection release and pool end)
     if (connection) {
       try {
         connection.release();

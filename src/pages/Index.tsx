@@ -5,14 +5,22 @@ import { startBridgeListeners, stopBridgeListeners, isBridgeReady } from "@/serv
 import DashboardContent from "@/components/DashboardContent";
 import BridgeNotInitLoader from "@/components/bridge/BridgeNotInitLoader";
 import BridgeFailed from "@/components/bridge/BridgeFailed";
-import Header from "@/components/Header";
+import Header from "@/components/header";
+import { bytesToMBString } from "@/lib/bytesToMb";
 
-// Type for database stats
-interface DatabaseStats {
-  total_tables: string;
-  total_db_size: string;
-  total_db_size_mb: string;
-}
+const INITIAL_FORM_DATA = {
+  name: "",
+  type: "",
+  host: "",
+  port: "",
+  user: "",
+  password: "",
+  database: "",
+  sslmode: "",
+  ssl: false
+};
+
+const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "database"];
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,26 +30,20 @@ const Index = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [bridgeReady, setBridgeReady] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [databaseStats, setDatabaseStats] = useState<Record<string, DatabaseStats>>({});
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "",
-    host: "",
-    port: "",
-    user: "",
-    password: "",
-    database: "",
-    sslmode: "",
-    ssl: false
+  const [stats, setStats] = useState({
+    totalRows: 0,
+    size: 0,
+    totalTables: 0
   });
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
-  // Initialize bridge listeners on mount
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
     const initBridge = async () => {
       try {
         await startBridgeListeners();
 
-        // Listen for bridge.ready notification
         const handleBridgeReady = () => {
           console.log('Bridge ready event received');
           setBridgeReady(true);
@@ -50,13 +52,12 @@ const Index = () => {
 
         window.addEventListener('bridge:bridge.ready', handleBridgeReady);
 
-        // Check if bridge is already ready
         if (isBridgeReady()) {
           setBridgeReady(true);
           loadDatabases();
         }
 
-        return () => {
+        cleanup = () => {
           window.removeEventListener('bridge:bridge.ready', handleBridgeReady);
           stopBridgeListeners();
         };
@@ -70,6 +71,7 @@ const Index = () => {
     };
 
     initBridge();
+    return () => cleanup?.();
   }, []);
 
   const loadDatabases = async () => {
@@ -81,108 +83,39 @@ const Index = () => {
     try {
       setLoading(true);
       const startTime = performance.now();
-
-      // Load databases list first - this should be fast
       const dbs = await bridgeApi.listDatabases();
       const dbLoadTime = performance.now() - startTime;
       console.log(`Loaded ${dbs.length} databases in ${dbLoadTime.toFixed(0)}ms`);
 
       setDatabases(dbs);
-      setLoading(false); // Show databases immediately
 
-      // Load stats in the background - don't block UI
       if (dbs.length > 0) {
-        loadDatabasesStats(dbs);
+        await loadDatabaseStats();
       }
     } catch (error: any) {
       console.error('Failed to load databases:', error);
       toast.error("Failed to load databases", {
         description: error.message
       });
+    } finally {
       setLoading(false);
     }
   };
 
-  const loadDatabasesStats = async (dbs?: DatabaseConnection[]) => {
-    const databasesToLoad = dbs || databases;
-
-    if (!isBridgeReady() || databasesToLoad.length === 0) {
-      console.warn('Bridge not ready or no databases to load stats for');
-      return;
-    }
-
-    setStatsLoading(true);
-    const startTime = performance.now();
-
-    // Helper to normalize various API shapes into DatabaseStats
-    const normalizeStats = (raw: any): DatabaseStats | null => {
-      if (!raw) return null;
-
-      // If API returns an array, prefer the first item
-      const item = Array.isArray(raw) ? raw[0] : raw;
-
-      if (typeof item !== "object") return null;
-
-      const total_tables = item.total_tables ?? item.totalTables ?? item.tables;
-      const total_db_size = item.total_db_size ?? item.totalDbSize ?? item.data_size;
-      const total_db_size_mb = item.total_db_size_mb ?? item.totalDbSizeMb ?? item.data_size_mb;
-
-      if (total_tables == null || total_db_size == null || total_db_size_mb == null) {
-        return null;
-      }
-
-      return {
-        total_tables: String(total_tables),
-        total_db_size: String(total_db_size),
-        total_db_size_mb: String(total_db_size_mb),
-      };
-    };
-
+  const loadDatabaseStats = async () => {
     try {
-      console.log(`Loading stats for ${databasesToLoad.length} databases...`);
+      setStatsLoading(true);
+      const res = await bridgeApi.getTotalDatabaseStats();
 
-      // Fetch stats for all databases in parallel with error handling
-      const statsPromises = databasesToLoad.map(async (db) => {
-        try {
-          const stats = await bridgeApi.getDatabaseStats(db.id);
-          return { id: db.id, stats, error: null };
-        } catch (error) {
-          console.error(`Failed to load stats for ${db.name}:`, error);
-          return { id: db.id, stats: null, error };
-        }
-      });
-
-      const results = await Promise.all(statsPromises);
-      const elapsed = performance.now() - startTime;
-
-      // Count successes and failures
-      const successful = results.filter(r => r.stats !== null).length;
-      const failed = results.length - successful;
-      console.log(
-        `Stats loaded in ${elapsed.toFixed(0)}ms: ${successful} successful, ${failed} failed`
-      );
-
-      // Update stats state incrementally
-      const statsMap: Record<string, DatabaseStats> = {};
-      results.forEach(({ id, stats }) => {
-        const normalized = normalizeStats(stats);
-        if (normalized) {
-          statsMap[id] = normalized;
-        }
-      });
-
-      setDatabaseStats(statsMap);
-
-      if (failed > 0) {
-        toast.warning(`Could not load stats for ${failed} database(s)`, {
-          description: "Some statistics may be unavailable"
+      if (res) {
+        setStats({
+          totalRows: res.rows,
+          size: res.sizeBytes,
+          totalTables: res.tables
         });
       }
     } catch (error) {
-      console.error('Failed to load database stats:', error);
-      toast.error("Failed to load database statistics", {
-        description: "Statistics will be unavailable"
-      });
+      console.error('Failed to load stats:', error);
     } finally {
       setStatsLoading(false);
     }
@@ -195,18 +128,12 @@ const Index = () => {
     toast.success("Databases refreshed");
   };
 
-  const filteredDatabases = databases.filter((db) =>
-    db.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddDatabase = async () => {
-    // Validate required fields
-    const required = ["name", "type", "host", "port", "user", "database"];
-    const missing = required.filter(field => !formData[field as keyof typeof formData]);
+    const missing = REQUIRED_FIELDS.filter(field => !formData[field as keyof typeof formData]);
 
     if (missing.length > 0) {
       toast.error("Missing required fields", {
@@ -232,19 +159,7 @@ const Index = () => {
         description: `${newDb.name} is now available.`
       });
 
-      // Reset form
-      setFormData({
-        name: "",
-        type: "",
-        host: "",
-        port: "",
-        user: "",
-        password: "",
-        database: "",
-        sslmode: "",
-        ssl: false
-      });
-
+      setFormData(INITIAL_FORM_DATA);
       setIsDialogOpen(false);
       await loadDatabases();
     } catch (error: any) {
@@ -271,6 +186,7 @@ const Index = () => {
   const handleTestConnection = async (id: string, name: string) => {
     try {
       const result = await bridgeApi.testConnection(id);
+
       if (result.ok) {
         toast.success("Connection successful", {
           description: `Successfully connected to ${name}`
@@ -287,30 +203,18 @@ const Index = () => {
     }
   };
 
-  // Calculate aggregate stats
-  const connectedCount = databases.length;
-  const totalTables = Object.values(databaseStats).reduce((sum, stats) => {
-    return sum + parseInt(stats.total_tables || '0');
-  }, 0);
-  const totalSizeMB = Object.values(databaseStats).reduce((sum, stats) => {
-    return sum + parseFloat(stats.total_db_size_mb || '0');
-  }, 0);
-  const totalSize = totalSizeMB > 1024
-    ? `${(totalSizeMB / 1024).toFixed(2)} GB`
-    : `${totalSizeMB.toFixed(2)} MB`;
 
-  // Show bridge initialization status
+
+  const filteredDatabases = databases.filter((db) =>
+    db.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!bridgeReady && loading) {
-    return (
-      <BridgeNotInitLoader />
-    );
+    return <BridgeNotInitLoader />;
   }
 
-  // Show error if bridge failed to initialize
   if (!bridgeReady && !loading) {
-    return (
-      <BridgeFailed />
-    );
+    return <BridgeFailed />;
   }
 
   return (
@@ -333,9 +237,10 @@ const Index = () => {
         setSearchQuery={setSearchQuery}
         handleDeleteDatabase={handleDeleteDatabase}
         handleTestConnection={handleTestConnection}
-        connectedCount={connectedCount}
-        totalTables={totalTables}
-        totalSize={totalSize}
+        connectedCount={databases.length}
+        totalTables={stats.totalTables}
+        totalRows={stats.totalRows}
+        totalSize={stats.size > 0 ? bytesToMBString(stats.size) : "0 MB"}
         filteredDatabases={filteredDatabases}
         setIsDialogOpen={setIsDialogOpen}
         statsLoading={statsLoading}

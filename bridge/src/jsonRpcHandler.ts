@@ -587,6 +587,70 @@ export function registerDbHandlers(
     }
   });
 
+  rpcRegister("db.getTotalStats", async (params: any, id: number | string) => {
+    try {
+      const dbs = await dbStore.listDBs();
+
+      if (dbs.length === 0) {
+        return rpc.sendResponse(id, {
+          ok: true,
+          data: { tables: 0, rows: 0, sizeBytes: 0 },
+        });
+      }
+
+      let totalStats = { tables: 0, rows: 0, sizeBytes: 0 };
+      const MB_TO_BYTES = 1024 * 1024;
+      for (const db of dbs) {
+        const pwd = await dbStore.getPasswordFor(db);
+        const dbType = getDBType(db);
+
+        if (dbType === DBType.MYSQL) {
+          const conn = buildMySQLConnection(db, pwd);
+          const tests = await mysqlConnector.testConnection(conn);
+          if (!tests.ok) {
+            logger.warn(
+              `Skipping stats for DB ${db.name} (${db.id}) due to connection test failure`
+            );
+            continue;
+          }
+
+          const stats = await mysqlConnector.getDBStats(conn);
+          const mysqlTables = Number(stats.total_tables) || 0;
+          const mysqlRows = Number(stats.total_rows) || 0;
+          const mysqlSizeMB = Number(stats.total_db_size_mb) || 0;
+          const mysqlSizeBytes = mysqlSizeMB * MB_TO_BYTES;
+
+          totalStats.tables += mysqlTables;
+          totalStats.rows += mysqlRows;
+          totalStats.sizeBytes += mysqlSizeBytes;
+        } else {
+          const conn = buildPostgresConnection(db, pwd);
+          const stats = await postgresConnector.getDBStats(conn);
+          const tests = await postgresConnector.testConnection(conn);
+          if (!tests.ok) {
+            logger.warn(
+              `Skipping stats for DB ${db.name} (${db.id}) due to connection test failure`
+            );
+            continue;
+          }
+          const pgTables = Number(stats.total_tables) || 0;
+          const pgRows = Number(stats.total_rows) || 0;
+          const pgSizeMB = Number(stats.total_db_size_mb) || 0;
+          const pgSizeBytes = pgSizeMB * MB_TO_BYTES;
+          totalStats.tables += pgTables;
+          totalStats.rows += pgRows;
+          totalStats.sizeBytes += pgSizeBytes;
+        }
+      }
+
+      // 2. Send the final response with corrected numeric totals
+      return rpc.sendResponse(id, { ok: true, data: totalStats });
+    } catch (error) {
+      logger?.error({ error }, "db.getTotalStats failed");
+      rpc.sendError(id, { code: "IO_ERROR", message: String(error) });
+    }
+  });
+
   // db.getSchema
   rpcRegister("db.getSchema", async (params: any, id: number | string) => {
     try {

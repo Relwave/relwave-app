@@ -94,8 +94,9 @@ export interface DatabaseSchemaDetails {
 }
 
 export interface DatabaseStats {
-  count: number;
-  total_size_pretty: string;
+  rows: number;
+  sizeBytes: number;
+  tables: number;
 }
 
 class BridgeApiService {
@@ -238,9 +239,7 @@ class BridgeApiService {
           throw new Error(`Missing required field: ${field}`);
         }
       }
-      console.log("Adding database with params:", params);
       const result = await bridgeRequest("db.add", params);
-      console.log("Add database result:", result);
       if (!result?.ok) {
         throw new Error("Failed to add database");
       }
@@ -363,13 +362,23 @@ class BridgeApiService {
     }
   }
 
+  async getTotalDatabaseStats(): Promise<DatabaseStats> {
+    try {
+      const result = await bridgeRequest("db.getTotalStats", {});
+      console.log(result);
+      return result?.data || { row: 0, size: 0, tables: 0 };
+    } catch (error) {
+      console.log(error);
+      throw new Error(`Failed to get total database stats: ${error}`);
+    }
+  }
+
   async getSchema(id: string): Promise<DatabaseSchemaDetails | null> {
     try {
       if (!id) {
         throw new Error("Database ID is required.");
       }
       const result = await bridgeRequest("db.getSchema", { id });
-      console.log("Fetched schema details:", result);
       return result?.data || null;
     } catch (error: any) {
       console.error("Failed to fetch schema details:", error);
