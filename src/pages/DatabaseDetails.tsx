@@ -1,14 +1,16 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { bridgeApi, TableRow } from "@/services/bridgeApi";
-
 import QueryContentTabs from "@/components/databaseDetails/QueryContentTabs";
 import TableSelectorDropdown from "@/components/databaseDetails/TableSidebar";
 import DatabasePageHeader from "@/components/databaseDetails/DatabasePageHeader";
+import { useBridgeQuery } from "@/hooks/useBridgeQuery";
+import BridgeNotInitLoader from "@/components/bridge/BridgeNotInitLoader";
+import { Spinner } from "@/components/ui/spinner";
 
 export interface TableInfo {
   schema: string;
@@ -41,16 +43,26 @@ const DatabaseDetail = () => {
   const [querySessionId, setQuerySessionId] = useState<string | null>(null);
   const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null);
 
+
+  const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
+
+  useEffect(() => {
+    if (!bridgeReady) return;
+    fetchTables();
+  }, [bridgeReady]);
+
+  if (bridgeLoading) {
+    return <BridgeNotInitLoader />;
+  }
+
+
+
   const handleTableSelect = useCallback(async (tableName: string, schemaName: string) => {
     if (!dbId) return;
-
-    // Prevent re-fetching if the same table is selected
     if (selectedTable?.schema === schemaName && selectedTable?.name === tableName) return;
-
     setSelectedTable({ schema: schemaName, name: tableName });
     const newQuery = `SELECT * FROM ${schemaName}.${tableName} LIMIT 100;`;
     setQuery(newQuery);
-
     setIsExecuting(true);
     setTableData([]);
     setRowCount(0);
@@ -291,7 +303,7 @@ const DatabaseDetail = () => {
               >
                 {loadingTables ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Spinner className="h-4 w-4 mr-2 animate-spin" />
                     Retrying...
                   </>
                 ) : (

@@ -1,10 +1,10 @@
 import StatsOverview from './StatsOverview';
 import { Database, Plus, Search } from 'lucide-react';
 import { Input } from './ui/input';
-import Loader from './Loader';
 import { DatabaseCard } from './DatabaseCard';
 import { Button } from './ui/button';
 import { DatabaseConnection } from '@/services/bridgeApi';
+import { Spinner } from './ui/spinner';
 
 
 interface DashboardContentProps {
@@ -66,7 +66,7 @@ const DashboardContent = ({
 
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <Loader />
+                        <Spinner className="size-16" />
                     </div>
                 ) : (
                     <>

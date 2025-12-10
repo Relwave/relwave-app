@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "../ui/button";
 import { ArrowLeft, GitBranch, Layers, RefreshCw, Download, Settings, Server, Loader2 } from "lucide-react";
+import { Spinner } from "../ui/spinner";
 
 interface DatabasePageHeaderProps {
     dbId: string;
@@ -45,7 +46,7 @@ const DatabasePageHeader: React.FC<DatabasePageHeaderProps> = ({
                                 {databaseName}
                             </h1>
                             {loading && (
-                                <Loader2 className="h-4 w-4 text-cyan-500 animate-spin" />
+                                <Spinner className="h-4 w-4 text-cyan-500 animate-spin" />
                             )}
                         </div>
                         <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full inline-flex items-center">

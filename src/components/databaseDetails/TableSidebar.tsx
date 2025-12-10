@@ -1,7 +1,7 @@
 // src/components/databaseDetails/TableSelectorDropdown.tsx
 
 import { SelectedTable, TableInfo } from "@/pages/DatabaseDetails";
-import { Table2, Loader2 } from "lucide-react";
+import { Table2 } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "../ui/spinner";
 
 interface TableSelectorDropdownProps {
     tables: TableInfo[];
@@ -50,7 +51,7 @@ const TableSelectorDropdown: React.FC<TableSelectorDropdownProps> = ({
         <div className="w-full sm:w-64">
             {loading ? (
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner className="h-4 w-4 animate-spin" />
                     <span>Loading tables...</span>
                 </div>
             ) : (

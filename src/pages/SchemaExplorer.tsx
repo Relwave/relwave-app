@@ -3,14 +3,21 @@ import { useParams } from "react-router-dom";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { bridgeApi, DatabaseSchemaDetails, ColumnDetails, TableSchemaDetails, SchemaGroup } from "@/services/bridgeApi"; // Import API and types
-import Loader from "@/components/Loader";
+import {
+    bridgeApi,
+    DatabaseSchemaDetails,
+    ColumnDetails,
+    TableSchemaDetails,
+    SchemaGroup
+} from "@/services/bridgeApi";
 import TreeViewPanel from "@/components/schemaExplorer/TreeViewPanel";
 import SchemaExplorerHeader from "@/components/schemaExplorer/SchemaExplorerHeader";
 import MetaDataPanel from "@/components/schemaExplorer/MetaDataPanel";
+import { Spinner } from "@/components/ui/spinner";
+import { useBridgeQuery } from "@/hooks/useBridgeQuery";
 
 interface Column extends ColumnDetails {
-    foreignKeyRef?: string; // Add if foreignKeyRef detail is manually available
+    foreignKeyRef?: string;
 }
 
 interface TableSchema extends TableSchemaDetails {
@@ -27,6 +34,7 @@ interface DatabaseSchema extends DatabaseSchemaDetails {
 
 export default function SchemaExplorer() {
     const { id: dbId } = useParams<{ id: string }>();
+    const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
 
     const [schemaData, setSchemaData] = useState<DatabaseSchema | null>(null);
     const [loading, setLoading] = useState(true);
@@ -36,102 +44,78 @@ export default function SchemaExplorer() {
     const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
-
-
+    // --- Fetch schema after bridge is ready ---
     const fetchSchema = useCallback(async () => {
-        if (!dbId) return;
+        if (!bridgeReady || !dbId) return;
+
+        setLoading(true);
+        setError(null);
 
         try {
-            setLoading(true);
-            setError(null);
-
             const result = await bridgeApi.getSchema(dbId);
 
             if (result) {
-                setSchemaData(result as DatabaseSchema);
-                setSelectedItem(result.name);
-                // Expand the first schema found by default
-                if (result.schemas.length > 0) {
-                    setExpandedSchemas(new Set([result.schemas[0].name]));
+                const dbSchema = result as DatabaseSchema;
+                setSchemaData(dbSchema);
+                setSelectedItem(dbSchema.name);
+
+                if (dbSchema.schemas.length > 0) {
+                    setExpandedSchemas(new Set([dbSchema.schemas[0].name]));
                 }
             } else {
                 setError(`Database ID ${dbId} found no schema data.`);
             }
-
         } catch (err: any) {
             console.error("Failed to fetch schema:", err);
             setError(err.message || "Failed to connect and load schema metadata.");
-            toast.error("Schema Load Failed", {
-                description: err.message
-            });
+            toast.error("Schema Load Failed", { description: err.message });
         } finally {
             setLoading(false);
         }
-    }, [dbId]);
+    }, [bridgeReady, dbId]);
 
     useEffect(() => {
         fetchSchema();
     }, [fetchSchema]);
 
-
-
+    // --- Toggle helpers ---
     const toggleSchema = (schemaName: string) => {
         const newExpanded = new Set(expandedSchemas);
-        if (newExpanded.has(schemaName)) {
-            newExpanded.delete(schemaName);
-        } else {
-            newExpanded.add(schemaName);
-        }
+        newExpanded.has(schemaName) ? newExpanded.delete(schemaName) : newExpanded.add(schemaName);
         setExpandedSchemas(newExpanded);
     };
 
     const toggleTable = (tableName: string) => {
         const newExpanded = new Set(expandedTables);
-        if (newExpanded.has(tableName)) {
-            newExpanded.delete(tableName);
-        } else {
-            newExpanded.add(tableName);
-        }
+        newExpanded.has(tableName) ? newExpanded.delete(tableName) : newExpanded.add(tableName);
         setExpandedTables(newExpanded);
     };
 
-
-    const handlePreviewRows = (tableName: string) => {
-        toast.success(`Showing preview for ${tableName}`);
-    };
-
-    const handleShowDDL = (tableName: string) => {
-        toast.success(`Generated DDL for ${tableName}`);
-    };
-
+    // --- Action handlers ---
+    const handlePreviewRows = (tableName: string) => toast.success(`Showing preview for ${tableName}`);
+    const handleShowDDL = (tableName: string) => toast.success(`Generated DDL for ${tableName}`);
     const handleCopy = (text: string, type: string) => {
-        const el = document.createElement('textarea');
+        const el = document.createElement("textarea");
         el.value = text;
         document.body.appendChild(el);
         el.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(el);
-
         toast.success(`${type} copied to clipboard`);
     };
+    const handleExport = (tableName: string) => toast.success(`Exported ${tableName} successfully`);
 
-    const handleExport = (tableName: string) => {
-        toast.success(`Exported ${tableName} successfully`);
-    };
-
-
-    if (loading) {
+    // --- Conditional rendering ---
+    if (bridgeLoading || loading) {
         return (
-            // Use theme colors for background
             <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
-                <Loader />
+                <Spinner className="size-16" />
             </div>
         );
     }
 
     if (error || !schemaData) {
         return (
-            // Use clean error styling with theme colors
             <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
                 <div className="text-center p-8 border border-destructive/30 rounded-xl bg-destructive/10 text-destructive">
                     <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
@@ -139,7 +123,6 @@ export default function SchemaExplorer() {
                     <p className="text-sm text-muted-foreground">{error || "No schema data could be loaded."}</p>
                     <Button
                         onClick={fetchSchema}
-                        // Use solid primary color (cyan) for retry
                         className="mt-4 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30"
                     >
                         <RefreshCw className="h-4 w-4 mr-2" /> Retry Load
@@ -149,20 +132,14 @@ export default function SchemaExplorer() {
         );
     }
 
-    // Get the current database object
-    const database = schemaData;
-
-
-    // --- Main Renderer ---
-
+    // --- Main renderer ---
     return (
         <div className="min-h-screen bg-background flex flex-col text-foreground dark:bg-[#050505]">
-            <SchemaExplorerHeader dbId={dbId!} database={database} />
+            <SchemaExplorerHeader dbId={dbId!} database={schemaData} />
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Tree View Panel */}
                 <TreeViewPanel
-                    database={database}
+                    database={schemaData}
                     expandedSchemas={expandedSchemas}
                     expandedTables={expandedTables}
                     toggleSchema={toggleSchema}
@@ -175,12 +152,8 @@ export default function SchemaExplorer() {
                     handleExport={handleExport}
                 />
 
-                {/* Metadata Panel */}
-                <MetaDataPanel
-                    database={database}
-                    selectedItem={selectedItem}
-                />
-            </div >
-        </div >
+                <MetaDataPanel database={schemaData} selectedItem={selectedItem} />
+            </div>
+        </div>
     );
 }

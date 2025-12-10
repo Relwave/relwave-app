@@ -231,3 +231,20 @@ export async function bridgeRequestBatch(
 
   return Promise.all(promises);
 }
+
+/**
+ * Wait until Tauri has injected its APIs into the window context.
+ * This is required because window.__TAURI__ is NOT available immediately.
+ */
+export function waitForTauri(): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if ((window as any).__TAURI__) {
+        resolve();
+      } else {
+        requestAnimationFrame(check);
+      }
+    };
+    check();
+  });
+}
