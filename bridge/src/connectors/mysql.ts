@@ -7,7 +7,16 @@ import mysql, {
 import { EventEmitter } from "node:events";
 import type { Connection as RawConnection } from "mysql2";
 
-export type MySQLConfig = PoolOptions;
+export type MySQLConfig = {
+  host: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  database?: string;
+  ssl?: boolean;
+  sslmode?: string;
+  connectionLimit?: number;
+}
 
 // Cache for table lists to avoid repeated slow queries
 const tableListCache = new Map<

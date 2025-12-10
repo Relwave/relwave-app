@@ -11,9 +11,11 @@
     "test:cancel": "node test/cancel_test_client.js",
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
     "build:pkg": "pkg . --out-path exece",
-    "postpkg": "node scripts/copy-native.js"
+    "postpkg": "node scripts/copy-native.js",
+    "test": "jest"
   },
   "dependencies": {
+    "@jest/globals": "^30.2.0",
     "@napi-rs/keyring": "^1.2.0",
     "bcryptjs": "^3.0.3",
     "mysql2": "^3.15.3",
@@ -36,10 +38,14 @@
     ]
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.15.6",
     "esbuild": "^0.27.0",
+    "jest": "^30.2.0",
     "pkg": "^5.8.1",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"
   }
