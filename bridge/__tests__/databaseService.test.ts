@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals";
+import { afterEach, describe, expect, test } from "@jest/globals";
 import { DatabaseService } from "../src/services/databaseService";
 
 const mockInput = {
@@ -11,7 +11,21 @@ const mockInput = {
   ssl: true,
 };
 
+let createdDbId: string | null = null;
+
 describe("Database Service Method", () => {
+  const dbService = new DatabaseService();
+
+  afterEach(async () => {
+    if (createdDbId) {
+      try {
+        await dbService.deleteDatabase(createdDbId);
+      } catch (e) {
+        console.warn("Cleanup failed:", e);
+      }
+      createdDbId = null;
+    }
+  });
   // Test Case 1: All required fields provided
   test("should add database when all required fields are provided", async () => {
     // Arrange
@@ -19,6 +33,7 @@ describe("Database Service Method", () => {
     const payload = { ...mockInput };
     // Act
     const result = await dbService.addDatabase(payload);
+    createdDbId = result.id;
     // Assert
     expect(result).toBeDefined();
     expect(result.name).toBe(payload.name);

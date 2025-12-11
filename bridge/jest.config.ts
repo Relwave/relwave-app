@@ -12,12 +12,9 @@ const config: Config = {
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { useESM: true }],
   },
-
+  setupFiles: ["./jest.env.js"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  testMatch: [
-    "**/__tests__/**/*.test.ts",
-    "**/?(*.)+(spec|test).ts",
-  ],
+  testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
 };
 
 export default config;

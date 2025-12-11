@@ -4,8 +4,6 @@ import mysql, {
   RowDataPacket,
   PoolConnection,
 } from "mysql2/promise";
-import { EventEmitter } from "node:events";
-import type { Connection as RawConnection } from "mysql2";
 
 export type MySQLConfig = {
   host: string;
@@ -13,10 +11,7 @@ export type MySQLConfig = {
   user?: string;
   password?: string;
   database?: string;
-  ssl?: boolean;
-  sslmode?: string;
-  connectionLimit?: number;
-}
+};
 
 // Cache for table lists to avoid repeated slow queries
 const tableListCache = new Map<
@@ -29,57 +24,32 @@ function getCacheKey(cfg: MySQLConfig): string {
   return `${cfg.host}:${cfg.port}:${cfg.database}`;
 }
 
-function createPoolConfig(cfg: MySQLConfig): PoolOptions {
-  const sslOption: unknown = (cfg as unknown as { ssl?: unknown }).ssl;
-
-  const ssl =
-    sslOption && typeof sslOption === "object"
-      ? (sslOption as PoolOptions["ssl"])
-      : sslOption === true
-      ? undefined
-      : undefined;
-
+export function createPoolConfig(cfg: MySQLConfig): MySQLConfig & PoolOptions {
   return {
     host: cfg.host,
     port: cfg.port ?? 3306,
     user: cfg.user,
     password: cfg.password,
     database: cfg.database,
-    ssl,
-    connectionLimit: cfg.connectionLimit ?? 10,
-    connectTimeout: 10000,
-    idleTimeout: 30000,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
-    waitForConnections: true,
-    queueLimit: 0,
   };
 }
 
 export async function testConnection(
   cfg: MySQLConfig
 ): Promise<{ ok: boolean; message?: string }> {
-  const pool = mysql.createPool(createPoolConfig(cfg));
-  let connection: PoolConnection | null = null;
-
+  let connection;
   try {
-    connection = await pool.getConnection();
-    await connection.ping();
+    connection = await mysql.createConnection(cfg);
     return { ok: true };
-  } catch (error) {
-    return { ok: false, message: (error as Error).message };
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
   } finally {
     if (connection) {
       try {
-        connection.release();
+        await connection.end();
       } catch (e) {
         // Ignore
       }
-    }
-    try {
-      await pool.end();
-    } catch (e) {
-      // Ignore
     }
   }
 }
@@ -190,96 +160,69 @@ export function streamQueryCancelable(
     columns: FieldPacket[]
   ) => Promise<void> | void,
   onDone?: () => void
-): { promise: Promise<void>; cancel: () => Promise<void> } {
-  let connection: PoolConnection | null = null;
-  let queryStream: EventEmitter | null = null;
+) {
+  let query: any = null;
   let finished = false;
   let cancelled = false;
   let backendPid: number | null = null;
-  const pool = mysql.createPool(createPoolConfig(cfg));
+
+  const pool = mysql.createPool(cfg);
 
   const promise = (async () => {
+    let conn: PoolConnection | null = null;
+
     try {
-      connection = await pool.getConnection();
+      conn = await pool.getConnection();
 
-      const [rows] = await connection.execute<RowDataPacket[]>(
-        "SELECT CONNECTION_ID() AS pid"
-      );
-      backendPid = (rows[0] as any).pid as number;
+      const [pidRows] = await conn.execute("SELECT CONNECTION_ID() AS pid");
+      backendPid = pidRows[0].pid;
 
-      const rawConnection = connection as unknown as RawConnection;
-      queryStream = rawConnection.query(sql);
+      const raw = (conn as any).connection;
+      query = raw.query(sql);
 
       let columns: FieldPacket[] | null = null;
       let buffer: RowDataPacket[] = [];
 
       const flush = async () => {
         if (buffer.length === 0) return;
-        const rowsToSend = buffer.splice(0, buffer.length);
-        await onBatch(rowsToSend, columns || []);
+        const batch = buffer.splice(0, buffer.length);
+        await onBatch(batch, columns || []);
       };
 
       await new Promise<void>((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error("Query timeout exceeded"));
-        }, 300000);
-
-        queryStream!.on("fields", (fields: FieldPacket[]) => {
-          columns = fields;
+        query.on("fields", (flds: FieldPacket[]) => {
+          columns = flds;
         });
 
-        queryStream!.on("result", async (row: RowDataPacket) => {
+        query.on("result", async (row: RowDataPacket) => {
           if (cancelled) {
-            clearTimeout(timeoutId);
-            queryStream!.emit("error", new Error("Query cancelled"));
+            reject(new Error("Query cancelled"));
             return;
           }
 
           buffer.push(row);
+
           if (buffer.length >= batchSize) {
-            (queryStream as any).pause();
-
-            try {
-              await flush();
-              (queryStream as any).resume();
-            } catch (err) {
-              clearTimeout(timeoutId);
-              reject(err);
-            }
-          }
-        });
-
-        queryStream!.on("end", async () => {
-          clearTimeout(timeoutId);
-          try {
+            query.pause();
             await flush();
-            finished = true;
-            if (onDone) onDone();
-            resolve();
-          } catch (e) {
-            reject(e);
+            query.resume();
           }
         });
 
-        queryStream!.on("error", (err) => {
-          clearTimeout(timeoutId);
+        query.on("end", async () => {
+          await flush();
+          finished = true;
+          onDone?.();
+          resolve();
+        });
+
+        query.on("error", (err: Error) => {
           reject(err);
         });
       });
     } finally {
-      if (connection) {
-        try {
-          connection.release();
-        } catch (e) {
-          // Ignore
-        }
-      }
-
-      try {
-        await pool.end();
-      } catch (e) {
-        // Ignore
-      }
+      conn?.release();
+      await pool.end();
     }
   })();
 
@@ -287,21 +230,11 @@ export function streamQueryCancelable(
     if (finished || cancelled) return;
     cancelled = true;
 
-    if (backendPid && typeof backendPid === "number") {
-      try {
-        await mysqlKillQuery(cfg, backendPid);
-      } catch (e) {
-        // Ignore
-      }
+    if (backendPid) {
+      await mysqlKillQuery(cfg, backendPid).catch(() => {});
     }
 
-    if (queryStream) {
-      try {
-        queryStream.emit("error", new Error("Cancelled"));
-      } catch (e) {
-        // Ignore
-      }
-    }
+    query?.emit("error", new Error("Cancelled"));
   }
 
   return { promise, cancel };
