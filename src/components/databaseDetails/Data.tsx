@@ -16,20 +16,20 @@ const Data: React.FC<DataProps> = ({ selectedTable, isExecuting, tableData, rowC
     const tableName = selectedTable ? `${selectedTable.schema}.${selectedTable.name}` : "No table selected";
 
     return (
-        <Card className="bg-card border border-border rounded-xl shadow-elevated">
-            <CardHeader className="border-b border-border pb-4">
-                <CardTitle className="font-mono text-xl text-foreground">
+        <Card className="border rounded-lg">
+            <CardHeader className="border-b pb-4">
+                <CardTitle className="font-mono text-lg">
                     {tableName} Data
                 </CardTitle>
-                <CardDescription className="text-muted-foreground">
+                <CardDescription>
                     {isExecuting ? "Loading data..." : `Showing ${rowCount.toLocaleString()} rows`}
                 </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4">
                 {isExecuting && rowCount === 0 ? (
-                    <div className="text-center py-20 text-muted-foreground">
-                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-                        Fetching initial data from **{selectedTable?.name || 'table'}**...
+                    <div className="text-center py-16 text-muted-foreground">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3" />
+                        <p className="text-sm">Fetching initial data from {selectedTable?.name || 'table'}...</p>
                     </div>
                 ) : (
                     <DataTable data={tableData} />

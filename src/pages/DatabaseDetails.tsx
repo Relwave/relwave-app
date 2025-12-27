@@ -268,44 +268,38 @@ const DatabaseDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
-        {/* Updated Error Card Styling */}
-        <Card className="bg-card shadow-elevated border border-border rounded-xl p-6">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <Card className="max-w-md w-full mx-4">
           <CardHeader>
-            <CardTitle className="text-2xl text-foreground mb-4">Error Loading Database</CardTitle>
+            <CardTitle className="text-lg">Connection Error</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">An error occurred while connecting to the database:</p>
-            <pre className="bg-muted border border-border text-destructive p-4 rounded-lg mt-4 whitespace-pre-wrap text-sm font-mono">
+            <p className="text-sm text-muted-foreground mb-3">Failed to connect to the database:</p>
+            <pre className="bg-muted text-destructive p-3 rounded-md text-xs font-mono overflow-auto">
               {error}
             </pre>
-            <div className="mt-6 flex gap-3">
+            <div className="mt-4 flex gap-2">
               <Button
-                // Solid Cyan Retry Button (Primary Accent)
-                className="bg-cyan-500 hover:bg-cyan-600 transition-all shadow-md shadow-cyan-500/30 text-white"
+                size="sm"
                 onClick={() => fetchTables()}
                 disabled={loadingTables}
               >
                 {loadingTables ? (
                   <>
-                    <Spinner className="h-4 w-4 mr-2 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5 mr-1.5" />
                     Retrying...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                     Retry
                   </>
                 )}
               </Button>
               <Link to={'/'}>
-                <Button
-                  // Outline button styling
-                  className="border-border text-foreground hover:bg-accent"
-                  variant={'outline'}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Go Back
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                  Back
                 </Button>
               </Link>
             </div>
@@ -316,7 +310,7 @@ const DatabaseDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-[#050505] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <DatabasePageHeader
         dbId={dbId || ''}
         databaseName={databaseName}
@@ -325,8 +319,8 @@ const DatabaseDetail = () => {
         loading={loadingTables}
       />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-6">
+      <div className="container mx-auto px-4 py-6">
+        <div className="space-y-4">
           <div className="flex items-center justify-end">
             <TableSelectorDropdown
               tables={tables}

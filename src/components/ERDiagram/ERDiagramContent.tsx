@@ -113,21 +113,21 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
     // --- Conditional rendering ---
     if (bridgeLoading || loading) {
         return (
-            <div className="h-screen flex items-center justify-center bg-background dark:bg-[#050505]">
-                <Spinner className="size-16" />
+            <div className="h-screen flex items-center justify-center bg-background">
+                <Spinner className="h-8 w-8 text-primary" />
             </div>
         );
     }
 
     if (error || !schemaData || nodes.length === 0) {
         return (
-            <div className="h-screen flex items-center justify-center bg-background dark:bg-[#050505]">
-                <div className="text-center p-8 border border-destructive/30 rounded-xl bg-destructive/10 text-destructive">
-                    <Database className="h-8 w-8 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold mb-2">Diagram Unavailable</h2>
-                    <p className="text-sm text-muted-foreground">{error || "No tables or schemas found to render the ER diagram."}</p>
+            <div className="h-screen flex items-center justify-center bg-background">
+                <div className="text-center p-6 border border-border rounded-lg bg-card">
+                    <Database className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                    <h2 className="text-base font-medium mb-1">Diagram Unavailable</h2>
+                    <p className="text-sm text-muted-foreground mb-4">{error || "No tables found."}</p>
                     <Link to={`/${dbId}`}>
-                        <button className="mt-4 px-4 py-2 rounded-lg text-sm bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/30">
+                        <button className="px-4 py-2 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90">
                             Go Back
                         </button>
                     </Link>
@@ -138,18 +138,18 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
 
     // --- Main diagram render ---
     return (
-        <div className="h-screen bg-background dark:bg-[#050505] flex flex-col">
-            <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl shadow-sm z-10 shrink-0">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+        <div className="h-screen bg-background flex flex-col">
+            <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+                <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         <Link to={`/${dbId}`}>
-                            <button className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                                <ArrowLeft className="h-5 w-5" />
+                            <button className="p-2 text-muted-foreground hover:bg-muted rounded-md transition-colors">
+                                <ArrowLeft className="h-4 w-4" />
                             </button>
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold text-foreground">ER Diagram</h1>
-                            <p className="text-sm text-muted-foreground">{schemaData.name} - Entity Relationship Diagram</p>
+                            <h1 className="text-base font-medium text-foreground">ER Diagram</h1>
+                            <p className="text-xs text-muted-foreground">{schemaData.name}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -157,10 +157,10 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                             <button
                                 key={format}
                                 onClick={() => handleExport(format as ExportFormat)}
-                                className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2 text-sm font-medium text-foreground"
+                                className="px-3 py-1.5 border border-border rounded-md hover:bg-muted transition-colors flex items-center gap-1.5 text-sm text-foreground"
                             >
-                                <Download className="h-4 w-4" />
-                                Export {format.toUpperCase()}
+                                <Download className="h-3.5 w-3.5" />
+                                {format.toUpperCase()}
                             </button>
                         ))}
                     </div>
@@ -179,22 +179,15 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                     maxZoom={4}
                     defaultViewport={{ x: 0, y: 0, zoom: 1 }}
                 >
-                    <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#94a3b8" className="dark:bg-[#050505]" />
-                    <Controls className="dark:border-border dark:bg-card dark:text-foreground" showFitView={true} />
+                    <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="bg-background" />
+                    <Controls showFitView={true} />
                 </ReactFlow>
             </div>
 
-            <div className="border-t border-border bg-card px-6 py-3 shrink-0">
-                <div className="container mx-auto flex items-center justify-between text-sm text-muted-foreground">
-                    <span className="flex items-center gap-2">
-                        <Database className="h-4 w-4 text-muted-foreground" />
-                        {nodes.length} Tables
-                    </span>
-                    <span className="flex items-center gap-2">
-                        <span className="text-muted-foreground">🔗</span>
-                        {edges.length} Relations
-                    </span>
-                    <div className="text-xs text-muted-foreground">Drag to pan • Scroll to zoom • Click and drag nodes to rearrange</div>
+            <div className="border-t border-border bg-card px-4 py-2">
+                <div className="container mx-auto flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{nodes.length} Tables • {edges.length} Relations</span>
+                    <span>Drag to pan • Scroll to zoom</span>
                 </div>
             </div>
         </div>
