@@ -87,7 +87,7 @@ export class QueryHandlers {
 
   async handleFetchTableData(params: any, id: number | string) {
     try {
-      const { dbId, schemaName, tableName } = params || {};
+      const { dbId, schemaName, tableName, limit, page } = params || {};
 
       if (!dbId || !tableName || !schemaName) {
         return this.rpc.sendError(id, {
@@ -103,19 +103,56 @@ export class QueryHandlers {
         data = await this.queryExecutor.mysql.fetchTableData(
           conn,
           schemaName,
-          tableName
+          tableName,
+          limit,
+          page
         );
       } else {
         data = await this.queryExecutor.postgres.fetchTableData(
           conn,
           schemaName,
-          tableName
+          tableName,
+          limit,
+          page
         );
       }
 
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e: any) {
       this.logger?.error({ e }, "fetchTableData failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  };
+
+  async handleFetchPrimaryKeys(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName } = params || {};
+      if (!dbId || !tableName || !schemaName) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let primaryKeys;
+      if (dbType === "mysql") {
+        primaryKeys = await this.queryExecutor.mysql.listPrimaryKeys(
+          conn,
+          schemaName,
+          tableName
+        );
+      } else {
+        primaryKeys = await this.queryExecutor.postgres.listPrimaryKeys(
+          conn,
+          schemaName,
+          tableName
+        );
+      }
+
+      this.rpc.sendResponse(id, { ok: true, primaryKeys });
+    } catch (e: any) {
+      this.logger?.error({ e }, "fetchPrimaryKeys failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
   }

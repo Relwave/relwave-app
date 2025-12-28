@@ -75,6 +75,9 @@ export function registerDbHandlers(
   rpcRegister("query.fetchTableData", (p, id) =>
     queryHandlers.handleFetchTableData(p, id)
   );
+  rpcRegister("query.listPrimaryKeys", (p, id) =>
+    queryHandlers.handleFetchPrimaryKeys(p, id)
+  );
 
   // ==========================================
   // DATABASE CRUD HANDLERS

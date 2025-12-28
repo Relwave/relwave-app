@@ -72,18 +72,21 @@ class BridgeApiService {
   }
 
   /**
-   * Fetches all data (SELECT *) from a specific table in a database.
-   * NOTE: This is for smaller tables. Large tables should use query.run streaming.
+   * Fetches data from a specific table with pagination support.
    * @param dbId - The ID of the database connection to use.
    * @param schemaName - The schema containing the table (e.g., 'public').
    * @param tableName - The name of the table.
-   * @returns An array of rows (objects).
+   * @param limit - Number of rows per page.
+   * @param page - Page number (1-based).
+   * @returns Object with rows array and totalCount.
    */
   async fetchTableData(
     dbId: string,
     schemaName: string,
-    tableName: string
-  ): Promise<TableRow[]> {
+    tableName: string,
+    limit: number,
+    page: number
+  ): Promise<{ rows: TableRow[]; total: number }> {
     try {
       if (!dbId || !schemaName || !tableName) {
         throw new Error("Database ID, schema, and table name are required.");
@@ -92,8 +95,13 @@ class BridgeApiService {
         dbId,
         schemaName,
         tableName,
+        limit,
+        page
       });
-      return result?.data || [];
+      return {
+        rows: result?.data?.rows || [],
+        total: result?.data?.total || result?.data?.rows?.length || 0
+      };
     } catch (error: any) {
       console.error("Failed to fetch table data:", error);
       throw new Error(`Failed to fetch table data: ${error.message}`);
@@ -301,6 +309,24 @@ class BridgeApiService {
     } catch (error: any) {
       console.error("Failed to fetch schema details:", error);
       throw new Error(`Failed to fetch schema details: ${error.message}`);
+    }
+  }
+
+  async getPrimaryKeys(id: string, schemaName: string, tableName: string): Promise<string> {
+    try {
+      if (!id || !schemaName || !tableName) {
+        throw new Error("Database ID, schema name, and table name are required.");
+      }
+      const result = await bridgeRequest("query.listPrimaryKeys", {
+        dbId: id,
+        schemaName,
+        tableName,
+      });
+
+      return result?.primaryKeys[0].column_name || result?.primaryKeys[0].COLUMN_NAME || result.primaryKeys[0] || "";
+    } catch (error: any) {
+      console.error("Failed to fetch primary keys:", error);
+      throw new Error(`Failed to fetch primary keys: ${error.message}`);
     }
   }
 

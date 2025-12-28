@@ -57,8 +57,10 @@ export async function testConnection(
 export async function fetchTableData(
   cfg: MySQLConfig,
   schemaName: string,
-  tableName: string
-): Promise<RowDataPacket[]> {
+  tableName: string,
+  limit: number,
+  page: number
+): Promise<{ rows: RowDataPacket[]; total: number }> {
   const pool = mysql.createPool(createPoolConfig(cfg));
   let connection: PoolConnection | null = null;
 
@@ -67,27 +69,58 @@ export async function fetchTableData(
 
     const safeSchema = `\`${schemaName.replace(/`/g, "``")}\``;
     const safeTable = `\`${tableName.replace(/`/g, "``")}\``;
-    const query = `SELECT * FROM ${safeSchema}.${safeTable} LIMIT 1000;`;
+    const offset = (page - 1) * limit;
 
-    const [rows] = await connection.execute<RowDataPacket[]>(query);
-    return rows;
+    // Get primary keys
+    const pkColumns = await listPrimaryKeys(cfg, schemaName, tableName);
+
+    let orderBy = "";
+    if (pkColumns.length > 0) {
+      const safePks = pkColumns.map(col => `\`${col.replace(/`/g, "``")}\``);
+      orderBy = `ORDER BY ${safePks.join(", ")}`;
+    } else {
+      const colQuery = `
+        SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = ?
+        ORDER BY ORDINAL_POSITION;
+      `;
+      const [colRows] = await connection.execute<RowDataPacket[]>(colQuery, [
+        schemaName,
+        tableName,
+      ]);
+      const safeCols = colRows.map(r => `\`${r.COLUMN_NAME}\``);
+      orderBy = safeCols.length ? `ORDER BY ${safeCols.join(", ")}` : "";
+    }
+
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM ${safeSchema}.${safeTable};
+    `;
+    const [countRows] = await connection.execute<RowDataPacket[]>(countQuery);
+    const total = Number(countRows[0].total);
+
+    const dataQuery = `
+      SELECT *
+      FROM ${safeSchema}.${safeTable}
+      ${orderBy}
+      LIMIT ${Number(limit)}
+      OFFSET ${Number(offset)};
+    `;
+
+    const [rows] = await connection.execute<RowDataPacket[]>(dataQuery);
+
+    return { rows, total };
   } catch (error) {
     throw new Error(`Failed to fetch data: ${(error as Error).message}`);
   } finally {
-    if (connection) {
-      try {
-        connection.release();
-      } catch (e) {
-        // Ignore
-      }
-    }
-    try {
-      await pool.end();
-    } catch (e) {
-      // Ignore
-    }
+    if (connection) connection.release();
+    await pool.end();
   }
 }
+
 
 export async function listColumns(
   cfg: MySQLConfig,
@@ -119,19 +152,6 @@ export async function listColumns(
     return rows;
   } catch (error) {
     throw new Error(`Failed to list columns: ${(error as Error).message}`);
-  } finally {
-    if (connection) {
-      try {
-        connection.release();
-      } catch (e) {
-        // Ignore
-      }
-    }
-    try {
-      await pool.end();
-    } catch (e) {
-      // Ignore
-    }
   }
 }
 
@@ -150,6 +170,37 @@ export async function mysqlKillQuery(cfg: MySQLConfig, targetPid: number) {
     }
   }
 }
+
+export async function listPrimaryKeys(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string
+): Promise<string[]> {
+  const connection = await mysql.createConnection(createPoolConfig(cfg));
+
+  const query = `
+    SELECT COLUMN_NAME
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = ?
+      AND TABLE_NAME = ?
+      AND COLUMN_KEY = 'PRI';
+  `;
+
+  try {
+    const [rows] = await connection.execute<RowDataPacket[]>(query, [
+      schemaName,
+      tableName,
+    ]);
+
+    return rows.map((row) => row.COLUMN_NAME as string);
+  } catch (error) {
+    throw new Error(`Failed to list primary keys: ${(error as Error).message}`);
+  } finally {
+    await connection.end();
+  }
+}
+
+
 
 export function streamQueryCancelable(
   cfg: MySQLConfig,

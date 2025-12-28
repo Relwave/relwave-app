@@ -71,33 +71,72 @@ export async function pgCancel(cfg: PGConfig, targetPid: number) {
 export async function fetchTableData(
   config: PGConfig,
   schemaName: string,
-  tableName: string
-): Promise<any[]> {
+  tableName: string,
+  limit: number,
+  page: number
+): Promise<{ rows: any[]; total: number }> {
+
   const client = createClient(config);
+
   try {
     await client.connect();
 
-    // Use quoting for identifiers to prevent SQL injection vulnerabilities from table/schema names.
     const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
     const safeTable = `"${tableName.replace(/"/g, '""')}"`;
 
-    const query = `SELECT * FROM ${safeSchema}.${safeTable};`;
+    const offset = (page - 1) * limit;
 
-    const result = await client.query(query);
+    const pkResult = await listPrimaryKeys(config, schemaName, tableName);
+    const pkColumns = pkResult.map((r: any) =>
+      `"${r.column_name.replace(/"/g, '""')}"`
+    );
 
-    return result.rows;
+    let orderBy = "";
+
+    if (pkColumns.length > 0) {
+      orderBy = `ORDER BY ${pkColumns.join(", ")}`;
+    } else {
+      const colQuery = `
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = $2
+        ORDER BY ordinal_position;
+      `;
+
+      const colResult = await client.query(colQuery, [schemaName, tableName]);
+      const columns = colResult.rows.map((r) => `"${r.column_name}"`);
+
+      orderBy = columns.length > 0 ? `ORDER BY ${columns.join(", ")}` : "";
+    }
+
+    const countQuery = `
+      SELECT COUNT(*) AS count
+      FROM ${safeSchema}.${safeTable};
+    `;
+    const totalResult = await client.query(countQuery);
+    const total = Number(totalResult.rows[0].count);
+
+    const dataQuery = `
+      SELECT *
+      FROM ${safeSchema}.${safeTable}
+      ${orderBy}
+      LIMIT $1 OFFSET $2;
+    `;
+
+    const result = await client.query(dataQuery, [limit, offset]);
+
+    return { rows: result.rows, total };
   } catch (error) {
     throw new Error(
-      `Failed to fetch data from ${schemaName}.${tableName}: ${error}`
+      `Failed to fetch paginated data from ${schemaName}.${tableName}: ${error}`
     );
   } finally {
     try {
       await client.end();
-    } catch (e) {
-      /* ignore client end errors */
-    }
+    } catch (_) { }
   }
 }
+
 
 /**
  * listTables: Retrieves all user-defined tables and views.
@@ -130,6 +169,34 @@ export async function listTables(connection: PGConfig, schemaName?: string) {
 
     await client.end();
     return res.rows; // [{schema, name, type}, ...]
+  } catch (err) {
+    try {
+      await client.end();
+    } catch (e) { }
+    throw err;
+  }
+}
+
+export async function listPrimaryKeys(connection: PGConfig, schemaName: string = 'public', tableName: string) {
+  const client = createClient(connection);
+
+  const query = `
+   SELECT 
+    a.attname AS column_name
+FROM 
+    pg_index i
+JOIN 
+    pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+WHERE 
+    i.indrelid = $1::regclass
+AND 
+    i.indisprimary
+  `;
+
+  try {
+    await client.connect();
+    const res = await client.query(query, [tableName]);
+    return res.rows
   } catch (err) {
     try {
       await client.end();
