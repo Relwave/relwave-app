@@ -1,15 +1,9 @@
 import { FC, useMemo } from 'react';
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-    PaginationEllipsis,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination';
-import { RefreshCw } from 'lucide-react';
+import { Loader2, Table2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DataTable } from '@/components/common/DataTable';
 import { SelectedTable, TableRow } from '@/types/database';
+import { Button } from '@/components/ui/button';
 
 interface DataTabProps {
     selectedTable: SelectedTable | null;
@@ -94,94 +88,129 @@ const DataTab: FC<DataTabProps> = ({
     }, [currentPage, totalPages]);
 
     return (
-        <Card className="border rounded-lg">
-            <CardHeader className="border-b pb-4">
+        <div className="border border-border/20 rounded-lg overflow-hidden">
+            {/* Minimal Header */}
+            <div className="border-b border-border/20 px-6 py-4">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="font-mono text-lg">{tableName} Data</CardTitle>
-                        <CardDescription>
-                            {isExecuting
-                                ? "Loading data..."
-                                : totalRows > 0
-                                    ? `Showing ${startRow.toLocaleString()} - ${endRow.toLocaleString()} of ${totalRows.toLocaleString()} rows`
-                                    : `Showing ${rowCount.toLocaleString()} rows (page ${currentPage})`}
-                        </CardDescription>
+                    <div className="flex items-center gap-3">
+                        <Table2 className="h-4 w-4 text-muted-foreground/60" />
+                        <div>
+                            <h3 className="font-mono text-sm font-medium tracking-tight text-foreground">
+                                {tableName}
+                            </h3>
+                            <p className="text-xs text-muted-foreground/70 mt-0.5">
+                                {isExecuting
+                                    ? "Fetching data..."
+                                    : totalRows > 0
+                                        ? `${startRow.toLocaleString()}–${endRow.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+                                        : rowCount > 0
+                                            ? `${rowCount.toLocaleString()} rows · Page ${currentPage}`
+                                            : "No data available"}
+                            </p>
+                        </div>
                     </div>
+                    {isExecuting && (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/60" />
+                    )}
                 </div>
-            </CardHeader>
-            <CardContent className="pt-4 flex flex-col">
-                {isExecuting && rowCount === 0 ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3" />
-                        <p className="text-sm">
-                            Fetching data from {selectedTable?.name || 'table'}...
-                        </p>
+            </div>
+
+            {/* Content Area */}
+            {isExecuting && rowCount === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <Loader2 className="h-7 w-7 animate-spin mb-3 text-muted-foreground/50" />
+                    <p className="text-sm font-medium">Loading data</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                        Fetching from {selectedTable?.name || 'table'}...
+                    </p>
+                </div>
+            ) : (
+                <div className="flex flex-col">
+                    <div className="p-6 max-h-[60vh] overflow-auto">
+                        <DataTable data={tableData} maxHeight="none" />
                     </div>
-                ) : (
-                    <>
-                        <DataTable data={tableData} />
 
-                        {/* Pagination Controls - Show when there's data */}
-                        {hasData && (
-                            <div className="flex items-center justify-end gap-4 mt-4 pt-4 border-t">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">Rows per page:</span>
-                                    <Select
-                                        value={pageSize.toString()}
-                                        onValueChange={(value) => onPageSizeChange(Number(value))}
-                                        disabled={isExecuting}
-                                    >
-                                        <SelectTrigger className="w-[70px] h-8">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {PAGE_SIZE_OPTIONS.map((size) => (
-                                                <SelectItem key={size} value={size.toString()}>
-                                                    {size}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                    <PaginationPrevious
-                                        onClick={() => canGoPrevious && !isExecuting && onPageChange(currentPage - 1)}
-                                        className={(!canGoPrevious || isExecuting) ? 'pointer-events-none opacity-50' : ''}
-                                    />
-
-                                    {totalRows > 0 && pageNumbers.map((page, index) => (
-                                        page === 'ellipsis' ? (
-                                            <PaginationEllipsis key={index} />
-                                        ) : (
-                                            <PaginationLink
-                                                key={index}
-                                                onClick={() => !isExecuting && onPageChange(page)}
-                                                isActive={currentPage === page}
-                                                className={isExecuting ? 'pointer-events-none opacity-50' : ''}
-                                            >
-                                                {page}
-                                            </PaginationLink>
-                                        )
-                                    ))}
-
-                                    {totalRows === 0 && (
-                                        <PaginationLink isActive>
-                                            {currentPage}
-                                        </PaginationLink>
-                                    )}
-
-                                    <PaginationNext
-                                        onClick={() => canGoNext && !isExecuting && onPageChange(currentPage + 1)}
-                                        className={(!canGoNext || isExecuting) ? 'pointer-events-none opacity-50' : ''}
-                                    />
-                                </div>
+                    {/* Minimal Pagination */}
+                    {hasData && (
+                        <div className="flex items-center justify-between px-6 py-3 border-t border-border/20">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground/70">Show</span>
+                                <Select
+                                    value={pageSize.toString()}
+                                    onValueChange={(value) => onPageSizeChange(Number(value))}
+                                    disabled={isExecuting}
+                                >
+                                    <SelectTrigger className="w-[70px] h-8 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        {PAGE_SIZE_OPTIONS.map((size) => (
+                                            <SelectItem key={size} value={size.toString()} className="text-xs">
+                                                {size}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <span className="text-xs text-muted-foreground/70">per page</span>
                             </div>
-                        )}
-                    </>
-                )}
-            </CardContent>
-        </Card>
+
+                            <div className="flex items-center gap-0.5">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-muted/50"
+                                    onClick={() => canGoPrevious && !isExecuting && onPageChange(currentPage - 1)}
+                                    disabled={!canGoPrevious || isExecuting}
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                </Button>
+
+                                {totalRows > 0 && pageNumbers.map((page, index) => (
+                                    page === 'ellipsis' ? (
+                                        <span key={index} className="px-2 text-xs text-muted-foreground/40">•••</span>
+                                    ) : (
+                                        <Button
+                                            key={index}
+                                            variant="ghost"
+                                            size="sm"
+                                            className={`h-8 min-w-[32px] px-2 text-xs transition-colors ${currentPage === page
+                                                ? 'bg-muted text-foreground font-medium'
+                                                : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/50'
+                                                }`}
+                                            onClick={() => !isExecuting && onPageChange(page)}
+                                            disabled={isExecuting}
+                                        >
+                                            {page}
+                                        </Button>
+                                    )
+                                ))}
+
+                                {totalRows === 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 min-w-[32px] px-2 text-xs bg-muted text-foreground font-medium"
+                                        disabled
+                                    >
+                                        {currentPage}
+                                    </Button>
+                                )}
+
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-muted/50"
+                                    onClick={() => canGoNext && !isExecuting && onPageChange(currentPage + 1)}
+                                    disabled={!canGoNext || isExecuting}
+                                >
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 

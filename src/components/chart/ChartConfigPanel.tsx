@@ -28,58 +28,59 @@ export const ChartConfigPanel: React.FC<ChartConfigPanelProps> = ({
     setChartTitle,
     columns,
 }) => (
-    <div className="p-4 rounded-xl border bg-background/80">
-        <h3 className="text-sm font-semibold mb-3">Chart Configuration</h3>
+    <div>
+        <h4 className="text-xs font-medium text-muted-foreground/70 mb-3">Configuration</h4>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Chart Type */}
-            <div className="space-y-1">
-                <Label>Chart Type</Label>
+            <div className="space-y-1.5">
+                <Label className="text-xs">Chart Type</Label>
                 <Select value={chartType} onValueChange={setChartType}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm">
                         <SelectValue placeholder="Choose" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="bar">Bar Chart</SelectItem>
-                        <SelectItem value="line">Line Chart</SelectItem>
-                        <SelectItem value="pie">Pie Chart</SelectItem>
-                        <SelectItem value="scatter">Scatter Plot</SelectItem>
+                        <SelectItem value="bar" className="text-sm">Bar Chart</SelectItem>
+                        <SelectItem value="line" className="text-sm">Line Chart</SelectItem>
+                        <SelectItem value="pie" className="text-sm">Pie Chart</SelectItem>
+                        <SelectItem value="scatter" className="text-sm">Scatter Plot</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
             {/* Axis Selects */}
-            <div className="space-y-1">
-                <Label>X Axis</Label>
+            <div className="space-y-1.5">
+                <Label className="text-xs">X Axis</Label>
                 <Select value={xAxis} onValueChange={setXAxis}>
-                    <SelectTrigger><SelectValue placeholder="Column" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Column" /></SelectTrigger>
                     <SelectContent>
                         {columns.map(col => (
-                            <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
+                            <SelectItem key={col.name} value={col.name} className="text-sm">{col.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
 
-            <div className="space-y-1">
-                <Label>Y Axis</Label>
+            <div className="space-y-1.5">
+                <Label className="text-xs">Y Axis</Label>
                 <Select value={yAxis} onValueChange={setYAxis}>
-                    <SelectTrigger><SelectValue placeholder="Column" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Column" /></SelectTrigger>
                     <SelectContent>
                         {columns.map(col => (
-                            <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
+                            <SelectItem key={col.name} value={col.name} className="text-sm">{col.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
 
             {/* Title */}
-            <div className="space-y-1">
-                <Label>Chart Title</Label>
+            <div className="space-y-1.5">
+                <Label className="text-xs">Chart Title</Label>
                 <Input
                     value={chartTitle}
                     onChange={(e) => setChartTitle(e.target.value)}
                     placeholder="Enter chart title"
+                    className="h-9 text-sm"
                 />
             </div>
         </div>

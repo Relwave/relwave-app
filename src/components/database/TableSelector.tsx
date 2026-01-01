@@ -49,9 +49,9 @@ const TableSelector: FC<TableSelectorProps> = ({
   if (loading) {
     return (
       <div className="w-full sm:w-64">
-        <div className="flex items-center gap-2 p-3 rounded-md border border-border bg-muted/50">
-          <Spinner className="h-4 w-4 text-primary" />
-          <span className="text-sm text-muted-foreground">Loading tables...</span>
+        <div className="flex items-center gap-2 p-3 rounded-md border border-border/20 bg-muted/20">
+          <Spinner className="h-4 w-4 text-muted-foreground/60" />
+          <span className="text-sm text-muted-foreground/70">Loading tables...</span>
         </div>
       </div>
     );
@@ -66,7 +66,7 @@ const TableSelector: FC<TableSelectorProps> = ({
       >
         <SelectTrigger className="w-full font-mono text-sm">
           <div className="flex items-center gap-2">
-            <Table2 className="h-4 w-4 text-muted-foreground" />
+            <Table2 className="h-4 w-4 text-muted-foreground/60" />
             <SelectValue placeholder="Select a table">
               {selectedTable ? selectedTable.name : "Select a table"}
             </SelectValue>
@@ -84,7 +84,7 @@ const TableSelector: FC<TableSelectorProps> = ({
           ) : (
             Object.entries(tablesBySchema).map(([schema, schemaTables]) => (
               <SelectGroup key={schema}>
-                <SelectLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2 py-1.5">
+                <SelectLabel className="text-xs font-medium text-muted-foreground/70 px-2 py-1.5">
                   {schema}
                 </SelectLabel>
                 {schemaTables.map((table) => (
@@ -95,7 +95,7 @@ const TableSelector: FC<TableSelectorProps> = ({
                   >
                     <div className="flex items-center justify-between w-full">
                       <span>{table.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{table.type}</span>
+                      <span className="text-xs text-muted-foreground/60 ml-2">{table.type}</span>
                     </div>
                   </SelectItem>
                 ))}

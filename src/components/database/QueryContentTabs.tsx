@@ -1,7 +1,6 @@
 import { FC } from "react";
 import { QueryProgress, SelectedTable, TableRow } from "@/types/database";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Table2, Code, BarChart } from "lucide-react";
 import { ChartVisualization } from "@/components/chart/ChartVisualization";
 import DataTab from "./DataTab";
@@ -47,17 +46,17 @@ const QueryContentTabs: FC<QueryContentTabsProps> = ({
   return (
     <div className="w-full">
       <Tabs defaultValue="data" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="data" className="gap-1.5">
-            <Table2 className="h-4 w-4" />
+        <TabsList className="mb-3">
+          <TabsTrigger value="data" className="gap-1.5 text-xs">
+            <Table2 className="h-3.5 w-3.5" />
             Data
           </TabsTrigger>
-          <TabsTrigger value="editor" className="gap-1.5">
-            <Code className="h-4 w-4" />
+          <TabsTrigger value="editor" className="gap-1.5 text-xs">
+            <Code className="h-3.5 w-3.5" />
             Query
           </TabsTrigger>
-          <TabsTrigger value="charts" className="gap-1.5">
-            <BarChart className="h-4 w-4" />
+          <TabsTrigger value="charts" className="gap-1.5 text-xs">
+            <BarChart className="h-3.5 w-3.5" />
             Charts
           </TabsTrigger>
         </TabsList>
@@ -91,26 +90,18 @@ const QueryContentTabs: FC<QueryContentTabsProps> = ({
         </TabsContent>
 
         <TabsContent value="charts" className="space-y-4">
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <BarChart className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-base font-medium">Visualizations</CardTitle>
-              </div>
-              <CardDescription className="text-sm mb-4">
-                Explore your data with charts
-              </CardDescription>
-
+          <div className="border border-border/20 rounded-lg overflow-hidden">
+            <div className="p-6">
               {selectedTable ? (
                 <ChartVisualization selectedTable={selectedTable} dbId={dbId} />
               ) : (
-                <div className="flex flex-col items-center justify-center py-12 rounded-md border border-dashed border-border bg-muted/30">
-                  <BarChart className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">Select a table to visualize</p>
+                <div className="flex flex-col items-center justify-center py-12 rounded-md border border-dashed border-border/20 bg-muted/10">
+                  <BarChart className="h-6 w-6 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground/70">Select a table to visualize</p>
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

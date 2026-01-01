@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Play, RefreshCw, X, Code2, Clock, AlertCircle } from "lucide-react";
 import SqlEditor from "./SqlEditor";
@@ -33,15 +32,15 @@ const EditorTab: FC<EditorTabProps> = ({
 
   return (
     <>
-      {/* SQL Query Editor Card */}
-      <Card className="border rounded-lg">
-        <CardHeader className="border-b pb-4">
+      {/* SQL Query Editor */}
+      <div className="border border-border/20 rounded-lg overflow-hidden">
+        <div className="border-b border-border/20 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Code2 className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center gap-2.5">
+              <Code2 className="h-4 w-4 text-muted-foreground/60" />
               <div>
-                <CardTitle className="text-lg font-semibold">SQL Query Editor</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">
+                <h3 className="text-sm font-medium text-foreground">SQL Query Editor</h3>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
                   Write and execute your queries
                 </p>
               </div>
@@ -49,29 +48,29 @@ const EditorTab: FC<EditorTabProps> = ({
 
             <div className="flex items-center gap-2">
               {isExecuting && (
-                <Button variant="destructive" size="sm" onClick={onCancelQuery}>
-                  <X className="h-4 w-4 mr-1" />
+                <Button variant="destructive" size="sm" onClick={onCancelQuery} className="h-8 text-xs">
+                  <X className="h-3.5 w-3.5 mr-1" />
                   Cancel
                 </Button>
               )}
-              <Button onClick={onExecuteQuery} disabled={!canExecute} size="sm">
+              <Button onClick={onExecuteQuery} disabled={!canExecute} size="sm" className="h-8 text-xs">
                 {isExecuting ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                    <RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />
                     Executing...
                   </>
                 ) : (
                   <>
-                    <Play className="h-4 w-4 mr-1" />
-                    Execute Query
+                    <Play className="h-3.5 w-3.5 mr-1" />
+                    Execute
                   </>
                 )}
               </Button>
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="pt-4">
+        <div className="p-6">
           <SqlEditor
             value={query}
             onChange={onQueryChange}
@@ -82,68 +81,69 @@ SELECT * FROM users WHERE role = 'Admin';
 -- Press Execute to run your query"
             minHeight="200px"
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Query Results Section */}
-      <Card className="border rounded-lg">
-        <CardHeader className="border-b pb-4">
+      {/* Query Results */}
+      <div className="border border-border/20 rounded-lg overflow-hidden">
+        <div className="border-b border-border/20 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold">Query Results</CardTitle>
-              <CardDescription className="flex items-center gap-2 mt-1">
-                {isExecuting ? (
-                  <>
-                    <RefreshCw className="h-3 w-3 animate-spin" />
-                    <span>Fetching results... ({rowCount.toLocaleString()} rows)</span>
-                  </>
-                ) : (
-                  <span>{rowCount.toLocaleString()} rows retrieved</span>
-                )}
+              <h3 className="text-sm font-medium text-foreground">Query Results</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs text-muted-foreground/70">
+                  {isExecuting ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 animate-spin inline mr-1" />
+                      Fetching results... ({rowCount.toLocaleString()} rows)
+                    </>
+                  ) : (
+                    `${rowCount.toLocaleString()} rows retrieved`
+                  )}
+                </p>
                 {queryProgress && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
                     <Clock className="h-3 w-3" />
                     {queryProgress.elapsed}s
                   </span>
                 )}
-              </CardDescription>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
               <div
-                className={`h-2 w-2 rounded-full ${
-                  queryError ? "bg-red-500" : isExecuting ? "bg-yellow-500" : "bg-emerald-500"
-                }`}
+                className={`h-1.5 w-1.5 rounded-full ${queryError ? "bg-red-500" : isExecuting ? "bg-yellow-500" : "bg-emerald-500"
+                  }`}
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground/70">
                 {queryError ? "Error" : isExecuting ? "Processing" : "Complete"}
               </span>
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="pt-4">
+        <div className="p-6">
           {isExecuting && rowCount === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
+            <div className="text-center py-12 text-muted-foreground">
+              <Loader2 className="h-7 w-7 animate-spin mx-auto mb-3 text-muted-foreground/50" />
               <p className="text-sm font-medium">Awaiting first results batch...</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground/60 mt-1">
                 Your query is being processed
               </p>
             </div>
           ) : queryError ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 text-destructive mb-3" />
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <AlertCircle className="h-7 w-7 text-destructive mb-3" />
               <p className="text-sm font-medium text-destructive">Query Failed</p>
-              <p className="text-xs text-muted-foreground mt-1 max-w-md text-center px-4">
+              <p className="text-xs text-muted-foreground/60 mt-1 max-w-md text-center px-4">
                 {queryError}
               </p>
             </div>
           ) : (
             <DataTable data={tableData} />
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </>
   );
 };

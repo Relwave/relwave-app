@@ -2,18 +2,18 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { bridgeApi } from "@/services/bridgeApi";
 import { useBridgeQuery } from "@/hooks/useBridgeQuery";
-import { 
-  useDatabases, 
-  useAddDatabase, 
+import {
+  useDatabases,
+  useAddDatabase,
   useDeleteDatabase,
-  usePrefetch 
+  usePrefetch
 } from "@/hooks/useDbQueries";
 import DashboardContent from "@/components/dashboard/DashboardContent";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
 import BridgeFailed from "@/components/feedback/BridgeFailed";
 import Header from "@/components/common/Header";
 import { bytesToMBString } from "@/lib/bytesToMB";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const INITIAL_FORM_DATA = {
   name: "",
@@ -30,21 +30,22 @@ const INITIAL_FORM_DATA = {
 const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "database"];
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
 
   //   React Query: Databases list with caching
-  const { 
-    data: databases = [], 
-    isLoading: loading, 
+  const {
+    data: databases = [],
+    isLoading: loading,
     refetch: refetchDatabases,
-    isRefetching: refreshing 
+    isRefetching: refreshing
   } = useDatabases();
 
   //   React Query: Total stats with caching
-  const { 
-    data: stats, 
+  const {
+    data: stats,
     isLoading: statsLoading,
-    refetch: refetchStats 
+    refetch: refetchStats
   } = useQuery({
     queryKey: ["totalStats"],
     queryFn: () => bridgeApi.getTotalDatabaseStats(),
@@ -53,7 +54,7 @@ const Index = () => {
   });
 
   //   React Query: Connection status
-  const { data: statusData } = useQuery({
+  const { data: statusData, refetch: refetchStatus } = useQuery({
     queryKey: ["connectionStatus"],
     queryFn: async () => {
       const res = await bridgeApi.testAllConnections();
@@ -68,7 +69,7 @@ const Index = () => {
   //   React Query: Mutations
   const addDatabaseMutation = useAddDatabase();
   const deleteDatabaseMutation = useDeleteDatabase();
-  
+
   //   Prefetch for better UX
   const { prefetchTables, prefetchStats } = usePrefetch();
 
@@ -85,7 +86,7 @@ const Index = () => {
 
   // --- Refresh handler ---
   const handleRefresh = async () => {
-    await Promise.all([refetchDatabases(), refetchStats()]);
+    await Promise.all([refetchDatabases(), refetchStats(), refetchStatus()]);
     toast.success("Databases refreshed");
   };
 
@@ -111,7 +112,9 @@ const Index = () => {
       toast.success("Database connection added successfully");
       setFormData(INITIAL_FORM_DATA);
       setIsDialogOpen(false);
-      refetchStats();
+
+      // Refetch stats and connection status after adding database
+      await Promise.all([refetchStats(), refetchStatus()]);
     } catch (err: any) {
       toast.error("Failed to add database", { description: err.message });
     }

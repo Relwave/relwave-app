@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, BarChart3, ImageIcon, FileCode } from "lucide-react";
 import { toPng, toSvg } from "html-to-image";
@@ -8,8 +7,6 @@ import { ChartConfigPanel } from "./ChartConfigPanel";
 import { ChartRenderer } from "./ChartRenderer";
 import { ColumnDetails, SelectedTable } from "@/types/database";
 import { bridgeApi } from "@/services/bridgeApi";
-
-
 
 interface ChartVisualizationProps {
   selectedTable: SelectedTable;
@@ -166,88 +163,85 @@ export const ChartVisualization = ({ selectedTable, dbId }: ChartVisualizationPr
 
 
   return (
-    <Card className="border rounded-lg bg-background">
-      <CardHeader className="border-b pb-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-
-          <div className="flex items-center gap-3">
-            <BarChart3 className="h-5 w-5 text-muted-foreground" />
-
-            <div>
-              <CardTitle className="text-lg font-semibold">
-                Chart Visualization
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                Generate interactive charts from your data
-              </CardDescription>
-            </div>
-          </div>
-
-          {/* Export Buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleExport("png")}
-            >
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Export PNG
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleExport("svg")}
-            >
-              <FileCode className="h-4 w-4 mr-2" />
-              Export SVG
-            </Button>
+    <div className="space-y-4">
+      {/* Header Section */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2.5">
+          <BarChart3 className="h-4 w-4 text-muted-foreground/60" />
+          <div>
+            <h3 className="text-sm font-medium text-foreground">
+              Chart Visualization
+            </h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">
+              Generate interactive charts from your data
+            </p>
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-6 pt-5">
-        {/* Config Panel */}
-        <div className="p-4 border rounded-lg bg-muted/30">
-          <ChartConfigPanel
+        {/* Export Buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("png")}
+            className="h-8 text-xs"
+          >
+            <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
+            PNG
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("svg")}
+            className="h-8 text-xs"
+          >
+            <FileCode className="h-3.5 w-3.5 mr-1.5" />
+            SVG
+          </Button>
+        </div>
+      </div>
+
+      {/* Config Panel */}
+      <div className="border border-border/20 rounded-lg p-4 bg-muted/10">
+        <ChartConfigPanel
+          chartType={chartType}
+          setChartType={setChartType}
+          xAxis={xAxis}
+          setXAxis={setXAxis}
+          yAxis={yAxis}
+          setYAxis={setYAxis}
+          chartTitle={chartTitle}
+          setChartTitle={setChartTitle}
+          columns={columnData}
+        />
+      </div>
+
+      {/* Chart Container */}
+      <div
+        id="chart-container"
+        className="border border-border/20 rounded-lg p-6 bg-background min-h-[400px]"
+      >
+        {/* Title */}
+        <h3 className="text-sm font-medium text-center mb-4">
+          {chartTitle}
+        </h3>
+
+        {isExecuting ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/50 mb-3" />
+            <p className="text-sm text-muted-foreground/70">Processing your data…</p>
+          </div>
+        ) : (
+          <ChartRenderer
             chartType={chartType}
-            setChartType={setChartType}
             xAxis={xAxis}
-            setXAxis={setXAxis}
             yAxis={yAxis}
-            setYAxis={setYAxis}
-            chartTitle={chartTitle}
-            setChartTitle={setChartTitle}
-            columns={columnData}
+            data={rowData}
           />
-        </div>
-
-        {/* Chart Container */}
-        <div
-          id="chart-container"
-          className="border rounded-lg p-6 bg-card min-h-[400px]"
-        >
-          {/* Title */}
-          <h3 className="text-base font-medium text-center mb-4">
-            {chartTitle}
-          </h3>
-
-          {isExecuting ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">Processing your data…</p>
-            </div>
-          ) : (
-            <ChartRenderer
-              chartType={chartType}
-              xAxis={xAxis}
-              yAxis={yAxis}
-              data={rowData}
-            />
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
 
   );
 };

@@ -1,5 +1,4 @@
 import { DatabaseConnection } from '@/types/database'
-import { Card, CardContent } from '@/components/ui/card'
 import { Database, Activity, Table2, HardDrive, Layers } from 'lucide-react'
 
 export interface StatsOverviewProps {
@@ -48,23 +47,19 @@ const StatsOverview = ({ databases, connectedCount, totalTables, totalSize, stat
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
             {stats.map((stat) => (
-                <Card key={stat.id} className="bg-card border-border">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-md bg-muted">
-                                <stat.icon className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-2xl font-semibold text-foreground tabular-nums">
-                                    {stat.value}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                    {stat.label}
-                                </p>
-                            </div>
+                <div key={stat.id} className="border border-border/20 rounded-lg bg-background p-3.5">
+                    <div className="flex items-center gap-2.5">
+                        <stat.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <div className="min-w-0">
+                            <p className="text-xl font-semibold text-foreground tabular-nums">
+                                {stat.value}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/70 truncate">
+                                {stat.label}
+                            </p>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             ))}
         </div>
     )

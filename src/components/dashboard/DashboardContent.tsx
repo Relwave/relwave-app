@@ -1,4 +1,4 @@
-import {StatsOverview} from './StatsOverview';
+import { StatsOverview } from './StatsOverview';
 import { Database, Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DatabaseCard } from './DatabaseCard';
@@ -55,12 +55,12 @@ const DashboardContent = ({
                 {/* Search Bar */}
                 <div className="mb-6">
                     <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
                         <Input
                             placeholder="Search connections..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 h-10"
+                            className="pl-9 h-9 text-sm"
                         />
                     </div>
                 </div>
@@ -68,12 +68,12 @@ const DashboardContent = ({
                 {/* Section Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                        <Database className="h-5 w-5 text-muted-foreground" />
-                        <h2 className="text-lg font-medium text-foreground">
+                        <Database className="h-4 w-4 text-muted-foreground/60" />
+                        <h2 className="text-sm font-medium text-foreground">
                             Connections
                         </h2>
                         {!loading && databases.length > 0 && (
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-xs text-muted-foreground/70">
                                 ({filteredDatabases.length})
                             </span>
                         )}
@@ -83,8 +83,8 @@ const DashboardContent = ({
                 {/* Content */}
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-16">
-                        <Spinner className="h-8 w-8 text-primary mb-3" />
-                        <p className="text-sm text-muted-foreground">Loading connections...</p>
+                        <Spinner className="h-7 w-7 text-primary/50 mb-3" />
+                        <p className="text-sm text-muted-foreground/70">Loading connections...</p>
                     </div>
                 ) : (
                     <>
@@ -107,19 +107,19 @@ const DashboardContent = ({
 
                         {/* Empty State */}
                         {filteredDatabases.length === 0 && (
-                            <div className="text-center py-16 border border-dashed border-border rounded-lg bg-muted/30">
-                                <Database className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-foreground mb-1">
+                            <div className="text-center py-16 border border-dashed border-border/30 rounded-lg bg-muted/10">
+                                <Database className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                                <h3 className="text-sm font-medium text-foreground mb-1">
                                     {databases.length === 0 ? 'No connections yet' : 'No matches found'}
                                 </h3>
-                                <p className="text-sm text-muted-foreground mb-4">
+                                <p className="text-xs text-muted-foreground/70 mb-4">
                                     {databases.length === 0
                                         ? 'Add your first database connection to get started'
                                         : 'Try a different search term'}
                                 </p>
                                 {databases.length === 0 && (
-                                    <Button onClick={() => setIsDialogOpen(true)} size="sm">
-                                        <Plus className="h-4 w-4 mr-1.5" />
+                                    <Button onClick={() => setIsDialogOpen(true)} size="sm" className="h-8 text-xs">
+                                        <Plus className="h-3.5 w-3.5 mr-1.5" />
                                         Add Connection
                                     </Button>
                                 )}

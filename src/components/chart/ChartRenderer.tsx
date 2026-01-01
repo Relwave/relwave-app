@@ -1,8 +1,3 @@
-
-
-// Enhanced color palette with vibrant gradients
-
-
 interface DataProps {
     count: number | string;
     [key: string]: any;
@@ -66,12 +61,12 @@ const ChartRendererComponent = ({
 
 
     // ---- shared axis + tooltip styles ----
-    const isDark = typeof document !== "undefined" && document.body.classList.contains("dark");
+    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
     const axisProps = useMemo(
         () => ({
-            stroke: isDark ? "#e5e7eb" : "#111827",
-            tick: { fill: isDark ? "#e5e7eb" : "#111827", fontSize: 12 },
+            stroke: isDark ? "#9CA3AF" : "#6B7280",
+            tick: { fill: isDark ? "#D1D5DB" : "#374151", fontSize: 12, fontWeight: 500 },
         }),
         [isDark]
     );
@@ -80,16 +75,17 @@ const ChartRendererComponent = ({
         () => ({
             backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
             borderRadius: 8,
-            border: `1px solid ${COLORS[0]}`,
-            padding: "8px 10px",
-            color: isDark ? "#ffffff" : "#111827",
+            border: `1px solid ${isDark ? "#374151" : "#E5E7EB"}`,
+            padding: "8px 12px",
+            color: isDark ? "#F3F4F6" : "#111827",
+            fontSize: "13px",
         }),
         [isDark]
     );
 
     if (!xAxis || chartData.length === 0) {
         return (
-            <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[350px] text-sm text-muted-foreground">
                 Select X & Y axes to generate chart
             </div>
         );
