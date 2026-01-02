@@ -97,7 +97,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
     }, [nodes, searchQuery]);
 
     // Handle node click - highlight related nodes and edges
-    const handleNodeClick = useCallback((event: React.MouseEvent, node: Node<TableNodeData>) => {
+    const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node<TableNodeData>) => {
         const nodeId = node.id;
 
         if (selectedNodeId === nodeId) {
@@ -190,7 +190,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
     }, [schemaData, setNodes, setEdges, reactFlowInstance]);
 
     // Edge hover handlers for tooltip
-    const onEdgeMouseEnter: EdgeMouseHandler = useCallback((event, edge) => {
+    const onEdgeMouseEnter: EdgeMouseHandler = useCallback((_event, edge) => {
         setHoveredEdge(edge);
     }, []);
 
