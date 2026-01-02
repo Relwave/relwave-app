@@ -134,7 +134,7 @@ const Header = ({
                         <SelectValue placeholder="Select database type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {['postgresql', 'mysql', 'mongodb', 'sqlite'].map((db) => (
+                        {['postgresql', 'mysql'].map((db) => (
                           <SelectItem key={db} value={db} className="text-sm">
                             {db.charAt(0).toUpperCase() + db.slice(1)}
                           </SelectItem>

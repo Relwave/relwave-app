@@ -1,5 +1,5 @@
 
-export type DatabaseType = "postgresql" | "mysql" | "mongodb" | "sqlite";
+export type DatabaseType = "postgresql" | "mysql";
 
 export interface DatabaseConnection {
     id: string;
