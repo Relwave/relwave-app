@@ -1310,6 +1310,7 @@ const TYPE_MAP: Record<string, string> = {
   TEXT: "TEXT",
   BOOLEAN: "BOOLEAN",
   DATETIME: "DATETIME",
+  TIMESTAMP: "TIMESTAMP",
   JSON: "JSON",
 };
 
@@ -1437,6 +1438,166 @@ export async function createIndexes(
 
     return true;
   } finally {
+    await pool.end();
+  }
+}
+
+type AlterTableOperation =
+  | { type: "ADD_COLUMN"; column: ColumnDetail }
+  | { type: "DROP_COLUMN"; column_name: string }
+  | { type: "RENAME_COLUMN"; from: string; to: string }
+  | { type: "SET_NOT_NULL"; column_name: string; new_type: string }
+  | { type: "DROP_NOT_NULL"; column_name: string; new_type: string }
+  | { type: "SET_DEFAULT"; column_name: string; default_value: string }
+  | { type: "DROP_DEFAULT"; column_name: string }
+  | { type: "ALTER_TYPE"; column_name: string; new_type: string };
+
+
+
+export async function alterTable(
+  conn: MySQLConfig,
+  tableName: string,
+  operations: AlterTableOperation[]
+): Promise<boolean> {
+  const pool = mysql.createPool(conn);
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (const op of operations) {
+      let query = "";
+
+      switch (op.type) {
+        case "ADD_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            ADD COLUMN ${quoteIdent(op.column.name)}
+            ${TYPE_MAP[op.column.type]}
+            ${op.column.not_nullable ? "NOT NULL" : ""}
+            ${op.column.default_value ? `DEFAULT ${op.column.default_value}` : ""};
+          `;
+          break;
+
+        case "DROP_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            DROP COLUMN ${quoteIdent(op.column_name)};
+          `;
+          break;
+
+        case "RENAME_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            RENAME COLUMN ${quoteIdent(op.from)} TO ${quoteIdent(op.to)};
+          `;
+          break;
+
+        case "SET_NOT_NULL":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]} NOT NULL;
+          `;
+          break;
+
+        case "DROP_NOT_NULL":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]};
+          `;
+          break;
+
+        case "SET_DEFAULT":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            ALTER ${quoteIdent(op.column_name)}
+            SET DEFAULT ${op.default_value};
+          `;
+          break;
+
+        case "DROP_DEFAULT":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            ALTER ${quoteIdent(op.column_name)} DROP DEFAULT;
+          `;
+          break;
+
+        case "ALTER_TYPE":
+          query = `
+            ALTER TABLE ${quoteIdent(tableName)}
+            MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]};
+          `;
+          break;
+      }
+
+      await connection.query(query);
+    }
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+type DropMode =
+  | "RESTRICT"      // fail if dependencies exist
+  | "DETACH_FKS"    // drop dependent foreign keys first
+  | "CASCADE";      // explicit nuclear option
+
+export async function dropTable(
+  conn: MySQLConfig,
+  tableName: string,
+  mode: DropMode = "RESTRICT"
+): Promise<boolean> {
+  const pool = mysql.createPool(conn);
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    if (mode !== "CASCADE") {
+      const [rows] = await connection.query<any[]>(
+        `
+        SELECT CONSTRAINT_NAME, TABLE_NAME
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE REFERENCED_TABLE_NAME = ?
+          AND REFERENCED_TABLE_SCHEMA = DATABASE();
+        `,
+        [tableName]
+      );
+
+      if (rows.length > 0 && mode === "RESTRICT") {
+        throw new Error(
+          `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`
+        );
+      }
+
+      if (mode === "DETACH_FKS") {
+        for (const fk of rows) {
+          await connection.query(`
+            ALTER TABLE ${quoteIdent(fk.TABLE_NAME)}
+            DROP FOREIGN KEY ${quoteIdent(fk.CONSTRAINT_NAME)};
+          `);
+        }
+      }
+    }
+
+    await connection.query(`
+      DROP TABLE IF EXISTS ${quoteIdent(tableName)};
+    `);
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
     await pool.end();
   }
 }

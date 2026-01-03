@@ -221,3 +221,15 @@ export interface CreateIndexDefinition {
     seq_in_index?: number;
     predicate?: string;
 }
+
+export type AlterTableOperation =
+    | { type: "ADD_COLUMN"; column: CreateTableColumn }
+    | { type: "DROP_COLUMN"; column_name: string }
+    | { type: "RENAME_COLUMN"; from: string; to: string }
+    | { type: "SET_NOT_NULL"; column_name: string; new_type?: string }
+    | { type: "DROP_NOT_NULL"; column_name: string; new_type?: string }
+    | { type: "SET_DEFAULT"; column_name: string; default_value: string }
+    | { type: "DROP_DEFAULT"; column_name: string }
+    | { type: "ALTER_TYPE"; column_name: string; new_type: string };
+
+export type DropMode = "RESTRICT" | "DETACH_FKS" | "CASCADE";

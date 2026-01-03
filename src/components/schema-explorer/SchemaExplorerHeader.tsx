@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Plus, Database } from 'lucide-react'
+import { ArrowLeft, Plus, Database, Trash2, Settings } from 'lucide-react'
 import CreateTableDialog from './CreateTableDialog'
 import AddIndexesDialog from './AddIndexesDialog'
+import DropTableDialog from './DropTableDialog'
+import AlterTableDialog from './AlterTableDialog'
 
 interface SchemaExplorerHeaderProps {
     dbId: string;
@@ -18,6 +20,8 @@ interface SchemaExplorerHeaderProps {
 const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }: SchemaExplorerHeaderProps) => {
     const [createTableOpen, setCreateTableOpen] = useState(false);
     const [addIndexesOpen, setAddIndexesOpen] = useState(false);
+    const [dropTableOpen, setDropTableOpen] = useState(false);
+    const [alterTableOpen, setAlterTableOpen] = useState(false);
 
     // For now, we'll use the first schema or 'public' as default
     // In a future enhancement, we could let users select the schema
@@ -43,17 +47,39 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2">
-                        {/* Add Indexes Button - only show if table is selected */}
+                        {/* Table Actions - only show if table is selected */}
                         {selectedTable && (
-                            <Button
-                                onClick={() => setAddIndexesOpen(true)}
-                                variant="outline"
-                                className="gap-2"
-                                size="sm"
-                            >
-                                <Database className="h-4 w-4" />
-                                Add Indexes
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => setAlterTableOpen(true)}
+                                    variant="outline"
+                                    className="gap-2"
+                                    size="sm"
+                                >
+                                    <Settings className="h-4 w-4" />
+                                    Alter Table
+                                </Button>
+
+                                <Button
+                                    onClick={() => setAddIndexesOpen(true)}
+                                    variant="outline"
+                                    className="gap-2"
+                                    size="sm"
+                                >
+                                    <Database className="h-4 w-4" />
+                                    Add Indexes
+                                </Button>
+
+                                <Button
+                                    onClick={() => setDropTableOpen(true)}
+                                    variant="outline"
+                                    className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    size="sm"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Drop Table
+                                </Button>
+                            </>
                         )}
 
                         {/* Create Table Button */}
@@ -78,6 +104,19 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
                 onSuccess={onTableCreated}
             />
 
+            {/* Alter Table Dialog */}
+            {selectedTable && (
+                <AlterTableDialog
+                    open={alterTableOpen}
+                    onOpenChange={setAlterTableOpen}
+                    dbId={dbId}
+                    schemaName={selectedTable.schema}
+                    tableName={selectedTable.name}
+                    availableColumns={selectedTable.columns}
+                    onSuccess={onTableCreated}
+                />
+            )}
+
             {/* Add Indexes Dialog */}
             {selectedTable && (
                 <AddIndexesDialog
@@ -87,6 +126,18 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
                     schemaName={selectedTable.schema}
                     tableName={selectedTable.name}
                     availableColumns={selectedTable.columns}
+                    onSuccess={onTableCreated}
+                />
+            )}
+
+            {/* Drop Table Dialog */}
+            {selectedTable && (
+                <DropTableDialog
+                    open={dropTableOpen}
+                    onOpenChange={setDropTableOpen}
+                    dbId={dbId}
+                    schemaName={selectedTable.schema}
+                    tableName={selectedTable.name}
                     onSuccess={onTableCreated}
                 />
             )}

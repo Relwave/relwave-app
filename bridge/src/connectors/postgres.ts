@@ -1526,3 +1526,171 @@ export async function createIndexes(
     await client.end();
   }
 }
+
+type AlterTableOperation =
+  | { type: "ADD_COLUMN"; column: ColumnDetail }
+  | { type: "DROP_COLUMN"; column_name: string }
+  | { type: "RENAME_COLUMN"; from: string; to: string }
+  | { type: "SET_NOT_NULL"; column_name: string }
+  | { type: "DROP_NOT_NULL"; column_name: string }
+  | { type: "SET_DEFAULT"; column_name: string; default_value: string }
+  | { type: "DROP_DEFAULT"; column_name: string }
+  | { type: "ALTER_TYPE"; column_name: string; new_type: string };
+
+
+export async function alterTable(
+  conn: PGConfig,
+  schemaName: string,
+  tableName: string,
+  operations: AlterTableOperation[]
+): Promise<boolean> {
+  const client = createClient(conn);
+
+  try {
+    await client.connect();
+    await client.query("BEGIN");
+
+    for (const op of operations) {
+      let query = "";
+
+      switch (op.type) {
+        case "ADD_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ADD COLUMN ${quoteIdent(op.column.name)}
+            ${PG_TYPE_MAP[op.column.type]}
+            ${op.column.not_nullable ? "NOT NULL" : ""}
+            ${op.column.default_value ? `DEFAULT ${op.column.default_value}` : ""};
+          `;
+          break;
+
+        case "DROP_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            DROP COLUMN ${quoteIdent(op.column_name)};
+          `;
+          break;
+
+        case "RENAME_COLUMN":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            RENAME COLUMN ${quoteIdent(op.from)} TO ${quoteIdent(op.to)};
+          `;
+          break;
+
+        case "SET_NOT_NULL":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ALTER COLUMN ${quoteIdent(op.column_name)} SET NOT NULL;
+          `;
+          break;
+
+        case "DROP_NOT_NULL":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ALTER COLUMN ${quoteIdent(op.column_name)} DROP NOT NULL;
+          `;
+          break;
+
+        case "SET_DEFAULT":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ALTER COLUMN ${quoteIdent(op.column_name)}
+            SET DEFAULT ${op.default_value};
+          `;
+          break;
+
+        case "DROP_DEFAULT":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ALTER COLUMN ${quoteIdent(op.column_name)} DROP DEFAULT;
+          `;
+          break;
+
+        case "ALTER_TYPE":
+          query = `
+            ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+            ALTER COLUMN ${quoteIdent(op.column_name)}
+            TYPE ${PG_TYPE_MAP[op.new_type]};
+          `;
+          break;
+      }
+
+      await client.query(query);
+    }
+
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    await client.end();
+  }
+}
+type DropMode =
+  | "RESTRICT"      // fail if dependencies exist
+  | "DETACH_FKS"    // drop dependent foreign keys first
+  | "CASCADE";      // explicit nuclear option
+
+
+export async function dropTable(
+  conn: PGConfig,
+  schemaName: string,
+  tableName: string,
+  mode: DropMode = "RESTRICT"
+): Promise<boolean> {
+  const client = createClient(conn);
+
+  try {
+    await client.connect();
+    await client.query("BEGIN");
+
+    if (mode !== "CASCADE") {
+      const { rows } = await client.query(
+        `
+        SELECT 
+          tc.constraint_name,
+          tc.table_schema,
+          tc.table_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_name = ccu.constraint_name
+          AND tc.table_schema = ccu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_schema = $1
+          AND ccu.table_name = $2;
+        `,
+        [schemaName, tableName]
+      );
+
+      if (rows.length > 0 && mode === "RESTRICT") {
+        throw new Error(
+          `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`
+        );
+      }
+
+      if (mode === "DETACH_FKS") {
+        for (const fk of rows) {
+          await client.query(`
+            ALTER TABLE ${quoteIdent(fk.table_schema)}.${quoteIdent(fk.table_name)}
+            DROP CONSTRAINT ${quoteIdent(fk.constraint_name)};
+          `);
+        }
+      }
+    }
+
+    await client.query(`
+      DROP TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)}
+      ${mode === "CASCADE" ? "CASCADE" : "RESTRICT"};
+    `);
+
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    await client.end();
+  }
+}

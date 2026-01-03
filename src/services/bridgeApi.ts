@@ -416,6 +416,65 @@ class BridgeApiService {
     }
   }
 
+  /**
+   * Alter table structure
+   */
+  async alterTable(params: {
+    dbId: string;
+    schemaName: string;
+    tableName: string;
+    operations: any[];
+  }): Promise<boolean> {
+    try {
+      if (!params.dbId || !params.schemaName || !params.tableName) {
+        throw new Error("Database ID, schema name, and table name are required.");
+      }
+      if (!params.operations || params.operations.length === 0) {
+        throw new Error("At least one operation is required.");
+      }
+
+      const result = await bridgeRequest("query.alterTable", {
+        dbId: params.dbId,
+        schemaName: params.schemaName,
+        tableName: params.tableName,
+        operations: params.operations,
+      });
+
+      return result?.ok === true;
+    } catch (error: any) {
+      console.error("Failed to alter table:", error);
+      throw new Error(`Failed to alter table: ${error.message}`);
+    }
+  }
+
+  /**
+   * Drop a table
+   */
+  async dropTable(params: {
+    dbId: string;
+    schemaName: string;
+    tableName: string;
+    mode?: "RESTRICT" | "DETACH_FKS" | "CASCADE";
+  }): Promise<boolean> {
+    try {
+      if (!params.dbId || !params.schemaName || !params.tableName) {
+        throw new Error("Database ID, schema name, and table name are required.");
+      }
+
+      const result = await bridgeRequest("query.dropTable", {
+        dbId: params.dbId,
+        schemaName: params.schemaName,
+        tableName: params.tableName,
+        mode: params.mode || "RESTRICT",
+      });
+
+      return result?.ok === true;
+    } catch (error: any) {
+      console.error("Failed to drop table:", error);
+      throw new Error(`Failed to drop table: ${error.message}`);
+    }
+  }
+
   // ------------------------------------
   // 4. BRIDGE UTILITY METHODS
   // ------------------------------------

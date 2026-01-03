@@ -234,4 +234,78 @@ export class QueryHandlers {
     }
   }
 
+  async handleAlterTable(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName, operations } = params || {};
+      if (!dbId || !schemaName || !tableName) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.alterTable(
+          conn,
+          tableName,
+          operations
+        );
+        // Clear MySQL cache after table creation
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.alterTable(
+          conn,
+          schemaName,
+          tableName,
+          operations
+        );
+        // Clear PostgreSQL cache after table creation
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "alterTable failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  async handleDropTable(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName } = params || {};
+      if (!dbId || !schemaName || !tableName) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.dropTable(
+          conn,
+          tableName
+        );
+        // Clear MySQL cache after table creation
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.dropTable(
+          conn,
+          schemaName,
+          tableName
+        );
+        // Clear PostgreSQL cache after table creation
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "dropTable failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
 }
