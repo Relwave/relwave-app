@@ -43,6 +43,7 @@ export default function SchemaExplorer() {
     const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
     const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
+    const [selectedTable, setSelectedTable] = useState<{ schema: string; name: string; columns: string[] } | null>(null);
 
     // Initialize expanded schemas and selected item when data loads
     useEffect(() => {
@@ -53,6 +54,48 @@ export default function SchemaExplorer() {
             }
         }
     }, [schemaData]);
+
+    // Update selectedTable when selectedItem changes
+    useEffect(() => {
+        if (!selectedItem || !schemaData) {
+            setSelectedTable(null);
+            return;
+        }
+
+        // Parse selectedItem format: "database.schema.table"
+        const parts = selectedItem.split('.');
+
+        // If it's just database or database.schema, no table selected
+        if (parts.length < 3) {
+            setSelectedTable(null);
+            return;
+        }
+
+        const schemaName = parts[1];
+        const tableName = parts[2];
+
+        // Find the table in schemaData
+        const schema = schemaData.schemas?.find((s: any) => s.name === schemaName);
+        if (!schema) {
+            setSelectedTable(null);
+            return;
+        }
+
+        const table = schema.tables?.find((t: any) => t.name === tableName);
+        if (!table) {
+            setSelectedTable(null);
+            return;
+        }
+
+        // Extract column names
+        const columns = table.columns?.map((c: any) => c.name) || [];
+
+        setSelectedTable({
+            schema: schemaName,
+            name: tableName,
+            columns: columns
+        });
+    }, [selectedItem, schemaData]);
 
     // --- Toggle helpers ---
     const toggleSchema = (schemaName: string) => {
@@ -117,6 +160,7 @@ export default function SchemaExplorer() {
             <SchemaExplorerHeader
                 dbId={dbId!}
                 database={schemaData}
+                selectedTable={selectedTable}
                 onTableCreated={() => {
                     // Invalidate cache and refetch schema data
                     if (dbId) invalidateDatabase(dbId);

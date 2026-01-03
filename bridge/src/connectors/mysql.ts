@@ -1382,3 +1382,61 @@ export async function createTable(
     connection.release();
   }
 }
+
+function groupMySQLIndexes(indexes: IndexInfo[]) {
+  const map = new Map<string, IndexInfo[]>();
+
+  for (const idx of indexes) {
+    if (!map.has(idx.index_name)) {
+      map.set(idx.index_name, []);
+    }
+    map.get(idx.index_name)!.push(idx);
+  }
+
+  return [...map.values()].map(group =>
+    group.sort((a, b) => a.seq_in_index - b.seq_in_index)
+  );
+}
+
+
+export async function createIndexes(
+  conn: MySQLConfig,
+  indexes: IndexInfo[]
+): Promise<boolean> {
+  const pool = mysql.createPool(conn);
+  const groupedIndexes = groupMySQLIndexes(indexes);
+
+  try {
+    for (const group of groupedIndexes) {
+      const first = group[0];
+
+      // Skip primary key (handled during CREATE TABLE)
+      if (first.is_primary) continue;
+
+      const columns = group
+        .map(i => quoteIdent(i.column_name))
+        .join(", ");
+
+      const query = `
+        CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX
+        ${quoteIdent(first.index_name)}
+        ON ${quoteIdent(first.table_name)}
+        (${columns})
+        USING ${first.index_type || "BTREE"};
+      `;
+
+      try {
+        await pool.query(query);
+      } catch (err: any) {
+        // Ignore duplicate index creation
+        if (err.code !== "ER_DUP_KEYNAME") {
+          throw err;
+        }
+      }
+    }
+
+    return true;
+  } finally {
+    await pool.end();
+  }
+}

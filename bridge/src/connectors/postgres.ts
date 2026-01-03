@@ -115,6 +115,7 @@ type SequenceInfo = {
   column_name: string | null;
 };
 
+
 /**
  * PostgreSQL Cache Manager - handles all caching for Postgres connector
  */
@@ -1468,6 +1469,59 @@ export async function createTable(
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
+  } finally {
+    await client.end();
+  }
+}
+
+function groupIndexes(indexes: IndexInfo[]) {
+  const map = new Map<string, IndexInfo[]>();
+
+  for (const idx of indexes) {
+    if (!map.has(idx.index_name)) {
+      map.set(idx.index_name, []);
+    }
+    map.get(idx.index_name)!.push(idx);
+  }
+
+  return [...map.values()].map(group =>
+    group.sort((a, b) => a.ordinal_position - b.ordinal_position)
+  );
+}
+
+export async function createIndexes(
+  conn: PGConfig,
+  schemaName: string,
+  indexes: IndexInfo[]
+): Promise<Boolean> {
+  const client = createClient(conn);
+  const grouped = groupIndexes(indexes);
+  try {
+    await client.connect();
+
+    for (const group of grouped) {
+      const first = group[0];
+
+      // Skip PK indexes (already handled in CREATE TABLE)
+      if (first.is_primary) continue;
+
+      const columns = group.map(i => quoteIdent(i.column_name)).join(", ");
+
+      const query = `
+      CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX IF NOT EXISTS
+      ${quoteIdent(first.index_name)}
+      ON ${quoteIdent(schemaName)}.${quoteIdent(first.table_name)}
+      USING ${first.index_type || "btree"}
+      (${columns})
+      ${first.predicate ? `WHERE ${first.predicate}` : ""};
+    `;
+
+      await client.query(query);
+    }
+
+    return true;
+  } catch (error) {
+    throw error;
   } finally {
     await client.end();
   }

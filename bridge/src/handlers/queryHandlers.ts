@@ -198,4 +198,40 @@ export class QueryHandlers {
     }
   }
 
+  async handleCreateIndexes(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, indexes } = params || {};
+      if (!dbId || !schemaName) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.createIndexes(
+          conn,
+          indexes
+        );
+        // Clear MySQL cache after table creation
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.createIndexes(
+          conn,
+          schemaName,
+          indexes
+        );
+        // Clear PostgreSQL cache after table creation
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "createIndexes failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
 }

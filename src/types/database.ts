@@ -210,3 +210,14 @@ export interface ForeignKeyConstraint {
     update_rule?: string;
     delete_rule?: string;
 }
+
+export interface CreateIndexDefinition {
+    table_name: string;
+    index_name: string;
+    column_name: string;
+    is_unique: boolean;
+    is_primary: boolean;
+    index_type?: string;
+    seq_in_index?: number;
+    predicate?: string;
+}

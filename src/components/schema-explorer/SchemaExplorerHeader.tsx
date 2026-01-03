@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Database } from 'lucide-react'
 import CreateTableDialog from './CreateTableDialog'
+import AddIndexesDialog from './AddIndexesDialog'
 
 interface SchemaExplorerHeaderProps {
     dbId: string;
@@ -10,11 +11,13 @@ interface SchemaExplorerHeaderProps {
         name: string;
     };
     onTableCreated?: () => void;
+    selectedTable?: { schema: string; name: string; columns: string[] } | null;
 }
 
 
-const SchemaExplorerHeader = ({ dbId, database, onTableCreated }: SchemaExplorerHeaderProps) => {
+const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }: SchemaExplorerHeaderProps) => {
     const [createTableOpen, setCreateTableOpen] = useState(false);
+    const [addIndexesOpen, setAddIndexesOpen] = useState(false);
 
     // For now, we'll use the first schema or 'public' as default
     // In a future enhancement, we could let users select the schema
@@ -38,15 +41,31 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated }: SchemaExplorer
                         </div>
                     </div>
 
-                    {/* Create Table Button */}
-                    <Button
-                        onClick={() => setCreateTableOpen(true)}
-                        className="gap-2"
-                        size="sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Create Table
-                    </Button>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                        {/* Add Indexes Button - only show if table is selected */}
+                        {selectedTable && (
+                            <Button
+                                onClick={() => setAddIndexesOpen(true)}
+                                variant="outline"
+                                className="gap-2"
+                                size="sm"
+                            >
+                                <Database className="h-4 w-4" />
+                                Add Indexes
+                            </Button>
+                        )}
+
+                        {/* Create Table Button */}
+                        <Button
+                            onClick={() => setCreateTableOpen(true)}
+                            className="gap-2"
+                            size="sm"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Create Table
+                        </Button>
+                    </div>
                 </div>
             </header>
 
@@ -58,6 +77,19 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated }: SchemaExplorer
                 schemaName={defaultSchema}
                 onSuccess={onTableCreated}
             />
+
+            {/* Add Indexes Dialog */}
+            {selectedTable && (
+                <AddIndexesDialog
+                    open={addIndexesOpen}
+                    onOpenChange={setAddIndexesOpen}
+                    dbId={dbId}
+                    schemaName={selectedTable.schema}
+                    tableName={selectedTable.name}
+                    availableColumns={selectedTable.columns}
+                    onSuccess={onTableCreated}
+                />
+            )}
         </div>
     )
 }

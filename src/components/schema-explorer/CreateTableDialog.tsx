@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Table } from "lucide-react";
 import TableDesignerForm from "./TableDesignerForm";
+import AddIndexesDialog from "./AddIndexesDialog";
 import { CreateTableColumn, ForeignKeyConstraint } from "@/types/database";
 import { bridgeApi } from "@/services/bridgeApi";
 
@@ -34,6 +35,10 @@ export default function CreateTableDialog({
     const [foreignKeys, setForeignKeys] = useState<ForeignKeyConstraint[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [availableTables, setAvailableTables] = useState<Array<{ schema: string; name: string }>>([]);
+
+    // State for indexes dialog
+    const [showIndexesDialog, setShowIndexesDialog] = useState(false);
+    const [createdTableName, setCreatedTableName] = useState("");
 
     // Fetch available tables when dialog opens
     useEffect(() => {
@@ -133,13 +138,14 @@ export default function CreateTableDialog({
         setIsSubmitting(true);
 
         try {
-            // Update foreign keys with table name (in case it changed)
+            // Prepare foreign keys with updated table name
             const preparedForeignKeys = foreignKeys.map((fk) => ({
                 ...fk,
                 source_table: tableName.trim(),
                 source_schema: schemaName,
             }));
 
+            // Create the table with columns and foreign keys
             await bridgeApi.createTable({
                 dbId,
                 schemaName,
@@ -156,71 +162,97 @@ export default function CreateTableDialog({
                 description: `Table "${tableName}" has been created in schema "${schemaName}".`,
             });
 
+            // Store created table name and column names for indexes dialog
+            setCreatedTableName(tableName.trim());
+
+            // Close this dialog
             resetForm();
             onOpenChange(false);
 
-            if (onSuccess) {
-                onSuccess();
-            }
+            // Open indexes dialog
+            setShowIndexesDialog(true);
+
         } catch (error: any) {
             console.error("Failed to create table:", error);
             toast.error("Failed to create table", {
                 description: error.message || "An unknown error occurred",
             });
+            setIsSubmitting(false);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const handleIndexesSuccess = () => {
+        setShowIndexesDialog(false);
+        setCreatedTableName("");
+        if (onSuccess) {
+            onSuccess();
+        }
+    };
+
     return (
-        <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Table className="h-5 w-5" />
-                        Create New Table
-                    </DialogTitle>
-                    <DialogDescription>
-                        Create a new table in schema <span className="font-mono font-medium">{schemaName}</span>
-                    </DialogDescription>
-                </DialogHeader>
+        <>
+            <Dialog open={open} onOpenChange={handleClose}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Table className="h-5 w-5" />
+                            Create New Table
+                        </DialogTitle>
+                        <DialogDescription>
+                            Create a new table in schema <span className="font-mono font-medium">{schemaName}</span>
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <TableDesignerForm
-                    tableName={tableName}
-                    onTableNameChange={setTableName}
-                    columns={columns}
-                    onColumnsChange={setColumns}
-                    foreignKeys={foreignKeys}
-                    onForeignKeysChange={setForeignKeys}
-                    currentSchema={schemaName}
-                    availableTables={availableTables}
-                />
+                    <TableDesignerForm
+                        tableName={tableName}
+                        onTableNameChange={setTableName}
+                        columns={columns}
+                        onColumnsChange={setColumns}
+                        foreignKeys={foreignKeys}
+                        onForeignKeysChange={setForeignKeys}
+                        currentSchema={schemaName}
+                        availableTables={availableTables}
+                    />
 
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleClose}
-                        disabled={isSubmitting}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Creating...
-                            </>
-                        ) : (
-                            "Create Table"
-                        )}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClose}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating...
+                                </>
+                            ) : (
+                                "Create Table"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Indexes Dialog - shown after table creation */}
+            <AddIndexesDialog
+                open={showIndexesDialog}
+                onOpenChange={setShowIndexesDialog}
+                dbId={dbId}
+                schemaName={schemaName}
+                tableName={createdTableName}
+                availableColumns={columns.map((col) => col.name).filter(Boolean)}
+                onSuccess={handleIndexesSuccess}
+            />
+        </>
     );
 }

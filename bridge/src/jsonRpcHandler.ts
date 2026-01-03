@@ -81,6 +81,9 @@ export function registerDbHandlers(
   rpcRegister("query.createTable", (p, id) =>
     queryHandlers.handleCreateTable(p, id)
   );
+  rpcRegister("query.createIndexes", (p, id) =>
+    queryHandlers.handleCreateIndexes(p, id)
+  );
 
   // ==========================================
   // DATABASE CRUD HANDLERS
