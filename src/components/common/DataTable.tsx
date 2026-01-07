@@ -7,15 +7,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Database } from "lucide-react";
+import { Database, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface DataTableProps {
   data: Array<Record<string, any>>;
   maxHeight?: string;
   showRowNumbers?: boolean;
+  onEditRow?: (row: Record<string, any>) => void;
+  onDeleteRow?: (row: Record<string, any>) => void;
 }
 
-export const DataTable = ({ data, maxHeight = "100%", showRowNumbers = true }: DataTableProps) => {
+export const DataTable = ({
+  data,
+  maxHeight = "100%",
+  showRowNumbers = true,
+  onEditRow,
+  onDeleteRow,
+}: DataTableProps) => {
   if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -31,6 +40,7 @@ export const DataTable = ({ data, maxHeight = "100%", showRowNumbers = true }: D
   }
 
   const columns = Object.keys(data[0]);
+  const hasRowActions = onEditRow || onDeleteRow;
 
   const tableContent = (
     <Table>
@@ -49,6 +59,11 @@ export const DataTable = ({ data, maxHeight = "100%", showRowNumbers = true }: D
               {column}
             </TableHead>
           ))}
+          {hasRowActions && (
+            <TableHead className="w-24 text-center text-[11px] font-medium text-muted-foreground/60 px-2 py-2">
+              Actions
+            </TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -75,6 +90,34 @@ export const DataTable = ({ data, maxHeight = "100%", showRowNumbers = true }: D
                 )}
               </TableCell>
             ))}
+            {hasRowActions && (
+              <TableCell className="w-24 px-2 py-1">
+                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onEditRow && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => onEditRow(row)}
+                      title="Edit row"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                    </Button>
+                  )}
+                  {onDeleteRow && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => onDeleteRow(row)}
+                      title="Delete row"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

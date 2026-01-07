@@ -500,6 +500,81 @@ class BridgeApiService {
     }
   }
 
+  /**
+   * Update a row in a table
+   */
+  async updateRow(params: {
+    dbId: string;
+    schemaName: string;
+    tableName: string;
+    primaryKeyColumn: string;
+    primaryKeyValue: any;
+    rowData: Record<string, any>;
+  }): Promise<any> {
+    try {
+      if (!params.dbId || !params.schemaName || !params.tableName || !params.primaryKeyColumn) {
+        throw new Error("Database ID, schema name, table name, and primary key column are required.");
+      }
+      if (params.primaryKeyValue === undefined) {
+        throw new Error("Primary key value is required.");
+      }
+      if (!params.rowData || Object.keys(params.rowData).length === 0) {
+        throw new Error("Row data is required.");
+      }
+
+      const result = await bridgeRequest("query.updateRow", {
+        dbId: params.dbId,
+        schemaName: params.schemaName,
+        tableName: params.tableName,
+        primaryKeyColumn: params.primaryKeyColumn,
+        primaryKeyValue: params.primaryKeyValue,
+        rowData: params.rowData,
+      });
+
+      return result?.result || result;
+    } catch (error: any) {
+      console.error("Failed to update row:", error);
+      throw new Error(`Failed to update row: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a row from a table
+   */
+  async deleteRow(params: {
+    dbId: string;
+    schemaName: string;
+    tableName: string;
+    primaryKeyColumn: string;
+    primaryKeyValue: any;
+  }): Promise<boolean> {
+    try {
+      if (!params.dbId || !params.schemaName || !params.tableName) {
+        throw new Error("Database ID, schema name, and table name are required.");
+      }
+      // Allow empty primaryKeyColumn if primaryKeyValue is an object (composite key)
+      if (!params.primaryKeyColumn && typeof params.primaryKeyValue !== 'object') {
+        throw new Error("Primary key column is required when not using composite key.");
+      }
+      if (params.primaryKeyValue === undefined || params.primaryKeyValue === null) {
+        throw new Error("Primary key value or row data is required.");
+      }
+
+      const result = await bridgeRequest("query.deleteRow", {
+        dbId: params.dbId,
+        schemaName: params.schemaName,
+        tableName: params.tableName,
+        primaryKeyColumn: params.primaryKeyColumn,
+        primaryKeyValue: params.primaryKeyValue,
+      });
+
+      return result?.deleted === true;
+    } catch (error: any) {
+      console.error("Failed to delete row:", error);
+      throw new Error(`Failed to delete row: ${error.message}`);
+    }
+  }
+
   // ------------------------------------
   // MIGRATION METHODS
   // ------------------------------------

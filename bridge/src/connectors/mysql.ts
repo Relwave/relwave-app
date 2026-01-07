@@ -1903,3 +1903,113 @@ export async function insertRow(
     await pool.end();
   }
 }
+
+/**
+ * Update a row in a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name
+ * @param primaryKeyValue - Primary key value to identify the row
+ * @param rowData - Object with column names as keys and new values
+ * @returns The update result
+ */
+export async function updateRow(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
+  rowData: Record<string, any>
+): Promise<any> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for update");
+    }
+
+    const setClause = columns.map(col => `${quoteIdent(col)} = ?`).join(", ");
+
+    const query = `
+      UPDATE ${quoteIdent(tableName)}
+      SET ${setClause}
+      WHERE ${quoteIdent(primaryKeyColumn)} = ?;
+    `;
+
+    const [result] = await connection.execute(query, [...values, primaryKeyValue]);
+
+    // Clear cache to refresh table data
+    mysqlCache.clearForConnection(cfg);
+
+    return {
+      success: true,
+      affectedRows: (result as any).affectedRows
+    };
+  } catch (error) {
+    throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+/**
+ * Delete a row from a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name (or empty for composite)
+ * @param primaryKeyValue - Primary key value or whereConditions object
+ * @returns Success status
+ */
+export async function deleteRow(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any
+): Promise<boolean> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+      // Single primary key
+      whereClause = `${quoteIdent(primaryKeyColumn)} = ?`;
+      whereValues = [primaryKeyValue];
+    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+      // Composite key - use all columns from the object
+      const cols = Object.keys(primaryKeyValue);
+      whereClause = cols.map(col => `${quoteIdent(col)} = ?`).join(" AND ");
+      whereValues = Object.values(primaryKeyValue);
+    } else {
+      throw new Error("Either primary key or where conditions required for delete");
+    }
+
+    const query = `
+      DELETE FROM ${quoteIdent(tableName)}
+      WHERE ${whereClause};
+    `;
+
+    const [result] = await connection.execute(query, whereValues);
+
+    // Clear cache to refresh table data
+    mysqlCache.clearForConnection(cfg);
+
+    return (result as any).affectedRows > 0;
+  } catch (error) {
+    throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+

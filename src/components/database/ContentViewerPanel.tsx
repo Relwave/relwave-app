@@ -16,6 +16,8 @@ interface ContentViewerPanelProps {
     onExport?: () => void;
     onInsert?: () => void;
     onChart?: () => void;
+    onEditRow?: (row: Record<string, any>) => void;
+    onDeleteRow?: (row: Record<string, any>) => void;
 }
 
 export default function ContentViewerPanel({
@@ -30,6 +32,8 @@ export default function ContentViewerPanel({
     onExport,
     onInsert,
     onChart,
+    onEditRow,
+    onDeleteRow,
 }: ContentViewerPanelProps) {
     if (!selectedTable) {
         return (
@@ -107,7 +111,11 @@ export default function ContentViewerPanel({
                         <p className="text-sm text-muted-foreground">No data available</p>
                     </div>
                 ) : (
-                    <DataTable data={tableData} />
+                    <DataTable
+                        data={tableData}
+                        onEditRow={onEditRow}
+                        onDeleteRow={onDeleteRow}
+                    />
                 )}
             </div>
 

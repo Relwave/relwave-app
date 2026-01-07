@@ -2015,3 +2015,140 @@ export async function insertRow(
     } catch (_) { }
   }
 }
+
+/**
+ * Update a row in a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name
+ * @param primaryKeyValue - Primary key value to identify the row
+ * @param rowData - Object with column names as keys and new values
+ * @returns The updated row
+ */
+export async function updateRow(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
+  rowData: Record<string, any>
+): Promise<any> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for update");
+    }
+
+    // Build parameterized query
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+
+    const setClause = columns
+      .map((col, i) => `"${col.replace(/"/g, '""')}" = $${i + 1}`)
+      .join(", ");
+
+    // Build WHERE clause from primary key column/value or whereConditions
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (typeof primaryKeyColumn === 'string' && primaryKeyColumn) {
+      // Single primary key
+      const safePkColumn = `"${primaryKeyColumn.replace(/"/g, '""')}"`;
+      whereClause = `${safePkColumn} = $${columns.length + 1}`;
+      whereValues = [primaryKeyValue];
+    } else {
+      throw new Error("Primary key column is required for update");
+    }
+
+    const query = `
+      UPDATE ${safeSchema}.${safeTable}
+      SET ${setClause}
+      WHERE ${whereClause}
+      RETURNING *;
+    `;
+
+    const result = await client.query(query, [...values, ...whereValues]);
+
+    // Clear cache to refresh table data
+    postgresCache.clearForConnection(cfg);
+
+    return result.rows[0];
+  } catch (error) {
+    throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
+  }
+}
+
+/**
+ * Delete a row from a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name (or empty for composite)
+ * @param primaryKeyValue - Primary key value or whereConditions object
+ * @returns Success status
+ */
+export async function deleteRow(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any
+): Promise<boolean> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+      // Single primary key
+      const safePkColumn = `"${primaryKeyColumn.replace(/"/g, '""')}"`;
+      whereClause = `${safePkColumn} = $1`;
+      whereValues = [primaryKeyValue];
+    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+      // Composite key - use all columns from the object
+      const cols = Object.keys(primaryKeyValue);
+      whereClause = cols
+        .map((col, i) => `"${col.replace(/"/g, '""')}" = $${i + 1}`)
+        .join(" AND ");
+      whereValues = Object.values(primaryKeyValue);
+    } else {
+      throw new Error("Either primary key or where conditions required for delete");
+    }
+
+    const query = `
+      DELETE FROM ${safeSchema}.${safeTable}
+      WHERE ${whereClause};
+    `;
+
+    const result = await client.query(query, whereValues);
+
+    // Clear cache to refresh table data
+    postgresCache.clearForConnection(cfg);
+
+    return result.rowCount ? result.rowCount > 0 : false;
+  } catch (error) {
+    throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
+  }
+}
+

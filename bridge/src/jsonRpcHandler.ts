@@ -99,6 +99,12 @@ export function registerDbHandlers(
   rpcRegister("query.insertRow", (p, id) =>
     queryHandlers.handleInsertRow(p, id)
   );
+  rpcRegister("query.updateRow", (p, id) =>
+    queryHandlers.handleUpdateRow(p, id)
+  );
+  rpcRegister("query.deleteRow", (p, id) =>
+    queryHandlers.handleDeleteRow(p, id)
+  );
 
   // ==========================================
   // DATABASE CRUD HANDLERS
