@@ -16,7 +16,7 @@ const Settings = () => {
     ] as const;
 
     return (
-        <div className="min-h-screen flex bg-background text-foreground">
+        <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
             <VerticalIconBar />
 
             <main className="flex-1 ml-[60px]">

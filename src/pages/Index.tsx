@@ -194,7 +194,7 @@ const Index = () => {
   if (!bridgeReady) return <BridgeFailed />;
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
       <VerticalIconBar />
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
 

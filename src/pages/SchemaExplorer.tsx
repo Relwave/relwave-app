@@ -128,7 +128,7 @@ export default function SchemaExplorer() {
     // --- Conditional rendering ---
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
+            <div className="h-[calc(100vh-32px)] flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
                 <Spinner className="size-16" />
             </div>
         );
@@ -136,7 +136,7 @@ export default function SchemaExplorer() {
 
     if (error || !schemaData) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
+            <div className="h-[calc(100vh-32px)] flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
                 <div className="text-center p-8 border border-destructive/30 rounded-xl bg-destructive/10 text-destructive">
                     <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
                     <h2 className="text-xl font-bold mb-2">Error</h2>
@@ -157,7 +157,7 @@ export default function SchemaExplorer() {
 
     // --- Main renderer ---
     return (
-        <div className="min-h-screen flex bg-background text-foreground">
+        <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
             <VerticalIconBar dbId={dbId} />
 
             <main className="flex-1 ml-[60px] flex flex-col">

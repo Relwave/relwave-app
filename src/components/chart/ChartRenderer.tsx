@@ -81,14 +81,14 @@ const ChartRendererComponent = ({
                         tickLine={false}
                         tickMargin={10}
                         axisLine={false}
-                        tickFormatter={(value) => 
+                        tickFormatter={(value) =>
                             value.length > 12 ? value.slice(0, 12) + "…" : value
                         }
                     />
                     <YAxis
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => 
+                        tickFormatter={(value) =>
                             value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
                         }
                     />
@@ -96,10 +96,10 @@ const ChartRendererComponent = ({
                         cursor={false}
                         content={<ChartTooltipContent hideLabel />}
                     />
-                    <Bar 
-                        dataKey="value" 
+                    <Bar
+                        dataKey="value"
                         fill={CHART_COLOR}
-                        radius={6} 
+                        radius={6}
                     />
                 </BarChart>
             </ChartContainer>
@@ -117,14 +117,14 @@ const ChartRendererComponent = ({
                         tickLine={false}
                         tickMargin={10}
                         axisLine={false}
-                        tickFormatter={(value) => 
+                        tickFormatter={(value) =>
                             value.length > 12 ? value.slice(0, 12) + "…" : value
                         }
                     />
                     <YAxis
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => 
+                        tickFormatter={(value) =>
                             value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
                         }
                     />
@@ -162,7 +162,7 @@ const ChartRendererComponent = ({
                         innerRadius={50}
                         outerRadius={100}
                         fill={CHART_COLOR}
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        label={({ percent }: { percent?: number }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
                         labelLine={false}
                     />
                 </PieChart>
@@ -186,7 +186,7 @@ const ChartRendererComponent = ({
                         dataKey="value"
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => 
+                        tickFormatter={(value) =>
                             value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
                         }
                     />
@@ -194,8 +194,8 @@ const ChartRendererComponent = ({
                         cursor={false}
                         content={<ChartTooltipContent hideLabel />}
                     />
-                    <Scatter 
-                        data={chartData} 
+                    <Scatter
+                        data={chartData}
                         fill={CHART_COLOR}
                     />
                 </ScatterChart>

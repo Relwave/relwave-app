@@ -187,7 +187,7 @@ const SQLWorkspace = () => {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-background">
+        <div className="h-[calc(100vh-32px)] flex flex-col bg-background">
             {/* Top Bar - VS Code style */}
             <header className="h-12 border-b border-border/40 bg-background flex items-center justify-between px-4 shrink-0">
                 <div className="flex items-center gap-3">

@@ -38,9 +38,9 @@ export default function VerticalIconBar({ dbId }: VerticalIconBarProps) {
     ] : [];
 
     return (
-        <nav className="fixed left-0 top-0 h-screen w-[60px] bg-background border-r border-border/20 z-50 flex flex-col items-center py-4 gap-2">
+        <nav className="fixed left-0 top-8 h-[calc(100vh-32px)] w-[60px] bg-background border-r border-border/20 z-40 flex flex-col items-center py-4 gap-2">
             {/* Logo/Brand */}
-            <div className="mt-8">
+            <div className="mt-4">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Database className="h-5 w-5 text-primary" />
                 </div>

@@ -90,7 +90,7 @@ const DatabaseDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+      <div className="h-[calc(100vh-32px)] flex items-center justify-center bg-background text-foreground">
         <Card className="max-w-md w-full mx-4 border-border/20">
           <CardHeader className="border-b border-border/20">
             <CardTitle className="text-base">Connection Error</CardTitle>
@@ -124,7 +124,7 @@ const DatabaseDetail = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
       <VerticalIconBar dbId={dbId} />
 
       <main className="flex-1 ml-[60px] flex flex-col">

@@ -13,7 +13,7 @@ export default function ERDiagram() {
   const { id } = useParams<{ id: string }>();
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
       <VerticalIconBar dbId={id} />
 
       <main className="flex-1 ml-[60px] flex flex-col">

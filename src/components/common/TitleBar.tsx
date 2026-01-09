@@ -32,7 +32,7 @@ const TitleBar = () => {
     return (
         <div
             data-tauri-drag-region
-            className="h-8 bg-background border-b border-border/10 flex items-center justify-between select-none fixed top-0 left-0 right-0 z-100"
+            className="h-8 bg-background border-b border-border/10 flex items-center justify-between select-none fixed top-0 left-0 right-0 z-[100]"
         >
             {/* App Title - Left */}
             <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-full">
