@@ -18,6 +18,20 @@ struct BridgeProcess(Arc<Mutex<Option<Child>>>);
 fn bridge_write(data: String, state: State<'_, BridgeProcess>) -> Result<(), String> {
   let mut guard = state.0.lock().unwrap();
   if let Some(child) = guard.as_mut() {
+    // Check if the process is still alive
+    match child.try_wait() {
+      Ok(Some(status)) => {
+        // Process has exited
+        return Err(format!("bridge process exited with status: {:?}", status));
+      }
+      Ok(None) => {
+        // Process is still running, proceed with write
+      }
+      Err(e) => {
+        return Err(format!("failed to check bridge status: {}", e));
+      }
+    }
+    
     if let Some(stdin) = child.stdin.as_mut() {
       stdin.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
       stdin.write_all(b"\n").map_err(|e| e.to_string())?;
@@ -28,6 +42,42 @@ fn bridge_write(data: String, state: State<'_, BridgeProcess>) -> Result<(), Str
     }
   }
   Err("bridge not available".into())
+}
+
+/// Restart the bridge process
+#[tauri::command]
+fn bridge_restart(app_handle: tauri::AppHandle, state: State<'_, BridgeProcess>) -> Result<String, String> {
+  let mut guard = state.0.lock().unwrap();
+  
+  // Kill existing process if any
+  if let Some(mut child) = guard.take() {
+    let _ = child.kill();
+    let _ = child.wait();
+  }
+  
+  // Spawn new bridge process
+  match spawn_bridge(app_handle) {
+    Ok(child) => {
+      *guard = Some(child);
+      Ok("Bridge restarted successfully".into())
+    }
+    Err(e) => Err(e)
+  }
+}
+
+/// Check if bridge process is alive
+#[tauri::command]
+fn bridge_status(state: State<'_, BridgeProcess>) -> Result<String, String> {
+  let mut guard = state.0.lock().unwrap();
+  if let Some(child) = guard.as_mut() {
+    match child.try_wait() {
+      Ok(Some(status)) => Ok(format!("exited:{:?}", status)),
+      Ok(None) => Ok("running".into()),
+      Err(e) => Err(format!("error checking status: {}", e)),
+    }
+  } else {
+    Ok("not_started".into())
+  }
 }
 
 /// Try to spawn program with args and return Child or an error message (string).
@@ -311,7 +361,7 @@ fn main() {
         }
       }
     })
-    .invoke_handler(tauri::generate_handler![bridge_write])
+    .invoke_handler(tauri::generate_handler![bridge_write, bridge_restart, bridge_status])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
