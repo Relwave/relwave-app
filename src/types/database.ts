@@ -13,6 +13,7 @@ export interface DatabaseConnection {
     notes?: string;
     createdAt: string;
     updatedAt: string;
+    lastAccessedAt?: string;
     credentialId?: string;
 }
 

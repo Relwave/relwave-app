@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Font Family Configuration */
+@theme inline {
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -175,7 +181,18 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+  
+  /* Apply monospace font to technical elements */
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
+  }
+  
+  /* Ensure font-mono class uses our mono font */
+  .font-mono {
+    font-family: var(--font-mono) !important;
   }
 }
 

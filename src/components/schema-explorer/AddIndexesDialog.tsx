@@ -109,7 +109,6 @@ export default function AddIndexesDialog({
                 ...idx,
                 table_name: tableName.trim(),
             }));
-            console.log(dbId, schemaName, preparedIndexes)
 
             const res = await bridgeApi.createIndexes({
                 dbId,

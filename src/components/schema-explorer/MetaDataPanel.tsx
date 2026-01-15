@@ -83,37 +83,37 @@ const MetaDataPanel = ({ selectedItem, database }: MetaDataPanelProps) => {
                     <div className="grid grid-cols-3 gap-3">
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold">{db.schemas.length}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums">{db.schemas.length}</div>
                                 <p className="text-xs text-muted-foreground">Schemas</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold">{totalTables}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums">{totalTables}</div>
                                 <p className="text-xs text-muted-foreground">Tables</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold">{totalColumns}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums">{totalColumns}</div>
                                 <p className="text-xs text-muted-foreground">Columns</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold text-cyan-600">{totalFKs}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums text-cyan-600">{totalFKs}</div>
                                 <p className="text-xs text-muted-foreground">Foreign Keys</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold text-blue-600">{totalIndexes}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums text-blue-600">{totalIndexes}</div>
                                 <p className="text-xs text-muted-foreground">Indexes</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold text-purple-600">{totalEnums}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums text-purple-600">{totalEnums}</div>
                                 <p className="text-xs text-muted-foreground">Enums</p>
                             </CardContent>
                         </Card>
@@ -144,19 +144,19 @@ const MetaDataPanel = ({ selectedItem, database }: MetaDataPanelProps) => {
                     <div className="grid grid-cols-3 gap-3">
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold">{schema.tables.length}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums">{schema.tables.length}</div>
                                 <p className="text-xs text-muted-foreground">Tables</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold">{totalColumns}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums">{totalColumns}</div>
                                 <p className="text-xs text-muted-foreground">Columns</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-4">
-                                <div className="text-2xl font-bold text-cyan-600">{totalFKs}</div>
+                                <div className="text-2xl font-bold font-mono tabular-nums text-cyan-600">{totalFKs}</div>
                                 <p className="text-xs text-muted-foreground">Foreign Keys</p>
                             </CardContent>
                         </Card>
@@ -371,7 +371,7 @@ const MetaDataPanel = ({ selectedItem, database }: MetaDataPanelProps) => {
                                                     <div className="flex items-center gap-1.5">
                                                         {col.isPrimaryKey && <Key className="h-3 w-3 text-amber-600" />}
                                                         {col.isForeignKey && <Link2 className="h-3 w-3 text-cyan-600" />}
-                                                        <span className={col.isPrimaryKey ? 'text-amber-600 dark:text-amber-400' : col.isForeignKey ? 'text-cyan-600 dark:text-cyan-400' : ''}>
+                                                        <span className={`font-mono ${col.isPrimaryKey ? 'text-amber-600 dark:text-amber-400' : col.isForeignKey ? 'text-cyan-600 dark:text-cyan-400' : ''}`}>
                                                             {col.name}
                                                         </span>
                                                     </div>
@@ -544,37 +544,37 @@ const MetaDataPanel = ({ selectedItem, database }: MetaDataPanelProps) => {
                             <div className="grid grid-cols-3 gap-3">
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold">{table.columns.length}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums">{table.columns.length}</div>
                                         <p className="text-xs text-muted-foreground">Columns</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold text-amber-600">{pkCount}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums text-amber-600">{pkCount}</div>
                                         <p className="text-xs text-muted-foreground">Primary Keys</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold text-cyan-600">{fkCount}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums text-cyan-600">{fkCount}</div>
                                         <p className="text-xs text-muted-foreground">Foreign Keys</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold text-blue-600">{idxCount}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums text-blue-600">{idxCount}</div>
                                         <p className="text-xs text-muted-foreground">Indexes</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold text-purple-600">{uqCount}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums text-purple-600">{uqCount}</div>
                                         <p className="text-xs text-muted-foreground">Unique</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardContent className="pt-4 text-center">
-                                        <div className="text-2xl font-bold text-orange-600">{chkCount}</div>
+                                        <div className="text-2xl font-bold font-mono tabular-nums text-orange-600">{chkCount}</div>
                                         <p className="text-xs text-muted-foreground">Check</p>
                                     </CardContent>
                                 </Card>

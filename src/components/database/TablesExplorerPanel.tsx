@@ -55,9 +55,9 @@ export default function TablesExplorerPanel({
     };
 
     return (
-        <div className="w-[30%] min-w-[280px] border-r border-border/20 flex flex-col bg-background">
+        <div className="h-full w-64 flex flex-col bg-background overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-border/20">
+            <div className="p-3 border-b border-border/20 shrink-0">
                 <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Table className="h-4 w-4" />
                     Tables
@@ -143,7 +143,7 @@ export default function TablesExplorerPanel({
                                                 }`}
                                         />
                                     </button>
-                                    <span className="text-sm font-medium truncate">{table.name}</span>
+                                    <span className="text-sm font-medium truncate font-mono">{table.name}</span>
                                 </div>
                             </button>
                         ))

@@ -96,6 +96,18 @@ export function registerDbHandlers(
   rpcRegister("query.connectToDatabase", (p, id) =>
     queryHandlers.connectToDatabase(p, id)
   );
+  rpcRegister("query.insertRow", (p, id) =>
+    queryHandlers.handleInsertRow(p, id)
+  );
+  rpcRegister("query.updateRow", (p, id) =>
+    queryHandlers.handleUpdateRow(p, id)
+  );
+  rpcRegister("query.deleteRow", (p, id) =>
+    queryHandlers.handleDeleteRow(p, id)
+  );
+  rpcRegister("query.searchTable", (p, id) =>
+    queryHandlers.handleSearchTable(p, id)
+  );
 
   // ==========================================
   // DATABASE CRUD HANDLERS
@@ -107,6 +119,7 @@ export function registerDbHandlers(
   rpcRegister("db.add", (p, id) => databaseHandlers.handleAddDatabase(p, id));
   rpcRegister("db.delete", (p, id) => databaseHandlers.handleDeleteDatabase(p, id));
   rpcRegister("db.connectTest", (p, id) => databaseHandlers.handleTestConnection(p, id));
+  rpcRegister("db.touch", (p, id) => databaseHandlers.handleTouchDatabase(p, id));
 
   // ==========================================
   // DATABASE METADATA HANDLERS

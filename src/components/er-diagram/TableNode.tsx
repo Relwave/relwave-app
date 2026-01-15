@@ -105,9 +105,9 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                         // Build tooltip content
                         const tooltipContent = (
                             <div className="text-xs space-y-1 max-w-[250px]">
-                                <div className="font-semibold border-b pb-1 mb-1">{col.name}</div>
-                                <div><span className="text-muted-foreground">Type:</span> {col.type}</div>
-                                <div><span className="text-muted-foreground">Nullable:</span> {col.nullable ? "Yes" : "No"}</div>
+                                <div className="font-semibold border-b pb-1 mb-1 text-white">{col.name}</div>
+                                <div className="text-muted-foreground"><span>Type:</span> {col.type}</div>
+                                <div className='text-muted-foreground'><span>Nullable:</span> {col.nullable ? "Yes" : "No"}</div>
                                 {col.defaultValue && (
                                     <div><span className="text-muted-foreground">Default:</span> {col.defaultValue}</div>
                                 )}

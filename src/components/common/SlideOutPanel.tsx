@@ -25,13 +25,13 @@ export default function SlideOutPanel({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
+                className="fixed inset-0 top-8 bg-background/80 backdrop-blur-sm z-50"
                 onClick={onClose}
             />
 
             {/* Panel */}
             <div
-                className="fixed right-0 top-0 h-screen bg-background border-l border-border/20 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300"
+                className="fixed right-0 top-8 h-[calc(100vh-32px)] bg-background border-l border-border/20 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300"
                 style={{ width }}
             >
                 {/* Header */}

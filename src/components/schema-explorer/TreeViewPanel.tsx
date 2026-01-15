@@ -95,7 +95,7 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                 )}
                                                 <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                                <span className="font-medium text-sm text-foreground">{schema.name}</span>
+                                                <span className="font-medium text-sm text-foreground font-mono">{schema.name}</span>
                                                 <div className="ml-auto flex items-center gap-1">
                                                     <Badge variant="outline" className="text-[10px]">{tableCount}</Badge>
                                                     {enumCount > 0 && (
@@ -149,7 +149,7 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                                             )}
                                                                             <Table className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                                                                            <span className="text-sm text-foreground">{table.name}</span>
+                                                                            <span className="text-sm text-foreground font-mono">{table.name}</span>
                                                                             <div className="ml-auto flex items-center gap-1">
                                                                                 {table.type !== "BASE TABLE" && (
                                                                                     <Badge variant="outline" className="text-[10px] text-primary border-primary/50">
@@ -194,7 +194,7 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                                                                 <div className="flex items-center gap-1 flex-1 min-w-0">
                                                                                                                     {column.isPrimaryKey && <Key className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />}
                                                                                                                     {column.isForeignKey && <Link2 className="h-3 w-3 text-cyan-600 dark:text-cyan-400 shrink-0" />}
-                                                                                                                    <span className={`truncate ${column.isPrimaryKey ? 'text-amber-600 dark:text-amber-400 font-medium' : column.isForeignKey ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground'}`}>
+                                                                                                                    <span className={`truncate font-mono ${column.isPrimaryKey ? 'text-amber-600 dark:text-amber-400 font-medium' : column.isForeignKey ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground'}`}>
                                                                                                                         {column.name}
                                                                                                                     </span>
                                                                                                                     {isUnique && (

@@ -40,25 +40,6 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
             action: () => navigate('/settings'),
             category: 'Navigation',
         },
-        {
-            id: 'query-builder',
-            label: 'Open Query Builder',
-            icon: <Search className="h-4 w-4" />,
-            action: () => {
-                // Will be implemented later onClose();
-            },
-            category: 'Tools',
-        },
-        {
-            id: 'schema-explorer',
-            label: 'Open Schema Explorer',
-            icon: <GitBranch className="h-4 w-4" />,
-            action: () => {
-                // Will be implemented later
-                onClose();
-            },
-            category: 'Tools',
-        },
     ];
 
     const filteredCommands = commands.filter((cmd) =>
@@ -100,9 +81,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-base h-14"
                         autoFocus
                     />
-                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border/20 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                        ESC
-                    </kbd>
+
                 </div>
 
                 <ScrollArea className="max-h-[400px]">

@@ -37,7 +37,7 @@ const TitleBar = () => {
             {/* App Title - Left */}
             <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-full">
                 <div className="w-3 h-3 rounded-full bg-linear-to-br from-primary/80 to-primary" />
-                <span className="text-xs font-medium text-muted-foreground">DB Studio</span>
+                <span className="text-xs font-medium text-muted-foreground">RelWave</span>
             </div>
 
             {/* Window Controls - Right */}

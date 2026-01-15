@@ -331,4 +331,171 @@ export class QueryHandlers {
     }
   }
 
+  async handleInsertRow(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName, rowData } = params || {};
+      if (!dbId || !schemaName || !tableName || !rowData) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, tableName, or rowData",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.insertRow(
+          conn,
+          schemaName,
+          tableName,
+          rowData
+        );
+        // Clear MySQL cache after insert
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.insertRow(
+          conn,
+          schemaName,
+          tableName,
+          rowData
+        );
+        // Clear PostgreSQL cache after insert
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "insertRow failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  async handleUpdateRow(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue, rowData } = params || {};
+      if (!dbId || !schemaName || !tableName || !primaryKeyColumn || primaryKeyValue === undefined || !rowData) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue, or rowData",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.updateRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue,
+          rowData
+        );
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.updateRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue,
+          rowData
+        );
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "updateRow failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  async handleDeleteRow(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue } = params || {};
+      // Allow empty primaryKeyColumn if primaryKeyValue is an object (composite key)
+      if (!dbId || !schemaName || !tableName) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
+      }
+      if (!primaryKeyColumn && (typeof primaryKeyValue !== 'object' || primaryKeyValue === null)) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Either primaryKeyColumn or composite key object is required",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.deleteRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue
+        );
+        this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
+      } else {
+        result = await this.queryExecutor.postgres.deleteRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue
+        );
+        this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      }
+
+      this.rpc.sendResponse(id, { ok: true, deleted: result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "deleteRow failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  async handleSearchTable(params: any, id: number | string) {
+    try {
+      const { dbId, schemaName, tableName, searchTerm, column, page, pageSize } = params || {};
+      if (!dbId || !schemaName || !tableName || !searchTerm) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, tableName, or searchTerm",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+
+      let result;
+      if (dbType === "mysql") {
+        result = await this.queryExecutor.mysql.searchTable(
+          conn,
+          schemaName,
+          tableName,
+          searchTerm,
+          column,
+          page || 1,
+          pageSize || 50
+        );
+      } else {
+        result = await this.queryExecutor.postgres.searchTable(
+          conn,
+          schemaName,
+          tableName,
+          searchTerm,
+          column,
+          page || 1,
+          pageSize || 50
+        );
+      }
+
+      this.rpc.sendResponse(id, { ok: true, ...result });
+    } catch (e: any) {
+      this.logger?.error({ e }, "searchTable failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
 }

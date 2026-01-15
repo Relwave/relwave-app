@@ -6,119 +6,73 @@ import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMi
 import crypto from "crypto";
 import fs from "fs";
 import { ensureDir, getMigrationsDir } from "../services/dbStore";
+import {
+  CacheEntry,
+  CACHE_TTL,
+  STATS_CACHE_TTL,
+  SCHEMA_CACHE_TTL
+} from "../types/cache";
+import {
+  TableInfo,
+  DBStats,
+  SchemaInfo,
+  ColumnDetail,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  AppliedMigration,
+} from "../types/common";
+import {
+  PGConfig,
+  EnumInfo,
+  SequenceInfo,
+  PGSchemaMetadataBatch,
+  PGAlterTableOperation,
+  PGDropMode,
+} from "../types/postgres";
 
-export type PGConfig = {
-  host: string;
-  port?: number;
-  user?: string;
-  password?: string;
-  database?: string;
-  ssl?: boolean;
-  sslmode?: string;
+export type {
+  PGConfig,
+  ColumnDetail,
+  TableInfo,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  EnumInfo,
+  SequenceInfo,
+  AppliedMigration,
 };
+import { PG_LIST_SCHEMAS, PG_LIST_TABLES, PG_LIST_TABLES_BY_SCHEMA, PG_LIST_ENUMS, PG_LIST_SEQUENCES } from "../queries/postgres/schema";
+import { PG_GET_TABLE_DETAILS, PG_BATCH_GET_ALL_COLUMNS, PG_CANCEL_QUERY } from "../queries/postgres/tables";
+import {
+  PG_GET_PRIMARY_KEYS,
+  PG_BATCH_GET_PRIMARY_KEYS,
+  PG_GET_FOREIGN_KEYS,
+  PG_BATCH_GET_FOREIGN_KEYS,
+  PG_GET_INDEXES,
+  PG_BATCH_GET_INDEXES,
+  PG_GET_UNIQUE_CONSTRAINTS,
+  PG_BATCH_GET_UNIQUE_CONSTRAINTS,
+  PG_GET_CHECK_CONSTRAINTS,
+  PG_BATCH_GET_CHECK_CONSTRAINTS
+} from "../queries/postgres/constraints";
+import { PG_GET_DB_STATS } from "../queries/postgres/stats";
+import {
+  PG_CREATE_MIGRATION_TABLE,
+  PG_CHECK_MIGRATIONS_EXIST,
+  PG_INSERT_MIGRATION,
+  PG_LIST_APPLIED_MIGRATIONS,
+  PG_DELETE_MIGRATION
+} from "../queries/postgres/migrations";
+import { pgQuoteIdentifier } from "../queries/postgres/crud";
 
 // ============================================
 // CACHING SYSTEM FOR POSTGRES CONNECTOR
 // ============================================
-
-// Cache configuration
-const CACHE_TTL = 60000; // 1 minute default TTL
-const STATS_CACHE_TTL = 30000; // 30 seconds for stats (changes more frequently)
-const SCHEMA_CACHE_TTL = 300000; // 5 minutes for schemas (rarely change)
-
-/**
- * Generic cache entry with TTL support
- */
-type CacheEntry<T> = {
-  data: T;
-  timestamp: number;
-  ttl: number;
-};
-
-/**
- * Type definitions for cached data
- */
-type TableInfo = {
-  schema: string;
-  name: string;
-  type: string;
-};
-
-type PrimaryKeyInfo = {
-  column_name: string;
-};
-
-type DBStats = {
-  total_tables: number;
-  total_db_size_mb: number;
-  total_rows: number;
-};
-
-type SchemaInfo = {
-  name: string;
-};
-
-type ColumnDetail = {
-  name: string;
-  type: string;
-  not_nullable: boolean;
-  default_value: string | null;
-  is_primary_key: boolean;
-  is_foreign_key: boolean;
-};
-
-type ForeignKeyInfo = {
-  constraint_name: string;
-  source_schema: string;
-  source_table: string;
-  source_column: string;
-  target_schema: string;
-  target_table: string;
-  target_column: string;
-  update_rule: string;
-  delete_rule: string;
-  ordinal_position: number;
-};
-
-type IndexInfo = {
-  table_name: string;
-  index_name: string;
-  column_name: string;
-  is_unique: boolean;
-  is_primary: boolean;
-  index_type: string;
-  predicate: string | null;
-  ordinal_position: number;
-};
-
-type UniqueConstraintInfo = {
-  constraint_name: string;
-  table_schema: string;
-  table_name: string;
-  column_name: string;
-  ordinal_position: number;
-};
-
-type CheckConstraintInfo = {
-  constraint_name: string;
-  table_schema: string;
-  table_name: string;
-  definition: string;
-};
-
-type EnumInfo = {
-  schema_name: string;
-  enum_name: string;
-  enum_value: string;
-};
-
-type SequenceInfo = {
-  sequence_name: string;
-  sequence_schema: string;
-  table_name: string | null;
-  column_name: string | null;
-};
-
 
 /**
  * PostgreSQL Cache Manager - handles all caching for Postgres connector
@@ -443,11 +397,22 @@ export const postgresCache = new PostgresCacheManager();
  * Encapsulates the configuration mapping logic.
  */
 function createClient(cfg: PGConfig): Client {
+  // Build SSL configuration
+  let sslConfig: boolean | { rejectUnauthorized: boolean } | undefined;
+
+  if (cfg.ssl) {
+    // For cloud databases (Supabase, Railway, etc.), we need to allow self-signed certs
+    // sslmode=require or sslmode=prefer should use rejectUnauthorized: false
+    sslConfig = {
+      rejectUnauthorized: cfg.sslmode === 'verify-full' || cfg.sslmode === 'verify-ca'
+    };
+  }
+
   return new Client({
     host: cfg.host,
     port: cfg.port,
     user: cfg.user,
-    ssl: cfg.ssl || undefined,
+    ssl: sslConfig,
     password: cfg.password || undefined,
     database: cfg.database || undefined,
   });
@@ -473,9 +438,7 @@ export async function pgCancel(cfg: PGConfig, targetPid: number) {
   const c = createClient(cfg);
   try {
     await c.connect();
-    const res = await c.query("SELECT pg_cancel_backend($1) AS cancelled", [
-      targetPid,
-    ]);
+    const res = await c.query(PG_CANCEL_QUERY, [targetPid]);
     await c.end();
     return res.rows?.[0]?.cancelled === true;
   } catch (err) {
@@ -576,21 +539,14 @@ export async function listTables(connection: PGConfig, schemaName?: string) {
 
   const client = createClient(connection);
 
-  let query = `
-    SELECT table_schema AS schema, table_name AS name, table_type AS type
-    FROM information_schema.tables
-    WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-      AND table_type = 'BASE TABLE'
-  `;
+  let query = PG_LIST_TABLES;
   let queryParams: string[] = [];
 
   // Add schema filter if provided
   if (schemaName) {
-    query += ` AND table_schema = $1`;
+    query = PG_LIST_TABLES_BY_SCHEMA;
     queryParams.push(schemaName);
   }
-
-  query += ` ORDER BY table_schema, table_name;`;
 
   try {
     await client.connect();
@@ -623,28 +579,9 @@ export async function listPrimaryKeys(connection: PGConfig, schemaName: string =
 
   const client = createClient(connection);
 
-  const query = `
-   SELECT 
-    tc.table_schema,
-    tc.table_name,
-    kcu.column_name,
-    kcu.ordinal_position
-FROM 
-    information_schema.table_constraints tc
-JOIN 
-    information_schema.key_column_usage kcu
-    ON tc.constraint_name = kcu.constraint_name
-WHERE 
-    tc.constraint_type = 'PRIMARY KEY'
-    AND tc.table_name = $1
-ORDER BY 
-    kcu.ordinal_position;
-
-  `;
-
   try {
     await client.connect();
-    const res = await client.query(query, [tableName]);
+    const res = await client.query(PG_GET_PRIMARY_KEYS, [tableName]);
 
     const result = res.rows;
 
@@ -671,38 +608,9 @@ export async function listForeignKeys(
 
   const client = createClient(connection);
 
-  const query = `
-    SELECT
-        tc.constraint_name,
-        tc.table_schema AS source_schema,
-        tc.table_name AS source_table,
-        kcu.column_name AS source_column,
-        ccu.table_schema AS target_schema,
-        ccu.table_name AS target_table,
-        ccu.column_name AS target_column,
-        rc.update_rule,
-        rc.delete_rule,
-        kcu.ordinal_position
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu
-        ON tc.constraint_name = kcu.constraint_name
-       AND tc.table_schema = kcu.table_schema
-    JOIN information_schema.constraint_column_usage ccu
-        ON ccu.constraint_name = tc.constraint_name
-    JOIN information_schema.referential_constraints rc
-        ON rc.constraint_name = tc.constraint_name
-    WHERE 
-        tc.constraint_type = 'FOREIGN KEY'
-        AND tc.table_schema = $2
-        AND tc.table_name = $1
-    ORDER BY 
-        tc.constraint_name,
-        kcu.ordinal_position;
-  `;
-
   try {
     await client.connect();
-    const res = await client.query(query, [tableName, schemaName]);
+    const res = await client.query(PG_GET_FOREIGN_KEYS, [tableName, schemaName]);
     const result = res.rows;
 
     postgresCache.setForeignKeys(connection, schemaName, tableName, result);
@@ -725,30 +633,9 @@ export async function listIndexes(connection: PGConfig, schemaName = "public", t
 
   const client = createClient(connection);
 
-  const query = ` SELECT
-    t.relname AS table_name,
-    i.relname AS index_name,
-    a.attname AS column_name,
-    ix.indisunique AS is_unique,
-    ix.indisprimary AS is_primary,
-    am.amname AS index_type,
-    pg_get_expr(ix.indpred, ix.indrelid) AS predicate,
-    array_position(ix.indkey, a.attnum) AS ordinal_position
-FROM pg_class t
-JOIN pg_index ix ON t.oid = ix.indrelid
-JOIN pg_class i ON i.oid = ix.indexrelid
-JOIN pg_am am ON am.oid = i.relam
-JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
-JOIN pg_namespace n ON n.oid = t.relnamespace
-WHERE
-    n.nspname = $2
-    AND t.relname = $1
-ORDER BY index_name, ordinal_position;
-`;
-
   try {
     await client.connect();
-    const res = await client.query(query, [tableName, schemaName]);
+    const res = await client.query(PG_GET_INDEXES, [tableName, schemaName]);
     postgresCache.setIndexes(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
@@ -761,28 +648,10 @@ export async function listUniqueConstraints(connection: PGConfig, schemaName = "
   if (cached !== null) return cached;
 
   const client = createClient(connection);
-  const query = `SELECT
-  tc.constraint_name,
-  tc.table_schema,
-  tc.table_name,
-  kcu.column_name,
-  kcu.ordinal_position
-FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu
-  ON tc.constraint_name = kcu.constraint_name
-  AND tc.table_schema = kcu.table_schema
-WHERE
-  tc.constraint_type = 'UNIQUE'
-  AND tc.table_schema = $2
-  AND tc.table_name = $1
-ORDER BY
-  tc.constraint_name,
-  kcu.ordinal_position;
- `;
 
   try {
     await client.connect();
-    const res = await client.query(query, [tableName, schemaName]);
+    const res = await client.query(PG_GET_UNIQUE_CONSTRAINTS, [tableName, schemaName]);
     postgresCache.setUnique(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
@@ -795,23 +664,10 @@ export async function listCheckConstraints(connection: PGConfig, schemaName = "p
   if (cached !== null) return cached;
 
   const client = createClient(connection);
-  const query = `SELECT
-    c.conname AS constraint_name,
-    n.nspname AS table_schema,
-    t.relname AS table_name,
-    pg_get_constraintdef(c.oid) AS definition
-FROM pg_constraint c
-JOIN pg_class t ON c.conrelid = t.oid
-JOIN pg_namespace n ON n.oid = t.relnamespace
-WHERE
-    c.contype = 'c'
-    AND n.nspname = $2
-    AND t.relname = $1;
- `;
 
   try {
     await client.connect();
-    const res = await client.query(query, [tableName, schemaName]);
+    const res = await client.query(PG_GET_CHECK_CONSTRAINTS, [tableName, schemaName]);
     postgresCache.setChecks(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
@@ -825,21 +681,10 @@ export async function listEnumTypes(connection: PGConfig, schemaName = "public")
   if (cached !== null) return cached;
 
   const client = createClient(connection);
-  const query = `SELECT
-    n.nspname AS schema_name,
-    t.typname AS enum_name,
-    e.enumlabel AS enum_value
-FROM pg_type t
-JOIN pg_enum e ON t.oid = e.enumtypid
-JOIN pg_namespace n ON n.oid = t.typnamespace
-WHERE
-    n.nspname = $1
-ORDER BY enum_name, e.enumsortorder;
-  `;
 
   try {
     await client.connect();
-    const res = await client.query(query, [schemaName]);
+    const res = await client.query(PG_LIST_ENUMS, [schemaName]);
     postgresCache.setEnums(connection, schemaName, res.rows);
     return res.rows;
   } finally {
@@ -852,24 +697,10 @@ export async function listSequences(connection: PGConfig, schemaName = "public")
   if (cached !== null) return cached;
 
   const client = createClient(connection);
-  const query = `SELECT
-    seq.relname AS sequence_name,
-    ns.nspname AS sequence_schema,
-    tab.relname AS table_name,
-    col.attname AS column_name
-FROM pg_class seq
-JOIN pg_namespace ns ON ns.oid = seq.relnamespace
-LEFT JOIN pg_depend dep ON dep.objid = seq.oid AND dep.deptype = 'a'
-LEFT JOIN pg_class tab ON tab.oid = dep.refobjid
-LEFT JOIN pg_attribute col ON col.attrelid = tab.oid AND col.attnum = dep.refobjsubid
-WHERE
-    seq.relkind = 'S'
-    AND ns.nspname = $1;
- `;
 
   try {
     await client.connect();
-    const res = await client.query(query, [schemaName]);
+    const res = await client.query(PG_LIST_SEQUENCES, [schemaName]);
     postgresCache.setSequences(connection, schemaName, res.rows);
     return res.rows;
   } finally {
@@ -906,7 +737,7 @@ export async function getSchemaMetadataBatch(
   try {
     await client.connect();
 
-    // Execute all queries in parallel using a single connection
+    // Execute all queries in parallel using imported batch queries
     const [
       columnsResult,
       primaryKeysResult,
@@ -918,146 +749,28 @@ export async function getSchemaMetadataBatch(
       sequencesResult
     ] = await Promise.all([
       // All columns in schema
-      client.query(`
-        SELECT 
-          c.table_name,
-          c.column_name AS name,
-          c.data_type AS type,
-          c.is_nullable = 'NO' AS not_nullable,
-          c.column_default AS default_value,
-          c.ordinal_position,
-          c.character_maximum_length AS max_length,
-          CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END AS is_primary_key,
-          CASE WHEN fk.column_name IS NOT NULL THEN true ELSE false END AS is_foreign_key
-        FROM information_schema.columns c
-        LEFT JOIN (
-          SELECT kcu.table_name, kcu.column_name
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu 
-            ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-          WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1
-        ) pk ON c.table_name = pk.table_name AND c.column_name = pk.column_name
-        LEFT JOIN (
-          SELECT DISTINCT kcu.table_name, kcu.column_name
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu 
-            ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-          WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1
-        ) fk ON c.table_name = fk.table_name AND c.column_name = fk.column_name
-        WHERE c.table_schema = $1
-        ORDER BY c.table_name, c.ordinal_position
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_ALL_COLUMNS, [schemaName]),
 
       // All primary keys in schema
-      client.query(`
-        SELECT tc.table_name, kcu.column_name, kcu.ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1
-        ORDER BY tc.table_name, kcu.ordinal_position
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_PRIMARY_KEYS, [schemaName]),
 
       // All foreign keys in schema
-      client.query(`
-        SELECT
-          tc.constraint_name,
-          tc.table_schema AS source_schema,
-          tc.table_name AS source_table,
-          kcu.column_name AS source_column,
-          ccu.table_schema AS target_schema,
-          ccu.table_name AS target_table,
-          ccu.column_name AS target_column,
-          rc.update_rule,
-          rc.delete_rule,
-          kcu.ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-          ON ccu.constraint_name = tc.constraint_name
-        JOIN information_schema.referential_constraints rc
-          ON rc.constraint_name = tc.constraint_name
-        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1
-        ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_FOREIGN_KEYS, [schemaName]),
 
       // All indexes in schema
-      client.query(`
-        SELECT
-          t.relname AS table_name,
-          i.relname AS index_name,
-          a.attname AS column_name,
-          ix.indisunique AS is_unique,
-          ix.indisprimary AS is_primary,
-          am.amname AS index_type,
-          pg_get_expr(ix.indpred, ix.indrelid) AS predicate,
-          array_position(ix.indkey, a.attnum) AS ordinal_position
-        FROM pg_class t
-        JOIN pg_index ix ON t.oid = ix.indrelid
-        JOIN pg_class i ON i.oid = ix.indexrelid
-        JOIN pg_am am ON am.oid = i.relam
-        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
-        JOIN pg_namespace n ON n.oid = t.relnamespace
-        WHERE n.nspname = $1
-        ORDER BY t.relname, i.relname, ordinal_position
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_INDEXES, [schemaName]),
 
       // All unique constraints in schema
-      client.query(`
-        SELECT
-          tc.constraint_name,
-          tc.table_schema,
-          tc.table_name,
-          kcu.column_name,
-          kcu.ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-        WHERE tc.constraint_type = 'UNIQUE' AND tc.table_schema = $1
-        ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_UNIQUE_CONSTRAINTS, [schemaName]),
 
       // All check constraints in schema
-      client.query(`
-        SELECT
-          c.conname AS constraint_name,
-          n.nspname AS table_schema,
-          t.relname AS table_name,
-          pg_get_constraintdef(c.oid) AS check_clause
-        FROM pg_constraint c
-        JOIN pg_class t ON c.conrelid = t.oid
-        JOIN pg_namespace n ON n.oid = t.relnamespace
-        WHERE c.contype = 'c' AND n.nspname = $1
-      `, [schemaName]),
+      client.query(PG_BATCH_GET_CHECK_CONSTRAINTS, [schemaName]),
 
       // All enum types in schema
-      client.query(`
-        SELECT
-          n.nspname AS schema_name,
-          t.typname AS enum_name,
-          e.enumlabel AS enum_value
-        FROM pg_type t
-        JOIN pg_enum e ON t.oid = e.enumtypid
-        JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE n.nspname = $1
-        ORDER BY enum_name, e.enumsortorder
-      `, [schemaName]),
+      client.query(PG_LIST_ENUMS, [schemaName]),
 
       // All sequences in schema
-      client.query(`
-        SELECT
-          seq.relname AS sequence_name,
-          ns.nspname AS sequence_schema,
-          tab.relname AS table_name,
-          col.attname AS column_name
-        FROM pg_class seq
-        JOIN pg_namespace ns ON ns.oid = seq.relnamespace
-        LEFT JOIN pg_depend dep ON dep.objid = seq.oid AND dep.deptype = 'a'
-        LEFT JOIN pg_class tab ON tab.oid = dep.refobjid
-        LEFT JOIN pg_attribute col ON col.attrelid = tab.oid AND col.attnum = dep.refobjsubid
-        WHERE seq.relkind = 'S' AND ns.nspname = $1
-      `, [schemaName])
+      client.query(PG_LIST_SEQUENCES, [schemaName])
     ]);
 
     // Group results by table
@@ -1276,16 +989,7 @@ export async function getDBStats(connection: PGConfig): Promise<{
   const client = createClient(connection);
   try {
     await client.connect();
-    const res = await client.query(`
-      SELECT
-        (SELECT COUNT(*) 
-         FROM information_schema.tables
-         WHERE table_schema = current_schema() AND table_type = 'BASE TABLE') AS total_tables,
-        (SELECT COALESCE(SUM(n_live_tup), 0)
-         FROM pg_stat_user_tables 
-         WHERE schemaname = current_schema()) AS total_rows, -- <-- NEW: Aggregated row count
-        (pg_database_size(current_database()) / (1024.0 * 1024.0)) AS total_db_size_mb;
-    `);
+    const res = await client.query(PG_GET_DB_STATS);
 
     // CRITICAL: Ensure the pg client is closed after a successful query
     await client.end();
@@ -1327,13 +1031,7 @@ export async function listSchemas(connection: PGConfig) {
   const client = createClient(connection);
   try {
     await client.connect();
-    const res = await client.query(
-      `SELECT nspname AS name
-             FROM pg_namespace
-             WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-             AND nspname NOT LIKE 'pg_temp_%' AND nspname NOT LIKE 'pg_toast_temp_%'
-             ORDER BY nspname;`
-    );
+    const res = await client.query(PG_LIST_SCHEMAS);
     await client.end();
 
     const result = res.rows;
@@ -1365,25 +1063,7 @@ export async function getTableDetails(
   const client = createClient(connection);
   try {
     await client.connect();
-    const res = await client.query(
-      `SELECT
-                a.attname AS name,
-                format_type(a.atttypid, a.atttypmod) AS type,
-                a.attnotnull AS not_nullable,
-                pg_get_expr(d.adbin, d.adrelid) AS default_value,
-                (SELECT TRUE FROM pg_constraint pc WHERE pc.conrelid = a.attrelid AND a.attnum = ANY(pc.conkey) AND pc.contype = 'p') AS is_primary_key,
-                (SELECT TRUE FROM pg_constraint fc WHERE fc.conrelid = a.attrelid AND a.attnum = ANY(fc.conkey) AND fc.contype = 'f') AS is_foreign_key
-             FROM 
-                pg_attribute a
-             LEFT JOIN 
-                pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-             WHERE 
-                a.attrelid = $1::regclass -- Use $1::regclass for direct comparison against OID/regclass
-                AND a.attnum > 0
-                AND NOT a.attisdropped
-             ORDER BY a.attnum;`,
-      [`${schemaName}.${tableName}`]
-    );
+    const res = await client.query(PG_GET_TABLE_DETAILS, [`${schemaName}.${tableName}`]);
     await client.end();
 
     const result = res.rows;
@@ -1531,22 +1211,12 @@ export async function createIndexes(
   }
 }
 
-type AlterTableOperation =
-  | { type: "ADD_COLUMN"; column: ColumnDetail }
-  | { type: "DROP_COLUMN"; column_name: string }
-  | { type: "RENAME_COLUMN"; from: string; to: string }
-  | { type: "SET_NOT_NULL"; column_name: string }
-  | { type: "DROP_NOT_NULL"; column_name: string }
-  | { type: "SET_DEFAULT"; column_name: string; default_value: string }
-  | { type: "DROP_DEFAULT"; column_name: string }
-  | { type: "ALTER_TYPE"; column_name: string; new_type: string };
-
 
 export async function alterTable(
   conn: PGConfig,
   schemaName: string,
   tableName: string,
-  operations: AlterTableOperation[]
+  operations: PGAlterTableOperation[]
 ): Promise<boolean> {
   const client = createClient(conn);
 
@@ -1632,17 +1302,13 @@ export async function alterTable(
     await client.end();
   }
 }
-type DropMode =
-  | "RESTRICT"      // fail if dependencies exist
-  | "DETACH_FKS"    // drop dependent foreign keys first
-  | "CASCADE";      // explicit nuclear option
 
 
 export async function dropTable(
   conn: PGConfig,
   schemaName: string,
   tableName: string,
-  mode: DropMode = "RESTRICT"
+  mode: PGDropMode = "RESTRICT"
 ): Promise<boolean> {
   const client = createClient(conn);
 
@@ -1703,14 +1369,7 @@ export async function ensureMigrationTable(client: PGConfig) {
   const connection = createClient(client)
   try {
     await connection.connect()
-    await connection.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      applied_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      checksum TEXT NOT NULL
-    );
-  `);
+    await connection.query(PG_CREATE_MIGRATION_TABLE);
   } catch (error) {
     throw error;
   } finally {
@@ -1723,9 +1382,7 @@ export async function hasAnyMigrations(connection: PGConfig): Promise<boolean> {
 
   try {
     await client.connect();
-    const { rows } = await client.query(
-      `SELECT 1 FROM schema_migrations LIMIT 1;`
-    );
+    const { rows } = await client.query(PG_CHECK_MIGRATIONS_EXIST);
     return rows.length > 0;
   } catch (error) {
     throw error;
@@ -1743,13 +1400,7 @@ export async function insertBaseline(
   const client = createClient(conn)
   try {
     await client.connect();
-    await client.query(
-      `
-      INSERT INTO schema_migrations (version, name, checksum)
-      VALUES ($1, $2, $3);
-      `,
-      [version, name, checksum]
-    );
+    await client.query(PG_INSERT_MIGRATION, [version, name, checksum]);
     return true;
   } catch (error) {
     throw error;
@@ -1794,13 +1445,6 @@ export async function baselineIfNeeded(
   }
 }
 
-export type AppliedMigration = {
-  version: string;
-  name: string;
-  applied_at: string;
-  checksum: string;
-};
-
 
 
 export async function listAppliedMigrations(
@@ -1824,15 +1468,7 @@ export async function listAppliedMigrations(
       return [];
     }
 
-    const res = await client.query(`
-      SELECT
-        version,
-        name,
-        applied_at,
-        checksum
-      FROM schema_migrations
-      ORDER BY version ASC;
-    `);
+    const res = await client.query(PG_LIST_APPLIED_MIGRATIONS);
 
     return res.rows as AppliedMigration[];
   } finally {
@@ -1943,10 +1579,7 @@ export async function rollbackMigration(
     await client.query(migration.downSQL);
 
     // Remove from schema_migrations
-    await client.query(
-      `DELETE FROM schema_migrations WHERE version = $1`,
-      [version]
-    );
+    await client.query(PG_DELETE_MIGRATION, [version]);
 
     // Commit transaction
     await client.query('COMMIT');
@@ -1960,5 +1593,279 @@ export async function rollbackMigration(
     throw error;
   } finally {
     await client.end();
+  }
+}
+
+/**
+ * Insert a row into a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param rowData - Object with column names as keys and values to insert
+ * @returns The inserted row
+ */
+export async function insertRow(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  rowData: Record<string, any>
+): Promise<any> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for insert");
+    }
+
+    // Build parameterized query
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+    const columnList = columns.map(col => `"${col.replace(/"/g, '""')}"`).join(", ");
+    const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+
+    const query = `
+      INSERT INTO ${safeSchema}.${safeTable} (${columnList})
+      VALUES (${placeholders})
+      RETURNING *;
+    `;
+
+    const result = await client.query(query, values);
+
+    // Clear cache to refresh table data
+    postgresCache.clearForConnection(cfg);
+
+    return result.rows[0];
+  } catch (error) {
+    throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
+  }
+}
+
+/**
+ * Update a row in a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name
+ * @param primaryKeyValue - Primary key value to identify the row
+ * @param rowData - Object with column names as keys and new values
+ * @returns The updated row
+ */
+export async function updateRow(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
+  rowData: Record<string, any>
+): Promise<any> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for update");
+    }
+
+    // Build parameterized query
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+
+    const setClause = columns
+      .map((col, i) => `"${col.replace(/"/g, '""')}" = $${i + 1}`)
+      .join(", ");
+
+    // Build WHERE clause from primary key column/value or whereConditions
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (typeof primaryKeyColumn === 'string' && primaryKeyColumn) {
+      // Single primary key
+      const safePkColumn = `"${primaryKeyColumn.replace(/"/g, '""')}"`;
+      whereClause = `${safePkColumn} = $${columns.length + 1}`;
+      whereValues = [primaryKeyValue];
+    } else {
+      throw new Error("Primary key column is required for update");
+    }
+
+    const query = `
+      UPDATE ${safeSchema}.${safeTable}
+      SET ${setClause}
+      WHERE ${whereClause}
+      RETURNING *;
+    `;
+
+    const result = await client.query(query, [...values, ...whereValues]);
+
+    // Clear cache to refresh table data
+    postgresCache.clearForConnection(cfg);
+
+    return result.rows[0];
+  } catch (error) {
+    throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
+  }
+}
+
+/**
+ * Delete a row from a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name (or empty for composite)
+ * @param primaryKeyValue - Primary key value or whereConditions object
+ * @returns Success status
+ */
+export async function deleteRow(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any
+): Promise<boolean> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+      // Single primary key
+      const safePkColumn = `"${primaryKeyColumn.replace(/"/g, '""')}"`;
+      whereClause = `${safePkColumn} = $1`;
+      whereValues = [primaryKeyValue];
+    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+      // Composite key - use all columns from the object
+      const cols = Object.keys(primaryKeyValue);
+      whereClause = cols
+        .map((col, i) => `"${col.replace(/"/g, '""')}" = $${i + 1}`)
+        .join(" AND ");
+      whereValues = Object.values(primaryKeyValue);
+    } else {
+      throw new Error("Either primary key or where conditions required for delete");
+    }
+
+    const query = `
+      DELETE FROM ${safeSchema}.${safeTable}
+      WHERE ${whereClause};
+    `;
+
+    const result = await client.query(query, whereValues);
+
+    // Clear cache to refresh table data
+    postgresCache.clearForConnection(cfg);
+
+    return result.rowCount ? result.rowCount > 0 : false;
+  } catch (error) {
+    throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
+  }
+}
+
+/**
+ * Search for rows in a table
+ * @param cfg - PostgreSQL connection config
+ * @param schemaName - Schema name
+ * @param tableName - Table name
+ * @param searchTerm - Term to search for
+ * @param column - Optional specific column to search (searches all text columns if not specified)
+ * @param limit - Max results (default 100)
+ * @returns Matching rows
+ */
+export async function searchTable(
+  cfg: PGConfig,
+  schemaName: string,
+  tableName: string,
+  searchTerm: string,
+  column?: string,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ rows: any[]; total: number }> {
+  const client = createClient(cfg);
+
+  try {
+    await client.connect();
+
+    const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
+    const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+    const searchPattern = `%${searchTerm.replace(/[%_]/g, '\\$&')}%`;
+
+    let whereClause: string;
+    let values: any[];
+
+    if (column) {
+      // Search specific column
+      const safeColumn = `"${column.replace(/"/g, '""')}"`;
+      whereClause = `${safeColumn}::text ILIKE $1`;
+      values = [searchPattern];
+    } else {
+      // Get all columns and search across text-compatible ones
+      const colQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = $1 AND table_name = $2
+      `;
+      const colResult = await client.query(colQuery, [schemaName, tableName]);
+      const columns = colResult.rows.map(r => r.column_name);
+
+      if (columns.length === 0) {
+        return { rows: [], total: 0 };
+      }
+
+      // Build OR clause for all columns cast to text
+      whereClause = columns
+        .map((col, i) => `"${col.replace(/"/g, '""')}"::text ILIKE $1`)
+        .join(" OR ");
+      values = [searchPattern];
+    }
+
+    // Count total matches
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM ${safeSchema}.${safeTable} 
+      WHERE ${whereClause}
+    `;
+    const countResult = await client.query(countQuery, values);
+    const total = parseInt(countResult.rows[0]?.total || "0", 10);
+
+    // Get matching rows with pagination
+    const offset = (page - 1) * pageSize;
+    const query = `
+      SELECT * FROM ${safeSchema}.${safeTable}
+      WHERE ${whereClause}
+      LIMIT ${pageSize} OFFSET ${offset}
+    `;
+    const result = await client.query(query, values);
+
+    return { rows: result.rows, total };
+  } catch (error) {
+    throw new Error(`Failed to search table ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    try {
+      await client.end();
+    } catch (_) { }
   }
 }

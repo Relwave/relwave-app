@@ -8,11 +8,14 @@ import DatabaseDetail from './pages/DatabaseDetails';
 import NotFound from './pages/NotFound';
 import ERDiagram from './pages/ERDiagram';
 import QueryBuilder from './pages/QueryBuilder';
+import SQLWorkspace from './pages/SQLWorkspace';
 import { ThemeProvider } from './components/common/ThemeProvider';
 import SchemaExplorer from './pages/SchemaExplorer';
 import Settings from './pages/Settings';
 import { useBridgeInit } from "@/hooks/useBridgeInit";
 import { useEffect } from 'react';
+import { DeveloperContextMenu } from './components/common/DeveloperContextMenu';
+import { UpdateNotification } from './components/common/UpdateNotification';
 
 const queryClient = new QueryClient();
 
@@ -24,7 +27,7 @@ function BridgeInitializer() {
 function ThemeVariantInitializer() {
   useEffect(() => {
     // Initialize theme variant from localStorage on mount
-    const savedVariant = localStorage.getItem('db-studio-theme-variant');
+    const savedVariant = localStorage.getItem('relwave-theme-variant');
     if (savedVariant) {
       document.documentElement.setAttribute('data-theme-variant', savedVariant);
     } else {
@@ -43,22 +46,26 @@ function AppRoot() {
       <QueryClientProvider client={queryClient}>
         <BridgeInitializer />
         <ThemeVariantInitializer />
+        <UpdateNotification />
         <TooltipProvider>
-          <Toaster />
-          <TitleBar />
-          <div className="pt-8">
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/:id" element={<DatabaseDetail />} />
-                <Route path="/database/:id/query-builder" element={<QueryBuilder />} />
-                <Route path="/database/:id/er-diagram" element={<ERDiagram />} />
-                <Route path='/database/:id/schema-explorer' element={<SchemaExplorer />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </div>
+          <DeveloperContextMenu>
+            <Toaster />
+            <TitleBar />
+            <div className="pt-8">
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/:id" element={<DatabaseDetail />} />
+                  <Route path="/database/:id/query-builder" element={<QueryBuilder />} />
+                  <Route path="/database/:id/sql-workspace" element={<SQLWorkspace />} />
+                  <Route path="/database/:id/er-diagram" element={<ERDiagram />} />
+                  <Route path='/database/:id/schema-explorer' element={<SchemaExplorer />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </div>
+          </DeveloperContextMenu>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

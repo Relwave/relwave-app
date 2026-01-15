@@ -1,24 +1,26 @@
 [package]
-name = "database-visualizer"
+name = "RelWave"
 version = "0.1.0"
-description = "A Tauri App"
+description = "A beautiful database management tool"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "database_visualizer_lib"
+name = "RelWave_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [[bin]]
-name = "database-visualizer"
+name = "RelWave"
 path = "src/main.rs"
-windows_subsystem = "windows"

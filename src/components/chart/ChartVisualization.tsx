@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, BarChart3, ImageIcon, FileCode } from "lucide-react";
+import { Loader2, BarChart3, Download, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toPng, toSvg } from "html-to-image";
 import { toast } from "sonner";
 import { ChartConfigPanel } from "./ChartConfigPanel";
@@ -176,48 +182,35 @@ export const ChartVisualization = ({ selectedTable, dbId }: ChartVisualizationPr
 
   return (
     <div className="space-y-4">
-      {/* Header Section */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <BarChart3 className="h-4 w-4 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Chart Visualization
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Generate interactive charts from your data
-            </p>
-          </div>
-        </div>
-
-        {/* Export Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport("png")}
-            className="h-8 text-xs"
-          >
-            <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
-            PNG
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport("svg")}
-            className="h-8 text-xs"
-          >
-            <FileCode className="h-3.5 w-3.5 mr-1.5" />
-            SVG
-          </Button>
-        </div>
-      </div>
-
       {/* Config Panel */}
-      <div className="glass-card border border-border/20 rounded-xl p-4">
+      <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary/10">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <span className="text-xs font-medium text-foreground">Configure Chart</span>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                <Download className="h-3 w-3" />
+                Export
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport("png")} className="text-xs">
+                Export as PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("svg")} className="text-xs">
+                Export as SVG
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
         <ChartConfigPanel
           chartType={chartType}
           setChartType={setChartType}
@@ -234,44 +227,42 @@ export const ChartVisualization = ({ selectedTable, dbId }: ChartVisualizationPr
       {/* Chart Container */}
       <div
         id="chart-container"
-        className="glass-card border border-border/20 rounded-xl p-6 bg-background min-h-[450px] shadow-sm hover:shadow-md transition-shadow duration-300"
+        className="rounded-lg border border-border/50 bg-background p-5"
       >
-        {/* Title */}
-        <h3 className="text-sm font-semibold text-center mb-6">
-          {chartTitle}
-        </h3>
+        {chartTitle && (
+          <h3 className="text-xs font-medium text-center text-muted-foreground mb-4">
+            {chartTitle}
+          </h3>
+        )}
 
         {isExecuting ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-            <p className="text-sm text-muted-foreground">Processing your data…</p>
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/60 mb-3" />
+            <p className="text-xs text-muted-foreground">Processing data...</p>
           </div>
         ) : errorMessage ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
-              <BarChart3 className="h-6 w-6 text-destructive" />
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="rounded-full bg-destructive/10 p-3 mb-3">
+              <BarChart3 className="h-5 w-5 text-destructive/70" />
             </div>
-            <p className="text-sm text-destructive font-medium">{errorMessage}</p>
+            <p className="text-xs text-destructive/80 font-medium">{errorMessage}</p>
           </div>
         ) : !rowData.length ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <BarChart3 className="h-6 w-6 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="rounded-full bg-muted/50 p-3 mb-3">
+              <BarChart3 className="h-5 w-5 text-muted-foreground/60" />
             </div>
-            <p className="text-sm text-muted-foreground">Select X and Y axes to generate a chart</p>
+            <p className="text-xs text-muted-foreground">Select axes to visualize data</p>
           </div>
         ) : (
-          <div key={`chart-${chartType}-${xAxis}-${yAxis}-${rowData.length}`}>
-            <ChartRenderer
-              chartType={chartType}
-              xAxis={xAxis}
-              yAxis={yAxis}
-              data={rowData}
-            />
-          </div>
+          <ChartRenderer
+            chartType={chartType}
+            xAxis={xAxis}
+            yAxis={yAxis}
+            data={rowData}
+          />
         )}
       </div>
     </div>
-
   );
 };

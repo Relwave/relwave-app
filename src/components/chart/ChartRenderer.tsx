@@ -1,3 +1,25 @@
+import { useMemo } from "react";
+import {
+    Bar,
+    BarChart,
+    Line,
+    LineChart,
+    Pie,
+    PieChart,
+    Scatter,
+    ScatterChart,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Cell,
+} from "recharts";
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    type ChartConfig,
+} from "@/components/ui/chart";
+
 interface DataProps {
     count: number | string;
     [key: string]: any;
@@ -9,187 +31,179 @@ interface ChartRendererProps {
     yAxis: string;
     data: DataProps[];
 }
-import { memo, useMemo } from "react";
-import {
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    ScatterChart,
-    Scatter,
-    XAxis,
-    YAxis,
-    Tooltip,
-    CartesianGrid,
-    Legend,
-    Cell,
-} from "recharts";
 
-const COLORS = [
-    "#06B6D4",
-    "#A855F7",
-    "#10B981",
-    "#F59E0B",
-    "#EF4444",
-    "#3B82F6",
-    "#EC4899",
-    "#8B5CF6"
-];
+// Single theme-aware color using CSS variable
+const CHART_COLOR = "var(--primary)";
 
-// ====================
-// OPTIMIZED RENDERER
-// ====================
+// Chart config using theme color
+const chartConfig: ChartConfig = {
+    value: {
+        label: "Count",
+        color: "hsl(var(--primary))",
+    },
+};
+
 const ChartRendererComponent = ({
     chartType,
     xAxis,
     yAxis: _yAxis,
     data,
 }: ChartRendererProps) => {
-
-    // ---- memoize heavy transforms ----
     const chartData = useMemo(() => {
         if (!data || !Array.isArray(data) || !xAxis) return [];
-        console.log(data)
         return data.map((item) => ({
-            // SQL query returns data with alias 'name', not the column name
             name: item.name != null ? String(item.name) : "N/A",
             value: Number(item.count ?? item.COUNT ?? item.Count ?? 0) || 0,
         }));
     }, [data, xAxis]);
 
-
-    // ---- shared axis + tooltip styles ----
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-
-    const axisProps = useMemo(
-        () => ({
-            stroke: isDark ? "#9CA3AF" : "#6B7280",
-            tick: { fill: isDark ? "#D1D5DB" : "#374151", fontSize: 12, fontWeight: 500 },
-        }),
-        [isDark]
-    );
-
-    const tooltipStyle = useMemo(
-        () => ({
-            backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
-            borderRadius: 8,
-            border: `1px solid ${isDark ? "#374151" : "#E5E7EB"}`,
-            padding: "8px 12px",
-            color: isDark ? "#F3F4F6" : "#111827",
-            fontSize: "13px",
-        }),
-        [isDark]
-    );
-
     if (!xAxis || chartData.length === 0) {
         return (
-            <div className="flex items-center justify-center h-[350px] text-sm text-muted-foreground">
-                Select X & Y axes to generate chart
+            <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                <div className="rounded-full bg-muted/50 p-3 mb-3">
+                    <svg className="h-5 w-5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </div>
+                <p className="text-xs font-medium">Configure axes to visualize</p>
             </div>
         );
     }
 
-    // =====================
-    // BAR CHART
-    // =====================
+    // Bar Chart
     if (chartType === "bar") {
         return (
-            <ResponsiveContainer width="100%" height={380}>
-                <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" {...axisProps} />
-                    <YAxis {...axisProps} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} isAnimationActive={false}>
-                        {chartData.map((_, i) => (
-                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                    </Bar>
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <BarChart accessibilityLayer data={chartData}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                            value.length > 12 ? value.slice(0, 12) + "…" : value
+                        }
+                    />
+                    <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                        }
+                    />
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                    />
+                    <Bar
+                        dataKey="value"
+                        fill={CHART_COLOR}
+                        radius={6}
+                    />
                 </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
         );
     }
 
-    // =====================
-    // LINE CHART
-    // =====================
+    // Line Chart
     if (chartType === "line") {
         return (
-            <ResponsiveContainer width="100%" height={380}>
-                <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" {...axisProps} />
-                    <YAxis {...axisProps} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend />
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <LineChart accessibilityLayer data={chartData}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                            value.length > 12 ? value.slice(0, 12) + "…" : value
+                        }
+                    />
+                    <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                        }
+                    />
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                    />
                     <Line
                         dataKey="value"
-                        stroke={COLORS[0]}
-                        strokeWidth={2}
-                        dot={{ fill: COLORS[0], r: 4 }}
-                        activeDot={{ r: 6 }}
-                        isAnimationActive={false}
                         type="monotone"
+                        stroke={CHART_COLOR}
+                        strokeWidth={2}
+                        dot={{ fill: CHART_COLOR, r: 4 }}
+                        activeDot={{ r: 6 }}
                     />
                 </LineChart>
-            </ResponsiveContainer>
+            </ChartContainer>
         );
     }
 
-    // =====================
-    // PIE CHART
-    // =====================
+    // Pie Chart
     if (chartType === "pie") {
         return (
-            <ResponsiveContainer width="100%" height={380}>
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
                 <PieChart>
+                    <ChartTooltip
+                        content={<ChartTooltipContent nameKey="name" hideLabel />}
+                    />
                     <Pie
                         data={chartData}
                         dataKey="value"
+                        nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={140}
                         innerRadius={50}
-                        label={({ name, percent }) =>
-                            `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                        }
-                        isAnimationActive={false}
-                    >
-                        {chartData.map((_, i) => (
-                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend />
+                        outerRadius={100}
+                        fill={CHART_COLOR}
+                        label={({ percent }: { percent?: number }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
+                        labelLine={false}
+                    />
                 </PieChart>
-            </ResponsiveContainer>
+            </ChartContainer>
         );
     }
 
-    // =====================
-    // SCATTER CHART
-    // =====================
+    // Scatter Chart
     if (chartType === "scatter") {
         return (
-            <ResponsiveContainer width="100%" height={380}>
-                <ScatterChart>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" {...axisProps} />
-                    <YAxis dataKey="value" {...axisProps} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend />
-                    <Scatter data={chartData} fill={COLORS[0]} isAnimationActive={false} />
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <ScatterChart accessibilityLayer>
+                    <CartesianGrid />
+                    <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                    />
+                    <YAxis
+                        dataKey="value"
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) =>
+                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                        }
+                    />
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                    />
+                    <Scatter
+                        data={chartData}
+                        fill={CHART_COLOR}
+                    />
                 </ScatterChart>
-            </ResponsiveContainer>
+            </ChartContainer>
         );
     }
 
-    // ---- default fallback ----
-    return <div>Unsupported chart type</div>;
+    return null;
 };
 
 export default ChartRendererComponent;

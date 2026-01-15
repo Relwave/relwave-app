@@ -185,6 +185,7 @@ type DBMeta = {
   sslmode?: string;
   createdAt: string;
   updatedAt: string;
+  lastAccessedAt?: string;
 };
 
 type CredentialStore = {
@@ -638,6 +639,20 @@ export class DbStore {
   async waitUntilReady(): Promise<void> {
     await this.ensurePreloaded();
   }
+
+  /**
+   * Update the lastAccessedAt timestamp for a database
+   */
+  async touchDB(id: string): Promise<boolean> {
+    const all = await this.loadAll();
+    const idx = all.databases.findIndex((db) => db.id === id);
+    if (idx === -1) return false;
+
+    const now = new Date().toISOString();
+    all.databases[idx].lastAccessedAt = now;
+    await this.saveAll(all);
+    return true;
+  }
 }
 
 // Export singleton instance for backward compatibility
@@ -653,6 +668,7 @@ export const deleteDB = (id: string) => dbStoreInstance.deleteDB(id);
 export const getPasswordFor = (meta: DBMeta) =>
   dbStoreInstance.getPasswordFor(meta);
 export const invalidateCache = () => dbStoreInstance.invalidateCache();
+export const touchDB = (id: string) => dbStoreInstance.touchDB(id);
 
 // Export types
 export type { DBMeta, CredentialStore, ConfigData };

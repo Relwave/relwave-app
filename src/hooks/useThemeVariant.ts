@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ThemeVariant, defaultVariant } from '@/lib/themes';
 
-const STORAGE_KEY = 'db-studio-theme-variant';
+const STORAGE_KEY = 'relwave-theme-variant';
 
 export function useThemeVariant() {
     const [variant, setVariantState] = useState<ThemeVariant>(() => {

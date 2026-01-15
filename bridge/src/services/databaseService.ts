@@ -50,4 +50,9 @@ export class DatabaseService {
     if (!id) throw new Error("Missing id");
     return this.dbStore.deleteDB(id);
   }
+
+  async touchDatabase(id: string) {
+    if (!id) throw new Error("Missing id");
+    return this.dbStore.touchDB(id);
+  }
 }

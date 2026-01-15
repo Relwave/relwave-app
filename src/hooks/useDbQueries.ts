@@ -142,7 +142,7 @@ export function useTableData(
 export function useDbStats(dbId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.stats(dbId!),
-    queryFn: () => bridgeApi.getDBStats(dbId!),
+    queryFn: () => bridgeApi.getDataBaseStats(dbId!),
     enabled: !!dbId,
     staleTime: STALE_TIMES.stats,
     refetchInterval: 60 * 1000, // Auto-refresh every minute
@@ -175,22 +175,6 @@ export function useFullSchema(dbId: string | undefined) {
     enabled: !!dbId && bridgeReady,
     staleTime: STALE_TIMES.schemas, // 5 minutes - schema structure rarely changes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-  });
-}
-
-/**
- * Fetch table column details
- */
-export function useTableDetails(
-  dbId: string | undefined,
-  schema: string | undefined,
-  table: string | undefined
-) {
-  return useQuery({
-    queryKey: queryKeys.tableDetails(dbId!, schema!, table!),
-    queryFn: () => bridgeApi.getTableDetails(dbId!, schema!, table!),
-    enabled: !!dbId && !!schema && !!table,
-    staleTime: STALE_TIMES.tableDetails,
   });
 }
 
@@ -318,7 +302,7 @@ export function usePrefetch() {
     prefetchStats: (dbId: string) => {
       queryClient.prefetchQuery({
         queryKey: queryKeys.stats(dbId),
-        queryFn: () => bridgeApi.getDBStats(dbId),
+        queryFn: () => bridgeApi.getDataBaseStats(dbId),
         staleTime: STALE_TIMES.stats,
       });
     },

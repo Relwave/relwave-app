@@ -69,7 +69,6 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
         error: queryError
     } = useFullSchema(dbId);
 
-    console.log("Schema Data:", schemaData);
 
     const error = queryError ? (queryError as Error).message :
         (schemaData && !schemaData.schemas?.some(s => s.tables?.length))
@@ -279,10 +278,6 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                                     <ArrowLeft className="h-4 w-4" />
                                 </button>
                             </Link>
-                            <div>
-                                <h1 className="text-base font-medium text-foreground">ER Diagram</h1>
-                                <p className="text-xs text-muted-foreground">{schemaData.name}</p>
-                            </div>
                         </div>
 
                         {/* Search bar */}
@@ -396,7 +391,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                     )}
 
                     {/* Legend */}
-                    <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 text-xs">
+                    <div className="absolute bottom-20 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 text-xs z-10">
                         <div className="font-semibold mb-2">Legend</div>
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">

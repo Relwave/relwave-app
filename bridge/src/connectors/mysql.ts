@@ -8,32 +8,73 @@ import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMi
 import crypto from "crypto";
 import fs from "fs";
 import { ensureDir, getMigrationsDir } from "../services/dbStore";
+import {
+  CacheEntry,
+  CACHE_TTL,
+  STATS_CACHE_TTL,
+  SCHEMA_CACHE_TTL
+} from "../types/cache";
+import {
+  TableInfo,
+  DBStats,
+  SchemaInfo,
+  ColumnDetail,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  AppliedMigration,
+} from "../types/common";
+import {
+  MySQLConfig,
+  EnumColumnInfo,
+  AutoIncrementInfo,
+  SchemaMetadataBatch,
+  MySQLAlterTableOperation,
+  MySQLDropMode,
+} from "../types/mysql";
 
-export type MySQLConfig = {
-  host: string;
-  port?: number;
-  user?: string;
-  password?: string;
-  database?: string;
+// Re-export types for backward compatibility
+export type {
+  MySQLConfig,
+  ColumnDetail,
+  TableInfo,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  EnumColumnInfo,
+  AutoIncrementInfo,
 };
+export type { AppliedMigration } from "../types/common";
+
+// Import centralized queries
+import { LIST_SCHEMAS, LIST_TABLES_BY_SCHEMA, LIST_TABLES_CURRENT_DB } from "../queries/mysql/schema";
+import { GET_TABLE_DETAILS, LIST_COLUMNS, KILL_QUERY, GET_CONNECTION_ID } from "../queries/mysql/tables";
+import { BATCH_GET_ALL_COLUMNS, BATCH_GET_ENUM_COLUMNS, BATCH_GET_AUTO_INCREMENTS } from "../queries/mysql/columns";
+import {
+  GET_PRIMARY_KEYS,
+  BATCH_GET_PRIMARY_KEYS,
+  BATCH_GET_FOREIGN_KEYS,
+  BATCH_GET_INDEXES,
+  BATCH_GET_UNIQUE_CONSTRAINTS,
+  BATCH_GET_CHECK_CONSTRAINTS
+} from "../queries/mysql/constraints";
+import { GET_DB_STATS } from "../queries/mysql/stats";
+import {
+  CREATE_MIGRATION_TABLE,
+  CHECK_MIGRATIONS_EXIST,
+  INSERT_MIGRATION,
+  LIST_APPLIED_MIGRATIONS,
+  DELETE_MIGRATION
+} from "../queries/mysql/migrations";
+import { quoteIdentifier } from "../queries/mysql/crud";
 
 // ============================================
 // CACHING SYSTEM FOR MYSQL CONNECTOR
 // ============================================
-
-// Cache configuration
-const CACHE_TTL = 60000; // 1 minute default TTL
-const STATS_CACHE_TTL = 30000; // 30 seconds for stats (changes more frequently)
-const SCHEMA_CACHE_TTL = 300000; // 5 minutes for schemas (rarely change)
-
-/**
- * Generic cache entry with TTL support
- */
-type CacheEntry<T> = {
-  data: T;
-  timestamp: number;
-  ttl: number;
-};
 
 /**
  * MySQL Cache Manager - handles all caching for MySQL connector
@@ -279,27 +320,6 @@ class MySQLCacheManager {
 // Singleton cache manager instance
 export const mysqlCache = new MySQLCacheManager();
 
-// Type for DB stats
-type DBStats = {
-  total_tables: number;
-  total_db_size_mb: number;
-  total_rows: number;
-};
-
-// Type for schema metadata batch result
-type SchemaMetadataBatch = {
-  tables: Map<string, {
-    columns: ColumnDetail[];
-    primaryKeys: PrimaryKeyInfo[];
-    foreignKeys: ForeignKeyInfo[];
-    indexes: IndexInfo[];
-    uniqueConstraints: UniqueConstraintInfo[];
-    checkConstraints: CheckConstraintInfo[];
-  }>;
-  enumColumns: EnumColumnInfo[];
-  autoIncrements: AutoIncrementInfo[];
-};
-
 // Legacy cache support (for backward compatibility)
 const tableListCache = new Map<
   string,
@@ -427,18 +447,7 @@ export async function listColumns(
   try {
     connection = await pool.getConnection();
 
-    const query = `
-      SELECT 
-        column_name, 
-        data_type 
-      FROM 
-        information_schema.columns 
-      WHERE 
-        table_schema = ? AND table_name = ?
-      ORDER BY 
-        ordinal_position;
-    `;
-    const [rows] = await connection.execute<RowDataPacket[]>(query, [
+    const [rows] = await connection.execute<RowDataPacket[]>(LIST_COLUMNS, [
       schemaName,
       tableName,
     ]);
@@ -460,7 +469,7 @@ export async function listColumns(
 export async function mysqlKillQuery(cfg: MySQLConfig, targetPid: number) {
   const conn = await mysql.createConnection(createPoolConfig(cfg));
   try {
-    await conn.execute(`KILL QUERY ?`, [targetPid]);
+    await conn.execute(KILL_QUERY, [targetPid]);
     return true;
   } catch (error) {
     return false;
@@ -486,16 +495,8 @@ export async function listPrimaryKeys(
 
   const connection = await mysql.createConnection(createPoolConfig(cfg));
 
-  const query = `
-    SELECT COLUMN_NAME
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = ?
-      AND TABLE_NAME = ?
-      AND COLUMN_KEY = 'PRI';
-  `;
-
   try {
-    const [rows] = await connection.execute<RowDataPacket[]>(query, [
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_PRIMARY_KEYS, [
       schemaName,
       tableName,
     ]);
@@ -538,7 +539,7 @@ export function streamQueryCancelable(
     try {
       conn = await pool.getConnection();
 
-      const [pidRows] = await conn.execute("SELECT CONNECTION_ID() AS pid");
+      const [pidRows] = await conn.execute(GET_CONNECTION_ID);
       backendPid = pidRows[0].pid;
 
       const raw = (conn as any).connection;
@@ -604,78 +605,6 @@ export function streamQueryCancelable(
   return { promise, cancel };
 }
 
-export interface ColumnDetail {
-  name: string;
-  type: string;
-  not_nullable: boolean;
-  default_value: string | null;
-  is_primary_key: boolean;
-  is_foreign_key: boolean;
-}
-
-export interface TableInfo {
-  schema: string;
-  name: string;
-  type: string;
-}
-
-// ============================================
-// ADDITIONAL TYPE DEFINITIONS FOR BATCH QUERIES
-// ============================================
-
-export interface PrimaryKeyInfo {
-  column_name: string;
-}
-
-export interface ForeignKeyInfo {
-  constraint_name: string;
-  source_schema: string;
-  source_table: string;
-  source_column: string;
-  target_schema: string;
-  target_table: string;
-  target_column: string;
-  update_rule: string;
-  delete_rule: string;
-}
-
-export interface IndexInfo {
-  table_name: string;
-  index_name: string;
-  column_name: string;
-  is_unique: boolean;
-  is_primary: boolean;
-  index_type: string;
-  seq_in_index: number;
-}
-
-export interface UniqueConstraintInfo {
-  constraint_name: string;
-  table_schema: string;
-  table_name: string;
-  column_name: string;
-  ordinal_position: number;
-}
-
-export interface CheckConstraintInfo {
-  constraint_name: string;
-  table_schema: string;
-  table_name: string;
-  check_clause: string;
-}
-
-export interface EnumColumnInfo {
-  table_name: string;
-  column_name: string;
-  enum_values: string[];
-}
-
-export interface AutoIncrementInfo {
-  table_name: string;
-  column_name: string;
-  auto_increment_value: number | null;
-}
-
 export async function getDBStats(cfg: MySQLConfig): Promise<{
   total_tables: number;
   total_db_size_mb: number;
@@ -693,23 +622,7 @@ export async function getDBStats(cfg: MySQLConfig): Promise<{
   try {
     connection = await pool.getConnection();
 
-    // MODIFIED: Added SUM(table_rows) AS total_rows
-    const query = `
-      SELECT
-        COUNT(*) AS total_tables,
-        SUM(table_rows) AS total_rows,  -- <-- NEW: Aggregated row count
-        COALESCE(
-          ROUND(SUM(data_length + index_length) / (1024 * 1024), 2),
-          0
-        ) AS total_db_size_mb
-      FROM 
-        information_schema.tables
-      WHERE 
-        table_schema = DATABASE() 
-        AND table_type = 'BASE TABLE';
-    `;
-
-    const [rows] = await connection.execute<RowDataPacket[]>(query);
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_DB_STATS);
 
     const result = rows[0] as {
       total_tables: number;
@@ -756,18 +669,7 @@ export async function listSchemas(
   try {
     connection = await pool.getConnection();
 
-    const query = `
-      SELECT
-        schema_name AS name
-      FROM
-        information_schema.schemata
-      WHERE
-        schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
-      ORDER BY
-        schema_name;
-    `;
-
-    const [rows] = await connection.execute<RowDataPacket[]>(query);
+    const [rows] = await connection.execute<RowDataPacket[]>(LIST_SCHEMAS);
     const result = rows as { name: string }[];
 
     // Cache the result (longer TTL since schemas rarely change)
@@ -815,33 +717,11 @@ export async function listTables(
 
     if (schemaName) {
       // If specific schema requested, only fetch that
-      query = `
-        SELECT 
-          table_schema AS \`schema\`, 
-          table_name AS name, 
-          table_type AS type 
-        FROM 
-          information_schema.tables
-        WHERE 
-          table_schema = ?
-          AND table_type IN ('BASE TABLE', 'VIEW')
-        ORDER BY table_name;
-      `;
+      query = LIST_TABLES_BY_SCHEMA;
       queryParams = [schemaName];
     } else {
       // Otherwise, only fetch tables from the CURRENT database (not all databases!)
-      query = `
-        SELECT 
-          table_schema AS \`schema\`, 
-          table_name AS name, 
-          table_type AS type 
-        FROM 
-          information_schema.tables
-        WHERE 
-          table_schema = DATABASE()
-          AND table_type IN ('BASE TABLE', 'VIEW')
-        ORDER BY table_name;
-      `;
+      query = LIST_TABLES_CURRENT_DB;
     }
 
     console.log(
@@ -907,35 +787,7 @@ export async function getTableDetails(
   try {
     connection = await pool.getConnection();
 
-    const query = `
-      SELECT
-        c.COLUMN_NAME AS name,
-        c.DATA_TYPE AS type,
-        (c.IS_NULLABLE = 'NO') AS not_nullable,
-        c.COLUMN_DEFAULT AS default_value,
-        (c.COLUMN_KEY = 'PRI') AS is_primary_key,
-        EXISTS (
-          SELECT 1
-          FROM information_schema.key_column_usage kcu
-          JOIN information_schema.table_constraints tc 
-            ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-            AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
-            AND tc.TABLE_NAME = kcu.TABLE_NAME
-          WHERE
-            tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
-            AND kcu.TABLE_SCHEMA = c.TABLE_SCHEMA
-            AND kcu.TABLE_NAME = c.TABLE_NAME
-            AND kcu.COLUMN_NAME = c.COLUMN_NAME
-        ) AS is_foreign_key
-      FROM
-        information_schema.columns c
-      WHERE
-        c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ?
-      ORDER BY
-        c.ORDINAL_POSITION;
-    `;
-
-    const [rows] = await connection.execute<RowDataPacket[]>(query, [
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_TABLE_DETAILS, [
       schemaName,
       tableName,
     ]);
@@ -996,7 +848,7 @@ export async function getSchemaMetadataBatch(
     console.log(`[MySQL] Starting batch metadata fetch for schema: ${schemaName}`);
     const startTime = Date.now();
 
-    // Execute all queries in parallel
+    // Execute all queries in parallel using imported queries
     const [
       columnsResult,
       primaryKeysResult,
@@ -1008,141 +860,28 @@ export async function getSchemaMetadataBatch(
       autoIncrementsResult
     ] = await Promise.all([
       // 1. All columns in schema with PK/FK info
-      connection.execute<RowDataPacket[]>(`
-        SELECT 
-          c.TABLE_NAME AS table_name,
-          c.COLUMN_NAME AS name,
-          c.DATA_TYPE AS type,
-          (c.IS_NULLABLE = 'NO') AS not_nullable,
-          c.COLUMN_DEFAULT AS default_value,
-          c.ORDINAL_POSITION AS ordinal_position,
-          c.CHARACTER_MAXIMUM_LENGTH AS max_length,
-          (c.COLUMN_KEY = 'PRI') AS is_primary_key,
-          CASE WHEN fk.COLUMN_NAME IS NOT NULL THEN TRUE ELSE FALSE END AS is_foreign_key
-        FROM information_schema.columns c
-        LEFT JOIN (
-          SELECT DISTINCT kcu.TABLE_SCHEMA, kcu.TABLE_NAME, kcu.COLUMN_NAME
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu 
-            ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME 
-            AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
-          WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY' AND tc.TABLE_SCHEMA = ?
-        ) fk ON c.TABLE_SCHEMA = fk.TABLE_SCHEMA 
-          AND c.TABLE_NAME = fk.TABLE_NAME 
-          AND c.COLUMN_NAME = fk.COLUMN_NAME
-        WHERE c.TABLE_SCHEMA = ?
-        ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION
-      `, [schemaName, schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_ALL_COLUMNS, [schemaName, schemaName]),
 
       // 2. All primary keys in schema
-      connection.execute<RowDataPacket[]>(`
-        SELECT 
-          tc.TABLE_NAME AS table_name,
-          kcu.COLUMN_NAME AS column_name,
-          kcu.ORDINAL_POSITION AS ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME 
-          AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
-          AND tc.TABLE_NAME = kcu.TABLE_NAME
-        WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.TABLE_SCHEMA = ?
-        ORDER BY tc.TABLE_NAME, kcu.ORDINAL_POSITION
-      `, [schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_PRIMARY_KEYS, [schemaName]),
 
       // 3. All foreign keys in schema
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          tc.CONSTRAINT_NAME AS constraint_name,
-          kcu.TABLE_SCHEMA AS source_schema,
-          kcu.TABLE_NAME AS source_table,
-          kcu.COLUMN_NAME AS source_column,
-          kcu.REFERENCED_TABLE_SCHEMA AS target_schema,
-          kcu.REFERENCED_TABLE_NAME AS target_table,
-          kcu.REFERENCED_COLUMN_NAME AS target_column,
-          rc.UPDATE_RULE AS update_rule,
-          rc.DELETE_RULE AS delete_rule,
-          kcu.ORDINAL_POSITION AS ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME 
-          AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
-          AND tc.TABLE_NAME = kcu.TABLE_NAME
-        JOIN information_schema.referential_constraints rc
-          ON rc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-          AND rc.CONSTRAINT_SCHEMA = tc.TABLE_SCHEMA
-        WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY' AND tc.TABLE_SCHEMA = ?
-        ORDER BY kcu.TABLE_NAME, tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-      `, [schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_FOREIGN_KEYS, [schemaName]),
 
       // 4. All indexes in schema
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          s.TABLE_NAME AS table_name,
-          s.INDEX_NAME AS index_name,
-          s.COLUMN_NAME AS column_name,
-          (s.NON_UNIQUE = 0) AS is_unique,
-          (s.INDEX_NAME = 'PRIMARY') AS is_primary,
-          s.INDEX_TYPE AS index_type,
-          s.SEQ_IN_INDEX AS seq_in_index
-        FROM information_schema.statistics s
-        WHERE s.TABLE_SCHEMA = ?
-        ORDER BY s.TABLE_NAME, s.INDEX_NAME, s.SEQ_IN_INDEX
-      `, [schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_INDEXES, [schemaName]),
 
       // 5. All unique constraints in schema (exclude primary keys)
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          tc.CONSTRAINT_NAME AS constraint_name,
-          tc.TABLE_SCHEMA AS table_schema,
-          tc.TABLE_NAME AS table_name,
-          kcu.COLUMN_NAME AS column_name,
-          kcu.ORDINAL_POSITION AS ordinal_position
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME 
-          AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
-          AND tc.TABLE_NAME = kcu.TABLE_NAME
-        WHERE tc.CONSTRAINT_TYPE = 'UNIQUE' AND tc.TABLE_SCHEMA = ?
-        ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-      `, [schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_UNIQUE_CONSTRAINTS, [schemaName]),
 
       // 6. All check constraints in schema (MySQL 8.0.16+)
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          cc.CONSTRAINT_NAME AS constraint_name,
-          tc.TABLE_SCHEMA AS table_schema,
-          tc.TABLE_NAME AS table_name,
-          cc.CHECK_CLAUSE AS check_clause
-        FROM information_schema.check_constraints cc
-        JOIN information_schema.table_constraints tc
-          ON cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-          AND cc.CONSTRAINT_SCHEMA = tc.TABLE_SCHEMA
-        WHERE tc.TABLE_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'CHECK'
-      `, [schemaName]).catch(() => [[], []]), // Fallback for MySQL < 8.0.16
+      connection.execute<RowDataPacket[]>(BATCH_GET_CHECK_CONSTRAINTS, [schemaName]).catch(() => [[], []]),
 
       // 7. All enum columns in schema (MySQL defines enums inline)
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          TABLE_NAME AS table_name,
-          COLUMN_NAME AS column_name,
-          COLUMN_TYPE AS column_type
-        FROM information_schema.columns
-        WHERE TABLE_SCHEMA = ? AND DATA_TYPE = 'enum'
-        ORDER BY TABLE_NAME, COLUMN_NAME
-      `, [schemaName]),
+      connection.execute<RowDataPacket[]>(BATCH_GET_ENUM_COLUMNS, [schemaName]),
 
       // 8. All auto_increment columns (MySQL's equivalent to sequences)
-      connection.execute<RowDataPacket[]>(`
-        SELECT
-          c.TABLE_NAME AS table_name,
-          c.COLUMN_NAME AS column_name,
-          t.AUTO_INCREMENT AS auto_increment_value
-        FROM information_schema.columns c
-        JOIN information_schema.tables t 
-          ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
-        WHERE c.TABLE_SCHEMA = ? AND c.EXTRA LIKE '%auto_increment%'
-        ORDER BY c.TABLE_NAME
-      `, [schemaName])
+      connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName])
     ]);
 
     const elapsed = Date.now() - startTime;
@@ -1446,22 +1185,12 @@ export async function createIndexes(
   }
 }
 
-type AlterTableOperation =
-  | { type: "ADD_COLUMN"; column: ColumnDetail }
-  | { type: "DROP_COLUMN"; column_name: string }
-  | { type: "RENAME_COLUMN"; from: string; to: string }
-  | { type: "SET_NOT_NULL"; column_name: string; new_type: string }
-  | { type: "DROP_NOT_NULL"; column_name: string; new_type: string }
-  | { type: "SET_DEFAULT"; column_name: string; default_value: string }
-  | { type: "DROP_DEFAULT"; column_name: string }
-  | { type: "ALTER_TYPE"; column_name: string; new_type: string };
-
 
 
 export async function alterTable(
   conn: MySQLConfig,
   tableName: string,
-  operations: AlterTableOperation[]
+  operations: MySQLAlterTableOperation[]
 ): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1548,15 +1277,10 @@ export async function alterTable(
   }
 }
 
-type DropMode =
-  | "RESTRICT"      // fail if dependencies exist
-  | "DETACH_FKS"    // drop dependent foreign keys first
-  | "CASCADE";      // explicit nuclear option
-
 export async function dropTable(
   conn: MySQLConfig,
   tableName: string,
-  mode: DropMode = "RESTRICT"
+  mode: MySQLDropMode = "RESTRICT"
 ): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1610,14 +1334,7 @@ export async function ensureMigrationTable(conn: MySQLConfig) {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
 
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version VARCHAR(14) PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      checksum VARCHAR(64) NOT NULL
-    ) ENGINE=InnoDB;
-  `);
+  await connection.query(CREATE_MIGRATION_TABLE);
 }
 
 
@@ -1625,9 +1342,7 @@ export async function hasAnyMigrations(conn: MySQLConfig): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
 
-  const [rows] = await connection.query<any[]>(
-    `SELECT 1 FROM schema_migrations LIMIT 1;`
-  );
+  const [rows] = await connection.query<any[]>(CHECK_MIGRATIONS_EXIST);
   return rows.length > 0;
 }
 
@@ -1641,13 +1356,7 @@ export async function insertBaseline(
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
 
-  await connection.query(
-    `
-    INSERT INTO schema_migrations (version, name, checksum)
-    VALUES (?, ?, ?);
-    `,
-    [version, name, checksum]
-  );
+  await connection.query(INSERT_MIGRATION, [version, name, checksum]);
 }
 
 
@@ -1683,13 +1392,6 @@ export async function baselineIfNeeded(
   }
 }
 
-export type AppliedMigration = {
-  version: string;
-  name: string;
-  applied_at: string;
-  checksum: string;
-};
-
 export async function listAppliedMigrations(
   cfg: MySQLConfig
 ): Promise<AppliedMigration[]> {
@@ -1712,17 +1414,7 @@ export async function listAppliedMigrations(
       return [];
     }
 
-    const [rows] = await connection.query<any[]>(
-      `
-      SELECT
-        version,
-        name,
-        applied_at,
-        checksum
-      FROM schema_migrations
-      ORDER BY version ASC;
-      `
-    );
+    const [rows] = await connection.query<any[]>(LIST_APPLIED_MIGRATIONS);
 
     return rows as AppliedMigration[];
   } finally {
@@ -1831,10 +1523,7 @@ export async function rollbackMigration(
     await connection.query(migration.downSQL);
 
     // Remove from schema_migrations
-    await connection.query(
-      `DELETE FROM schema_migrations WHERE version = ?`,
-      [version]
-    );
+    await connection.query(DELETE_MIGRATION, [version]);
 
     // Commit transaction
     await connection.commit();
@@ -1846,6 +1535,241 @@ export async function rollbackMigration(
   } catch (error) {
     await connection.rollback();
     throw error;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+/**
+ * Insert a row into a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param rowData - Object with column names as keys and values to insert
+ * @returns The inserted row data with insertId
+ */
+export async function insertRow(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  rowData: Record<string, any>
+): Promise<any> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for insert");
+    }
+
+    // Build parameterized query
+    const columnList = columns.map(col => quoteIdent(col)).join(", ");
+    const placeholders = columns.map(() => "?").join(", ");
+
+    const query = `
+      INSERT INTO ${quoteIdent(tableName)} (${columnList})
+      VALUES (${placeholders});
+    `;
+
+    const [result] = await connection.execute(query, values);
+
+    // Clear cache to refresh table data
+    mysqlCache.clearForConnection(cfg);
+
+    return {
+      success: true,
+      insertId: (result as any).insertId,
+      affectedRows: (result as any).affectedRows
+    };
+  } catch (error) {
+    throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+/**
+ * Update a row in a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name
+ * @param primaryKeyValue - Primary key value to identify the row
+ * @param rowData - Object with column names as keys and new values
+ * @returns The update result
+ */
+export async function updateRow(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
+  rowData: Record<string, any>
+): Promise<any> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
+
+    if (columns.length === 0) {
+      throw new Error("No data provided for update");
+    }
+
+    const setClause = columns.map(col => `${quoteIdent(col)} = ?`).join(", ");
+
+    const query = `
+      UPDATE ${quoteIdent(tableName)}
+      SET ${setClause}
+      WHERE ${quoteIdent(primaryKeyColumn)} = ?;
+    `;
+
+    const [result] = await connection.execute(query, [...values, primaryKeyValue]);
+
+    // Clear cache to refresh table data
+    mysqlCache.clearForConnection(cfg);
+
+    return {
+      success: true,
+      affectedRows: (result as any).affectedRows
+    };
+  } catch (error) {
+    throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+/**
+ * Delete a row from a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param primaryKeyColumn - Primary key column name (or empty for composite)
+ * @param primaryKeyValue - Primary key value or whereConditions object
+ * @returns Success status
+ */
+export async function deleteRow(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any
+): Promise<boolean> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    let whereClause: string;
+    let whereValues: any[];
+
+    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+      // Single primary key
+      whereClause = `${quoteIdent(primaryKeyColumn)} = ?`;
+      whereValues = [primaryKeyValue];
+    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+      // Composite key - use all columns from the object
+      const cols = Object.keys(primaryKeyValue);
+      whereClause = cols.map(col => `${quoteIdent(col)} = ?`).join(" AND ");
+      whereValues = Object.values(primaryKeyValue);
+    } else {
+      throw new Error("Either primary key or where conditions required for delete");
+    }
+
+    const query = `
+      DELETE FROM ${quoteIdent(tableName)}
+      WHERE ${whereClause};
+    `;
+
+    const [result] = await connection.execute(query, whereValues);
+
+    // Clear cache to refresh table data
+    mysqlCache.clearForConnection(cfg);
+
+    return (result as any).affectedRows > 0;
+  } catch (error) {
+    throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
+}
+
+/**
+ * Search for rows in a table
+ * @param cfg - MySQL connection config
+ * @param schemaName - Schema/database name
+ * @param tableName - Table name
+ * @param searchTerm - Term to search for
+ * @param column - Optional specific column to search (searches all columns if not specified)
+ * @param limit - Max results (default 100)
+ * @returns Matching rows
+ */
+export async function searchTable(
+  cfg: MySQLConfig,
+  schemaName: string,
+  tableName: string,
+  searchTerm: string,
+  column?: string,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ rows: any[]; total: number }> {
+  const pool = mysql.createPool(cfg);
+  const connection = await pool.getConnection();
+
+  try {
+    const searchPattern = `%${searchTerm.replace(/[%_]/g, '\\$&')}%`;
+
+    let whereClause: string;
+    let values: any[];
+
+    if (column) {
+      // Search specific column
+      whereClause = `${quoteIdent(column)} LIKE ?`;
+      values = [searchPattern];
+    } else {
+      // Get all columns and search across them
+      const [colRows] = await connection.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+        [schemaName, tableName]
+      );
+      const columns = (colRows as any[]).map(r => r.COLUMN_NAME);
+
+      if (columns.length === 0) {
+        return { rows: [], total: 0 };
+      }
+
+      // Build OR clause for all columns
+      whereClause = columns
+        .map(col => `${quoteIdent(col)} LIKE ?`)
+        .join(" OR ");
+      values = Array(columns.length).fill(searchPattern);
+    }
+
+    // Count total matches
+    const [countRows] = await connection.query(
+      `SELECT COUNT(*) as total FROM ${quoteIdent(tableName)} WHERE ${whereClause}`,
+      values
+    );
+    const total = (countRows as any[])[0]?.total || 0;
+
+    // Get matching rows with pagination
+    const offset = (page - 1) * pageSize;
+    const [rows] = await connection.query(
+      `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereClause} LIMIT ? OFFSET ?`,
+      [...values, pageSize, offset]
+    );
+
+    return { rows: rows as any[], total };
+  } catch (error) {
+    throw new Error(`Failed to search table ${schemaName}.${tableName}: ${error}`);
   } finally {
     connection.release();
     await pool.end();

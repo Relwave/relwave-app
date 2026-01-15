@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "database-visualizer",
-  "version": "0.1.0",
-  "identifier": "com.yashs.database-visualizer",
+  "productName": "RelWave",
+  "version": "0.1.0-beta.1",
+  "identifier": "com.yashs.RelWave",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "DB Studio",
+        "title": "RelWave",
         "width": 1200,
         "height": 800,
         "decorations": false,
@@ -37,6 +37,18 @@
     ],
     "externalBin": [
       "resources/bridge"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZCODA3MzJBRUNGNDE3NUIKUldSYkYvVHNLbk9BKzlKTVVlU2F2NGJET0VFcGlvZXhWVEhpUmhXR0J0cVFtY25zTlNIRDFNa0MK",
+      "endpoints": [
+        "https://github.com/Yashh56/RelWave/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
