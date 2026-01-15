@@ -1,7 +1,3 @@
-// ----------------------------
-// jsonRpcHandlers.ts
-// ----------------------------
-
 import { Rpc } from "./types";
 import { SessionManager } from "./sessionManager";
 import { DatabaseService } from "./services/databaseService";
@@ -10,6 +6,7 @@ import { QueryHandlers } from "./handlers/queryHandlers";
 import { DatabaseHandlers } from "./handlers/databaseHandlers";
 import { SessionHandlers } from "./handlers/sessionHandlers";
 import { StatsHandlers } from "./handlers/statsHandlers";
+import { MigrationHandlers } from "./handlers/migrationHandlers";
 import { Logger } from "pino";
 
 /**
@@ -48,6 +45,12 @@ export function registerDbHandlers(
     dbService,
     queryExecutor
   );
+  const migrationHandlers = new MigrationHandlers(
+    rpc,
+    logger,
+    dbService,
+    queryExecutor
+  );
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -78,6 +81,33 @@ export function registerDbHandlers(
   rpcRegister("query.listPrimaryKeys", (p, id) =>
     queryHandlers.handleFetchPrimaryKeys(p, id)
   );
+  rpcRegister("query.createTable", (p, id) =>
+    queryHandlers.handleCreateTable(p, id)
+  );
+  rpcRegister("query.createIndexes", (p, id) =>
+    queryHandlers.handleCreateIndexes(p, id)
+  );
+  rpcRegister("query.dropTable", (p, id) =>
+    queryHandlers.handleDropTable(p, id)
+  );
+  rpcRegister("query.alterTable", (p, id) =>
+    queryHandlers.handleAlterTable(p, id)
+  );
+  rpcRegister("query.connectToDatabase", (p, id) =>
+    queryHandlers.connectToDatabase(p, id)
+  );
+  rpcRegister("query.insertRow", (p, id) =>
+    queryHandlers.handleInsertRow(p, id)
+  );
+  rpcRegister("query.updateRow", (p, id) =>
+    queryHandlers.handleUpdateRow(p, id)
+  );
+  rpcRegister("query.deleteRow", (p, id) =>
+    queryHandlers.handleDeleteRow(p, id)
+  );
+  rpcRegister("query.searchTable", (p, id) =>
+    queryHandlers.handleSearchTable(p, id)
+  );
 
   // ==========================================
   // DATABASE CRUD HANDLERS
@@ -89,6 +119,7 @@ export function registerDbHandlers(
   rpcRegister("db.add", (p, id) => databaseHandlers.handleAddDatabase(p, id));
   rpcRegister("db.delete", (p, id) => databaseHandlers.handleDeleteDatabase(p, id));
   rpcRegister("db.connectTest", (p, id) => databaseHandlers.handleTestConnection(p, id));
+  rpcRegister("db.touch", (p, id) => databaseHandlers.handleTouchDatabase(p, id));
 
   // ==========================================
   // DATABASE METADATA HANDLERS
@@ -98,6 +129,31 @@ export function registerDbHandlers(
   );
   rpcRegister("db.getSchema", (p, id) =>
     databaseHandlers.handleGetSchema(p, id)
+  );
+
+  // ==========================================
+  // MIGRATION HANDLERS
+  // ==========================================
+  rpcRegister("migration.generateCreate", (p, id) =>
+    migrationHandlers.handleGenerateCreateMigration(p, id)
+  );
+  rpcRegister("migration.generateAlter", (p, id) =>
+    migrationHandlers.handleGenerateAlterMigration(p, id)
+  );
+  rpcRegister("migration.generateDrop", (p, id) =>
+    migrationHandlers.handleGenerateDropMigration(p, id)
+  );
+  rpcRegister("migration.apply", (p, id) =>
+    migrationHandlers.handleApplyMigration(p, id)
+  );
+  rpcRegister("migration.rollback", (p, id) =>
+    migrationHandlers.handleRollbackMigration(p, id)
+  );
+  rpcRegister("migration.delete", (p, id) =>
+    migrationHandlers.handleDeleteMigration(p, id)
+  );
+  rpcRegister("migration.getSQL", (p, id) =>
+    migrationHandlers.handleGetMigrationSQL(p, id)
   );
 
   // ==========================================

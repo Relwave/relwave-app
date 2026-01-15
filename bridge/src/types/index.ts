@@ -1,24 +1,22 @@
-// ----------------------------
-// File Structure:
-// ----------------------------
-// handlers/
-//   ├── sessionHandlers.ts
-//   ├── queryHandlers.ts
-//   ├── databaseHandlers.ts
-//   └── statsHandlers.ts
-// services/
-//   ├── queryExecutor.ts
-//   ├── connectionBuilder.ts
-//   └── databaseService.ts
-// utils/
-//   └── dbTypeDetector.ts
-// types/
-//   └── index.ts
-// jsonRpcHandlers.ts (orchestrator)
+/**
+ * Bridge Types - Main Entry Point
+ * 
+ * This module re-exports all types for convenient importing.
+ * 
+ * Usage:
+ *   import { DBType, MySQLConfig, PGConfig, CacheEntry } from '../types';
+ */
+
+// Re-export all types
+export * from './cache';
+export * from './common';
+export * from './mysql';
+export * from './postgres';
 
 // ----------------------------
-// types/index.ts
+// Core Bridge Types
 // ----------------------------
+
 export enum DBType {
   POSTGRES = "postgres",
   MYSQL = "mysql",

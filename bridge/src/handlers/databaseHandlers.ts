@@ -9,7 +9,7 @@ export class DatabaseHandlers {
     private logger: Logger,
     private dbService: DatabaseService,
     private queryExecutor: QueryExecutor
-  ) {}
+  ) { }
 
   async handleListDatabases(params: any, id: number | string) {
     try {
@@ -156,6 +156,23 @@ export class DatabaseHandlers {
       this.rpc.sendResponse(id, { ok: true, data: result });
     } catch (err: any) {
       this.rpc.sendResponse(id, { ok: false, message: String(err) });
+    }
+  }
+
+  async handleTouchDatabase(params: any, id: number | string) {
+    try {
+      const { id: dbId } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing id",
+        });
+      }
+      await this.dbService.touchDatabase(dbId);
+      this.rpc.sendResponse(id, { ok: true });
+    } catch (e: any) {
+      this.logger?.error({ e }, "db.touch failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
   }
 }

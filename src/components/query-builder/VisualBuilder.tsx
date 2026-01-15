@@ -1,3 +1,4 @@
+import React from "react";
 import ReactFlow, { Background, BackgroundVariant, Controls } from "reactflow"
 import { Card, CardTitle, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ interface VisualBuilderProps {
     onNodesChange: any;
     onEdgesChange: any;
     onConnect: any;
+    updateEdgeJoinType: (edgeId: string, joinType: "INNER" | "LEFT" | "RIGHT" | "FULL") => void;
     generatedSQL: string;
     executeQuery: () => void;
     queryResults: TableRow[];
@@ -25,10 +27,61 @@ interface VisualBuilderProps {
 
 
 const VisualBuilder = (props: VisualBuilderProps) => {
-    const { nodes, edges, onNodesChange, onEdgesChange, onConnect, generatedSQL, executeQuery, queryResults, nodeTypes, isExecuting, rowCount, queryProgress } = props;
+    const { nodes, edges, onNodesChange, onEdgesChange, onConnect, updateEdgeJoinType, generatedSQL, executeQuery, queryResults, nodeTypes, isExecuting, rowCount, queryProgress } = props;
+
+    const [selectedEdge, setSelectedEdge] = React.useState<any>(null);
+    const [menuPosition, setMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+
+    const onEdgeClick = (event: React.MouseEvent, edge: any) => {
+        event.preventDefault();
+        setSelectedEdge(edge);
+        setMenuPosition({ x: event.clientX, y: event.clientY });
+    };
+
+    const handleJoinTypeChange = (joinType: "INNER" | "LEFT" | "RIGHT" | "FULL") => {
+        if (selectedEdge) {
+            updateEdgeJoinType(selectedEdge.id, joinType);
+        }
+        setSelectedEdge(null);
+        setMenuPosition(null);
+    };
 
     return (
         <div className="lg:col-span-2 space-y-4">
+            {/* JOIN Type Context Menu */}
+            {menuPosition && selectedEdge && (
+                <>
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => {
+                            setSelectedEdge(null);
+                            setMenuPosition(null);
+                        }}
+                    />
+                    <div
+                        className="fixed z-50 bg-popover border rounded-lg shadow-lg p-2 min-w-[120px]"
+                        style={{ left: menuPosition.x, top: menuPosition.y }}
+                    >
+                        <div className="text-xs font-medium text-muted-foreground mb-2 px-2">Join Type</div>
+                        {[
+                            { type: 'INNER', color: 'hsl(var(--primary))' },
+                            { type: 'LEFT', color: '#10B981' },
+                            { type: 'RIGHT', color: '#F59E0B' },
+                            { type: 'FULL', color: '#8B5CF6' }
+                        ].map(({ type, color }) => (
+                            <button
+                                key={type}
+                                onClick={() => handleJoinTypeChange(type as any)}
+                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2"
+                            >
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                                {type}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+
             <Card className="shadow-elevated h-[400px]">
                 <CardHeader>
                     <CardTitle className="text-lg">Visual Diagram</CardTitle>
@@ -56,6 +109,7 @@ const VisualBuilder = (props: VisualBuilderProps) => {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
+                        onEdgeClick={onEdgeClick}
                         nodeTypes={nodeTypes}
                         fitView
                     >

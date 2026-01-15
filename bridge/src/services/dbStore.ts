@@ -12,7 +12,7 @@ import { promisify } from "util";
 
 const scryptAsync = promisify(scrypt);
 
-const CONFIG_FOLDER =
+export const CONFIG_FOLDER =
   process.env.DBVISUALIZER_HOME ||
   path.join(
     os.homedir(),
@@ -21,11 +21,154 @@ const CONFIG_FOLDER =
       : ".dbvisualizer"
   );
 
-const CONFIG_FILE = path.join(CONFIG_FOLDER, "databases.json");
-const CREDENTIALS_FILE = path.join(CONFIG_FOLDER, ".credentials");
+export const CONFIG_FILE = path.join(CONFIG_FOLDER, "databases.json");
+export const CREDENTIALS_FILE = path.join(CONFIG_FOLDER, ".credentials");
+
+export function getConnectionDir(connectionId: string) {
+  return path.join(CONFIG_FOLDER, "connections", connectionId);
+}
+
+export function getMigrationsDir(connectionId: string) {
+  return path.join(CONFIG_FOLDER, "migrations", connectionId);
+}
+
+export function ensureDir(dir: string) {
+  if (!fsSync.existsSync(dir)) {
+    fsSync.mkdirSync(dir, { recursive: true });
+  }
+}
+
 
 // Use machine-specific key for encryption
 const ENCRYPTION_KEY_SOURCE = os.hostname() + os.userInfo().username;
+
+// Cache configuration
+const DEFAULT_CACHE_TTL = 30000; // 30 seconds TTL for cache entries
+
+/**
+ * Generic cache entry with TTL support
+ */
+type CacheEntry<T> = {
+  data: T;
+  timestamp: number;
+  ttl: number;
+};
+
+/**
+ * In-memory cache for database store
+ */
+class DbStoreCache {
+  private configCache: CacheEntry<ConfigData> | null = null;
+  private credentialsCache: CacheEntry<CredentialStore> | null = null;
+  private dbCache: Map<string, CacheEntry<DBMeta>> = new Map();
+  private defaultTtl: number;
+
+  constructor(ttl: number = DEFAULT_CACHE_TTL) {
+    this.defaultTtl = ttl;
+  }
+
+  /**
+   * Check if a cache entry is still valid
+   */
+  private isValid<T>(entry: CacheEntry<T> | null | undefined): boolean {
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < entry.ttl;
+  }
+
+  /**
+   * Get cached config data
+   */
+  getConfig(): ConfigData | null {
+    if (this.isValid(this.configCache)) {
+      return this.configCache!.data;
+    }
+    return null;
+  }
+
+  /**
+   * Set config cache
+   */
+  setConfig(data: ConfigData, ttl: number = this.defaultTtl): void {
+    this.configCache = {
+      data,
+      timestamp: Date.now(),
+      ttl,
+    };
+    // Also update individual DB cache entries
+    this.dbCache.clear();
+    data.databases.forEach((db) => {
+      this.dbCache.set(db.id, {
+        data: db,
+        timestamp: Date.now(),
+        ttl,
+      });
+    });
+  }
+
+  /**
+   * Get cached credentials
+   */
+  getCredentials(): CredentialStore | null {
+    if (this.isValid(this.credentialsCache)) {
+      return this.credentialsCache!.data;
+    }
+    return null;
+  }
+
+  /**
+   * Set credentials cache
+   */
+  setCredentials(data: CredentialStore, ttl: number = this.defaultTtl): void {
+    this.credentialsCache = {
+      data,
+      timestamp: Date.now(),
+      ttl,
+    };
+  }
+
+  /**
+   * Get cached DB by ID
+   */
+  getDB(id: string): DBMeta | null {
+    const entry = this.dbCache.get(id);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  /**
+   * Invalidate all caches (call after write operations)
+   */
+  invalidateAll(): void {
+    this.configCache = null;
+    this.credentialsCache = null;
+    this.dbCache.clear();
+  }
+
+  /**
+   * Invalidate config and DB caches
+   */
+  invalidateConfig(): void {
+    this.configCache = null;
+    this.dbCache.clear();
+  }
+
+  /**
+   * Invalidate credentials cache
+   */
+  invalidateCredentials(): void {
+    this.credentialsCache = null;
+  }
+
+  /**
+   * Invalidate a specific DB entry
+   */
+  invalidateDB(id: string): void {
+    this.dbCache.delete(id);
+    this.configCache = null; // Also invalidate config since it contains the DB list
+  }
+}
 
 type DBMeta = {
   id: string;
@@ -42,6 +185,7 @@ type DBMeta = {
   sslmode?: string;
   createdAt: string;
   updatedAt: string;
+  lastAccessedAt?: string;
 };
 
 type CredentialStore = {
@@ -56,23 +200,91 @@ type ConfigData = {
 /**
  * Database Store Service
  * Handles persistence and encryption of database connections
+ * Includes in-memory caching for fast data retrieval
  */
 export class DbStore {
   private configFolder: string;
   private configFile: string;
   private credentialsFile: string;
   private encryptionKeySource: string;
+  private cache: DbStoreCache;
+  private preloadPromise: Promise<void> | null = null;
+  private isPreloaded: boolean = false;
 
   constructor(
     configFolder: string = CONFIG_FOLDER,
     configFile: string = CONFIG_FILE,
     credentialsFile: string = CREDENTIALS_FILE,
-    encryptionKeySource: string = ENCRYPTION_KEY_SOURCE
+    encryptionKeySource: string = ENCRYPTION_KEY_SOURCE,
+    cacheTtl: number = DEFAULT_CACHE_TTL,
+    autoPreload: boolean = true
   ) {
     this.configFolder = configFolder;
     this.configFile = configFile;
     this.credentialsFile = credentialsFile;
     this.encryptionKeySource = encryptionKeySource;
+    this.cache = new DbStoreCache(cacheTtl);
+
+    // Auto-preload cache on instantiation for faster first access
+    if (autoPreload) {
+      this.preloadPromise = this.preloadCache();
+    }
+  }
+
+  /**
+   * Preload cache from disk for faster first retrieval
+   * Can be called manually or automatically on instantiation
+   */
+  async preloadCache(): Promise<void> {
+    if (this.isPreloaded && this.cache.getConfig() !== null) {
+      return; // Already preloaded and cache is valid
+    }
+
+    try {
+      // Ensure config directory exists
+      if (!fsSync.existsSync(this.configFolder)) {
+        await fs.mkdir(this.configFolder, { recursive: true });
+      }
+
+      // Load config file
+      if (fsSync.existsSync(this.configFile)) {
+        const configData = await fs.readFile(this.configFile, "utf-8");
+        const config = JSON.parse(configData);
+        this.cache.setConfig(config);
+      } else {
+        // Create empty config and cache it
+        const emptyConfig: ConfigData = { version: 1, databases: [] };
+        await fs.writeFile(
+          this.configFile,
+          JSON.stringify(emptyConfig, null, 2),
+          "utf-8"
+        );
+        this.cache.setConfig(emptyConfig);
+      }
+
+      // Preload credentials too
+      if (fsSync.existsSync(this.credentialsFile)) {
+        const credData = await fs.readFile(this.credentialsFile, "utf-8");
+        const credentials = JSON.parse(credData);
+        this.cache.setCredentials(credentials);
+      } else {
+        this.cache.setCredentials({});
+      }
+
+      this.isPreloaded = true;
+    } catch (error) {
+      console.error("Failed to preload cache:", error);
+      // Don't throw - allow fallback to normal loading
+    }
+  }
+
+  /**
+   * Wait for preload to complete (if in progress)
+   */
+  private async ensurePreloaded(): Promise<void> {
+    if (this.preloadPromise) {
+      await this.preloadPromise;
+    }
   }
 
   /**
@@ -120,15 +332,28 @@ export class DbStore {
   }
 
   /**
-   * Load credentials from file
+   * Load credentials from file (with caching)
    */
   private async loadCredentials(): Promise<CredentialStore> {
+    // Wait for preload if in progress
+    await this.ensurePreloaded();
+
+    // Check cache first
+    const cached = this.cache.getCredentials();
+    if (cached !== null) {
+      return cached;
+    }
+
     try {
       if (!fsSync.existsSync(this.credentialsFile)) {
-        return {};
+        const empty = {};
+        this.cache.setCredentials(empty);
+        return empty;
       }
       const data = await fs.readFile(this.credentialsFile, "utf-8");
-      return JSON.parse(data);
+      const credentials = JSON.parse(data);
+      this.cache.setCredentials(credentials);
+      return credentials;
     } catch (error) {
       console.error("Failed to load credentials:", error);
       return {};
@@ -136,7 +361,7 @@ export class DbStore {
   }
 
   /**
-   * Save credentials to file
+   * Save credentials to file (invalidates cache)
    */
   private async saveCredentials(credentials: CredentialStore): Promise<void> {
     try {
@@ -149,8 +374,12 @@ export class DbStore {
       if (process.platform !== "win32") {
         await fs.chmod(this.credentialsFile, 0o600);
       }
+      // Update cache with new credentials
+      this.cache.setCredentials(credentials);
     } catch (error) {
       console.error("Failed to save credentials:", error);
+      // Invalidate cache on error
+      this.cache.invalidateCredentials();
       throw new Error("Failed to store credentials securely");
     }
   }
@@ -175,16 +404,27 @@ export class DbStore {
   }
 
   /**
-   * Load all database configurations
+   * Load all database configurations (with caching)
    */
   private async loadAll(): Promise<ConfigData> {
+    // Wait for preload if in progress
+    await this.ensurePreloaded();
+
+    // Check cache first
+    const cached = this.cache.getConfig();
+    if (cached !== null) {
+      return cached;
+    }
+
     await this.ensureConfigDir();
     const txt = await fs.readFile(this.configFile, "utf-8");
-    return JSON.parse(txt);
+    const config = JSON.parse(txt);
+    this.cache.setConfig(config);
+    return config;
   }
 
   /**
-   * Save all database configurations
+   * Save all database configurations (invalidates cache)
    */
   private async saveAll(data: ConfigData): Promise<void> {
     // Only ensure directory exists, don't call ensureConfigDir to avoid recursion
@@ -192,6 +432,8 @@ export class DbStore {
       await fs.mkdir(this.configFolder, { recursive: true });
     }
     await fs.writeFile(this.configFile, JSON.stringify(data, null, 2), "utf-8");
+    // Update cache with new data
+    this.cache.setConfig(data);
   }
 
   /**
@@ -203,9 +445,19 @@ export class DbStore {
   }
 
   /**
-   * Get a specific database connection by ID
+   * Get a specific database connection by ID (with caching)
    */
   async getDB(id: string): Promise<DBMeta | undefined> {
+    // Wait for preload if in progress
+    await this.ensurePreloaded();
+
+    // Check individual DB cache first
+    const cachedDB = this.cache.getDB(id);
+    if (cachedDB !== null) {
+      return cachedDB;
+    }
+
+    // Fall back to loading all and finding
     const all = await this.loadAll();
     return all.databases.find((db) => db.id === id);
   }
@@ -347,6 +599,60 @@ export class DbStore {
       return null;
     }
   }
+
+  /**
+   * Manually invalidate all caches
+   * Useful when external changes might have occurred
+   */
+  invalidateCache(): void {
+    this.cache.invalidateAll();
+    this.isPreloaded = false;
+  }
+
+  /**
+   * Get cache statistics (useful for debugging)
+   */
+  getCacheStats(): {
+    configCached: boolean;
+    credentialsCached: boolean;
+    dbCount: number;
+    isPreloaded: boolean;
+  } {
+    return {
+      configCached: this.cache.getConfig() !== null,
+      credentialsCached: this.cache.getCredentials() !== null,
+      dbCount: this.cache.getConfig()?.databases.length ?? 0,
+      isPreloaded: this.isPreloaded,
+    };
+  }
+
+  /**
+   * Check if cache is ready (preloaded)
+   */
+  isReady(): boolean {
+    return this.isPreloaded && this.cache.getConfig() !== null;
+  }
+
+  /**
+   * Wait until cache is ready
+   */
+  async waitUntilReady(): Promise<void> {
+    await this.ensurePreloaded();
+  }
+
+  /**
+   * Update the lastAccessedAt timestamp for a database
+   */
+  async touchDB(id: string): Promise<boolean> {
+    const all = await this.loadAll();
+    const idx = all.databases.findIndex((db) => db.id === id);
+    if (idx === -1) return false;
+
+    const now = new Date().toISOString();
+    all.databases[idx].lastAccessedAt = now;
+    await this.saveAll(all);
+    return true;
+  }
 }
 
 // Export singleton instance for backward compatibility
@@ -361,6 +667,8 @@ export const updateDB = (id: string, patch: any) =>
 export const deleteDB = (id: string) => dbStoreInstance.deleteDB(id);
 export const getPasswordFor = (meta: DBMeta) =>
   dbStoreInstance.getPasswordFor(meta);
+export const invalidateCache = () => dbStoreInstance.invalidateCache();
+export const touchDB = (id: string) => dbStoreInstance.touchDB(id);
 
 // Export types
 export type { DBMeta, CredentialStore, ConfigData };

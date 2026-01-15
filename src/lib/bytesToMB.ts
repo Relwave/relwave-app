@@ -2,3 +2,7 @@ export const bytesToMBString = (bytes: number): string => {
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(2)} MB`;
 };
+
+export const formatMB = (mb: string): string => {
+  return `${parseFloat(mb).toFixed(2)} MB`;
+}

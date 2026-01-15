@@ -1,5 +1,5 @@
 
-export type DatabaseType = "postgresql" | "mysql" | "mongodb" | "sqlite";
+export type DatabaseType = "postgresql" | "mysql";
 
 export interface DatabaseConnection {
     id: string;
@@ -13,6 +13,7 @@ export interface DatabaseConnection {
     notes?: string;
     createdAt: string;
     updatedAt: string;
+    lastAccessedAt?: string;
     credentialId?: string;
 }
 
@@ -73,19 +74,88 @@ export interface ColumnDetails {
     nullable: boolean;
     isPrimaryKey: boolean;
     isForeignKey: boolean;
-    isUnique: boolean; // Note: Requires extra backend query, mocked to false for simplicity
+    isUnique: boolean;
     defaultValue: string | null;
+    ordinalPosition?: number;
+    maxLength?: number | null;
+}
+
+export interface PrimaryKeyInfo {
+    table_schema: string;
+    table_name: string;
+    column_name: string;
+    ordinal_position: number;
+}
+
+export interface ForeignKeyInfo {
+    constraint_name: string;
+    source_schema: string;
+    source_table: string;
+    source_column: string;
+    target_schema: string;
+    target_table: string;
+    target_column: string;
+    update_rule: string;
+    delete_rule: string;
+    ordinal_position: number;
+}
+
+export interface IndexInfo {
+    table_name: string;
+    index_name: string;
+    column_name: string;
+    is_unique: boolean;
+    is_primary: boolean;
+    index_type: string;
+    predicate: string | null;
+    ordinal_position: number;
+}
+
+export interface UniqueConstraintInfo {
+    constraint_name: string;
+    table_schema: string;
+    table_name: string;
+    column_name: string;
+    ordinal_position: number;
+}
+
+export interface CheckConstraintInfo {
+    constraint_name: string;
+    table_schema: string;
+    table_name: string;
+    definition?: string;
+    check_clause?: string;
+}
+
+export interface EnumTypeInfo {
+    schema_name: string;
+    enum_name: string;
+    enum_value: string;
+}
+
+export interface SequenceInfo {
+    sequence_name: string;
+    sequence_schema: string;
+    table_name: string | null;
+    column_name: string | null;
 }
 
 export interface TableSchemaDetails {
     name: string;
     type: "BASE TABLE" | "VIEW" | string;
     columns: ColumnDetails[];
+    primaryKeys?: PrimaryKeyInfo[];
+    foreignKeys?: ForeignKeyInfo[];
+    indexes?: IndexInfo[];
+    uniqueConstraints?: UniqueConstraintInfo[];
+    checkConstraints?: CheckConstraintInfo[];
 }
 
 export interface SchemaGroup {
     name: string;
     tables: TableSchemaDetails[];
+    enumTypes?: EnumTypeInfo[];
+    sequences?: SequenceInfo[];
 }
 
 export interface DatabaseSchemaDetails {
@@ -113,4 +183,72 @@ export interface SelectedTable {
 export interface QueryProgress {
     rows: number;
     elapsed: number;
+}
+
+export interface CreateTableColumn {
+    name: string;
+    type: string;
+    not_nullable: boolean;
+    is_primary_key: boolean;
+    default_value?: string;
+}
+
+export interface CreateTableParams {
+    dbId: string;
+    schemaName: string;
+    tableName: string;
+    columns: CreateTableColumn[];
+}
+
+export interface ForeignKeyConstraint {
+    constraint_name: string;
+    source_schema: string;
+    source_table: string;
+    source_column: string;
+    target_schema: string;
+    target_table: string;
+    target_column: string;
+    update_rule?: string;
+    delete_rule?: string;
+}
+
+export interface CreateIndexDefinition {
+    table_name: string;
+    index_name: string;
+    column_name: string;
+    is_unique: boolean;
+    is_primary: boolean;
+    index_type?: string;
+    seq_in_index?: number;
+    predicate?: string;
+}
+
+export type AlterTableOperation =
+    | { type: "ADD_COLUMN"; column: CreateTableColumn }
+    | { type: "DROP_COLUMN"; column_name: string }
+    | { type: "RENAME_COLUMN"; from: string; to: string }
+    | { type: "SET_NOT_NULL"; column_name: string; new_type?: string }
+    | { type: "DROP_NOT_NULL"; column_name: string; new_type?: string }
+    | { type: "SET_DEFAULT"; column_name: string; default_value: string }
+    | { type: "DROP_DEFAULT"; column_name: string }
+    | { type: "ALTER_TYPE"; column_name: string; new_type: string };
+
+export type DropMode = "RESTRICT" | "DETACH_FKS" | "CASCADE";
+
+// Migrations types
+export interface LocalMigration {
+    version: string;
+    name: string;
+}
+
+export interface AppliedMigration {
+    version: string;
+    name: string;
+    applied_at: string;
+    checksum: string;
+}
+
+export interface MigrationsData {
+    local: LocalMigration[];
+    applied: AppliedMigration[];
 }

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { useDatabase } from '@/hooks/useDbQueries'
 
 const QueryBuilderHeader = ({ id }: { id: string }) => {
+    const { data: dbDetails } = useDatabase(id);
+
     return (
         <header className="border-b bg-card/50 backdrop-blur">
             <div className="container mx-auto px-4 py-4">
@@ -14,7 +17,9 @@ const QueryBuilderHeader = ({ id }: { id: string }) => {
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">Visual Query Builder</h1>
-                        <p className="text-sm text-muted-foreground">Build queries visually for {id}</p>
+                        <p className="text-sm text-muted-foreground">
+                            Build queries visually for {dbDetails?.name || id}
+                        </p>
                     </div>
                 </div>
             </div>

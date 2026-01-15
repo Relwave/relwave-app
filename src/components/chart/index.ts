@@ -1,3 +1,3 @@
 export { ChartConfigPanel } from './ChartConfigPanel'
-export { ChartRenderer } from './ChartRenderer'
+export { default as ChartRenderer } from './ChartRenderer'
 export { ChartVisualization } from './ChartVisualization'

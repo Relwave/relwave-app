@@ -29,17 +29,20 @@ export class StatsHandlers {
         });
       }
 
-      const { db, conn, dbType } =
+      const { conn, dbType } =
         await this.dbService.getDatabaseConnection(dbId);
 
-      const stats = await this.queryExecutor.getStats(conn, dbType);
+      const rawStats = await this.queryExecutor.getStats(conn, dbType);
+
+      const stats = {
+        tables: Number(rawStats.total_tables) || 0,
+        rows: Number(rawStats.total_rows) || 0,
+        sizeBytes: Math.round((Number(rawStats.total_db_size_mb) || 0) * MB_TO_BYTES),
+      };
 
       this.rpc.sendResponse(id, {
         ok: true,
-        data: {
-          stats: stats,
-          db: db,
-        },
+        data: stats,
       });
     } catch (e: any) {
       this.logger?.error({ e }, "db.getStats failed");

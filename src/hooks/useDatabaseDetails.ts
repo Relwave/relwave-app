@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { bridgeApi } from "@/services/bridgeApi";
+import { useDatabase, useTables, useTableData, usePrefetch, useInvalidateCache } from "@/hooks/useDbQueries";
 import { QueryProgress, SelectedTable, TableInfo, TableRow } from "@/types/database";
 
 interface UseDatabaseDetailsOptions {
@@ -17,7 +18,9 @@ interface UseDatabaseDetailsReturn {
     totalRows: number;
     query: string;
     queryProgress: QueryProgress | null;
+    queryError: string | null;
     isExecuting: boolean;
+    isLoadingData: boolean;
     loading: boolean;
     loadingTables: boolean;
     error: string | null;
@@ -30,64 +33,72 @@ interface UseDatabaseDetailsReturn {
     fetchTables: () => Promise<void>;
     handlePageChange: (page: number) => Promise<void>;
     handlePageSizeChange: (size: number) => Promise<void>;
+    refetchTableData: () => void;
 }
 
 export function useDatabaseDetails({
     dbId,
     bridgeReady,
 }: UseDatabaseDetailsOptions): UseDatabaseDetailsReturn {
-    const [databaseName, setDatabaseName] = useState<string>("Database");
+    const { data: dbDetails } = useDatabase(dbId);
+    const databaseName = dbDetails?.name || "Database";
+
+    const {
+        data: tablesData = [],
+        isLoading: loadingTables,
+        refetch: refetchTables,
+        isRefetching: isRefetchingTables
+    } = useTables(dbId);
+
+    // Transform tables data
+    const tables: TableInfo[] = tablesData.map((item: any) => ({
+        schema: item.schema || "public",
+        name: item.name || "unknown",
+        type: item.type || "table",
+    }));
+
+    // Local state for selected table and pagination
     const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
-    const [query, setQuery] = useState("");
-    const [isExecuting, setIsExecuting] = useState(false);
-    const [tables, setTables] = useState<TableInfo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingTables, setLoadingTables] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [tableData, setTableData] = useState<TableRow[]>([]);
-    const [rowCount, setRowCount] = useState<number>(0);
-    const [totalRows, setTotalRows] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [pageSize, setPageSize] = useState<number>(50);
+
+    const {
+        data: tableDataResult,
+        isLoading: isLoadingTableData,
+        isFetching: isFetchingTableData
+    } = useTableData(
+        dbId,
+        selectedTable?.schema,
+        selectedTable?.name,
+        currentPage,
+        pageSize
+    );
+
+    // Prefetch utilities
+    const { prefetchNextPage } = usePrefetch();
+
+    // Cache invalidation
+    const { invalidateTable } = useInvalidateCache();
+
+    // Derived state from table data query
+    const tableData = tableDataResult?.rows || [];
+    const rowCount = tableData.length;
+    const totalRows = tableDataResult?.total || 0;
+
+    // Query execution state (still manual - streaming queries)
+    const [query, setQuery] = useState("");
+    const [isExecuting, setIsExecuting] = useState(false);
     const [querySessionId, setQuerySessionId] = useState<string | null>(null);
     const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null);
+    const [queryResults, setQueryResults] = useState<TableRow[]>([]);
+    const [queryRowCount, setQueryRowCount] = useState<number>(0);
+    const [queryError, setQueryError] = useState<string | null>(null);
+    const [hasExecutedQuery, setHasExecutedQuery] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-
-    const fetchTableDataWithPagination = useCallback(
-        async (schemaName: string, tableName: string, page: number, limit: number) => {
-            if (!dbId) return;
-
-            setIsExecuting(true);
-            const loadingToast = toast.loading(`Loading page ${page} from ${schemaName}.${tableName}...`);
-
-            try {
-                const startTime = performance.now();
-                const result = await bridgeApi.fetchTableData(dbId, schemaName, tableName, limit, page);
-                const elapsed = performance.now() - startTime;
-
-                setTableData(result.rows);
-                setRowCount(result.rows.length);
-                setTotalRows(result.total);
-
-                toast.success("Table data retrieved", {
-                    id: loadingToast,
-                    description: `${result.rows.length} of ${result.total} rows loaded in ${(elapsed / 1000).toFixed(2)}s`,
-                    duration: 2000,
-                });
-            } catch (err: any) {
-                console.error("Error fetching table data:", err);
-                setTableData([]);
-                setRowCount(0);
-                toast.error("Data fetch failed", {
-                    id: loadingToast,
-                    description: err.message,
-                });
-            } finally {
-                setIsExecuting(false);
-            }
-        },
-        [dbId]
-    );
+    // Combined loading state
+    const loading = loadingTables || isLoadingTableData;
+    const isTableDataLoading = isFetchingTableData;
 
     const handleTableSelect = useCallback(
         async (tableName: string, schemaName: string) => {
@@ -97,23 +108,27 @@ export function useDatabaseDetails({
             setSelectedTable({ schema: schemaName, name: tableName });
             const newQuery = `SELECT * FROM ${schemaName}.${tableName} LIMIT ${pageSize};`;
             setQuery(newQuery);
-            setTableData([]);
-            setRowCount(0);
-            setTotalRows(0);
             setCurrentPage(1);
-
-            await fetchTableDataWithPagination(schemaName, tableName, 1, pageSize);
+            // Reset query execution state when switching tables
+            setHasExecutedQuery(false);
+            setQueryResults([]);
+            setQueryRowCount(0);
+            setQueryError(null);
+            // React Query will automatically fetch the data
         },
-        [dbId, selectedTable, pageSize, fetchTableDataWithPagination]
+        [dbId, selectedTable, pageSize]
     );
 
     const handlePageChange = useCallback(
         async (page: number) => {
             if (!selectedTable || !dbId) return;
             setCurrentPage(page);
-            await fetchTableDataWithPagination(selectedTable.schema, selectedTable.name, page, pageSize);
+            // Prefetch next page for smooth pagination
+            if (dbId && selectedTable) {
+                prefetchNextPage(dbId, selectedTable.schema, selectedTable.name, page, pageSize);
+            }
         },
-        [dbId, selectedTable, pageSize, fetchTableDataWithPagination]
+        [dbId, selectedTable, pageSize, prefetchNextPage]
     );
 
     const handlePageSizeChange = useCallback(
@@ -121,61 +136,18 @@ export function useDatabaseDetails({
             if (!selectedTable || !dbId) return;
             setPageSize(size);
             setCurrentPage(1);
-            await fetchTableDataWithPagination(selectedTable.schema, selectedTable.name, 1, size);
         },
-        [dbId, selectedTable, fetchTableDataWithPagination]
+        [dbId, selectedTable]
     );
 
     const fetchTables = useCallback(async () => {
-        if (!dbId) return;
+        await refetchTables();
+    }, [refetchTables]);
 
-        try {
-            setLoadingTables(true);
-            setError(null);
-
-            const loadingToast = toast.loading("Loading database schema...", {
-                description: "This may take a moment for large databases",
-            });
-
-            const startTime = performance.now();
-
-            const [dbDetails, tableListResult] = await Promise.all([
-                bridgeApi.getDatabase(dbId),
-                bridgeApi.listTables(dbId),
-            ]);
-
-            const elapsed = performance.now() - startTime;
-
-            setDatabaseName(dbDetails?.name || "Database");
-
-            const parsedTables: TableInfo[] = tableListResult.map((item: any) => ({
-                schema: item.schema || "public",
-                name: item.name || "unknown",
-                type: item.type || "table",
-            }));
-
-            setTables(parsedTables);
-
-            toast.success("Database loaded", {
-                id: loadingToast,
-                description: `Found ${parsedTables.length} tables in ${(elapsed / 1000).toFixed(2)}s`,
-                duration: 2000,
-            });
-
-            if (parsedTables.length > 0 && !selectedTable) {
-                await handleTableSelect(parsedTables[0].name, parsedTables[0].schema);
-            }
-        } catch (err: any) {
-            console.error("Failed to fetch tables:", err);
-            setError(err.message || "Connection failed.");
-            toast.error("Failed to load database", {
-                description: err.message || "Connection failed",
-            });
-        } finally {
-            setLoading(false);
-            setLoadingTables(false);
-        }
-    }, [dbId, selectedTable, handleTableSelect]);
+    const refetchTableData = useCallback(() => {
+        if (!dbId || !selectedTable) return;
+        invalidateTable(dbId, selectedTable.schema, selectedTable.name);
+    }, [dbId, selectedTable, invalidateTable]);
 
     const handleCancelQuery = useCallback(async () => {
         if (!querySessionId) return;
@@ -203,9 +175,11 @@ export function useDatabaseDetails({
                 await handleCancelQuery();
             }
 
-            setTableData([]);
-            setRowCount(0);
+            setQueryResults([]);
+            setQueryRowCount(0);
             setQueryProgress(null);
+            setQueryError(null);
+            setHasExecutedQuery(true);
             setIsExecuting(true);
 
             const sessionId = await bridgeApi.createSession();
@@ -232,8 +206,8 @@ export function useDatabaseDetails({
     useEffect(() => {
         const handleResult = (event: CustomEvent) => {
             if (event.detail.sessionId !== querySessionId) return;
-            setTableData((prev) => [...prev, ...event.detail.rows]);
-            setRowCount((prev) => prev + event.detail.rows.length);
+            setQueryResults((prev) => [...prev, ...event.detail.rows]);
+            setQueryRowCount((prev) => prev + event.detail.rows.length);
         };
 
         const handleProgress = (event: CustomEvent) => {
@@ -269,6 +243,9 @@ export function useDatabaseDetails({
             setIsExecuting(false);
             setQuerySessionId(null);
             setQueryProgress(null);
+            setQueryError(event.detail.error?.message || "An error occurred");
+            setQueryResults([]);
+            setQueryRowCount(0);
             toast.error("Query failed", {
                 description: event.detail.error?.message || "An error occurred",
             });
@@ -292,12 +269,12 @@ export function useDatabaseDetails({
         };
     }, [querySessionId]);
 
-    // Fetch tables when bridge is ready
+    // Auto-select first table when tables are loaded
     useEffect(() => {
-        if (bridgeReady) {
-            fetchTables();
+        if (tables.length > 0 && !selectedTable && bridgeReady) {
+            handleTableSelect(tables[0].name, tables[0].schema);
         }
-    }, [bridgeReady]);
+    }, [tables, selectedTable, bridgeReady, handleTableSelect]);
 
     // Clear query when no table selected
     useEffect(() => {
@@ -306,18 +283,23 @@ export function useDatabaseDetails({
         }
     }, [selectedTable]);
 
+    // Determine which data to show: query results (if query was executed) or table data
+    const showQueryResults = hasExecutedQuery || isExecuting;
+
     return {
         databaseName,
         tables,
         selectedTable,
-        tableData,
-        rowCount,
+        tableData: showQueryResults ? queryResults : tableData,
+        rowCount: showQueryResults ? queryRowCount : rowCount,
         totalRows,
         query,
         queryProgress,
+        queryError,
         isExecuting,
+        isLoadingData: isFetchingTableData,
         loading,
-        loadingTables,
+        loadingTables: loadingTables || isRefetchingTables,
         error,
         currentPage,
         pageSize,
@@ -328,5 +310,6 @@ export function useDatabaseDetails({
         fetchTables,
         handlePageChange,
         handlePageSizeChange,
+        refetchTableData,
     };
 }
