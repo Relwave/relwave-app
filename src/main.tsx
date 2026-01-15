@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import { useBridgeInit } from "@/hooks/useBridgeInit";
 import { useEffect } from 'react';
 import { DeveloperContextMenu } from './components/common/DeveloperContextMenu';
+import { UpdateNotification } from './components/common/UpdateNotification';
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,7 @@ function BridgeInitializer() {
 function ThemeVariantInitializer() {
   useEffect(() => {
     // Initialize theme variant from localStorage on mount
-    const savedVariant = localStorage.getItem('db-studio-theme-variant');
+    const savedVariant = localStorage.getItem('relwave-theme-variant');
     if (savedVariant) {
       document.documentElement.setAttribute('data-theme-variant', savedVariant);
     } else {
@@ -45,6 +46,7 @@ function AppRoot() {
       <QueryClientProvider client={queryClient}>
         <BridgeInitializer />
         <ThemeVariantInitializer />
+        <UpdateNotification />
         <TooltipProvider>
           <DeveloperContextMenu>
             <Toaster />

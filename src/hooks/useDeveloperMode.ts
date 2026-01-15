@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = "db-studio-developer-mode";
+const STORAGE_KEY = "relwave-developer-mode";
 
 export function useDeveloperMode() {
     const [isEnabled, setIsEnabled] = useState<boolean>(() => {

@@ -24,3 +24,5 @@ src-tauri/resources/*.exe
 *.njsproj
 *.sln
 *.sw?
+
+~
