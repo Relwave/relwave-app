@@ -72,13 +72,12 @@ fn spawn_bridge_process(app_handle: &AppHandle) -> Result<Child, String> {
         }
     }
 
-    // 3) Try exe directory (where the .exe is located)
+    // 3) Try exe directory (where the executable is located - works for deb/appimage on Linux)
     if let Some(exe_dir) = get_exe_dir() {
-        if let Some(child) = try_exe_dir_scripts(&exe_dir) {
+        if let Some(child) = try_exe_dir_binary(&exe_dir) {
             return Ok(child);
         }
-        #[cfg(target_os = "windows")]
-        if let Some(child) = try_exe_dir_binary(&exe_dir) {
+        if let Some(child) = try_exe_dir_scripts(&exe_dir) {
             return Ok(child);
         }
     }
@@ -180,14 +179,15 @@ fn try_exe_dir_scripts(exe_dir: &Path) -> Option<Child> {
     None
 }
 
-#[cfg(target_os = "windows")]
+/// Try to find and spawn bridge binary in the exe directory (for Linux deb/appimage and Windows)
 fn try_exe_dir_binary(exe_dir: &Path) -> Option<Child> {
-    let paths = [
-        exe_dir.join("bridge.exe"),
-        exe_dir.join("_up_").join("bridge.exe"),
-    ];
+    #[cfg(target_os = "windows")]
+    let binary_names = ["bridge.exe", "_up_/bridge.exe"];
+    #[cfg(not(target_os = "windows"))]
+    let binary_names = ["bridge", "_up_/bridge"];
 
-    for exe_path in &paths {
+    for name in binary_names {
+        let exe_path = exe_dir.join(name);
         if exe_path.exists() {
             if let Some(exe_str) = exe_path.to_str() {
                 if let Ok(c) = try_spawn(exe_str, &[]) {
