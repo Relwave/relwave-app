@@ -269,163 +269,160 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
     // --- Main diagram render ---
     return (
         <TooltipProvider>
-            <div className="h-screen bg-background flex flex-col">
-                <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-                    <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <Link to={`/${dbId}`}>
-                                <button className="p-2 text-muted-foreground hover:bg-muted rounded-md transition-colors">
-                                    <ArrowLeft className="h-4 w-4" />
-                                </button>
-                            </Link>
-                        </div>
+            <header className="h-12 border-b border-border/40 bg-background flex items-center justify-between px-4 shrink-0">
+                <div className="container flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{schemaData.name || 'Database'}</span>
+                        <span className="text-muted-foreground/50">•</span>
+                        <span className="text-sm font-medium text-foreground">ER Diagram</span>
+                    </div>
 
-                        {/* Search bar */}
-                        <div className="flex-1 max-w-md">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    placeholder="Search tables or columns..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-9 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                />
-                                {searchQuery && (
+                    {/* Search bar */}
+                    <div className="flex-1 max-w-md">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search tables or columns..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-9 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                        {searchQuery && (
+                            <div className="absolute mt-1 text-xs text-muted-foreground">
+                                Found {filteredNodes.length} of {nodes.length} tables
+                                {filteredNodes.length > 0 && (
                                     <button
-                                        onClick={() => setSearchQuery("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        onClick={fitToFiltered}
+                                        className="ml-2 text-primary hover:underline"
                                     >
-                                        <X className="h-4 w-4" />
+                                        Focus
                                     </button>
                                 )}
                             </div>
-                            {searchQuery && (
-                                <div className="absolute mt-1 text-xs text-muted-foreground">
-                                    Found {filteredNodes.length} of {nodes.length} tables
-                                    {filteredNodes.length > 0 && (
-                                        <button
-                                            onClick={fitToFiltered}
-                                            className="ml-2 text-primary hover:underline"
-                                        >
-                                            Focus
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            {selectedNodeId && (
-                                <button
-                                    onClick={clearSelection}
-                                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors flex items-center gap-1.5"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                    Clear
-                                </button>
-                            )}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        onClick={reLayout}
-                                        className="p-2 border border-border rounded-md hover:bg-muted transition-colors"
-                                    >
-                                        <LayoutGrid className="h-4 w-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>Re-layout diagram</TooltipContent>
-                            </Tooltip>
-                            {["png", "svg"].map((format) => (
-                                <button
-                                    key={format}
-                                    onClick={() => handleExport(format as ExportFormat)}
-                                    className="px-3 py-1.5 border border-border rounded-md hover:bg-muted transition-colors flex items-center gap-1.5 text-sm text-foreground"
-                                >
-                                    <Download className="h-3.5 w-3.5" />
-                                    {format.toUpperCase()}
-                                </button>
-                            ))}
-                        </div>
+                        )}
                     </div>
-                </header>
 
-                <div className="flex-1 relative">
-                    <ReactFlow
-                        nodes={searchQuery ? filteredNodes : nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onNodeClick={handleNodeClick}
-                        onEdgeMouseEnter={onEdgeMouseEnter}
-                        onEdgeMouseLeave={onEdgeMouseLeave}
-                        nodeTypes={nodeTypes}
-                        fitView
-                        minZoom={0.1}
-                        maxZoom={4}
-                        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-                    >
-                        <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="bg-background" />
-                        <Controls showFitView={true} style={{ bottom: 16, left: 16 }} />
-                        <MiniMap
-                            nodeColor={miniMapNodeColor}
-                            maskColor="rgba(0, 0, 0, 0.1)"
-                            className="bg-card border border-border rounded-md"
-                            style={{ bottom: 66 }}
-                            pannable
-                            zoomable
-                        />
-                    </ReactFlow>
-
-                    {/* Edge tooltip */}
-                    {hoveredEdge && hoveredEdge.data && (
-                        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-popover border border-border rounded-lg shadow-lg p-3 text-xs z-50">
-                            <div className="font-semibold mb-1">{hoveredEdge.data.constraintName}</div>
-                            <div className="text-muted-foreground">
-                                {hoveredEdge.data.sourceTable}.{hoveredEdge.data.sourceColumn} → {hoveredEdge.data.targetTable}.{hoveredEdge.data.targetColumn}
-                            </div>
-                            <div className="flex gap-3 mt-1 text-[10px]">
-                                <span>ON DELETE: <span className="text-red-500">{hoveredEdge.data.deleteRule}</span></span>
-                                <span>ON UPDATE: <span className="text-blue-500">{hoveredEdge.data.updateRule}</span></span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Legend */}
-                    <div className="absolute bottom-20 left-52 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 text-xs z-10">
-                        <div className="font-semibold mb-2">Legend</div>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                                <span>Primary Key</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
-                                <span>Foreign Key</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-0.5 bg-cyan-500"></div>
-                                <span>N:1 Relationship</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-red-500 font-bold">*</span>
-                                <span>Not Nullable</span>
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-2">
+                        {selectedNodeId && (
+                            <button
+                                onClick={clearSelection}
+                                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors flex items-center gap-1.5"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                                Clear
+                            </button>
+                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={reLayout}
+                                    className="p-2 border border-border rounded-md hover:bg-muted transition-colors"
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Re-layout diagram</TooltipContent>
+                        </Tooltip>
+                        {["png", "svg"].map((format) => (
+                            <button
+                                key={format}
+                                onClick={() => handleExport(format as ExportFormat)}
+                                className="px-3 py-1.5 border border-border rounded-md hover:bg-muted transition-colors flex items-center gap-1.5 text-sm text-foreground"
+                            >
+                                <Download className="h-3.5 w-3.5" />
+                                {format.toUpperCase()}
+                            </button>
+                        ))}
                     </div>
                 </div>
+            </header>
 
-                <div className="border-t border-border bg-card px-4 py-2">
-                    <div className="container mx-auto flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                            {nodes.length} Tables • {edges.length} Relations
-                            {selectedNodeId && ` • Selected: ${selectedNodeId.split('.')[1]}`}
-                        </span>
-                        <span>Click table to highlight • Drag to pan • Scroll to zoom</span>
+            <div className="flex-1 relative">
+                <ReactFlow
+                    nodes={searchQuery ? filteredNodes : nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodeClick={handleNodeClick}
+                    onEdgeMouseEnter={onEdgeMouseEnter}
+                    onEdgeMouseLeave={onEdgeMouseLeave}
+                    nodeTypes={nodeTypes}
+                    fitView
+                    minZoom={0.1}
+                    maxZoom={4}
+                    defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+                >
+                    <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="bg-background" />
+                    <Controls showFitView={true} style={{ bottom: 16, left: 16 }} />
+                    <MiniMap
+                        nodeColor={miniMapNodeColor}
+                        maskColor="rgba(0, 0, 0, 0.1)"
+                        className="bg-card border border-border rounded-md"
+                        style={{ bottom: 66 }}
+                        pannable
+                        zoomable
+                    />
+                </ReactFlow>
+
+                {/* Edge tooltip */}
+                {hoveredEdge && hoveredEdge.data && (
+                    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-popover border border-border rounded-lg shadow-lg p-3 text-xs z-50">
+                        <div className="font-semibold mb-1">{hoveredEdge.data.constraintName}</div>
+                        <div className="text-muted-foreground">
+                            {hoveredEdge.data.sourceTable}.{hoveredEdge.data.sourceColumn} → {hoveredEdge.data.targetTable}.{hoveredEdge.data.targetColumn}
+                        </div>
+                        <div className="flex gap-3 mt-1 text-[10px]">
+                            <span>ON DELETE: <span className="text-red-500">{hoveredEdge.data.deleteRule}</span></span>
+                            <span>ON UPDATE: <span className="text-blue-500">{hoveredEdge.data.updateRule}</span></span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Legend */}
+                <div className="absolute bottom-20 left-52 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 text-xs z-10">
+                    <div className="font-semibold mb-2">Legend</div>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                            <span>Primary Key</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+                            <span>Foreign Key</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-0.5 bg-cyan-500"></div>
+                            <span>N:1 Relationship</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-red-500 font-bold">*</span>
+                            <span>Not Nullable</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </TooltipProvider>
+
+            <div className="border-t border-border bg-card px-4 py-2">
+                <div className="container mx-auto flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                        {nodes.length} Tables • {edges.length} Relations
+                        {selectedNodeId && ` • Selected: ${selectedNodeId.split('.')[1]}`}
+                    </span>
+                    <span>Click table to highlight • Drag to pan • Scroll to zoom</span>
+                </div>
+            </div>
+        </TooltipProvider >
     );
 };
 

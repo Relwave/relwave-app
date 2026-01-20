@@ -23,74 +23,67 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
     const [dropTableOpen, setDropTableOpen] = useState(false);
     const [alterTableOpen, setAlterTableOpen] = useState(false);
 
-    // For now, we'll use the first schema or 'public' as default
-    // In a future enhancement, we could let users select the schema
     const defaultSchema = 'public';
 
     return (
         <div>
-            <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl px-6 py-4 shrink-0 shadow-sm">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link to={`/${dbId}`}>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-accent transition-colors">
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground">Schema Explorer</h1>
-                            <p className="text-sm text-muted-foreground">
-                                {database.name} | Browse structure and metadata
-                            </p>
+            <header className="h-12 border-b border-border/40 bg-background flex items-center justify-between px-4 shrink-0">
+                <div className="container">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Database className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">{database.name || 'Database'}</span>
+                            <span className="text-muted-foreground/50">•</span>
+                            <span className="text-sm font-medium text-foreground">Schema Explorer</span>
                         </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                        {/* Table Actions - only show if table is selected */}
-                        {selectedTable && (
-                            <>
-                                <Button
-                                    onClick={() => setAlterTableOpen(true)}
-                                    variant="outline"
-                                    className="gap-2"
-                                    size="sm"
-                                >
-                                    <Settings className="h-4 w-4" />
-                                    Alter Table
-                                </Button>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                            {/* Table Actions - only show if table is selected */}
+                            {selectedTable && (
+                                <>
+                                    <Button
+                                        onClick={() => setAlterTableOpen(true)}
+                                        variant="outline"
+                                        className="gap-2"
+                                        size="sm"
+                                    >
+                                        <Settings className="h-4 w-4" />
+                                        Alter Table
+                                    </Button>
 
-                                <Button
-                                    onClick={() => setAddIndexesOpen(true)}
-                                    variant="outline"
-                                    className="gap-2"
-                                    size="sm"
-                                >
-                                    <Database className="h-4 w-4" />
-                                    Add Indexes
-                                </Button>
+                                    <Button
+                                        onClick={() => setAddIndexesOpen(true)}
+                                        variant="outline"
+                                        className="gap-2"
+                                        size="sm"
+                                    >
+                                        <Database className="h-4 w-4" />
+                                        Add Indexes
+                                    </Button>
 
-                                <Button
-                                    onClick={() => setDropTableOpen(true)}
-                                    variant="outline"
-                                    className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    size="sm"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    Drop Table
-                                </Button>
-                            </>
-                        )}
+                                    <Button
+                                        onClick={() => setDropTableOpen(true)}
+                                        variant="outline"
+                                        className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        size="sm"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Drop Table
+                                    </Button>
+                                </>
+                            )}
 
-                        {/* Create Table Button */}
-                        <Button
-                            onClick={() => setCreateTableOpen(true)}
-                            className="gap-2"
-                            size="sm"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Create Table
-                        </Button>
+                            {/* Create Table Button */}
+                            <Button
+                                onClick={() => setCreateTableOpen(true)}
+                                className="gap-2"
+                                size="sm"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Create Table
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </header>

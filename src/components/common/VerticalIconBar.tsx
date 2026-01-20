@@ -7,8 +7,12 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+export type PanelType = 'data' | 'sql-workspace' | 'query-builder' | 'schema-explorer' | 'er-diagram';
+
 interface VerticalIconBarProps {
     dbId?: string;
+    activePanel?: PanelType;
+    onPanelChange?: (panel: PanelType) => void;
 }
 
 const globalNavigationItems = [
@@ -16,25 +20,23 @@ const globalNavigationItems = [
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
-export default function VerticalIconBar({ dbId }: VerticalIconBarProps) {
+export default function VerticalIconBar({ dbId, activePanel, onPanelChange }: VerticalIconBarProps) {
     const location = useLocation();
 
-    const isActive = (path: string) => {
+    const isGlobalActive = (path: string) => {
         if (path === '/') {
             return location.pathname === '/';
         }
         return location.pathname.includes(path);
     };
 
-
-
-
-    // Database-specific navigation items (only shown when dbId is provided)
-    const databaseNavigationItems = dbId ? [
-        { icon: Terminal, label: 'SQL Workspace', path: `/database/${dbId}/sql-workspace` },
-        { icon: Search, label: 'Query Builder', path: `/database/${dbId}/query-builder` },
-        { icon: GitBranch, label: 'Schema Explorer', path: `/database/${dbId}/schema-explorer` },
-        { icon: Database, label: 'ER Diagram', path: `/database/${dbId}/er-diagram` },
+    // Database-specific panel items (only shown when dbId is provided)
+    const databasePanelItems: Array<{ icon: typeof Terminal; label: string; panel: PanelType }> = dbId ? [
+        { icon: Layers, label: 'Data View', panel: 'data' },
+        { icon: Terminal, label: 'SQL Workspace', panel: 'sql-workspace' },
+        { icon: Search, label: 'Query Builder', panel: 'query-builder' },
+        { icon: GitBranch, label: 'Schema Explorer', panel: 'schema-explorer' },
+        { icon: Database, label: 'ER Diagram', panel: 'er-diagram' },
     ] : [];
 
     return (
@@ -50,7 +52,7 @@ export default function VerticalIconBar({ dbId }: VerticalIconBarProps) {
             <div className="flex flex-col gap-2">
                 {globalNavigationItems.map((item) => {
                     const Icon = item.icon;
-                    const active = isActive(item.path);
+                    const active = isGlobalActive(item.path);
 
                     return (
                         <Tooltip key={item.path}>
@@ -79,33 +81,32 @@ export default function VerticalIconBar({ dbId }: VerticalIconBarProps) {
                 })}
             </div>
 
-            {/* Database-Specific Navigation (only shown when dbId is provided) */}
-            {databaseNavigationItems.length > 0 && (
+            {/* Database-Specific Panel Items (state-based, no navigation) */}
+            {databasePanelItems.length > 0 && (
                 <>
                     <div className="w-8 h-px bg-border/40 my-2" />
                     <div className="flex flex-col gap-2">
-                        {databaseNavigationItems.map((item) => {
+                        {databasePanelItems.map((item) => {
                             const Icon = item.icon;
-                            const active = isActive(item.path);
+                            const active = activePanel === item.panel;
 
                             return (
-                                <Tooltip key={item.path}>
+                                <Tooltip key={item.panel}>
                                     <TooltipTrigger asChild>
-                                        <Link to={item.path}>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={`
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => onPanelChange?.(item.panel)}
+                                            className={`
                           w-10 h-10 rounded-lg transition-all
                           ${active
-                                                        ? 'bg-primary text-primary-foreground shadow-md'
-                                                        : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                                                    }
+                                                    ? 'bg-primary text-primary-foreground shadow-md'
+                                                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                                }
                         `}
-                                            >
-                                                <Icon className="h-5 w-5" />
-                                            </Button>
-                                        </Link>
+                                        >
+                                            <Icon className="h-5 w-5" />
+                                        </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="right">
                                         <p>{item.label}</p>

@@ -1,51 +1,15 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronDown, ChevronRight, Copy, Database, Download, Eye, FileCode, Hash, Key, Layers, Link2, List, ListChecks, Table } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Database, Download, Eye, FileCode, Hash, Key, Layers, Link2, List, Table } from 'lucide-react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Badge } from "@/components/ui/badge";
-import {
-    ColumnDetails,
-    DatabaseSchemaDetails,
-    SchemaGroup,
-    TableSchemaDetails,
-    ForeignKeyInfo,
-} from '@/types/database';
+import { ForeignKeyInfo } from '@/types/database';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-
-interface Column extends ColumnDetails {
-    foreignKeyRef?: string;
-}
-
-interface TableSchema extends TableSchemaDetails {
-    columns: Column[];
-}
-
-interface Schema extends SchemaGroup {
-    tables: TableSchema[];
-}
-
-interface DatabaseSchema extends DatabaseSchemaDetails {
-    schemas: Schema[];
-}
-
-interface TreeViewPanelProps {
-    database: DatabaseSchema;
-    expandedSchemas: Set<string>;
-    expandedTables: Set<string>;
-    toggleSchema: (schemaName: string) => void;
-    toggleTable: (tableName: string) => void;
-    selectedItem: string | null;
-    setSelectedItem: (itemPath: string) => void;
-    handlePreviewRows: (tableName: string) => void;
-    handleShowDDL: (tableName: string) => void;
-    handleCopy: (name: string, type: string) => void;
-    handleExport: (tableName: string) => void;
-}
+import { Column, DatabaseSchema, TreeViewPanelProps } from './types';
 
 // Helper to get FK info for a column
 const getFkInfo = (column: Column, foreignKeys?: ForeignKeyInfo[]): ForeignKeyInfo | undefined => {

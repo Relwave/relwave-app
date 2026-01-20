@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { ColumnDetails, DatabaseSchemaDetails, SchemaGroup, TableSchemaDetails }
 import TreeViewPanel from "@/components/schema-explorer/TreeViewPanel";
 import SchemaExplorerHeader from "@/components/schema-explorer/SchemaExplorerHeader";
 import MetaDataPanel from "@/components/schema-explorer/MetaDataPanel";
-import VerticalIconBar from "@/components/common/VerticalIconBar";
 
 interface Column extends ColumnDetails {
     foreignKeyRef?: string;
@@ -27,9 +25,11 @@ interface DatabaseSchema extends DatabaseSchemaDetails {
     schemas: Schema[];
 }
 
-export default function SchemaExplorer() {
-    const { id: dbId } = useParams<{ id: string }>();
+interface SchemaExplorerPanelProps {
+    dbId: string;
+}
 
+export default function SchemaExplorerPanel({ dbId }: SchemaExplorerPanelProps) {
     // Use React Query for schema data (cached!)
     const {
         data: schemaData,
@@ -128,7 +128,7 @@ export default function SchemaExplorer() {
     // --- Conditional rendering ---
     if (isLoading) {
         return (
-            <div className="h-[calc(100vh-32px)] flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
+            <div className="h-full flex items-center justify-center bg-background">
                 <Spinner className="size-16" />
             </div>
         );
@@ -136,7 +136,7 @@ export default function SchemaExplorer() {
 
     if (error || !schemaData) {
         return (
-            <div className="h-[calc(100vh-32px)] flex items-center justify-center bg-background dark:bg-[#050505] text-foreground">
+            <div className="h-full flex items-center justify-center bg-background">
                 <div className="text-center p-8 border border-destructive/30 rounded-xl bg-destructive/10 text-destructive">
                     <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
                     <h2 className="text-xl font-bold mb-2">Error</h2>
@@ -157,40 +157,46 @@ export default function SchemaExplorer() {
 
     // --- Main renderer ---
     return (
-        <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
-            <VerticalIconBar dbId={dbId} />
+        <div className="h-full flex flex-col bg-background text-foreground overflow-hidden">
+            <SchemaExplorerHeader
+                dbId={dbId!}
+                database={schemaData}
+                selectedTable={selectedTable}
+                onTableCreated={() => {
+                    if (dbId) invalidateDatabase(dbId);
+                    refetch();
+                }}
+            />
 
-            <main className="flex-1 ml-[60px] flex flex-col">
-                <SchemaExplorerHeader
-                    dbId={dbId!}
+            <div className="flex-1 flex overflow-hidden">
+                <TreeViewPanel
                     database={schemaData}
-                    selectedTable={selectedTable}
-                    onTableCreated={() => {
-                        if (dbId) invalidateDatabase(dbId);
-                        refetch();
-                    }}
+                    expandedSchemas={expandedSchemas}
+                    expandedTables={expandedTables}
+                    selectedItem={selectedItem}
+                    toggleSchema={toggleSchema}
+                    toggleTable={toggleTable}
+                    setSelectedItem={setSelectedItem}
+                    handlePreviewRows={() => { }}
+                    handleShowDDL={() => { }}
+                    handleCopy={() => { }}
+                    handleExport={() => { }}
                 />
+                <MetaDataPanel
+                    database={schemaData}
+                    selectedItem={selectedItem}
+                />
+            </div>
 
-                <div className="flex-1 flex">
-                    <TreeViewPanel
-                        database={schemaData}
-                        expandedSchemas={expandedSchemas}
-                        expandedTables={expandedTables}
-                        selectedItem={selectedItem}
-                        toggleSchema={toggleSchema}
-                        toggleTable={toggleTable}
-                        setSelectedItem={setSelectedItem}
-                        handlePreviewRows={() => { }}
-                        handleShowDDL={() => { }}
-                        handleCopy={() => { }}
-                        handleExport={() => { }}
-                    />
-                    <MetaDataPanel
-                        database={schemaData}
-                        selectedItem={selectedItem}
-                    />
+            {/* Footer */}
+            <div className="border-t border-border bg-card px-4 py-2">
+                <div className="container mx-auto flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                        {schemaData?.schemas?.length} Schemas • {schemaData?.schemas?.flatMap(s => s.tables).length} Tables
+                    </span>
+                    <span>Click table to highlight • Drag to pan • Scroll to zoom</span>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }

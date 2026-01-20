@@ -6,11 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import DatabaseDetail from './pages/DatabaseDetails';
 import NotFound from './pages/NotFound';
-import ERDiagram from './pages/ERDiagram';
-import QueryBuilder from './pages/QueryBuilder';
-import SQLWorkspace from './pages/SQLWorkspace';
 import { ThemeProvider } from './components/common/ThemeProvider';
-import SchemaExplorer from './pages/SchemaExplorer';
 import Settings from './pages/Settings';
 import { useBridgeInit } from "@/hooks/useBridgeInit";
 import { useEffect } from 'react';
@@ -56,10 +52,6 @@ function AppRoot() {
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/:id" element={<DatabaseDetail />} />
-                  <Route path="/database/:id/query-builder" element={<QueryBuilder />} />
-                  <Route path="/database/:id/sql-workspace" element={<SQLWorkspace />} />
-                  <Route path="/database/:id/er-diagram" element={<ERDiagram />} />
-                  <Route path='/database/:id/schema-explorer' element={<SchemaExplorer />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

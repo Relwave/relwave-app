@@ -116,4 +116,4 @@ const SqlEditor: FC<SqlEditorProps> = ({
   );
 };
 
-export default SqlEditor;
+export { SqlEditor };
