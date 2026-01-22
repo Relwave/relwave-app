@@ -33,7 +33,7 @@ export function generateCreateTableMigration(params: {
     tableName: string;
     columns: any[];
     foreignKeys?: any[];
-    dbType: "mysql" | "postgres";
+    dbType: "mysql" | "postgres" | "mariadb";
 }): MigrationFile {
     const { schemaName, tableName, columns, foreignKeys = [], dbType } = params;
     const version = generateMigrationVersion();
@@ -58,8 +58,8 @@ export function generateCreateTableMigration(params: {
 
     const allDefs = [...[columnDefs], ...fkDefs].filter(Boolean).join(",\n");
 
-    // For MySQL, don't use schema prefix (database is the schema)
-    const tableRef = dbType === "mysql"
+    // For MySQL/MariaDB, don't use schema prefix (database is the schema)
+    const tableRef = (dbType === "mysql" || dbType === "mariadb")
         ? quoteIdent(tableName, dbType)
         : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
@@ -87,15 +87,15 @@ export function generateAlterTableMigration(params: {
     schemaName: string;
     tableName: string;
     operations: any[];
-    dbType: "mysql" | "postgres";
+    dbType: "mysql" | "postgres" | "mariadb";
 }): MigrationFile {
     const { schemaName, tableName, operations, dbType } = params;
     const version = generateMigrationVersion();
     const name = `alter_${tableName}_table`;
     const filename = `${version}_${name}.sql`;
 
-    // For MySQL, don't use schema prefix
-    const fullTableName = dbType === "mysql"
+    // For MySQL/MariaDB, don't use schema prefix
+    const fullTableName = (dbType === "mysql" || dbType === "mariadb")
         ? quoteIdent(tableName, dbType)
         : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
@@ -244,15 +244,15 @@ export function generateDropTableMigration(params: {
     schemaName: string;
     tableName: string;
     mode: "RESTRICT" | "DETACH_FKS" | "CASCADE";
-    dbType: "mysql" | "postgres";
+    dbType: "mysql" | "postgres" | "mariadb";
 }): MigrationFile {
     const { schemaName, tableName, mode, dbType } = params;
     const version = generateMigrationVersion();
     const name = `drop_${tableName}_table`;
     const filename = `${version}_${name}.sql`;
 
-    // For MySQL, don't use schema prefix
-    const fullTableName = dbType === "mysql"
+    // For MySQL/MariaDB, don't use schema prefix
+    const fullTableName = (dbType === "mysql" || dbType === "mariadb")
         ? quoteIdent(tableName, dbType)
         : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
@@ -309,8 +309,8 @@ ${migration.downSQL}
 /**
  * Helper: Quote identifier based on database type
  */
-function quoteIdent(name: string, dbType: "mysql" | "postgres"): string {
-    if (dbType === "mysql") {
+function quoteIdent(name: string, dbType: "mysql" | "postgres" | "mariadb"): string {
+    if (dbType === "mysql" || dbType === "mariadb") {
         return `\`${name.replace(/`/g, "``")}\``;
     } else {
         return `"${name.replace(/"/g, '""')}"`;
@@ -320,6 +320,6 @@ function quoteIdent(name: string, dbType: "mysql" | "postgres"): string {
 /**
  * Helper: Typo fix for quoteIdent
  */
-function quoteQuote(name: string, dbType: "mysql" | "postgres"): string {
+function quoteQuote(name: string, dbType: "mysql" | "postgres" | "mariadb"): string {
     return quoteIdent(name, dbType);
 }
