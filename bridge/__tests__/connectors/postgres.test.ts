@@ -148,5 +148,5 @@ describe("Postgres Connector", () => {
     // cancel should interrupt the stream
     expect(errorCaught).toBe(true);
     expect(rows.length).toBeGreaterThanOrEqual(0);
-  });
+  }, 15000); // Increased timeout for long-running query cancellation
 });

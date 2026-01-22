@@ -21,7 +21,10 @@ describe("Database Service Method", () => {
       try {
         await dbService.deleteDatabase(createdDbId);
       } catch (e) {
-        console.warn("Cleanup failed:", e);
+        // Silently ignore "Database not found" errors - expected when test didn't create a DB
+        if (!(e instanceof Error && e.message === "Database not found")) {
+          console.warn("Cleanup failed:", e);
+        }
       }
       createdDbId = null;
     }

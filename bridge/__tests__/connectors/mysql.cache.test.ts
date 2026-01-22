@@ -300,17 +300,13 @@ describe("MySQL Cache Manager", () => {
       // Measure cached retrievals
       const iterations = 1000;
       const start = performance.now();
-      
+
       for (let i = 0; i < iterations; i++) {
         mysqlCache.getDBStats(mockConfig);
       }
-      
+
       const elapsed = performance.now() - start;
       const avgTime = elapsed / iterations;
-
-      console.log(`\nMySQL Cache Performance:`);
-      console.log(`${iterations} cached getDBStats calls: ${elapsed.toFixed(3)}ms total`);
-      console.log(`Average time per call: ${avgTime.toFixed(4)}ms`);
 
       // Cached calls should be fast (allowing for console.log overhead)
       // In production without logging, this would be sub-millisecond
@@ -340,9 +336,6 @@ describe("MySQL Cache Manager", () => {
 
       const elapsed = performance.now() - start;
       const avgTimePerIteration = elapsed / iterations;
-
-      console.log(`\n${iterations} iterations of 6 cache reads: ${elapsed.toFixed(3)}ms`);
-      console.log(`Average per iteration: ${avgTimePerIteration.toFixed(4)}ms`);
 
       // All 6 cache reads per iteration should be reasonable
       // (console.log statements add overhead - in production this would be much faster)

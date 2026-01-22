@@ -130,7 +130,6 @@ class MariaDBCacheManager {
         const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
         const entry = this.tableListCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: tableList for ${key}`);
             return entry!.data;
         }
         return null;
@@ -139,7 +138,6 @@ class MariaDBCacheManager {
     setTableList(cfg: MariaDBConfig, data: TableInfo[], schema?: string): void {
         const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
         this.tableListCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: tableList for ${key}`);
     }
 
     // ============ COLUMNS CACHE ============
@@ -147,7 +145,6 @@ class MariaDBCacheManager {
         const key = this.getTableKey(cfg, schema, table);
         const entry = this.columnsCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: columns for ${key}`);
             return entry!.data;
         }
         return null;
@@ -156,7 +153,6 @@ class MariaDBCacheManager {
     setColumns(cfg: MariaDBConfig, schema: string, table: string, data: RowDataPacket[]): void {
         const key = this.getTableKey(cfg, schema, table);
         this.columnsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: columns for ${key}`);
     }
 
     // ============ PRIMARY KEYS CACHE ============
@@ -164,7 +160,6 @@ class MariaDBCacheManager {
         const key = this.getTableKey(cfg, schema, table);
         const entry = this.primaryKeysCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: primaryKeys for ${key}`);
             return entry!.data;
         }
         return null;
@@ -173,7 +168,6 @@ class MariaDBCacheManager {
     setPrimaryKeys(cfg: MariaDBConfig, schema: string, table: string, data: string[]): void {
         const key = this.getTableKey(cfg, schema, table);
         this.primaryKeysCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: primaryKeys for ${key}`);
     }
 
     // ============ DB STATS CACHE ============
@@ -181,7 +175,6 @@ class MariaDBCacheManager {
         const key = this.getConfigKey(cfg);
         const entry = this.dbStatsCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: dbStats for ${key}`);
             return entry!.data;
         }
         return null;
@@ -190,7 +183,6 @@ class MariaDBCacheManager {
     setDBStats(cfg: MariaDBConfig, data: DBStats): void {
         const key = this.getConfigKey(cfg);
         this.dbStatsCache.set(key, { data, timestamp: Date.now(), ttl: STATS_CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: dbStats for ${key}`);
     }
 
     // ============ SCHEMAS CACHE ============
@@ -198,7 +190,6 @@ class MariaDBCacheManager {
         const key = this.getConfigKey(cfg);
         const entry = this.schemasCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: schemas for ${key}`);
             return entry!.data;
         }
         return null;
@@ -207,7 +198,6 @@ class MariaDBCacheManager {
     setSchemas(cfg: MariaDBConfig, data: { name: string }[]): void {
         const key = this.getConfigKey(cfg);
         this.schemasCache.set(key, { data, timestamp: Date.now(), ttl: SCHEMA_CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: schemas for ${key}`);
     }
 
     // ============ TABLE DETAILS CACHE ============
@@ -215,7 +205,6 @@ class MariaDBCacheManager {
         const key = this.getTableKey(cfg, schema, table);
         const entry = this.tableDetailsCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: tableDetails for ${key}`);
             return entry!.data;
         }
         return null;
@@ -224,7 +213,6 @@ class MariaDBCacheManager {
     setTableDetails(cfg: MariaDBConfig, schema: string, table: string, data: ColumnDetail[]): void {
         const key = this.getTableKey(cfg, schema, table);
         this.tableDetailsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: tableDetails for ${key}`);
     }
 
     // ============ SCHEMA METADATA BATCH CACHE ============
@@ -232,7 +220,6 @@ class MariaDBCacheManager {
         const key = this.getSchemaKey(cfg, schema);
         const entry = this.schemaMetadataBatchCache.get(key);
         if (this.isValid(entry)) {
-            console.log(`[MariaDB Cache] HIT: schemaMetadataBatch for ${key}`);
             return entry!.data;
         }
         return null;
@@ -241,7 +228,6 @@ class MariaDBCacheManager {
     setSchemaMetadataBatch(cfg: MariaDBConfig, schema: string, data: MariaDBSchemaMetadataBatch): void {
         const key = this.getSchemaKey(cfg, schema);
         this.schemaMetadataBatchCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-        console.log(`[MariaDB Cache] SET: schemaMetadataBatch for ${key}`);
     }
 
     // ============ CACHE MANAGEMENT ============
@@ -271,8 +257,6 @@ class MariaDBCacheManager {
 
         this.dbStatsCache.delete(configKey);
         this.schemasCache.delete(configKey);
-
-        console.log(`[MariaDB Cache] Cleared all caches for ${configKey}`);
     }
 
     /**
@@ -283,7 +267,6 @@ class MariaDBCacheManager {
         this.columnsCache.delete(key);
         this.primaryKeysCache.delete(key);
         this.tableDetailsCache.delete(key);
-        console.log(`[MariaDB Cache] Cleared table cache for ${key}`);
     }
 
     /**
@@ -297,7 +280,6 @@ class MariaDBCacheManager {
         this.schemasCache.clear();
         this.tableDetailsCache.clear();
         this.schemaMetadataBatchCache.clear();
-        console.log(`[MariaDB Cache] Cleared all caches`);
     }
 
     /**
@@ -339,14 +321,6 @@ function getCacheKey(cfg: MariaDBConfig): string {
 
 
 export function createPoolConfig(cfg: MariaDBConfig): PoolOptions {
-    logger.info({
-        host: cfg.host,
-        port: cfg.port,
-        user: cfg.user,
-        database: cfg.database,
-        ssl: cfg.ssl,
-        hasPassword: !!cfg.password
-    }, '[MariaDB] createPoolConfig input');
 
     if (cfg.ssl === true) {
         const config = {
@@ -360,10 +334,8 @@ export function createPoolConfig(cfg: MariaDBConfig): PoolOptions {
                 minVersion: 'TLSv1.2'
             }
         };
-        logger.info('[MariaDB] Using SSL config with rejectUnauthorized: false');
         return config;
     }
-    logger.info('[MariaDB] Using non-SSL config');
     return {
         host: cfg.host,
         port: cfg.port ?? 3306,
@@ -379,7 +351,6 @@ export async function testConnection(
 ): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
     let connection;
     try {
-        logger.info({ ssl: cfg.ssl }, '[MariaDB] testConnection called');
         const poolConfig = createPoolConfig(cfg);
         connection = await mysql.createConnection(poolConfig);
         return { ok: true, status: 'connected', message: "Connection successful" };
@@ -761,20 +732,9 @@ export async function listTables(
             query = LIST_TABLES_CURRENT_DB;
         }
 
-        console.log(
-            `[MariaDB] Executing listTables query for schema: ${schemaName || "DATABASE()"
-            }`
-        );
-        const startTime = Date.now();
-
         const [rows] = await connection.execute<RowDataPacket[]>(
             query,
             queryParams
-        );
-
-        const elapsed = Date.now() - startTime;
-        console.log(
-            `[MariaDB] listTables completed in ${elapsed}ms, found ${rows.length} tables`
         );
 
         const result = rows as TableInfo[];
@@ -882,8 +842,6 @@ export async function getSchemaMetadataBatch(
 
     try {
         connection = await pool.getConnection();
-        console.log(`[MariaDB] Starting batch metadata fetch for schema: ${schemaName}`);
-        const startTime = Date.now();
 
         // Execute all queries in parallel using imported queries
         const [
@@ -921,10 +879,6 @@ export async function getSchemaMetadataBatch(
             connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName])
         ]);
 
-        const elapsed = Date.now() - startTime;
-        console.log(`[MariaDB] Batch queries completed in ${elapsed}ms`);
-
-        // Extract rows from results (mysql2 returns [rows, fields])
         const columns = columnsResult[0] as RowDataPacket[];
         const primaryKeys = primaryKeysResult[0] as RowDataPacket[];
         const foreignKeys = foreignKeysResult[0] as RowDataPacket[];
@@ -1063,7 +1017,6 @@ export async function getSchemaMetadataBatch(
         // Cache the result
         mariadbCache.setSchemaMetadataBatch(cfg, schemaName, result);
 
-        console.log(`[MariaDB] Batch metadata fetch complete: ${tables.size} tables, ${processedEnumColumns.length} enum columns, ${processedAutoIncrements.length} auto_increments`);
 
         return result;
     } catch (error) {

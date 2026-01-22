@@ -123,7 +123,6 @@ class MySQLCacheManager {
     const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
     const entry = this.tableListCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: tableList for ${key}`);
       return entry!.data;
     }
     return null;
@@ -132,7 +131,6 @@ class MySQLCacheManager {
   setTableList(cfg: MySQLConfig, data: TableInfo[], schema?: string): void {
     const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
     this.tableListCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    console.log(`[MySQL Cache] SET: tableList for ${key}`);
   }
 
   // ============ COLUMNS CACHE ============
@@ -140,7 +138,6 @@ class MySQLCacheManager {
     const key = this.getTableKey(cfg, schema, table);
     const entry = this.columnsCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: columns for ${key}`);
       return entry!.data;
     }
     return null;
@@ -149,7 +146,6 @@ class MySQLCacheManager {
   setColumns(cfg: MySQLConfig, schema: string, table: string, data: RowDataPacket[]): void {
     const key = this.getTableKey(cfg, schema, table);
     this.columnsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    console.log(`[MySQL Cache] SET: columns for ${key}`);
   }
 
   // ============ PRIMARY KEYS CACHE ============
@@ -157,7 +153,6 @@ class MySQLCacheManager {
     const key = this.getTableKey(cfg, schema, table);
     const entry = this.primaryKeysCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: primaryKeys for ${key}`);
       return entry!.data;
     }
     return null;
@@ -166,7 +161,6 @@ class MySQLCacheManager {
   setPrimaryKeys(cfg: MySQLConfig, schema: string, table: string, data: string[]): void {
     const key = this.getTableKey(cfg, schema, table);
     this.primaryKeysCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    console.log(`[MySQL Cache] SET: primaryKeys for ${key}`);
   }
 
   // ============ DB STATS CACHE ============
@@ -174,7 +168,6 @@ class MySQLCacheManager {
     const key = this.getConfigKey(cfg);
     const entry = this.dbStatsCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: dbStats for ${key}`);
       return entry!.data;
     }
     return null;
@@ -183,7 +176,6 @@ class MySQLCacheManager {
   setDBStats(cfg: MySQLConfig, data: DBStats): void {
     const key = this.getConfigKey(cfg);
     this.dbStatsCache.set(key, { data, timestamp: Date.now(), ttl: STATS_CACHE_TTL });
-    console.log(`[MySQL Cache] SET: dbStats for ${key}`);
   }
 
   // ============ SCHEMAS CACHE ============
@@ -191,7 +183,6 @@ class MySQLCacheManager {
     const key = this.getConfigKey(cfg);
     const entry = this.schemasCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: schemas for ${key}`);
       return entry!.data;
     }
     return null;
@@ -200,7 +191,6 @@ class MySQLCacheManager {
   setSchemas(cfg: MySQLConfig, data: { name: string }[]): void {
     const key = this.getConfigKey(cfg);
     this.schemasCache.set(key, { data, timestamp: Date.now(), ttl: SCHEMA_CACHE_TTL });
-    console.log(`[MySQL Cache] SET: schemas for ${key}`);
   }
 
   // ============ TABLE DETAILS CACHE ============
@@ -208,7 +198,6 @@ class MySQLCacheManager {
     const key = this.getTableKey(cfg, schema, table);
     const entry = this.tableDetailsCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: tableDetails for ${key}`);
       return entry!.data;
     }
     return null;
@@ -217,7 +206,6 @@ class MySQLCacheManager {
   setTableDetails(cfg: MySQLConfig, schema: string, table: string, data: ColumnDetail[]): void {
     const key = this.getTableKey(cfg, schema, table);
     this.tableDetailsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    console.log(`[MySQL Cache] SET: tableDetails for ${key}`);
   }
 
   // ============ SCHEMA METADATA BATCH CACHE ============
@@ -225,7 +213,6 @@ class MySQLCacheManager {
     const key = this.getSchemaKey(cfg, schema);
     const entry = this.schemaMetadataBatchCache.get(key);
     if (this.isValid(entry)) {
-      console.log(`[MySQL Cache] HIT: schemaMetadataBatch for ${key}`);
       return entry!.data;
     }
     return null;
@@ -234,7 +221,6 @@ class MySQLCacheManager {
   setSchemaMetadataBatch(cfg: MySQLConfig, schema: string, data: SchemaMetadataBatch): void {
     const key = this.getSchemaKey(cfg, schema);
     this.schemaMetadataBatchCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    console.log(`[MySQL Cache] SET: schemaMetadataBatch for ${key}`);
   }
 
   // ============ CACHE MANAGEMENT ============
@@ -265,7 +251,6 @@ class MySQLCacheManager {
     this.dbStatsCache.delete(configKey);
     this.schemasCache.delete(configKey);
 
-    console.log(`[MySQL Cache] Cleared all caches for ${configKey}`);
   }
 
   /**
@@ -276,7 +261,6 @@ class MySQLCacheManager {
     this.columnsCache.delete(key);
     this.primaryKeysCache.delete(key);
     this.tableDetailsCache.delete(key);
-    console.log(`[MySQL Cache] Cleared table cache for ${key}`);
   }
 
   /**
@@ -290,7 +274,6 @@ class MySQLCacheManager {
     this.schemasCache.clear();
     this.tableDetailsCache.clear();
     this.schemaMetadataBatchCache.clear();
-    console.log(`[MySQL Cache] Cleared all caches`);
   }
 
   /**
@@ -724,21 +707,11 @@ export async function listTables(
       query = LIST_TABLES_CURRENT_DB;
     }
 
-    console.log(
-      `[MySQL] Executing listTables query for schema: ${schemaName || "DATABASE()"
-      }`
-    );
-    const startTime = Date.now();
-
     const [rows] = await connection.execute<RowDataPacket[]>(
       query,
       queryParams
     );
 
-    const elapsed = Date.now() - startTime;
-    console.log(
-      `[MySQL] listTables completed in ${elapsed}ms, found ${rows.length} tables`
-    );
 
     const result = rows as TableInfo[];
 
@@ -845,9 +818,6 @@ export async function getSchemaMetadataBatch(
 
   try {
     connection = await pool.getConnection();
-    console.log(`[MySQL] Starting batch metadata fetch for schema: ${schemaName}`);
-    const startTime = Date.now();
-
     // Execute all queries in parallel using imported queries
     const [
       columnsResult,
@@ -883,9 +853,6 @@ export async function getSchemaMetadataBatch(
       // 8. All auto_increment columns (MySQL's equivalent to sequences)
       connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName])
     ]);
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[MySQL] Batch queries completed in ${elapsed}ms`);
 
     // Extract rows from results (mysql2 returns [rows, fields])
     const columns = columnsResult[0] as RowDataPacket[];
@@ -1025,8 +992,6 @@ export async function getSchemaMetadataBatch(
 
     // Cache the result
     mysqlCache.setSchemaMetadataBatch(cfg, schemaName, result);
-
-    console.log(`[MySQL] Batch metadata fetch complete: ${tables.size} tables, ${processedEnumColumns.length} enum columns, ${processedAutoIncrements.length} auto_increments`);
 
     return result;
   } catch (error) {
