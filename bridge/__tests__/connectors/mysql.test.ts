@@ -22,13 +22,18 @@ describe("MySQL Connector", () => {
     const connection = await mysqlConnector.testConnection(invalidConfig);
     expect(connection).toStrictEqual({
       message: 'getaddrinfo ENOTFOUND "localhost",',
+      status: "disconnected",
       ok: false,
     });
   });
   test("Should Connect to MySQL Database", async () => {
     const pool = mysqlConnector.createPoolConfig(validConfig);
     const connection = await mysqlConnector.testConnection(pool);
-    expect(connection).toStrictEqual({ ok: true });
+    expect(connection).toStrictEqual({
+      message: "Connection successful",
+      status: "connected",
+      ok: true,
+    });
   });
 
   test("Should Create a Table Schema", async () => {
@@ -57,10 +62,12 @@ describe("MySQL Connector", () => {
     const result = await mysqlConnector.fetchTableData(
       validConfig,
       "defaultdb",
-      "TestTable"
+      "TestTable",
+      100,
+      10
     );
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(result.rows)).toBe(true);
+    expect(result.rows.length).toBeGreaterThanOrEqual(0);
   });
 
   test("Should Fetch the Tables List", async () => {

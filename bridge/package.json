@@ -6,13 +6,11 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.cjs",
-    "test:client": "node test/client.js",
-    "test:stream": "node test/stream_test_client.js",
-    "test:cancel": "node test/cancel_test_client.js",
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
     "build:pkg": "pkg . --out-path exece",
     "postpkg": "node scripts/copy-native.js",
-    "test": "jest"
+    "test": "jest",
+    "test:watch": "jest --watchAll --detectOpenHandles"
   },
   "dependencies": {
     "@jest/globals": "^30.2.0",

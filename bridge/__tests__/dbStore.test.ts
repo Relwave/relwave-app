@@ -204,6 +204,7 @@ describe("DbStore Cache Tests", () => {
       await shortTtlStore.waitUntilReady();
 
       await shortTtlStore.addDB(mockDBPayload);
+      // Cache should be populated after addDB (saveAll updates cache)
       expect(shortTtlStore.getCacheStats().configCached).toBe(true);
 
       // Wait for TTL to expire
@@ -286,11 +287,6 @@ describe("DbStore Cache Tests", () => {
       await noPreloadStore.listDBs();
       const noPreloadTime = performance.now() - start2;
 
-      console.log(`\nPreload Performance Comparison:`);
-      console.log(`With preload (first call): ${preloadedTime.toFixed(3)}ms`);
-      console.log(`Without preload (first call): ${noPreloadTime.toFixed(3)}ms`);
-      console.log(`Speed improvement: ${(noPreloadTime / preloadedTime).toFixed(2)}x faster`);
-
       // Preloaded should be faster
       expect(preloadedTime).toBeLessThan(noPreloadTime);
     });
@@ -321,7 +317,6 @@ describe("DbStore Cache Tests", () => {
       const dbs = await newStore.listDBs();
       const time = performance.now() - start;
 
-      console.log(`\nFirst listDBs with preloaded data: ${time.toFixed(3)}ms`);
       expect(dbs.length).toBe(2);
       expect(time).toBeLessThan(1); // Should be sub-millisecond
     });
@@ -373,10 +368,6 @@ describe("DbStore Cache Tests", () => {
       const avgCachedTime =
         cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
 
-      console.log(`Uncached read time: ${uncachedTime.toFixed(3)}ms`);
-      console.log(`Average cached read time: ${avgCachedTime.toFixed(3)}ms`);
-      console.log(`Speed improvement: ${(uncachedTime / avgCachedTime).toFixed(2)}x faster`);
-
       // Cached reads should be significantly faster
       // We expect at least 2x improvement (usually much more)
       expect(avgCachedTime).toBeLessThan(uncachedTime);
@@ -404,11 +395,6 @@ describe("DbStore Cache Tests", () => {
       const avgCachedTime =
         cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
 
-      console.log(`\ngetDB Performance:`);
-      console.log(`Uncached read time: ${uncachedTime.toFixed(3)}ms`);
-      console.log(`Average cached read time: ${avgCachedTime.toFixed(3)}ms`);
-      console.log(`Speed improvement: ${(uncachedTime / avgCachedTime).toFixed(2)}x faster`);
-
       expect(avgCachedTime).toBeLessThan(uncachedTime);
     });
 
@@ -425,10 +411,6 @@ describe("DbStore Cache Tests", () => {
 
       const totalTime = performance.now() - startTime;
       const avgTimePerRead = totalTime / iterations;
-
-      console.log(`\nRapid Read Performance (${iterations} iterations):`);
-      console.log(`Total time: ${totalTime.toFixed(3)}ms`);
-      console.log(`Average time per read: ${avgTimePerRead.toFixed(3)}ms`);
 
       // Each cached read should be very fast (under 1ms typically)
       expect(avgTimePerRead).toBeLessThan(5); // Allow some buffer for slow systems
@@ -455,10 +437,6 @@ describe("DbStore Cache Tests", () => {
 
       const avgCachedTime =
         cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
-
-      console.log(`\nPassword Retrieval Performance:`);
-      console.log(`Uncached read time: ${uncachedTime.toFixed(3)}ms`);
-      console.log(`Average cached read time: ${avgCachedTime.toFixed(3)}ms`);
 
       // Note: Password retrieval includes decryption which takes constant time
       // But file I/O should still be cached

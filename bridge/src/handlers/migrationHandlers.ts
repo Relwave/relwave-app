@@ -163,8 +163,10 @@ export class MigrationHandlers {
             // Apply migration
             if (dbType === "mysql") {
                 await this.queryExecutor.mysql.applyMigration(conn, migrationFilePath);
-            } else {
+            } else if (dbType === "postgres") {
                 await this.queryExecutor.postgres.applyMigration(conn, migrationFilePath);
+            } else if (dbType === "mariadb") {
+                await this.queryExecutor.mariadb.applyMigration(conn, migrationFilePath);
             }
 
             this.rpc.sendResponse(id, { ok: true });
@@ -205,8 +207,10 @@ export class MigrationHandlers {
             // Rollback migration
             if (dbType === "mysql") {
                 await this.queryExecutor.mysql.rollbackMigration(conn, version, migrationFilePath);
-            } else {
+            } else if (dbType === "postgres") {
                 await this.queryExecutor.postgres.rollbackMigration(conn, version, migrationFilePath);
+            } else if (dbType === "mariadb") {
+                await this.queryExecutor.mariadb.rollbackMigration(conn, version, migrationFilePath);
             }
 
             this.rpc.sendResponse(id, { ok: true });

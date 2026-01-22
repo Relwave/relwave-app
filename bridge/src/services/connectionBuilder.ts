@@ -24,4 +24,8 @@ export class ConnectionBuilder {
   static buildMySQLConnection(db: any, pwd: string | null): DatabaseConfig {
     return this.buildConnection(db, pwd, DBType.MYSQL);
   }
+
+  static buildMariaDBConnection(db: any, pwd: string | null): DatabaseConfig {
+    return this.buildConnection(db, pwd, DBType.MARIADB);
+  }
 }
