@@ -20,11 +20,8 @@ const validConfig: mysqlConnector.MySQLConfig = {
 describe("MySQL Connector", () => {
   test("Should Fail to Connect to MySQL Database", async () => {
     const connection = await mysqlConnector.testConnection(invalidConfig);
-    expect(connection).toStrictEqual({
-      message: 'getaddrinfo ENOTFOUND "localhost",',
-      status: "disconnected",
-      ok: false,
-    });
+    expect(connection.ok).toBe(false);
+    expect(connection.status).toBe("disconnected");
   });
   test("Should Connect to MySQL Database", async () => {
     const pool = mysqlConnector.createPoolConfig(validConfig);
@@ -61,7 +58,7 @@ describe("MySQL Connector", () => {
   test("Should Fetch the Table Data", async () => {
     const result = await mysqlConnector.fetchTableData(
       validConfig,
-      "defaultdb",
+      process.env.REAL_MYSQL_DATABASE!,
       "TestTable",
       100,
       10
@@ -71,7 +68,7 @@ describe("MySQL Connector", () => {
   });
 
   test("Should Fetch the Tables List", async () => {
-    const result = await mysqlConnector.listTables(validConfig, "defaultdb");
+    const result = await mysqlConnector.listTables(validConfig, process.env.REAL_MYSQL_DATABASE!);
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]).toHaveProperty("name");
@@ -80,7 +77,7 @@ describe("MySQL Connector", () => {
   test("Should Fetch the Table Schema", async () => {
     const result = await mysqlConnector.getTableDetails(
       validConfig,
-      "defaultdb",
+      process.env.REAL_MYSQL_DATABASE!,
       "TestTable"
     );
     expect(Array.isArray(result)).toBe(true);

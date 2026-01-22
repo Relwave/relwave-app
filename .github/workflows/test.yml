@@ -1,0 +1,126 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U testuser -d testdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: rootpass
+          MARIADB_USER: testuser
+          MARIADB_PASSWORD: testpass
+          MARIADB_DATABASE: testdb
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      # PostgreSQL
+      REAL_POSTGRES_HOST: localhost
+      REAL_POSTGRES_PORT: 5432
+      REAL_POSTGRES_USER: testuser
+      REAL_POSTGRES_PASSWORD: testpass
+      REAL_POSTGRES_DATABASE: testdb
+      REAL_POSTGRES_SSL: "false"
+      REAL_POSTGRES_SSLMODE: disable
+
+      # MySQL - use truly invalid config for failure tests
+      MYSQL_HOST: nonexistent.invalid.host
+      MYSQL_PORT: 3306
+      MYSQL_USER: invaliduser
+      MYSQL_PASSWORD: invalidpass
+      MYSQL_DATABASE: invaliddb
+      REAL_MYSQL_HOST: localhost
+      REAL_MYSQL_PORT: 3306
+      REAL_MYSQL_USER: testuser
+      REAL_MYSQL_PASSWORD: testpass
+      REAL_MYSQL_DATABASE: testdb
+
+      # MariaDB - use truly invalid config for failure tests
+      MARIADB_HOST: nonexistent.invalid.host
+      MARIADB_PORT: 3307
+      MARIADB_USER: invaliduser
+      MARIADB_PASSWORD: invalidpass
+      MARIADB_DATABASE: invaliddb
+      REAL_MARIADB_HOST: localhost
+      REAL_MARIADB_PORT: 3307
+      REAL_MARIADB_USER: testuser
+      REAL_MARIADB_PASSWORD: testpass
+      REAL_MARIADB_DATABASE: testdb
+      REAL_MARIADB_SSL: "false"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install bridge dependencies
+        run: |
+          cd bridge
+          pnpm install --frozen-lockfile=false
+
+      - name: Seed PostgreSQL database
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U testuser -d testdb -f bridge/scripts/seed-test-db.sql
+
+      - name: Seed MySQL database
+        run: |
+          mysql -h 127.0.0.1 -u root -prootpass testdb < bridge/scripts/seed-mysql.sql
+
+      - name: Seed MariaDB database
+        run: |
+          mysql -h 127.0.0.1 -P 3307 -u root -prootpass testdb < bridge/scripts/seed-mariadb.sql
+
+      - name: Run tests
+        run: |
+          cd bridge
+          pnpm test

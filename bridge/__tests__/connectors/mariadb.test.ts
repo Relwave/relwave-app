@@ -15,7 +15,7 @@ const validConfig: mariadbConnector.MariaDBConfig = {
     user: process.env.REAL_MARIADB_USER!,
     password: process.env.REAL_MARIADB_PASSWORD!,
     database: process.env.REAL_MARIADB_DATABASE!,
-    ssl: true,
+    ssl: process.env.REAL_MARIADB_SSL === "true",
     port: Number(process.env.REAL_MARIADB_PORT || 3306),
 };
 

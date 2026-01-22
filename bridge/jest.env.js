@@ -1,4 +1,4 @@
 require("dotenv").config({
-  path: ".env.test",
+  path: ".env",
   debug: true,
 });
