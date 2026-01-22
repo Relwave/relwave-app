@@ -139,4 +139,12 @@ describe("ConnectionBuilder", () => {
       expect(config.password).toBe("test");
     });
   });
+
+  describe("static buildMariaDBConnection", () => {
+    test("should delegate to buildConnection with DBType.MariaDB and use default port", () => {
+      const config = ConnectionBuilder.buildMariaDBConnection(mockDbInput, "test");
+      expect(config.port).toBe(5432);
+      expect(config.password).toBe("test");
+    })
+  })
 });

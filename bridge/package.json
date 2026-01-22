@@ -6,9 +6,6 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.cjs",
-    "test:client": "node test/client.js",
-    "test:stream": "node test/stream_test_client.js",
-    "test:cancel": "node test/cancel_test_client.js",
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
     "build:pkg": "pkg . --out-path exece",
     "postpkg": "node scripts/copy-native.js",

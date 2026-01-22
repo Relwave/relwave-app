@@ -26,6 +26,7 @@ describe("Postgres Connector", () => {
     const connection = await postgresConnector.testConnection(invalidConfig);
     expect(connection).toStrictEqual({
       message: "connect ECONNREFUSED ::1:5432",
+      status: "disconnected",
       ok: false,
     });
   });
@@ -33,6 +34,8 @@ describe("Postgres Connector", () => {
   test("Should Connect to Postgres Database", async () => {
     const connection = await postgresConnector.testConnection(validConfig);
     expect(connection).toStrictEqual({
+      message: "Connection successful",
+      status: "connected",
       ok: true,
     });
   });
@@ -80,12 +83,14 @@ describe("Postgres Connector", () => {
     const columns = await postgresConnector.fetchTableData(
       validConfig,
       "public",
-      "student"
+      "student",
+      10,
+      1
     );
-    expect(columns.length).toBeGreaterThan(0);
-    expect(columns[0]).toHaveProperty("id");
-    expect(columns[0]).toHaveProperty("name");
-    expect(columns[0]).toHaveProperty("address");
+    expect(columns.rows.length).toBeGreaterThan(0);
+    expect(columns.rows[0]).toHaveProperty("id");
+    expect(columns.rows[0]).toHaveProperty("name");
+    expect(columns.rows[0]).toHaveProperty("address");
   });
 
   test("Should Execute Query on student Table", async () => {
