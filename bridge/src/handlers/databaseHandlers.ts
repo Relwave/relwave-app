@@ -147,14 +147,20 @@ export class DatabaseHandlers {
         dbType = result.dbType;
       } else {
         conn = connection;
-        dbType = connection.type?.toLowerCase().includes("mysql")
-          ? "mysql"
-          : "postgres";
+        if (connection.type?.toLowerCase().includes("mariadb")) {
+          dbType = "mariadb";
+        } else if (connection.type?.toLowerCase().includes("mysql")) {
+          dbType = "mysql";
+        } else if (connection.type?.toLowerCase().includes("postgres")) {
+          dbType = "postgres";
+        } else {
+          dbType = connection.type;
+        }
       }
-
       const result = await this.queryExecutor.testConnection(conn, dbType);
       this.rpc.sendResponse(id, { ok: true, data: result });
     } catch (err: any) {
+      this.logger.error({ err }, '[Handler] testConnection error');
       this.rpc.sendResponse(id, { ok: false, message: String(err) });
     }
   }

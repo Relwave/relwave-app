@@ -122,6 +122,7 @@ export function AddConnectionDialog({
               <SelectContent>
                 <SelectItem value="postgresql">PostgreSQL</SelectItem>
                 <SelectItem value="mysql">MySQL</SelectItem>
+                <SelectItem value="mariadb">MariaDB</SelectItem>
               </SelectContent>
             </Select>
           </div>

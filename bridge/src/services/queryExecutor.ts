@@ -1,5 +1,6 @@
 import * as postgresConnector from "../connectors/postgres";
 import * as mysqlConnector from "../connectors/mysql";
+import * as mariadbConnector from "../connectors/mariadb";
 import { DBType, Rpc, QueryParams, DatabaseConfig } from "../types";
 
 // Concurrency limit for parallel processing
@@ -45,7 +46,8 @@ async function parallelMap<T, R>(
 export class QueryExecutor {
   constructor(
     public postgres = postgresConnector,
-    public mysql = mysqlConnector
+    public mysql = mysqlConnector,
+    public mariadb = mariadbConnector
   ) { }
 
   async executeQuery(
@@ -102,8 +104,16 @@ export class QueryExecutor {
         onBatch,
         onDone
       );
-    } else {
+    } else if (dbType === DBType.POSTGRES) {
       runner = this.postgres.streamQueryCancelable(
+        conn,
+        sql,
+        batchSize,
+        onBatch,
+        onDone
+      );
+    } else if (dbType === DBType.MARIADB) {
+      runner = this.mariadb.streamQueryCancelable(
         conn,
         sql,
         batchSize,
@@ -119,40 +129,45 @@ export class QueryExecutor {
   async testConnection(conn: DatabaseConfig, dbType: DBType): Promise<any> {
     if (dbType === DBType.MYSQL) {
       return await this.mysql.testConnection(conn);
-    } else {
+    } else if (dbType === DBType.POSTGRES) {
       return await this.postgres.testConnection(conn);
-
+    } else {
+      return await this.mariadb.testConnection(conn);
     }
   }
 
   async listTables(conn: DatabaseConfig, dbType: DBType, schema?: string) {
     if (dbType === DBType.MYSQL) {
       return this.mysql.listTables(conn, schema);
-    } else {
+    } else if (dbType === DBType.POSTGRES) {
       return this.postgres.listTables(conn, schema);
+    } else if (dbType === DBType.MARIADB) {
+      return this.mariadb.listTables(conn, schema);
     }
   }
 
   async getStats(conn: DatabaseConfig, dbType: DBType) {
     if (dbType === DBType.MYSQL) {
       return this.mysql.getDBStats(conn);
-    } else {
+    } else if (dbType === DBType.POSTGRES) {
       return this.postgres.getDBStats(conn);
+    } else if (dbType === DBType.MARIADB) {
+      return this.mariadb.getDBStats(conn);
     }
   }
 
   async listSchemas(conn: DatabaseConfig, dbType: DBType): Promise<any> {
     if (dbType === DBType.MYSQL) {
-      const schemas = await mysqlConnector.listSchemas(conn);
+      const schemas = await this.mysql.listSchemas(conn);
 
       // Process schemas in parallel with batch queries
       const finalSchemas = await parallelMap(schemas, async (schema) => {
         try {
           // Get tables list
-          const tablesInSchema = await mysqlConnector.listTables(conn, schema.name);
+          const tablesInSchema = await this.mysql.listTables(conn, schema.name);
 
           // Use batch query to get all metadata at once
-          const batchData = await mysqlConnector.getSchemaMetadataBatch(conn, schema.name);
+          const batchData = await this.mysql.getSchemaMetadataBatch(conn, schema.name);
 
           const finalTables = tablesInSchema.map((table) => {
             const tableData = batchData.tables.get(table.name);
@@ -195,18 +210,18 @@ export class QueryExecutor {
         name: conn.database,
         schemas: finalSchemas.filter(Boolean), // Remove null entries from failed schemas
       };
-    } else {
+    } else if (dbType === DBType.POSTGRES) {
       // PostgreSQL - Use optimized batch query
-      const schemas = await postgresConnector.listSchemas(conn);
+      const schemas = await this.postgres.listSchemas(conn);
 
       // Process schemas in parallel with batch queries
       const finalSchemas = await parallelMap(schemas, async (schema) => {
         try {
           // Get tables list
-          const tablesInSchema = await postgresConnector.listTables(conn, schema.name);
+          const tablesInSchema = await this.postgres.listTables(conn, schema.name);
 
           // Use batch query to get all metadata at once
-          const batchData = await postgresConnector.getSchemaMetadataBatch(conn, schema.name);
+          const batchData = await this.postgres.getSchemaMetadataBatch(conn, schema.name);
 
           const finalTables = tablesInSchema.map((table) => {
             const tableData = batchData.tables.get(table.name);
@@ -238,6 +253,60 @@ export class QueryExecutor {
             tables: finalTables,
             enumTypes: batchData.enumTypes,
             sequences: batchData.sequences,
+          };
+        } catch (e: any) {
+          console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);
+          return null;
+        }
+      });
+
+      return {
+        name: conn.database,
+        schemas: finalSchemas.filter(Boolean), // Remove null entries from failed schemas
+      };
+    } else if (dbType === DBType.MARIADB) {
+      // MariaDB - Use optimized batch query
+      const schemas = await this.mariadb.listSchemas(conn);
+
+      // Process schemas in parallel with batch queries
+      const finalSchemas = await parallelMap(schemas, async (schema) => {
+        try {
+          // Get tables list
+          const tablesInSchema = await this.mariadb.listTables(conn, schema.name);
+
+          // Use batch query to get all metadata at once
+          const batchData = await this.mariadb.getSchemaMetadataBatch(conn, schema.name);
+
+          const finalTables = tablesInSchema.map((table) => {
+            const tableData = batchData.tables.get(table.name);
+
+            const columns = tableData?.columns.map((col) => ({
+              name: col.name,
+              type: col.type,
+              nullable: !col.not_nullable,
+              isPrimaryKey: col.is_primary_key === true,
+              isForeignKey: col.is_foreign_key === true,
+              defaultValue: col.default_value || null,
+              isUnique: false,
+            })) || [];
+
+            return {
+              name: table.name,
+              type: table.type,
+              columns: columns,
+              primaryKeys: tableData?.primaryKeys || [],
+              foreignKeys: tableData?.foreignKeys || [],
+              indexes: tableData?.indexes || [],
+              uniqueConstraints: tableData?.uniqueConstraints || [],
+              checkConstraints: tableData?.checkConstraints || [],
+            };
+          });
+
+          return {
+            name: schema.name,
+            tables: finalTables,
+            enumColumns: batchData.enumColumns,
+            autoIncrements: batchData.autoIncrements,
           };
         } catch (e: any) {
           console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);

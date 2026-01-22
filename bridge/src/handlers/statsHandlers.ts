@@ -14,7 +14,7 @@ export class StatsHandlers {
     private logger: any,
     private dbService: DatabaseService,
     private queryExecutor: QueryExecutor
-  ) {}
+  ) { }
 
   /**
    * Handle db.getStats - Get statistics for a specific database
@@ -123,8 +123,14 @@ export class StatsHandlers {
       const sizeBytes = sizeMB * MB_TO_BYTES;
 
       return { tables, rows, sizeBytes };
-    } else {
-      // PostgreSQL
+    } else if (dbType === DBType.POSTGRES) {
+      const tables = Number(stats.total_tables) || 0;
+      const rows = Number(stats.total_rows) || 0;
+      const sizeMB = Number(stats.total_db_size_mb) || 0;
+      const sizeBytes = sizeMB * MB_TO_BYTES;
+
+      return { tables, rows, sizeBytes };
+    } else if (dbType === DBType.MARIADB) {
       const tables = Number(stats.total_tables) || 0;
       const rows = Number(stats.total_rows) || 0;
       const sizeMB = Number(stats.total_db_size_mb) || 0;

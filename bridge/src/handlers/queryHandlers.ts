@@ -107,8 +107,16 @@ export class QueryHandlers {
           limit,
           page
         );
-      } else {
+      } else if (dbType === "postgres") {
         data = await this.queryExecutor.postgres.fetchTableData(
+          conn,
+          schemaName,
+          tableName,
+          limit,
+          page
+        );
+      } else if (dbType === 'mariadb') {
+        data = await this.queryExecutor.mariadb.fetchTableData(
           conn,
           schemaName,
           tableName,
@@ -142,8 +150,14 @@ export class QueryHandlers {
           schemaName,
           tableName
         );
-      } else {
+      } else if (dbType === "postgres") {
         primaryKeys = await this.queryExecutor.postgres.listPrimaryKeys(
+          conn,
+          schemaName,
+          tableName
+        );
+      } else if (dbType === 'mariadb') {
+        primaryKeys = await this.queryExecutor.mariadb.listPrimaryKeys(
           conn,
           schemaName,
           tableName
@@ -177,9 +191,8 @@ export class QueryHandlers {
           columns,
           foreignKeys
         );
-        // Clear MySQL cache after table creation
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.createTable(
           conn,
           schemaName,
@@ -187,8 +200,16 @@ export class QueryHandlers {
           columns,
           foreignKeys
         );
-        // Clear PostgreSQL cache after table creation
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.createTable(
+          conn,
+          schemaName,
+          tableName,
+          columns,
+          foreignKeys
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -215,16 +236,20 @@ export class QueryHandlers {
           conn,
           indexes
         );
-        // Clear MySQL cache after table creation
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.createIndexes(
           conn,
           schemaName,
           indexes
         );
-        // Clear PostgreSQL cache after table creation
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.createIndexes(
+          conn,
+          indexes
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -252,17 +277,22 @@ export class QueryHandlers {
           tableName,
           operations
         );
-        // Clear MySQL cache after table creation
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.alterTable(
           conn,
           schemaName,
           tableName,
           operations
         );
-        // Clear PostgreSQL cache after table creation
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.alterTable(
+          conn,
+          tableName,
+          operations
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -289,16 +319,20 @@ export class QueryHandlers {
           conn,
           tableName
         );
-        // Clear MySQL cache after table creation
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.dropTable(
           conn,
           schemaName,
           tableName
         );
-        // Clear PostgreSQL cache after table creation
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.dropTable(
+          conn,
+          tableName
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -321,8 +355,10 @@ export class QueryHandlers {
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       if (dbType === "mysql") {
         result = await this.queryExecutor.mysql.connectToDatabase(conn, dbId)
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.connectToDatabase(conn, dbId)
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.connectToDatabase(conn, dbId)
       }
       this.rpc.sendResponse(id, { ok: true, result });
     } catch (e: any) {
@@ -350,17 +386,23 @@ export class QueryHandlers {
           tableName,
           rowData
         );
-        // Clear MySQL cache after insert
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.insertRow(
           conn,
           schemaName,
           tableName,
           rowData
         );
-        // Clear PostgreSQL cache after insert
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.insertRow(
+          conn,
+          schemaName,
+          tableName,
+          rowData
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -392,7 +434,7 @@ export class QueryHandlers {
           rowData
         );
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.updateRow(
           conn,
           schemaName,
@@ -402,6 +444,16 @@ export class QueryHandlers {
           rowData
         );
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.updateRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue,
+          rowData
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, result });
@@ -439,7 +491,7 @@ export class QueryHandlers {
           primaryKeyValue
         );
         this.queryExecutor.mysql.mysqlCache.clearForConnection(conn);
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.deleteRow(
           conn,
           schemaName,
@@ -448,6 +500,15 @@ export class QueryHandlers {
           primaryKeyValue
         );
         this.queryExecutor.postgres.postgresCache.clearForConnection(conn);
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.deleteRow(
+          conn,
+          schemaName,
+          tableName,
+          primaryKeyColumn,
+          primaryKeyValue
+        );
+        this.queryExecutor.mariadb.mariadbCache.clearForConnection(conn);
       }
 
       this.rpc.sendResponse(id, { ok: true, deleted: result });
@@ -479,8 +540,18 @@ export class QueryHandlers {
           page || 1,
           pageSize || 50
         );
-      } else {
+      } else if (dbType === "postgres") {
         result = await this.queryExecutor.postgres.searchTable(
+          conn,
+          schemaName,
+          tableName,
+          searchTerm,
+          column,
+          page || 1,
+          pageSize || 50
+        );
+      } else if (dbType === 'mariadb') {
+        result = await this.queryExecutor.mariadb.searchTable(
           conn,
           schemaName,
           tableName,
