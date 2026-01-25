@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Yashh56/RelWave/releases"><strong>Download</strong></a> |
+  <a href="https://github.com/Relwave/relwave-app/releases"><strong>Download</strong></a> |
   <a href="#Features"><strong>Features</strong></a> |
   <a href="#Installation"><strong>Installation</strong></a> |
   <a href="#Contributing"><strong>Contributing</strong></a>
@@ -103,7 +103,7 @@ Before building from source, ensure you have:
 
 ### From Releases (Recommended)
 
-Download the latest release for your platform from the [**Releases**](https://github.com/Yashh56/RelWave/releases) page:
+Download the latest release for your platform from the [**Releases**](https://github.com/Relwave/relwave-app/releases) page:
 
 | Platform | File Type | Description |
 |----------|----------|-------------|
@@ -116,7 +116,7 @@ Download the latest release for your platform from the [**Releases**](https://gi
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Yashh56/RelWave.git
+git clone https://github.com/Relwave/relwave-app.git
 cd RelWave
 ```
 
