@@ -289,18 +289,32 @@ class BridgeApiService {
   /**
    * List all tables in a database
    */
-  async listTables(id: string): Promise<any[]> {
+  async listTables(id: string, schema?: string): Promise<any[]> {
     // Changed return type to any[] to match typical result shape [{schema, name, type}]
     try {
       if (!id) {
         throw new Error("Database ID is required");
       }
 
-      const result = await bridgeRequest("db.listTables", { id });
+      const result = await bridgeRequest("db.listTables", { id, schema });
       return result?.data || [];
     } catch (error: any) {
       console.error("Failed to list tables:", error);
       throw new Error(`Failed to list tables: ${error.message}`);
+    }
+  }
+
+  async listSchemas(id: string): Promise<string[]> {
+    try {
+      if (!id) {
+        throw new Error("Database ID is required");
+      }
+
+      const result = await bridgeRequest("db.listSchemas", { id });
+      return result?.data || [];
+    } catch (error: any) {
+      console.error("Failed to list schemas:", error);
+      throw new Error(`Failed to list schemas: ${error.message}`);
     }
   }
 

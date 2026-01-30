@@ -131,6 +131,9 @@ export function registerDbHandlers(
   rpcRegister("db.getSchema", (p, id) =>
     databaseHandlers.handleGetSchema(p, id)
   );
+  rpcRegister("db.listSchemas", (p, id) =>
+    databaseHandlers.handleListSchemas(p, id)
+  );
 
   // ==========================================
   // MIGRATION HANDLERS

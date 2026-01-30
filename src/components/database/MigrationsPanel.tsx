@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Clock, AlertCircle, Database, Play, Undo2, Trash2, Eye } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, Database, Play, Undo2, Trash2, Eye, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,22 @@ export default function MigrationsPanel({ migrations, baselined, dbId }: Migrati
     const [selectedMigration, setSelectedMigration] = useState<{ version: string; name: string } | null>(null);
     const [showSQLDialog, setShowSQLDialog] = useState(false);
     const [sqlContent, setSqlContent] = useState<{ up: string; down: string } | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }),
+                queryClient.invalidateQueries({ queryKey: ["tables", dbId] }),
+                queryClient.invalidateQueries({ queryKey: ["schema", dbId] }),
+                queryClient.invalidateQueries({ queryKey: ["schemaNames", dbId] }),
+            ]);
+            toast.success("Refreshed successfully");
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     // Merge and sort migrations
     const appliedVersions = new Set(applied.map((m) => m.version));
@@ -115,6 +131,15 @@ export default function MigrationsPanel({ migrations, baselined, dbId }: Migrati
                         <Badge variant={baselined ? "default" : "secondary"} className="text-xs">
                             {baselined ? "Baselined" : "Not Baselined"}
                         </Badge>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                        >
+                            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+                        </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                         Schema version control and migration status
