@@ -1,5 +1,5 @@
 import { toPng, toSvg } from "html-to-image";
-import { ArrowLeft, Database, Download, Filter, LayoutGrid, Search, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Database, Download, Filter, LayoutGrid, Layers, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -26,6 +26,13 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface Column extends ColumnDetails {
     fkRef?: string; // e.g., "public.roles.id"
@@ -61,6 +68,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [hoveredEdge, setHoveredEdge] = useState<Edge | null>(null);
+    const [selectedSchema, setSelectedSchema] = useState<string>("__all__");
 
     // Use React Query for schema data (cached!)
     const {
@@ -75,14 +83,38 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
             ? "Schema data found, but no tables to render."
             : null;
 
-    // Transform schema to ER nodes/edges when data changes
+    // Get available schema names for the dropdown
+    const availableSchemas = useMemo(() => {
+        if (!schemaData?.schemas) return [];
+        return schemaData.schemas
+            .filter(s => s.tables?.length > 0)
+            .map(s => s.name);
+    }, [schemaData]);
+
+    // Filter schema data based on selected schema
+    const filteredSchemaData = useMemo((): DatabaseSchemaDetails | null => {
+        if (!schemaData) return null;
+        if (selectedSchema === "__all__") return schemaData;
+        
+        return {
+            ...schemaData,
+            schemas: schemaData.schemas.filter(s => s.name === selectedSchema)
+        };
+    }, [schemaData, selectedSchema]);
+
+    // Transform schema to ER nodes/edges when data or filter changes
     useEffect(() => {
-        if (schemaData && schemaData.schemas?.some(s => s.tables?.length)) {
-            const { nodes: newNodes, edges: newEdges } = transformSchemaToER(schemaData);
+        if (filteredSchemaData && filteredSchemaData.schemas?.some(s => s.tables?.length)) {
+            const { nodes: newNodes, edges: newEdges } = transformSchemaToER(filteredSchemaData);
             setNodes(newNodes as typeof nodes);
             setEdges(newEdges);
+            // Fit view after layout change
+            setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2, duration: 300 }), 100);
+        } else {
+            setNodes([]);
+            setEdges([]);
         }
-    }, [schemaData, setNodes, setEdges]);
+    }, [filteredSchemaData, setNodes, setEdges, reactFlowInstance]);
 
     // Filter nodes based on search query
     const filteredNodes = useMemo(() => {
@@ -180,13 +212,13 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
 
     // Re-layout with dagre
     const reLayout = useCallback(() => {
-        if (schemaData) {
-            const { nodes: newNodes, edges: newEdges } = transformSchemaToER(schemaData, true);
+        if (filteredSchemaData) {
+            const { nodes: newNodes, edges: newEdges } = transformSchemaToER(filteredSchemaData, true);
             setNodes(newNodes as typeof nodes);
             setEdges(newEdges);
             setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2, duration: 500 }), 100);
         }
-    }, [schemaData, setNodes, setEdges, reactFlowInstance]);
+    }, [filteredSchemaData, setNodes, setEdges, reactFlowInstance]);
 
     // Edge hover handlers for tooltip
     const onEdgeMouseEnter: EdgeMouseHandler = useCallback((_event, edge) => {
@@ -277,6 +309,36 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                         <span className="text-muted-foreground/50">•</span>
                         <span className="text-sm font-medium text-foreground">ER Diagram</span>
                     </div>
+
+                    {/* Schema filter dropdown */}
+                    {availableSchemas.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 text-xs px-3 border-dashed">
+                                    <Layers className="h-3.5 w-3.5 mr-1.5" />
+                                    {selectedSchema === "__all__" ? "All Schemas" : selectedSchema}
+                                    <ChevronDown className="h-3 w-3 ml-1.5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => setSelectedSchema("__all__")}>
+                                    <Layers className="h-3.5 w-3.5 mr-2" />
+                                    All Schemas
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                        {schemaData?.schemas.reduce((acc, s) => acc + (s.tables?.length || 0), 0)} tables
+                                    </span>
+                                </DropdownMenuItem>
+                                {availableSchemas.map(schema => (
+                                    <DropdownMenuItem key={schema} onClick={() => setSelectedSchema(schema)}>
+                                        {schema}
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                            {schemaData?.schemas.find(s => s.name === schema)?.tables?.length || 0} tables
+                                        </span>
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
 
                     {/* Search bar */}
                     <div className="flex-1 max-w-md">
@@ -417,6 +479,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes }) => {
                 <div className="container mx-auto flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                         {nodes.length} Tables • {edges.length} Relations
+                        {selectedSchema !== "__all__" && ` • Schema: ${selectedSchema}`}
                         {selectedNodeId && ` • Selected: ${selectedNodeId.split('.')[1]}`}
                     </span>
                     <span>Click table to highlight • Drag to pan • Scroll to zoom</span>
