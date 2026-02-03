@@ -11,6 +11,7 @@ interface TablesExplorerPanelProps {
     dbId: string;
     tables: TableInfo[];
     selectedTable: SelectedTable | null;
+    selectedSchema: string;
     onSelectTable: (tableName: string, schemaName: string) => void;
     loading?: boolean;
 }
@@ -19,6 +20,7 @@ export default function TablesExplorerPanel({
     dbId,
     tables,
     selectedTable,
+    selectedSchema,
     onSelectTable,
     loading = false,
 }: TablesExplorerPanelProps) {
@@ -160,7 +162,7 @@ export default function TablesExplorerPanel({
                     dbId={dbId}
                     open={createTableOpen}
                     onOpenChange={setCreateTableOpen}
-                    schemaName={selectedTable?.schema || ''}
+                    schemaName={selectedSchema}
                 />
             </div>
         </div>

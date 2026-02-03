@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { bridgeApi } from "@/services/bridgeApi";
-import { useDatabase, useTables, useTableData, usePrefetch, useInvalidateCache } from "@/hooks/useDbQueries";
+import { useDatabase, useTables, useTableData, usePrefetch, useInvalidateCache, useSchemaNames } from "@/hooks/useDbQueries";
 import { QueryProgress, SelectedTable, TableInfo, TableRow } from "@/types/database";
 
 interface UseDatabaseDetailsOptions {
@@ -34,6 +34,9 @@ interface UseDatabaseDetailsReturn {
     handlePageChange: (page: number) => Promise<void>;
     handlePageSizeChange: (size: number) => Promise<void>;
     refetchTableData: () => void;
+    schemas: string[];
+    selectedSchema: string;
+    setSelectedSchema: (schema: string) => void;
 }
 
 export function useDatabaseDetails({
@@ -43,16 +46,31 @@ export function useDatabaseDetails({
     const { data: dbDetails } = useDatabase(dbId);
     const databaseName = dbDetails?.name || "Database";
 
+    const { data: schemas = [] } = useSchemaNames(dbId);
+    const [selectedSchema, setSelectedSchema] = useState<string>("public");
+
+    // Auto-select first schema if current one is invalid
+    useEffect(() => {
+        if (schemas.length > 0 && !schemas.includes(selectedSchema)) {
+            // Prefer public if available, otherwise first schema
+            if (schemas.includes("public")) {
+                setSelectedSchema("public");
+            } else {
+                setSelectedSchema(schemas[0]);
+            }
+        }
+    }, [schemas, selectedSchema]);
+
     const {
         data: tablesData = [],
         isLoading: loadingTables,
         refetch: refetchTables,
         isRefetching: isRefetchingTables
-    } = useTables(dbId);
+    } = useTables(dbId, selectedSchema);
 
     // Transform tables data
     const tables: TableInfo[] = tablesData.map((item: any) => ({
-        schema: item.schema || "public",
+        schema: item.schema || selectedSchema || "public",
         name: item.name || "unknown",
         type: item.type || "table",
     }));
@@ -311,5 +329,8 @@ export function useDatabaseDetails({
         handlePageChange,
         handlePageSizeChange,
         refetchTableData,
+        schemas,
+        selectedSchema,
+        setSelectedSchema
     };
 }

@@ -12,7 +12,7 @@ export const queryKeys = {
   database: (id: string) => ["databases", id] as const,
 
   // Tables
-  tables: (dbId: string) => ["tables", dbId] as const,
+  tables: (dbId: string, schema?: string) => ["tables", dbId, schema || "all"] as const,
   tableData: (dbId: string, schema: string, table: string, page: number, pageSize: number) =>
     ["tableData", dbId, schema, table, page, pageSize] as const,
 
@@ -93,11 +93,11 @@ export function useMigrations(dbId: string | undefined) {
  * - Returns cached data instantly if available
  * - Background refetch if stale
  */
-export function useTables(dbId: string | undefined) {
+export function useTables(dbId: string | undefined, schema?: string) {
   return useQuery({
-    queryKey: queryKeys.tables(dbId!),
+    queryKey: queryKeys.tables(dbId!, schema),
     queryFn: async () => {
-      const result = await bridgeApi.listTables(dbId!);
+      const result = await bridgeApi.listTables(dbId!, schema);
       return result.map((item: any): TableInfo => ({
         schema: item.schema || "public",
         name: item.name || "unknown",
@@ -107,6 +107,18 @@ export function useTables(dbId: string | undefined) {
     enabled: !!dbId,
     staleTime: STALE_TIMES.tables,
     gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch schema names for a database
+ */
+export function useSchemaNames(dbId: string | undefined) {
+  return useQuery({
+    queryKey: ["schemaNames", dbId] as const,
+    queryFn: () => bridgeApi.listSchemas(dbId!),
+    enabled: !!dbId,
+    staleTime: STALE_TIMES.schemas,
   });
 }
 

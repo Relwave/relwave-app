@@ -85,10 +85,28 @@ export class DatabaseHandlers {
       }
 
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const tables = await this.queryExecutor.listTables(conn, dbType);
+      const tables = await this.queryExecutor.listTables(conn, dbType, params.schema);
       this.rpc.sendResponse(id, { ok: true, data: tables });
     } catch (e: any) {
       this.logger?.error({ e }, "db.listTables failed");
+      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  async handleListSchemas(params: any, id: number | string) {
+    try {
+      const { id: dbId } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing id",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const schemas = await this.queryExecutor.listSchemaNames(conn, dbType);
+      this.rpc.sendResponse(id, { ok: true, data: schemas });
+    } catch (e: any) {
+      this.logger?.error({ e }, "db.listSchemas failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
   }

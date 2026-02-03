@@ -70,11 +70,26 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
 
     const databaseName = dbDetails?.name || dbId;
 
-    // Get all tables from schema
+    // Schema filter state
+    const [selectedSchema, setSelectedSchema] = useState<string>("__all__");
+
+    // Get available schema names
+    const availableSchemas = useMemo(() => {
+        if (!schemaData?.schemas) return [];
+        return schemaData.schemas
+            .filter(s => s.tables?.length > 0)
+            .map(s => s.name);
+    }, [schemaData]);
+
+    // Get tables filtered by selected schema
     const allTables = useMemo(() => {
         if (!schemaData) return [];
-        return schemaData.schemas.flatMap((schema) => schema.tables);
-    }, [schemaData]);
+        if (selectedSchema === "__all__") {
+            return schemaData.schemas.flatMap((schema) => schema.tables);
+        }
+        const schema = schemaData.schemas.find(s => s.name === selectedSchema);
+        return schema?.tables || [];
+    }, [schemaData, selectedSchema]);
 
     // Get available columns from added nodes
     const availableColumns: ColumnOption[] = useMemo(() => {
@@ -365,6 +380,9 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
                     nodes={nodes}
                     history={history}
                     availableColumns={availableColumns}
+                    availableSchemas={availableSchemas}
+                    selectedSchema={selectedSchema}
+                    onSchemaChange={setSelectedSchema}
                     filters={filters}
                     selectedColumns={selectedColumns}
                     sortBy={sortBy}

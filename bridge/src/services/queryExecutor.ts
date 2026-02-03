@@ -320,4 +320,15 @@ export class QueryExecutor {
       };
     }
   }
+
+  async listSchemaNames(conn: DatabaseConfig, dbType: DBType): Promise<string[]> {
+    if (dbType === DBType.POSTGRES) {
+      return this.postgres.listSchemaNames(conn);
+    } else if (dbType === DBType.MARIADB) {
+      return this.mariadb.listSchemaNames(conn);
+    } else if (dbType === DBType.MYSQL) {
+      return this.mysql.listSchemaNames(conn);
+    }
+    return ["public"];
+  }
 }

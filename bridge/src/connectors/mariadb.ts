@@ -1765,3 +1765,20 @@ export async function searchTable(
         await pool.end();
     }
 }
+
+/**
+ * listSchemaNames: Retrieves just the names of schemas (databases).
+ * Lightweight version for schema selector.
+ */
+export async function listSchemaNames(cfg: MariaDBConfig): Promise<string[]> {
+    const pool = mysql.createPool(createPoolConfig(cfg));
+    const connection = await pool.getConnection();
+
+    try {
+        const [rows] = await connection.query(LIST_SCHEMAS);
+        return (rows as any[]).map((r: any) => r.name);
+    } finally {
+        connection.release();
+        await pool.end();
+    }
+}

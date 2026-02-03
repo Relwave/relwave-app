@@ -58,10 +58,9 @@ export function generateCreateTableMigration(params: {
 
     const allDefs = [...[columnDefs], ...fkDefs].filter(Boolean).join(",\n");
 
-    // For MySQL/MariaDB, don't use schema prefix (database is the schema)
-    const tableRef = (dbType === "mysql" || dbType === "mariadb")
-        ? quoteIdent(tableName, dbType)
-        : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
+    // For MySQL/MariaDB, use database.table format (schemas are databases)
+    // For Postgres, use schema.table format
+    const tableRef = `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
     // Generate UP SQL
     const upSQL = `CREATE TABLE ${tableRef} (
@@ -94,10 +93,8 @@ export function generateAlterTableMigration(params: {
     const name = `alter_${tableName}_table`;
     const filename = `${version}_${name}.sql`;
 
-    // For MySQL/MariaDB, don't use schema prefix
-    const fullTableName = (dbType === "mysql" || dbType === "mariadb")
-        ? quoteIdent(tableName, dbType)
-        : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
+    // For all database types, use schema/database prefix
+    const fullTableName = `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
     // Build UP SQL
     const upStatements: string[] = [];
@@ -251,10 +248,8 @@ export function generateDropTableMigration(params: {
     const name = `drop_${tableName}_table`;
     const filename = `${version}_${name}.sql`;
 
-    // For MySQL/MariaDB, don't use schema prefix
-    const fullTableName = (dbType === "mysql" || dbType === "mariadb")
-        ? quoteIdent(tableName, dbType)
-        : `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
+    // For all database types, use schema/database prefix
+    const fullTableName = `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
     let upSQL = "";
     if (mode === "CASCADE") {

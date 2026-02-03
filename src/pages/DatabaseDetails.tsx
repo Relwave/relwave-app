@@ -70,6 +70,9 @@ const DatabaseDetail = () => {
     handlePageChange,
     handlePageSizeChange,
     refetchTableData,
+    schemas,
+    selectedSchema,
+    setSelectedSchema,
   } = useDatabaseDetails({
     dbId,
     bridgeReady: bridgeReady ?? false,
@@ -159,9 +162,28 @@ const DatabaseDetail = () => {
                     )}
                   </Button>
                   <div>
-                    <h1 className="text-lg font-semibold">{databaseName || 'Database'}</h1>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-lg font-semibold">{databaseName || 'Database'}</h1>
+                      {schemas.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 ml-2 border-dashed">
+                              {selectedSchema}
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {schemas.map(s => (
+                              <DropdownMenuItem key={s} onClick={() => setSelectedSchema(s)}>
+                                {s}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {tables.length} tables
+                      {tables.length} tables in {selectedSchema}
                     </p>
                   </div>
                 </div>
@@ -232,6 +254,7 @@ const DatabaseDetail = () => {
                   dbId={dbId || ''}
                   tables={tables}
                   selectedTable={selectedTable}
+                  selectedSchema={selectedSchema}
                   onSelectTable={handleTableSelect}
                   loading={loadingTables}
                 />

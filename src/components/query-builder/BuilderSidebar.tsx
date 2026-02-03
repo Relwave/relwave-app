@@ -8,6 +8,7 @@ import {
     PanelLeft,
     History,
     Columns3,
+    Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,9 @@ export function BuilderSidebar({
     nodes,
     history,
     availableColumns,
+    availableSchemas,
+    selectedSchema,
+    onSchemaChange,
     filters,
     selectedColumns,
     sortBy,
@@ -121,7 +125,33 @@ export function BuilderSidebar({
                                 {tables.length}
                             </span>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-1">
+                        <CollapsibleContent className="mt-1 space-y-2">
+                            {/* Schema Filter */}
+                            {availableSchemas.length > 0 && (
+                                <div className="px-2">
+                                    <Select
+                                        value={selectedSchema}
+                                        onValueChange={onSchemaChange}
+                                    >
+                                        <SelectTrigger className="h-7 text-xs">
+                                            <Layers className="h-3 w-3 mr-1.5 shrink-0" />
+                                            <SelectValue placeholder="All Schemas" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__all__">
+                                                <span className="flex items-center gap-2">
+                                                    All Schemas
+                                                </span>
+                                            </SelectItem>
+                                            {availableSchemas.map((schema) => (
+                                                <SelectItem key={schema} value={schema}>
+                                                    {schema}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                             <div className="space-y-0.5 pl-4">
                                 {tables.map((table) => {
                                     const isAdded = nodes.some(

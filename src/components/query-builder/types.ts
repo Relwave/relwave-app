@@ -52,6 +52,10 @@ export interface BuilderSidebarProps {
     nodes: Node[];
     history: QueryHistoryItem[];
     availableColumns: ColumnOption[];
+    // Schema filtering
+    availableSchemas: string[];
+    selectedSchema: string;
+    onSchemaChange: (schema: string) => void;
     filters: QueryFilter[];
     selectedColumns: string[];
     sortBy: string;
