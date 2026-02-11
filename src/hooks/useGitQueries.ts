@@ -4,6 +4,7 @@ import { isBridgeReady } from "@/services/bridgeClient";
 import type { GitStatus, GitFileChange, GitLogEntry, GitBranchInfo } from "@/types/git";
 
 export const gitKeys = {
+    all: ["git"] as const,
     status: (dir: string) => ["git", "status", dir] as const,
     changes: (dir: string) => ["git", "changes", dir] as const,
     log: (dir: string) => ["git", "log", dir] as const,

@@ -10,6 +10,7 @@ import { MigrationHandlers } from "./handlers/migrationHandlers";
 import { ProjectHandlers } from "./handlers/projectHandlers";
 import { GitHandlers } from "./handlers/gitHandlers";
 import { SchemaDiffHandlers } from "./handlers/schemaDiffHandlers";
+import { GitWorkflowHandlers } from "./handlers/gitWorkflowHandlers";
 import { discoveryService } from "./services/discoveryService";
 import { Logger } from "pino";
 
@@ -58,6 +59,7 @@ export function registerDbHandlers(
   const projectHandlers = new ProjectHandlers(rpc, logger);
   const gitHandlers = new GitHandlers(rpc, logger);
   const schemaDiffHandlers = new SchemaDiffHandlers(rpc, logger);
+  const gitWorkflowHandlers = new GitWorkflowHandlers(rpc, logger);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -260,6 +262,25 @@ export function registerDbHandlers(
   // ==========================================
   rpcRegister("schema.diff", (p, id) => schemaDiffHandlers.handleDiff(p, id));
   rpcRegister("schema.fileHistory", (p, id) => schemaDiffHandlers.handleFileHistory(p, id));
+
+  // ==========================================
+  // GIT WORKFLOW HANDLERS (P2)
+  // ==========================================
+
+  // Timeline
+  rpcRegister("timeline.list", (p, id) => gitWorkflowHandlers.handleTimelineList(p, id));
+  rpcRegister("timeline.commitSummary", (p, id) => gitWorkflowHandlers.handleCommitSummary(p, id));
+  rpcRegister("timeline.autoCommit", (p, id) => gitWorkflowHandlers.handleAutoCommit(p, id));
+
+  // Environment
+  rpcRegister("env.getConfig", (p, id) => gitWorkflowHandlers.handleEnvGetConfig(p, id));
+  rpcRegister("env.saveConfig", (p, id) => gitWorkflowHandlers.handleEnvSaveConfig(p, id));
+  rpcRegister("env.setMapping", (p, id) => gitWorkflowHandlers.handleEnvSetMapping(p, id));
+  rpcRegister("env.removeMapping", (p, id) => gitWorkflowHandlers.handleEnvRemoveMapping(p, id));
+  rpcRegister("env.resolve", (p, id) => gitWorkflowHandlers.handleEnvResolve(p, id));
+
+  // Conflict Detection
+  rpcRegister("conflict.detect", (p, id) => gitWorkflowHandlers.handleConflictDetect(p, id));
 
   // ==========================================
   // DATABASE DISCOVERY HANDLERS

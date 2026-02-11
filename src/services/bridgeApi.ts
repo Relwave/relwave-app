@@ -2,6 +2,15 @@ import { AddDatabaseParams, ConnectionTestResult, CreateTableColumn, DatabaseCon
 import { ProjectSummary, ProjectMetadata, CreateProjectParams, UpdateProjectParams, SchemaFile, SchemaSnapshot, ERDiagramFile, ERNode, QueriesFile, SavedQuery, ProjectExport } from "@/types/project";
 import { GitStatus, GitFileChange, GitLogEntry, GitBranchInfo } from "@/types/git";
 import { SchemaDiffResponse, SchemaFileHistoryResponse } from "@/types/schemaDiff";
+import {
+  TimelineEntry,
+  TimelineChangeSummary,
+  AutoCommitResult,
+  EnvironmentConfig,
+  EnvironmentMapping,
+  ResolvedEnvironment,
+  ConflictReport,
+} from "@/types/gitWorkflow";
 import { bridgeRequest } from "./bridgeClient";
 
 
@@ -1191,6 +1200,129 @@ class BridgeApiService {
     count = 20
   ): Promise<SchemaFileHistoryResponse> {
     const result = await bridgeRequest("schema.fileHistory", { projectId, count });
+    return result?.data;
+  }
+
+  // ------------------------------------
+  // 10. MIGRATION TIMELINE (timeline.*)
+  // ------------------------------------
+
+  /**
+   * Get the migration timeline (commits that changed schema.json)
+   */
+  async timelineList(
+    projectId: string,
+    count = 50
+  ): Promise<{ entries: TimelineEntry[] }> {
+    const result = await bridgeRequest("timeline.list", { projectId, count });
+    return result?.data;
+  }
+
+  /**
+   * Get change summary for a specific commit in the timeline
+   */
+  async timelineCommitSummary(
+    projectId: string,
+    commitHash: string
+  ): Promise<{ summary: TimelineChangeSummary | null }> {
+    const result = await bridgeRequest("timeline.commitSummary", {
+      projectId,
+      commitHash,
+    });
+    return result?.data;
+  }
+
+  /**
+   * Auto-commit the current schema snapshot with optional tag
+   */
+  async timelineAutoCommit(
+    projectId: string,
+    options?: { message?: string; tag?: string }
+  ): Promise<AutoCommitResult> {
+    const result = await bridgeRequest("timeline.autoCommit", {
+      projectId,
+      ...options,
+    });
+    return result?.data;
+  }
+
+  // ------------------------------------
+  // 11. ENVIRONMENT (env.*)
+  // ------------------------------------
+
+  /**
+   * Get environment config (branch → environment mappings)
+   */
+  async envGetConfig(projectId: string): Promise<EnvironmentConfig> {
+    const result = await bridgeRequest("env.getConfig", { projectId });
+    return result?.data;
+  }
+
+  /**
+   * Replace the full environment config
+   */
+  async envSaveConfig(
+    projectId: string,
+    config: EnvironmentConfig
+  ): Promise<EnvironmentConfig> {
+    const result = await bridgeRequest("env.saveConfig", {
+      projectId,
+      config,
+    });
+    return result?.data;
+  }
+
+  /**
+   * Add or update a single branch → environment mapping
+   */
+  async envSetMapping(
+    projectId: string,
+    mapping: EnvironmentMapping
+  ): Promise<EnvironmentConfig> {
+    const result = await bridgeRequest("env.setMapping", {
+      projectId,
+      mapping,
+    });
+    return result?.data;
+  }
+
+  /**
+   * Remove a branch mapping
+   */
+  async envRemoveMapping(
+    projectId: string,
+    branch: string
+  ): Promise<EnvironmentConfig> {
+    const result = await bridgeRequest("env.removeMapping", {
+      projectId,
+      branch,
+    });
+    return result?.data;
+  }
+
+  /**
+   * Resolve the current environment (based on active git branch)
+   */
+  async envResolve(projectId: string): Promise<ResolvedEnvironment> {
+    const result = await bridgeRequest("env.resolve", { projectId });
+    return result?.data;
+  }
+
+  // ------------------------------------
+  // 12. CONFLICT DETECTION (conflict.*)
+  // ------------------------------------
+
+  /**
+   * Detect schema conflicts between current branch and a target
+   */
+  async conflictDetect(
+    projectId: string,
+    targetBranch = "main"
+  ): Promise<ConflictReport> {
+    const result = await bridgeRequest("conflict.detect", {
+      projectId,
+      targetBranch,
+    });
     return result?.data;
   }
 }

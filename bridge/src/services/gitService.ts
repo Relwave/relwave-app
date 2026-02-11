@@ -141,6 +141,18 @@ export class GitService {
     }
 
     /**
+     * Resolve a ref (tag, branch, HEAD~1, etc.) to a full commit hash.
+     * Returns null if the ref cannot be resolved.
+     */
+    async resolveRef(dir: string, ref: string): Promise<string | null> {
+        try {
+            return await this.git(dir, "rev-list", "-n1", ref);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * Initialize a new git repository
      */
     async init(dir: string, defaultBranch = "main"): Promise<void> {
@@ -495,6 +507,109 @@ export class GitService {
         }
         fsSync.writeFileSync(gi, this.generateGitignore(), "utf-8");
         return true; // created
+    }
+
+    // ==========================================
+    // Tags
+    // ==========================================
+
+    /**
+     * Create an annotated tag at the current HEAD (or a given ref)
+     */
+    async createTag(dir: string, tagName: string, message?: string, ref?: string): Promise<void> {
+        const args = ["tag"];
+        if (message) {
+            args.push("-a", tagName, "-m", message);
+        } else {
+            args.push(tagName);
+        }
+        if (ref) args.push(ref);
+        await this.git(dir, ...args);
+    }
+
+    /**
+     * Delete a tag
+     */
+    async deleteTag(dir: string, tagName: string): Promise<void> {
+        await this.git(dir, "tag", "-d", tagName);
+    }
+
+    /**
+     * List tags with optional pattern filter.
+     * Returns tag names sorted by creation date (newest first).
+     */
+    async listTags(dir: string, pattern?: string): Promise<string[]> {
+        try {
+            const args = ["tag", "-l", "--sort=-creatordate"];
+            if (pattern) args.push(pattern);
+            const output = await this.git(dir, ...args);
+            if (!output) return [];
+            return output.split("\n").filter(Boolean);
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Get the message of an annotated tag
+     */
+    async getTagMessage(dir: string, tagName: string): Promise<string | null> {
+        try {
+            return await this.git(dir, "tag", "-l", "-n99", tagName);
+        } catch {
+            return null;
+        }
+    }
+
+    // ==========================================
+    // Merge / Conflict detection
+    // ==========================================
+
+    /**
+     * Get the merge-base (common ancestor commit) between two refs.
+     * Returns full hash, or null if no common ancestor.
+     */
+    async mergeBase(dir: string, refA: string, refB: string): Promise<string | null> {
+        try {
+            const output = await this.git(dir, "merge-base", refA, refB);
+            return output || null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Check if merging `source` into the current branch would produce conflicts,
+     * without actually modifying the working tree.
+     * Returns list of conflicting file paths, or empty if clean.
+     */
+    async dryMerge(dir: string, source: string): Promise<string[]> {
+        try {
+            // Try to merge in-memory (index only)
+            await this.git(dir, "merge-tree", "--write-tree", "--no-messages", "HEAD", source);
+            return []; // clean merge
+        } catch (err: any) {
+            // merge-tree exits non-zero when there are conflicts and lists them
+            const output: string = err.stdout ?? err.message ?? "";
+            const conflicts: string[] = [];
+            for (const line of output.split("\n")) {
+                // merge-tree outputs "CONFLICT (content): ..." lines
+                if (line.startsWith("CONFLICT")) {
+                    const match = line.match(/Merge conflict in (.+)/);
+                    if (match) conflicts.push(match[1].trim());
+                }
+            }
+            return conflicts.length > 0 ? conflicts : ["(unknown conflict)"];
+        }
+    }
+
+    /**
+     * Stage-and-commit specific files in one go (for auto-commit workflows).
+     * Returns the short commit hash.
+     */
+    async commitFiles(dir: string, files: string[], message: string): Promise<string> {
+        await this.git(dir, "add", "--", ...files);
+        return this.commit(dir, message);
     }
 }
 
