@@ -145,22 +145,6 @@ export function DeveloperContextMenu({ children }: DeveloperContextMenuProps) {
                     <ContextMenuShortcut>Ctrl+R</ContextMenuShortcut>
                 </ContextMenuItem>
                 <ContextMenuSeparator />
-                <ContextMenuItem onClick={handleCut} className="gap-2">
-                    <Scissors className="h-4 w-4" />
-                    Cut
-                    <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
-                </ContextMenuItem>
-                <ContextMenuItem onClick={handleCopy} className="gap-2">
-                    <Copy className="h-4 w-4" />
-                    Copy
-                    <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
-                </ContextMenuItem>
-                <ContextMenuItem onClick={handlePaste} className="gap-2">
-                    <ClipboardPaste className="h-4 w-4" />
-                    Paste
-                    <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
-                </ContextMenuItem>
-                <ContextMenuSeparator />
                 <ContextMenuItem onClick={handleInspect} className="gap-2">
                     <Bug className="h-4 w-4" />
                     Inspect Element

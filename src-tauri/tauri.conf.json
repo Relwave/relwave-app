@@ -42,7 +42,12 @@
     "externalBin": [
       "resources/bridge"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/installer-hooks.nsi"
+      }
+    }
   },
   "plugins": {
     "updater": {
