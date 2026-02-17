@@ -30,6 +30,18 @@ fn main() {
             navigate_back,
             navigate_forward
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Kill bridge process on app exit to prevent orphaned processes
+                if let Some(state) = app_handle.try_state::<BridgeProcess>() {
+                    let mut guard = state.0.lock().unwrap();
+                    if let Some(mut child) = guard.take() {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                    }
+                }
+            }
+        });
 }
