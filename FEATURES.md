@@ -1,821 +1,547 @@
-# RelWave Features
+# RelWave — Feature Reference
 
-This document outlines all the features and capabilities of RelWave - a modern, cross-platform database management and visualization tool built with Tauri, React, and TypeScript.
+This document provides a comprehensive breakdown of all features and capabilities in RelWave. For installation and setup instructions, see the main [README](README.md).
 
 **Tech Stack:** Tauri + React 18 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror
 
 ---
 
-## 🎯 Core Pages & Navigation
+## Table of Contents
 
-### 1. Dashboard (Index Page)
-The main landing page for managing database connections. Features a clean, VS Code-inspired design.
-
-**Features:**
-- **Database Connection Management**
-  - Add new database connections with detailed configuration (name, type, host, port, user, password, SSL options)
-  - **Connect via URL** - Paste connection URLs like `postgres://user:pass@host:port/db`
-  - Auto-parse URLs to populate form fields
-  - Delete existing database connections
-  - Test database connections with real-time feedback
-  - View connection status indicators for all databases
-
-- **Auto-Detect Local Databases (NEW)**
-  - Automatically discover databases running on your machine
-  - Port scanning for PostgreSQL (5432-5434), MySQL (3306-3308)
-  - Docker container detection with image recognition
-  - **Docker Credential Extraction** - Reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MYSQL_ROOT_PASSWORD`, etc. from container environment variables
-  - One-click add with pre-filled connection details
-  - Fun auto-generated names (e.g., "swift-phoenix", "cosmic-dragon")
-  - Visual indicators for database source (Local/Docker)
-  - Manual rescan capability
-  
-- **Database Statistics Overview**
-  - Total connected databases count
-  - Aggregate table count across all databases
-  - Total row count across all databases
-  - Total database size (displayed in MB)
-  - Real-time stats loading indicators
-
-- **Search & Filter**
-  - Search databases by name with instant filtering
-  - Empty state messaging when no databases are found
-
-- **Prefetching & Performance**
-  - Hover-based prefetching for faster navigation
-  - Cached queries using React Query
-  - Optimistic UI updates for better responsiveness
-
-- **Refresh Functionality**
-  - Manual refresh button to update all database stats
-  - Automatic cache invalidation and refetching
+- [Core Pages and Navigation](#core-pages-and-navigation)
+- [Git Version Control](#git-version-control)
+- [Visual Tools](#visual-tools)
+- [UI and Design System](#ui-and-design-system)
+- [Integration and Architecture](#integration-and-architecture)
+- [Performance](#performance)
+- [Cross-Platform Support](#cross-platform-support)
+- [Design Principles](#design-principles)
 
 ---
 
-### 2. Database Details Page
+## Core Pages and Navigation
+
+### 1. Dashboard
+
+The main landing page for managing database connections. Features a clean, IDE-inspired design.
+
+**Connection Management**
+
+- Add new database connections with detailed configuration (name, type, host, port, user, password, SSL options)
+- Connect via URL — paste connection strings like `postgres://user:pass@host:port/db`
+- Auto-parse URLs to populate connection form fields
+- Delete existing database connections
+- Test connections with real-time feedback
+- Connection status indicators for all databases
+
+**Auto-Discovery**
+
+- Automatically discover databases running on the local machine
+- TCP port scanning for PostgreSQL (5432–5434) and MySQL (3306–3308)
+- Docker container detection with image recognition
+- Docker credential extraction — reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MYSQL_ROOT_PASSWORD`, etc. from container environment variables
+- One-click add with pre-filled connection details
+- Auto-generated connection names
+- Visual indicators for database source (local or Docker)
+- Manual rescan capability
+
+**Statistics Overview**
+
+- Total connected databases count
+- Aggregate table count across all databases
+- Total row count across all databases
+- Total database size (displayed in MB)
+- Real-time loading indicators
+
+**Search and Filtering**
+
+- Search databases by name with instant filtering
+- Empty state messaging when no databases match
+
+**Performance Optimizations**
+
+- Hover-based prefetching for faster navigation
+- Cached queries using React Query
+- Optimistic UI updates
+- Manual refresh with automatic cache invalidation
+
+---
+
+### 2. Database Details
+
 Detailed view for individual database operations with a split-panel layout.
 
 **Layout:**
-- **Left Panel:** Tables Explorer with collapsible table list
-- **Right Panel:** Content Viewer with data table, pagination, and actions
-- **Slide-out Panels:** Chart visualization and migrations
+- Left panel — Tables Explorer with collapsible table list
+- Right panel — Content Viewer with data table, pagination, and actions
+- Slide-out panels — Chart visualization and migrations
 
-**Features:**
-- **Tables Explorer Panel**
-  - Collapsible table list with search
-  - Click to select and load table data
-  - Visual indicators for selected table
-  - Table count display
+**Tables Explorer**
 
-- **Content Viewer Panel**
-  - Table name and row count header
-  - Quick action buttons (Insert, Chart, Export, Refresh)
-  - Search bar for filtering table data
-  - **DataTable Component** with:
-    - Row numbers column
-    - Enhanced data type formatting:
-      - Booleans as colored pills (green/red)
-      - Numbers in indigo color
-      - Dates in violet color  
-      - JSON/objects in amber color
-      - NULL values as muted badges
-    - Edit/Delete row actions on hover
-    - Empty state with helpful messaging
+- Collapsible table list with search
+- Click to select and load table data
+- Visual indicators for the selected table
+- Table count display
 
-- **Pagination Controls**
-  - Compact button-based pagination
-  - Page size selector (10, 25, 50, 100, 250 rows)
-  - "Showing X to Y of Z rows" indicator
-  - First/Previous/Next/Last navigation
+**Content Viewer**
 
-- **Search Functionality**
-  - Search across all table columns
-  - Case-insensitive search (ILIKE for PostgreSQL, LIKE for MySQL)
-  - Paginated search results
-  - Real-time result count display
-  - Clear search to return to normal view
+- Table name and row count header
+- Quick action buttons: Insert, Chart, Export, Refresh
+- Search bar for filtering table data
+- DataTable component with:
+  - Row numbers column
+  - Enhanced data type formatting (booleans as colored pills, numbers in indigo, dates in violet, JSON in amber, NULL as muted badges)
+  - Edit and delete actions on row hover
+  - Empty state with messaging
 
-- **Row Operations**
-  - **Insert Data Dialog** - Add new rows with FK dropdown support
-  - **Edit Row Dialog** - Modify existing row data with form fields
-  - **Delete Confirmation** - Styled shadcn AlertDialog with row preview
+**Pagination**
 
-- **Chart Visualization** (Slide-out Panel)
-  - Bar, Line, Pie, and Scatter chart types
-  - Icon-based chart type selector
-  - X/Y axis column selection
-  - Chart title customization
-  - Export as PNG or SVG (dropdown menu)
-  - Uses shadcn ChartContainer and ChartTooltip
-  - Single theme-based color (`var(--primary)`)
+- Compact button-based navigation
+- Page size selector (10, 25, 50, 100, 250 rows)
+- Row range indicator ("Showing X to Y of Z rows")
+- First, previous, next, and last page controls
 
-- **Migrations Panel** (Slide-out Panel)
-  - View local migrations (not yet applied)
-  - View applied migrations with timestamps
-  - Rollback functionality for applied migrations
-  - Baseline support for migration management
+**Search**
 
-- **Header Actions**
-  - SQL Workspace quick access button
-  - Migrations panel toggle
-  - Export All dropdown (CSV/JSON)
-  - Refresh button
+- Cross-column search across all table fields
+- Case-insensitive matching (ILIKE for PostgreSQL, LIKE for MySQL/MariaDB)
+- Paginated search results
+- Real-time result count display
+- Clear search to return to the default view
 
----
+**Row Operations**
 
-### 3. SQL Workspace (NEW)
-A full VS Code-style SQL editor page for writing and executing queries.
+- Insert data dialog — add new rows with foreign key dropdown support
+- Edit row dialog — modify existing row data with form fields
+- Delete confirmation — styled alert dialog with row preview
 
-**Layout:**
-- **Top Bar:** Database breadcrumb, execution status, Run/Stop buttons
-- **Left Sidebar:** Collapsible with Tables and History sections
-- **Main Area:** Split between editor (top) and results (bottom)
-- **Status Bar:** Connection info, row count, execution time
+**Chart Visualization** (slide-out panel)
 
-**Features:**
-- **Multi-Tab Query Support**
-  - Create multiple query tabs
-  - Tab status indicators (idle/running/success/error)
-  - Close tabs with unsaved warning
-  - Rename tabs by double-clicking
+- Bar, Line, Pie, and Scatter chart types
+- Icon-based chart type selector
+- X/Y axis column selection
+- Chart title customization
+- Export as PNG or SVG
 
-- **Collapsible Sidebar**
-  - **Tables Section:**
-    - List all database tables
-    - Click to insert `SELECT * FROM table` query
-    - Table count badge
-  - **History Section:**
-    - Recent query history
-    - Click to load previous query
-    - Timestamp display
-    - Clear history option
+**Migrations Panel** (slide-out panel)
 
-- **SQL Editor**
-  - CodeMirror-based editor with SQL syntax highlighting
-  - Auto-resize based on content
-  - Keyboard shortcuts (Ctrl+Enter to execute)
+- View local migrations (pending)
+- View applied migrations with timestamps
+- Rollback functionality for applied migrations
+- Baseline support for migration management
 
-- **Query Execution**
-  - Real-time progress indicator (rows fetched, elapsed time)
-  - Cancel running queries
-  - Streaming results display
-  - Error handling with detailed messages
+**Header Actions**
 
-- **Results Panel**
-  - DataTable with row numbers and type formatting
-  - Row count and execution time display
-  - Empty state when no results
+- SQL Workspace quick access
+- Migrations panel toggle
+- Export All dropdown (CSV/JSON)
+- Refresh button
 
 ---
 
-### 4. Query Builder (Redesigned)
-Visual SQL query builder with VS Code-style interface and drag-and-drop canvas.
+### 3. SQL Workspace
+
+A full IDE-style SQL editor for writing and executing queries.
 
 **Layout:**
-- **Top Bar:** Database breadcrumb, Generate and Execute buttons, progress indicator
-- **Left Sidebar:** Collapsible Explorer with Tables, Configuration, and History
-- **Main Canvas:** ReactFlow diagram for visual table relationships
-- **Bottom Panel:** SQL preview (1/3) + Results table (2/3)
-- **Status Bar:** Table count, join count, filter count, limit
+- Top bar — database breadcrumb, execution status, Run/Stop buttons
+- Left sidebar — collapsible with Tables and History sections
+- Main area — split between editor (top) and results (bottom)
+- Status bar — connection info, row count, execution time
 
-**Features:**
-- **Tables Section**
-  - Click to add table to canvas
-  - Click again to remove (toggle behavior)
-  - Checkmark indicator for added tables
-  - Table count badge
+**Multi-Tab Support**
 
-- **Configuration Section**
-  - **Columns:** Add/remove columns to SELECT (shows column name only, not table.column)
-  - **Filters:** Add WHERE clause conditions with column/operator/value
-  - **Sort By:** ORDER BY with ASC/DESC toggle
-  - **Group By:** GROUP BY column selection
-  - **Limit:** Quick select buttons (10, 50, 100, 500)
+- Create multiple query tabs
+- Tab status indicators (idle, running, success, error)
+- Close tabs with unsaved warning
+- Rename tabs by double-clicking
 
-- **Visual Canvas**
-  - Drag-and-drop table nodes
-  - Connect tables to create JOINs
-  - Click edge to change join type (INNER/LEFT/RIGHT/FULL)
-  - Color-coded join types
-  - Zoom and pan controls
-  - Added tables shown as removable pills
+**Sidebar**
 
-- **SQL Generation**
-  - Real-time SQL preview
-  - Auto-save to query history
-  - Execute generated query
-  - Streaming results with progress
+- Tables section with complete table list; click to insert `SELECT * FROM table`
+- History section with recent queries, timestamps, and clear option
 
-- **History Section**
-  - Load previous queries
-  - Clear history option
+**Editor**
+
+- CodeMirror-based editor with SQL syntax highlighting
+- Auto-resize based on content
+- Keyboard shortcut: Ctrl+Enter to execute
+
+**Query Execution**
+
+- Real-time progress indicator (rows fetched, elapsed time)
+- Cancel running queries
+- Streaming results display
+- Detailed error handling
+
+**Results Panel**
+
+- DataTable with row numbers and type-aware formatting
+- Row count and execution time display
+- Empty state when no results
+
+---
+
+### 4. Query Builder
+
+Visual SQL query builder with drag-and-drop canvas.
+
+**Layout:**
+- Top bar — database breadcrumb, Generate and Execute buttons, progress indicator
+- Left sidebar — collapsible Explorer with Tables, Configuration, and History
+- Main canvas — ReactFlow diagram for visual table relationships
+- Bottom panel — SQL preview (1/3) and results table (2/3)
+- Status bar — table count, join count, filter count, limit
+
+**Tables**
+
+- Click to add or remove tables from the canvas (toggle behavior)
+- Checkmark indicator for added tables
+- Table count badge
+
+**Configuration**
+
+- Columns — select columns for the SELECT clause
+- Filters — add WHERE conditions with column, operator, and value
+- Sort By — ORDER BY with ascending/descending toggle
+- Group By — GROUP BY column selection
+- Limit — quick select buttons (10, 50, 100, 500)
+
+**Visual Canvas**
+
+- Drag-and-drop table nodes
+- Connect tables to create JOINs
+- Click edges to change join type (INNER, LEFT, RIGHT, FULL)
+- Color-coded join types
+- Zoom and pan controls
+
+**SQL Generation**
+
+- Real-time SQL preview
+- Auto-save to query history
+- Execute generated queries directly
+- Streaming results with progress
 
 ---
 
 ### 5. Schema Explorer
+
 Comprehensive database schema visualization and management.
 
-**Features:**
-- **Tree View Panel**
-  - Hierarchical display: Database → Schema → Tables → Columns
-  - Expandable/collapsible schema and table nodes
-  - Visual indicators for:
-    - Primary keys (key icon)
-    - Foreign keys (link icon)
-    - Column types and constraints
-  - Right-click context menu for actions
+**Tree View**
 
-- **Metadata Panel**
-  - Detailed information for selected database/schema/table
-  - Column details:
-    - Name
-    - Data type
-    - Nullable status
-    - Primary key indicator
-    - Foreign key references
-    - Default values
-    - Auto-increment status
-  - Index information
-  - Foreign key relationships
+- Hierarchical display: Database > Schema > Tables > Columns
+- Expandable and collapsible nodes
+- Visual indicators for primary keys, foreign keys, column types, and constraints
 
-- **Table Operations**
-  - **Create Table Dialog**
-    - Add multiple columns with properties
-    - Set data types
-    - Configure NOT NULL constraints
-    - Set primary keys
-    - Add default values
-    - Auto-generate and apply migrations
-  
-  - **Alter Table Dialog**
-    - Add new columns
-    - Drop existing columns
-    - Rename columns
-    - Change column types
-    - Modify constraints (NOT NULL, PRIMARY KEY)
-    - Set/drop default values
-    - Auto-generate and apply migrations
-  
-  - **Drop Table Dialog**
-    - Safe table deletion with confirmation
-    - Cascade/restrict options
-    - Auto-generate and apply migrations
+**Metadata Panel**
 
-- **Index Management**
-  - Create indexes with multiple columns
-  - Specify index type (B-tree, Hash, etc.)
-  - Set unique constraints
-  - View existing indexes
+- Detailed information for the selected database, schema, or table
+- Column details: name, type, nullable, primary key, foreign key references, defaults, auto-increment
+- Index information
+- Foreign key relationships
 
-- **Foreign Key Management**
-  - Create foreign key relationships
-  - Reference columns across tables
-  - Set cascade rules (CASCADE, SET NULL, RESTRICT)
-  - Visual foreign key indicators
+**Table Operations**
 
-- **Auto-Migration**
-  - Automatically generate migrations for all schema changes
-  - Immediate migration application
-  - Integration with migrations panel
+- Create Table — define columns with types, NOT NULL, primary key, defaults; auto-generate migrations
+- Alter Table — add, drop, rename columns; change types; modify constraints; auto-generate migrations
+- Drop Table — safe deletion with confirmation, cascade/restrict options; auto-generate migrations
+
+**Index Management**
+
+- Create indexes with multiple columns
+- Specify index type (B-tree, Hash, etc.)
+- Set unique constraints
+- View existing indexes
+
+**Foreign Key Management**
+
+- Create foreign key relationships
+- Reference columns across tables
+- Set cascade rules (CASCADE, SET NULL, RESTRICT)
+- Visual foreign key indicators
+
+**Auto-Migration**
+
+- Automatically generate migrations for all schema modifications
+- Immediate application with rollback support
 
 ---
 
 ### 6. ER Diagram
-Entity-Relationship diagram visualization.
 
-**Features:**
-- **Visual Database Schema**
-  - Interactive canvas with ReactFlow
-  - Automatic table node generation
-  - Column listing with type information
-  - Primary key highlighting
-  - Foreign key relationship visualization
+Interactive entity-relationship diagram visualization.
 
-- **Layout & Navigation**
-  - Pan and zoom controls
-  - Auto-layout algorithms
-  - Minimap for large diagrams
-  - Fit-to-screen view
-
-- **Interactive Elements**
-  - Click to select tables
-  - Drag to reposition tables
-  - Relationship lines between tables
-  - Hover tooltips for details
+- ReactFlow-based interactive canvas
+- Automatic table node generation with column and type information
+- Primary key highlighting
+- Foreign key relationship lines between tables
+- Auto-layout algorithms
+- Minimap for large diagrams
+- Pan, zoom, and fit-to-screen controls
+- Drag to reposition tables
+- Hover tooltips for relationship details
 
 ---
 
-### 7. Settings Page
-Customize application appearance and preferences.
+### 7. Settings
 
-**Features:**
-- **Theme Mode Selection**
-  - Light mode
-  - Dark mode
-  - System preference (auto)
-  - Real-time theme switching
+Application appearance and preference management.
 
-- **Accent Color Themes**
-  - Multiple color variants:
-    - Blue (default)
-    - Purple
-    - Green
-    - Pink
-    - Orange
-    - And more variants
-  - Visual color preview
-  - Persistent theme preferences
-  - Real-time color updates
+**Theme Mode**
 
-- **Preview Section**
-  - Live preview of UI elements with selected theme
-  - Button variants preview
-  - Text and border color preview
+- Light, dark, and system-preference (auto) modes
+- Real-time theme switching
+
+**Accent Colors**
+
+- Multiple color variants: Blue (default), Purple, Green, Pink, Orange, and more
+- Visual color preview with live UI element updates
+- Persistent preferences
+
+**Preview**
+
+- Live preview of buttons, text, and border colors with the selected theme
 
 ---
 
-## 🎨 UI/UX Features
+## Git Version Control
 
-### Design System
-- **Minimalistic VS Code-Style Interface**
-  - Clean, professional appearance
-  - Consistent spacing and typography
-  - Subtle borders (`border-border/40`)
-  - Muted backgrounds (`bg-muted/20`)
-  - Theme-aware color system using CSS variables
+RelWave includes native Git integration powered by `simple-git`, providing a full version control workflow directly within the application.
+
+### Core Operations
+
+| Operation | Description |
+| --------- | ----------- |
+| `git.status` | Repository status including branch, dirty state, ahead/behind counts |
+| `git.init` | Initialize a new repository with configurable default branch |
+| `git.changes` | List all changed files with status indicators |
+| `git.stage` | Stage specific files for commit |
+| `git.stageAll` | Stage all changed files |
+| `git.unstage` | Unstage files from the index |
+| `git.commit` | Commit staged changes with a message |
+| `git.log` | View recent commit history |
+| `git.diff` | View file-level diff output |
+| `git.discard` | Discard changes to specific files |
+
+### Branch Management
+
+| Operation | Description |
+| --------- | ----------- |
+| `git.branches` | List all local branches |
+| `git.createBranch` | Create and checkout a new branch |
+| `git.checkout` | Switch to an existing branch |
+
+### Stash Operations
+
+| Operation | Description |
+| --------- | ----------- |
+| `git.stash` | Stash current work-in-progress changes |
+| `git.stashPop` | Restore the most recent stash |
+
+### Remote Management
+
+| Operation | Description |
+| --------- | ----------- |
+| `git.remoteList` | List all configured remotes |
+| `git.remoteAdd` | Add a new remote with name and URL |
+| `git.remoteRemove` | Remove an existing remote |
+| `git.remoteGetUrl` | Get the URL of a remote |
+| `git.remoteSetUrl` | Update the URL of a remote |
+
+### Sync Operations
+
+| Operation | Description |
+| --------- | ----------- |
+| `git.push` | Push commits to a remote repository |
+| `git.pull` | Pull changes from a remote repository |
+| `git.fetch` | Fetch updates from a remote without merging |
+| `git.revert` | Revert a specific commit |
+
+### Additional Features
+
+- Automatic `.gitignore` generation when initializing repositories
+- Smart ignore rules for database credentials and application configuration
+- Full error forwarding with descriptive messages
+
+---
+
+## Visual Tools
+
+### Chart Visualization
+
+**Supported chart types:**
+
+- Bar Chart (vertical bars)
+- Line Chart (with data points)
+- Pie Chart (with labels)
+- Scatter Chart (data point distribution)
+
+**Configuration:**
+
+- Icon-based chart type selector
+- X-axis and Y-axis column selection via dropdowns
+- Chart title input
+- Compact three-column layout
+
+**Export:**
+
+- PNG export for raster output
+- SVG export for vector output
+
+**Styling:**
+
+- Theme-aware coloring using CSS variables
+- shadcn ChartContainer integration
+- Responsive sizing
+
+### Data Table
+
+- Row numbers column
+- Type-aware cell formatting:
+  - Booleans displayed as colored pills (green/red)
+  - Numbers in indigo
+  - Dates in violet
+  - JSON/objects in amber with `{ }` indicator
+  - NULL values as muted badges
+  - Long text truncated with ellipsis
+- Edit and delete action buttons on row hover
+- Sortable columns
+- Paginated results
+- Empty state with messaging
+
+---
+
+## UI and Design System
 
 ### Layout Components
-- **Custom Title Bar (Tauri)**
-  - 32px fixed height
-  - Draggable area for window movement
-  - Minimize, maximize, close buttons
-  - z-index layering for proper stacking
 
-- **Vertical Icon Bar**
-  - Fixed left sidebar (60px width)
-  - Navigation icons: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram
-  - Active state indicators
-  - Tooltip labels on hover
+**Title Bar (Tauri)**
+- 32px fixed height, draggable area for window movement
+- Native minimize, maximize, and close buttons
+- Proper z-index layering
 
-- **Slide-Out Panels**
-  - Right-side panels for Chart and Migrations
-  - Backdrop overlay with click-to-close
-  - Smooth slide animation
-  - Proper height calculation (`calc(100vh-32px)`)
+**Vertical Icon Bar**
+- Fixed 60px left sidebar with navigation icons
+- Pages: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram
+- Active state indicators and tooltip labels
 
-- **Collapsible Sidebars**
-  - Toggle button to collapse/expand
-  - Smooth width transition
-  - Persistent state
+**Slide-Out Panels**
+- Right-side panels for charts and migrations
+- Backdrop overlay with click-to-close
+- Smooth slide animation
 
-### Theming System
-- **Dark/Light Mode Support**
-  - Seamless switching between modes
-  - CSS variable-based theming
-  - Persistent preferences in localStorage
+**Collapsible Sidebars**
+- Toggle to collapse/expand with smooth width transition
+- Persistent state across sessions
 
-- **Theme Variants**
-  - Multiple accent color options
-  - Consistent color palette across app
-  - Professional color schemes
+### Theming
 
-### Loading States
-- **Bridge Loader**
-  - Displayed while connecting to Tauri backend
-  - Loading spinner with animation
-  - Error state for failed connections
+- Dark and light mode with seamless switching
+- CSS variable-based color system
+- Multiple accent color variants
+- Persistent preferences via localStorage
 
-- **Component-Level Loading**
-  - Skeleton loaders for data tables
-  - Spinner components for async operations
-  - Progress indicators for long-running queries
+### Loading and Feedback
 
-### Notifications & Feedback
-- **Toast Notifications**
-  - Success messages (green)
-  - Error messages (red)
-  - Warning messages (yellow)
-  - Info messages (blue)
-  - Rich descriptions for context
-  - Auto-dismiss with configurable duration
-
-### Responsive Design
-- **Mobile-Friendly Layout**
-  - Responsive grid systems
-  - Adaptive sidebar panels
-  - Touch-friendly controls
-  - Breakpoint-based layouts
-
-### Data Display
-- **DataTable Component (Enhanced)**
-  - Row numbers column (muted, small font)
-  - Responsive table layout with horizontal scroll
-  - **Type-Aware Cell Formatting:**
-    - Booleans: Colored pills (green for true, red for false)
-    - Numbers: Indigo-colored text
-    - Dates: Violet-colored text
-    - JSON/Objects: Amber-colored with `{ }` indicator
-    - NULL values: Muted "NULL" badge
-    - Long text: Truncated with ellipsis
-  - Edit/Delete action buttons on row hover
-  - Empty state with icon and message
-  - Sortable columns
-  - Paginated results
-
----
-
-## 🔌 Integration Features
-
-### React Query Integration
-- **Intelligent Caching**
-  - Automatic query caching with stale-time
-  - Background refetching
-  - Cache invalidation strategies
-  - Optimistic updates
-
-- **Query States**
-  - Loading states
-  - Error states
-  - Success states
-  - Refetching indicators
-
-### Tauri Bridge API
-- **Backend Communication**
-  - Type-safe API calls
-  - Session management for queries
-  - Real-time event listeners for query progress
-  - Connection testing
-  - Schema introspection
-
-### Event-Driven Architecture
-- **Custom Events**
-  - `bridge:query.result` - Streaming query results
-  - `bridge:query.progress` - Real-time progress updates
-  - `bridge:query.done` - Query completion
-  - `bridge:query.error` - Error handling
-  - Session-based event filtering
-
----
-
-## 🚀 Performance Features
-
-### Optimization Techniques
-- **Prefetching**
-  - Hover-based data prefetching
-  - Predictive loading for better UX
-  - Background data fetching
-
-- **Lazy Loading**
-  - Component-level code splitting
-  - On-demand resource loading
-  - Progressive data loading
-
-- **Memoization**
-  - React.memo for expensive components
-  - useCallback for function references
-  - useMemo for computed values
-
-### Caching Strategy
-- **Multi-Level Caching**
-  - React Query cache for API calls
-  - localStorage for user preferences
-  - Session storage for temporary data
-  - Query history persistence
-
----
-
-## 🎯 User Experience Features
-
-### Navigation
-- **React Router Integration**
-  - Client-side routing
-  - Back/forward navigation
-  - Deep linking support
-  - Breadcrumb navigation
-
-### Keyboard Shortcuts
-- **Accessibility**
-  - Tab navigation
-  - Enter to submit forms
-  - Escape to close dialogs
-  - Keyboard-friendly controls
+- Bridge loader displayed during Tauri backend initialization
+- Skeleton loaders for data tables
+- Progress indicators for long-running queries
+- Toast notifications: success (green), error (red), warning (yellow), info (blue)
+- Auto-dismiss with configurable duration
 
 ### Form Handling
-- **Validation**
-  - Required field validation
-  - Custom validation rules
-  - Real-time error feedback
-  - Form state management
 
-### Dialogs & Modals
-- **Interactive Dialogs**
-  - Create table dialog
-  - Alter table dialog
-  - Drop table dialog
-  - Add database dialog
-  - Add indexes dialog
-  - **Insert Data dialog (NEW)** - Add new rows with FK dropdown support
-  - **Edit Row dialog (NEW)** - Modify existing row data
-  - **Delete Confirmation dialog (NEW)** - Styled shadcn AlertDialog
+- Required field validation with real-time error feedback
+- Custom validation rules
+- Form state management
+- Keyboard-accessible controls (Tab, Enter, Escape)
+
+### Dialogs
+
+- Create Table, Alter Table, Drop Table
+- Add Database Connection
+- Add Indexes
+- Insert Data (with FK dropdown support)
+- Edit Row
+- Delete Confirmation (with row preview)
 
 ---
 
-## 📊 Data Visualization
+## Integration and Architecture
 
-### Chart Visualization (Enhanced)
-- **Chart Types:**
-  - Bar Chart (vertical bars)
-  - Line Chart (with dots)
-  - Pie Chart (with labels)
-  - Scatter Chart (data points)
+### React Query
 
-- **Chart Configuration:**
-  - Icon-based chart type selector (toggle buttons)
-  - X-axis column dropdown
-  - Y-axis column dropdown
-  - Chart title input
-  - Compact 3-column layout
+- Automatic query caching with configurable stale time
+- Background refetching and cache invalidation
+- Optimistic updates for responsive UI
+- Loading, error, success, and refetching state management
 
-- **Styling:**
-  - Single theme-based color (`var(--primary)`)
-  - shadcn ChartContainer integration
-  - ChartTooltip with ChartTooltipContent
-  - Responsive sizing
-  - Clean, minimalistic appearance
+### Tauri Bridge API
 
-- **Export Options:**
-  - Dropdown menu with PNG and SVG options
-  - High-quality image export
-  - Proper chart dimensions
+- Type-safe API calls to the Node.js bridge
+- Session management for concurrent queries
+- Real-time event listeners for streaming query results
+- Custom events: `bridge:query.result`, `bridge:query.progress`, `bridge:query.done`, `bridge:query.error`
+- Session-based event filtering
 
-### Table Visualization
-- **Advanced DataTable**
-  - Column sorting
-  - Pagination controls
-  - Row highlighting
-  - Responsive columns
-  - Empty states
+### Event-Driven Architecture
+
+All database and Git operations use a JSON-RPC protocol over stdin/stdout. The bridge process runs independently of the UI, providing process isolation and crash resilience.
 
 ---
 
-## 🔧 Developer Features
+## Performance
 
-### Type Safety
-- **TypeScript Integration**
-  - Full type coverage
-  - Interface definitions
-  - Type inference
-  - Compile-time checking
+### Optimization Techniques
 
-### Component Architecture
-- **Modular Design**
-  - Reusable UI components
-  - Shadcn/UI component library
-  - Consistent design system
-  - Composable components
+- Hover-based data prefetching for predictive loading
+- Component-level code splitting and lazy loading
+- `React.memo`, `useCallback`, and `useMemo` for render optimization
 
-- **Key Components:**
-  - `TitleBar` - Custom Tauri window title bar
-  - `VerticalIconBar` - Left navigation sidebar
-  - `SlideOutPanel` - Right slide-out panels
-  - `DataTable` - Enhanced data display table
-  - `SqlEditor` - CodeMirror SQL editor
-  - `BridgeLoader` - Loading state for Tauri bridge
-  - `ChartVisualization` - Chart display with config
-  - `ChartRenderer` - Recharts-based chart rendering
-  - `TableNode` - ReactFlow table node for diagrams
+### Caching Strategy
 
-- **Page Components:**
-  - `Index` - Dashboard with database cards
-  - `DatabaseDetails` - Split-panel database view
-  - `SQLWorkspace` - VS Code-style SQL editor
-  - `QueryBuilder` - Visual query builder
-  - `SchemaExplorer` - Schema tree view
-  - `ERDiagram` - Entity relationship diagram
-  - `Settings` - Theme and preferences
-
-### Code Organization
-- **Feature-Based Structure**
-  - Organized by feature/page
-  - Shared components library
-  - Custom hooks
-  - Service layer abstraction
+| Layer | Purpose |
+| ----- | ------- |
+| React Query | API response caching |
+| localStorage | User preferences and theme settings |
+| Session storage | Temporary data and session state |
+| Query history | Persistent query log |
 
 ---
 
-## 🎨 Styling & Design
+## Cross-Platform Support
 
-### Design System
-- **Consistent UI**
-  - Standardized spacing
-  - Consistent typography
-  - Color palette system
-  - Component variants
+### Desktop (Tauri)
 
-### Animation & Transitions
-- **Smooth Interactions**
-  - Fade transitions
-  - Slide animations
-  - Loading spinners
-  - Skeleton screens
-  - Hover effects
-
-### Icons
-- **Lucide React Icons**
-  - Comprehensive icon set
-  - Consistent styling
-  - Accessible icons
-  - Semantic usage
-
----
-
-## 🔐 State Management
-
-### Local State
-- **React Hooks**
-  - useState for component state
-  - useEffect for side effects
-  - Custom hooks for reusability
-
-### Server State
-- **React Query**
-  - Automatic caching
-  - Background updates
-  - Optimistic updates
-  - Error retry logic
-
-### Persistent State
-- **LocalStorage**
-  - User preferences
-  - Theme settings
-  - Query history
-  - Session data
-
----
-
-## 📱 Cross-Platform Support
-
-### Tauri Desktop App
-- **Native Integration**
-  - **Custom Title Bar** - Minimalist draggable title bar with window controls (32px height)
-  - Desktop window controls (minimize, maximize, close)
-  - File system access
-  - Native notifications
-  - System tray support
-
-- **Layout Considerations**
-  - All pages use `h-[calc(100vh-32px)]` to account for title bar
-  - Fixed elements positioned with `top-8` (32px offset)
-  - Proper z-index layering (title bar: z-[100], panels: z-50, sidebar: z-40)
+- Custom 32px title bar with draggable area and window controls
+- All pages use `h-[calc(100vh-32px)]` for proper layout
+- Fixed elements offset with `top-8` (32px)
+- Z-index layering: title bar (z-100), panels (z-50), sidebar (z-40)
+- File system access, native notifications, and system tray support
 
 ### Web Technologies
-- **Modern Web Stack**
-  - React 18
-  - Vite for bundling
-  - TypeScript
-  - CSS variables for theming
+
+- React 18 with concurrent features
+- Vite for development and bundling
+- TypeScript for full type coverage
+- CSS variables for runtime theming
 
 ---
 
-## 🌟 Advanced Features
+## Design Principles
 
-### Query Builder Innovations
-- **Visual Query Design**
-  - Drag-and-drop interface
-  - Real-time SQL preview
-  - Multi-table joins
-  - Query history tracking
-
-### Migration Management
-- **Schema Versioning**
-  - Local migration storage
-  - Applied migration tracking
-  - Rollback capabilities
-  - Baseline support
-  - Auto-apply on creation
-
-### Real-Time Updates
-- **Live Data**
-  - Streaming query results
-  - Progress tracking
-  - Cancellable operations
-  - Event-driven updates
+1. **Minimalistic UI** — Clean interfaces with subtle borders and muted backgrounds
+2. **IDE-Inspired Layout** — Familiar sidebar, panel, and status bar patterns
+3. **Theme Consistency** — Single primary color system using CSS variables
+4. **Responsive Layout** — Precise height calculations to eliminate unnecessary scrollbars
+5. **Progressive Disclosure** — Collapsible sections to reduce visual complexity
+6. **Immediate Feedback** — Loading states, progress indicators, and toast notifications
+7. **Keyboard First** — Shortcuts for common actions (Ctrl+Enter to execute queries)
+8. **Error Resilience** — Graceful error handling with retry mechanisms and fallback states
 
 ---
 
-## 🎁 Additional Capabilities
+**Last Updated:** February 2026
 
-### Export Features
-- **Multiple Formats**
-  - CSV export
-  - JSON export
-  - Bulk table export
-  - Single table export
-
-### Connection Management
-- **Database Support**
-  - PostgreSQL (full support)
-  - MySQL (full support)
-  - MariaDB (full support) - NEW
-- **SSL/TLS Support**
-  - Secure connections
-  - SSL mode configuration (disable, require, verify-ca, verify-full)
-  - Certificate handling
-  - **Cloud Database Support** - Self-signed certificate handling for Supabase, Railway, Neon, PlanetScale, etc.
-
-### Auto-Discovery (NEW)
-- **Local Database Detection**
-  - TCP port scanning on localhost
-  - Docker container detection via `docker ps`
-  - Environment variable extraction via `docker inspect`
-  - Automatic credential pre-fill for Docker databases
-  - Support for PostgreSQL, MySQL, and MariaDB containers
-
-### Error Handling
-- **Graceful Degradation**
-  - User-friendly error messages
-  - Retry mechanisms
-  - Error boundaries
-  - Fallback UI states
-
----
-
-**Total Features:** 200+
-
-**Last Updated:** January 26, 2026
-
-This document is a living reference and will be updated as new features are added to the application.
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── components/
-│   ├── chart/
-│   │   ├── ChartConfigPanel.tsx    # Chart configuration UI
-│   │   ├── ChartRenderer.tsx       # Recharts rendering component
-│   │   └── ChartVisualization.tsx  # Main chart container
-│   ├── common/
-│   │   ├── DataTable.tsx           # Enhanced data table
-│   │   ├── Header.tsx              # Page headers
-│   │   ├── ModeToggle.tsx          # Theme toggle
-│   │   ├── SlideOutPanel.tsx       # Right slide-out panels
-│   │   ├── ThemeProvider.tsx       # Theme context
-│   │   ├── TitleBar.tsx            # Tauri title bar
-│   │   └── VerticalIconBar.tsx     # Left navigation
-│   ├── dashboard/                   # Dashboard components
-│   ├── database/
-│   │   ├── ContentViewerPanel.tsx  # Data display panel
-│   │   ├── DataTab.tsx             # Data browsing tab
-│   │   ├── SqlEditor.tsx           # CodeMirror editor
-│   │   ├── TablesExplorerPanel.tsx # Table list panel
-│   │   └── ...
-│   ├── er-diagram/                  # ER diagram components
-│   ├── feedback/
-│   │   └── BridgeLoader.tsx        # Loading states
-│   ├── query-builder/              # Query builder components (legacy)
-│   ├── schema-explorer/            # Schema explorer components
-│   └── ui/                         # shadcn/ui components
-├── hooks/
-│   ├── useBridgeInit.ts            # Tauri bridge initialization
-│   ├── useBridgeQuery.ts           # Bridge query hook
-│   ├── useDatabaseDetails.ts       # Database details logic
-│   ├── useDbQueries.ts             # React Query hooks
-│   ├── useExport.ts                # Export functionality
-│   └── useQueryHistory.ts          # Query history management
-├── pages/
-│   ├── DatabaseDetails.tsx         # Database detail page
-│   ├── ERDiagram.tsx               # ER diagram page
-│   ├── Index.tsx                   # Dashboard page
-│   ├── QueryBuilder.tsx            # Visual query builder
-│   ├── SchemaExplorer.tsx          # Schema explorer page
-│   ├── Settings.tsx                # Settings page
-│   └── SQLWorkspace.tsx            # SQL workspace page
-├── services/
-│   ├── bridgeApi.ts                # Tauri API wrapper
-│   └── bridgeClient.ts             # Bridge client
-├── types/
-│   ├── database.ts                 # Database types
-│   └── schema.ts                   # Schema types
-└── lib/
-    ├── utils.ts                    # Utility functions
-    └── dataExport.ts               # Export utilities
-
-bridge/                             # Node.js backend (database connectors)
-src-tauri/                          # Tauri Rust backend
-```
-
----
-
-## 🎯 Design Principles
-
-1. **Minimalistic UI** - Clean, uncluttered interfaces with subtle borders and muted colors
-2. **VS Code Inspiration** - Familiar IDE-like layout with sidebars, panels, and status bars
-3. **Theme Consistency** - Single primary color throughout, using CSS variables
-4. **Responsive Layout** - Proper height calculations to fit content without scrollbars
-5. **Progressive Disclosure** - Collapsible sections to reduce cognitive load
-6. **Immediate Feedback** - Loading states, progress indicators, and toast notifications
-7. **Keyboard Friendly** - Shortcuts for common actions (Ctrl+Enter to execute)
-8. **Error Resilience** - Graceful error handling with retry options
+This document is maintained alongside the application and updated with each release.
