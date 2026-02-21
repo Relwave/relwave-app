@@ -234,6 +234,15 @@ export function registerDbHandlers(
   rpcRegister("project.ensureGitignore", (p, id) =>
     projectHandlers.handleEnsureGitignore(p, id)
   );
+  rpcRegister("project.scanImport", (p, id) =>
+    projectHandlers.handleScanImport(p, id)
+  );
+  rpcRegister("project.import", (p, id) =>
+    projectHandlers.handleImportProject(p, id)
+  );
+  rpcRegister("project.linkDatabase", (p, id) =>
+    projectHandlers.handleLinkDatabase(p, id)
+  );
 
   // ==========================================
   // GIT HANDLERS
