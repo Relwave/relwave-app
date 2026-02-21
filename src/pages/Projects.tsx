@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBridgeQuery } from "@/hooks/useBridgeQuery";
-import { useDatabases } from "@/hooks/useDbQueries";
+import { useDatabases, queryKeys } from "@/hooks/useDbQueries";
 import {
     useProjects,
     useCreateProject,
@@ -10,6 +11,7 @@ import {
     useProjectSchema,
     useProjectERDiagram,
     useProjectQueries,
+    projectKeys,
 } from "@/hooks/useProjectQueries";
 import { bridgeApi } from "@/services/bridgeApi";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
@@ -19,6 +21,7 @@ import {
     ProjectList,
     CreateProjectDialog,
     DeleteProjectDialog,
+    ImportProjectDialog,
     ProjectDetailView,
 } from "@/components/project";
 import { FolderOpen, Sparkles } from "lucide-react";
@@ -26,6 +29,7 @@ import { Button } from "@/components/ui/button";
 
 const Projects = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
 
     // Data queries
@@ -40,6 +44,7 @@ const Projects = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedProject, setSelectedProject] = useState<string | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState<{
         id: string;
@@ -123,6 +128,18 @@ const Projects = () => {
         }
     };
 
+    /**
+     * Called by ImportProjectDialog after it successfully creates the DB
+     * connection AND imports the project.  We invalidate caches so the new
+     * project + database appear immediately in the UI.
+     */
+    const handleImportComplete = (projectId: string, projectName: string) => {
+        queryClient.invalidateQueries({ queryKey: projectKeys.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.databases });
+        toast.success("Project imported", { description: projectName });
+        setSelectedProject(projectId);
+    };
+
     const handleOpen = (projectId: string) => {
         const project = projects.find((p) => p.id === projectId);
         if (project) {
@@ -149,6 +166,7 @@ const Projects = () => {
                     selectedProject={selectedProject}
                     setSelectedProject={setSelectedProject}
                     onCreateClick={() => setIsCreateOpen(true)}
+                    onImportClick={() => setIsImportOpen(true)}
                     onDelete={(id: string, name: string) => {
                         setProjectToDelete({ id, name });
                         setDeleteDialogOpen(true);
@@ -206,6 +224,12 @@ const Projects = () => {
                 onSubmit={handleCreate}
                 isLoading={createProjectMutation.isPending}
                 databases={databases}
+            />
+
+            <ImportProjectDialog
+                open={isImportOpen}
+                onOpenChange={setIsImportOpen}
+                onComplete={handleImportComplete}
             />
 
             <DeleteProjectDialog

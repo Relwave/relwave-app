@@ -1,5 +1,5 @@
 import { AddDatabaseParams, ConnectionTestResult, CreateTableColumn, DatabaseConnection, DatabaseSchemaDetails, DatabaseStats, DiscoveredDatabase, RunQueryParams, TableRow, UpdateDatabaseParams } from "@/types/database";
-import { ProjectSummary, ProjectMetadata, CreateProjectParams, UpdateProjectParams, SchemaFile, SchemaSnapshot, ERDiagramFile, ERNode, QueriesFile, SavedQuery, ProjectExport } from "@/types/project";
+import { ProjectSummary, ProjectMetadata, CreateProjectParams, UpdateProjectParams, SchemaFile, SchemaSnapshot, ERDiagramFile, ERNode, QueriesFile, SavedQuery, ProjectExport, ImportProjectParams, ScanImportResult } from "@/types/project";
 import { GitStatus, GitFileChange, GitLogEntry, GitBranchInfo, GitRemoteInfo, GitPushPullResult } from "@/types/git";
 import { bridgeRequest } from "./bridgeClient";
 
@@ -1036,6 +1036,57 @@ class BridgeApiService {
     } catch (error: any) {
       console.error("Failed to get project dir:", error);
       return null;
+    }
+  }
+
+  /**
+   * Scan a cloned repo directory for import — read-only, no side effects.
+   * Returns project metadata and .env info so the UI can preview.
+   */
+  async scanImportSource(sourcePath: string): Promise<ScanImportResult> {
+    try {
+      if (!sourcePath) throw new Error("sourcePath is required");
+      const result = await bridgeRequest("project.scanImport", { sourcePath });
+      if (!result?.data) throw new Error("Failed to scan import source");
+      return result.data;
+    } catch (error: any) {
+      console.error("Failed to scan import source:", error);
+      throw new Error(`Failed to scan import source: ${error.message}`);
+    }
+  }
+
+  /**
+   * Import a project from a cloned repository directory.
+   * Requires a valid databaseId — create the database connection first.
+   */
+  async importProject(params: ImportProjectParams): Promise<ProjectMetadata> {
+    try {
+      if (!params.sourcePath) throw new Error("sourcePath is required");
+      if (!params.databaseId) throw new Error("databaseId is required");
+      const result = await bridgeRequest("project.import", params);
+      if (!result?.data) throw new Error("Failed to import project");
+      return result.data;
+    } catch (error: any) {
+      console.error("Failed to import project:", error);
+      throw new Error(`Failed to import project: ${error.message}`);
+    }
+  }
+
+  /**
+   * Link (or re-link) a database connection to a project.
+   * Updates the project's databaseId and resolves the engine type.
+   */
+  async linkProjectDatabase(projectId: string, databaseId: string): Promise<ProjectMetadata> {
+    try {
+      if (!projectId || !databaseId) {
+        throw new Error("projectId and databaseId are required");
+      }
+      const result = await bridgeRequest("project.linkDatabase", { projectId, databaseId });
+      if (!result?.data) throw new Error("Project not found");
+      return result.data;
+    } catch (error: any) {
+      console.error("Failed to link database:", error);
+      throw new Error(`Failed to link database: ${error.message}`);
     }
   }
 

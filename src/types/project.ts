@@ -10,13 +10,15 @@ export interface ProjectMetadata {
   description?: string;
   engine?: string;
   defaultSchema?: string;
+  /** For imported (cloned) projects — original repo path */
+  sourcePath?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export type ProjectSummary = Pick<
   ProjectMetadata,
-  "id" | "name" | "description" | "engine" | "databaseId" | "createdAt" | "updatedAt"
+  "id" | "name" | "description" | "engine" | "databaseId" | "sourcePath" | "createdAt" | "updatedAt"
 >;
 
 export interface SavedQuery {
@@ -101,4 +103,34 @@ export interface ProjectExport {
   schema: SchemaFile | null;
   erDiagram: ERDiagramFile | null;
   queries: QueriesFile | null;
+}
+
+// ==========================================
+// Import Project Types
+// ==========================================
+
+/** Read-only scan result — no side effects, just metadata + .env info */
+export interface ScanImportResult {
+  metadata: {
+    name: string;
+    description?: string;
+    engine?: string;
+    defaultSchema?: string;
+  };
+  envFound: boolean;
+  parsedEnv: {
+    host?: string;
+    port?: number;
+    user?: string;
+    password?: string;
+    database?: string;
+    type?: string;
+    ssl?: boolean;
+    name?: string;
+  } | null;
+}
+
+export interface ImportProjectParams {
+  sourcePath: string;
+  databaseId: string;
 }
