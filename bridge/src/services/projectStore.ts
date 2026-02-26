@@ -105,6 +105,9 @@ export type ProjectSummary = Pick<
  * Contains per-developer settings that should NOT be committed.
  */
 export type LocalConfig = {
+    /** Local database connection ID (machine-specific, never committed) */
+    databaseId?: string;
+
     /** Override connection URL (developer-specific) */
     connectionUrl?: string;
 
@@ -253,12 +256,24 @@ export class ProjectStore {
     }
 
     /**
-     * Get full project metadata
+     * Get full project metadata.
+     * For imported projects the databaseId is merged from the local
+     * (git-ignored) config so that the tracked relwave.json is never
+     * modified with machine-specific connection IDs.
      */
     async getProject(projectId: string): Promise<ProjectMetadata | null> {
-        return this.readJSON<ProjectMetadata>(
+        const meta = await this.readJSON<ProjectMetadata>(
             this.projectFile(projectId, PROJECT_FILES.metadata)
         );
+        if (!meta) return null;
+
+        // Merge databaseId from local config (overrides the tracked value)
+        const local = await this.getLocalConfig(projectId);
+        if (local?.databaseId) {
+            meta.databaseId = local.databaseId;
+        }
+
+        return meta;
     }
 
     /**
@@ -414,7 +429,13 @@ export class ProjectStore {
 
     /**
      * Link (or re-link) a database to a project.
-     * Updates databaseId in both the metadata file and the index.
+     *
+     * For **imported** projects the databaseId is written to the
+     * git-ignored local config (relwave.local.json) so the tracked
+     * relwave.json stays unmodified — no unnecessary commits.
+     *
+     * For **regular** (internal) projects it updates relwave.json
+     * directly (the whole dir is internal, not shared via git).
      */
     async linkDatabase(projectId: string, databaseId: string): Promise<ProjectMetadata | null> {
         const meta = await this.getProject(projectId);
@@ -431,29 +452,39 @@ export class ProjectStore {
             // db may not exist yet
         }
 
-        const updated: ProjectMetadata = {
-            ...meta,
-            databaseId,
-            engine: engine ?? meta.engine,
-            updatedAt: now,
-        };
+        await this.ensureSourcePathCache();
+        const isImported = this.sourcePathCache.has(projectId);
 
-        await this.writeJSON(
-            this.projectFile(projectId, PROJECT_FILES.metadata),
-            updated
-        );
-
-        // Sync schema file's databaseId reference
-        const schemaFile = await this.getSchema(projectId);
-        if (schemaFile) {
-            schemaFile.databaseId = databaseId;
+        if (isImported) {
+            // ---- Imported project: write to local config only ----
+            const local = (await this.getLocalConfig(projectId)) ?? {};
+            local.databaseId = databaseId;
+            await this.saveLocalConfig(projectId, local);
+        } else {
+            // ---- Regular project: update relwave.json ----
+            const updated: ProjectMetadata = {
+                ...meta,
+                databaseId,
+                engine: engine ?? meta.engine,
+                updatedAt: now,
+            };
             await this.writeJSON(
-                this.projectFile(projectId, PROJECT_FILES.schema),
-                schemaFile
+                this.projectFile(projectId, PROJECT_FILES.metadata),
+                updated
             );
+
+            // Sync schema file's databaseId reference
+            const schemaFile = await this.getSchema(projectId);
+            if (schemaFile) {
+                schemaFile.databaseId = databaseId;
+                await this.writeJSON(
+                    this.projectFile(projectId, PROJECT_FILES.schema),
+                    schemaFile
+                );
+            }
         }
 
-        // Sync the index entry
+        // Sync the index entry (always — index is internal)
         const index = await this.loadIndex();
         const entry = index.projects.find((p) => p.id === projectId);
         if (entry) {
@@ -463,7 +494,13 @@ export class ProjectStore {
             await this.saveIndex(index);
         }
 
-        return updated;
+        // Return the effective metadata (with merged databaseId)
+        return {
+            ...meta,
+            databaseId,
+            engine: engine ?? meta.engine,
+            updatedAt: now,
+        };
     }
 
     /**
@@ -861,12 +898,24 @@ export class ProjectStore {
     /**
      * Import a project from a cloned repository directory.
      *
+     * **Read-only on tracked files** – the import never modifies
+     * `relwave.json` or sub-resource files (schema, ER, queries).
+     * This means forking/cloning a project does *not* produce
+     * unnecessary diffs that would pollute collaboration history.
+     *
+     * Machine-specific data (`databaseId`) is stored in the
+     * git-ignored `relwave.local.json` so each developer can
+     * connect to their own database instance.
+     *
+     * The original `projectId` from `relwave.json` is preserved so
+     * it stays consistent across all forks.
+     *
      * @param sourcePath   Absolute path to the cloned repo containing relwave.json
      * @param databaseId   A valid database connection ID to link to the project.
      *                     The caller must create the DB connection first (either
      *                     from .env auto-detection or user-provided credentials).
      *
-     * @returns The newly created ProjectMetadata.
+     * @returns The effective ProjectMetadata (with local databaseId merged).
      */
     async importProject(params: {
         sourcePath: string;
@@ -893,7 +942,16 @@ export class ProjectStore {
             );
         }
 
-        // ---- 2. Resolve engine from the linked database ----
+        // ---- 2. Check for duplicate project ID ----
+        const id = sourceMeta.id;
+        const index = await this.loadIndex();
+        if (index.projects.some((p) => p.id === id)) {
+            throw new Error(
+                `Project "${sourceMeta.name}" is already imported (id: ${id})`
+            );
+        }
+
+        // ---- 3. Resolve engine from the linked database ----
         let engine: string | undefined;
         try {
             const db: DBMeta | null = await dbStoreInstance.getDB(databaseId);
@@ -902,24 +960,7 @@ export class ProjectStore {
             // db may not exist yet
         }
 
-        // ---- 3. Register the project — use sourcePath as the working dir ----
-        const id = uuidv4();
-        const now = new Date().toISOString();
-
-        const meta: ProjectMetadata = {
-            version: 1,
-            id,
-            databaseId,
-            name: sourceMeta.name,
-            description: sourceMeta.description,
-            engine,
-            defaultSchema: sourceMeta.defaultSchema,
-            sourcePath,
-            createdAt: now,
-            updatedAt: now,
-        };
-
-        // Register the sourcePath so projectDir() resolves correctly
+        // ---- 4. Register the sourcePath so projectDir() resolves correctly ----
         this.sourcePathCache.set(id, sourcePath);
 
         // Ensure subdirectories exist in the source dir (they should,
@@ -928,63 +969,42 @@ export class ProjectStore {
             ensureDir(path.join(sourcePath, sub));
         }
 
-        // ---- 4. Write updated metadata into the source dir ----
-        await this.writeJSON(
-            path.join(sourcePath, PROJECT_FILES.metadata),
-            meta
-        );
+        // ---- 5. DO NOT modify relwave.json or sub-resource files ----
+        //      relwave.json keeps the original projectId & databaseId
+        //      so forks/clones never produce unnecessary diffs.
 
-        // Ensure .gitignore exists in source dir
+        // ---- 6. Ensure .gitignore exists in source dir ----
         await this.ensureGitignore(id);
 
-        // Write empty local config (will be gitignored)
+        // ---- 7. Write databaseId to local config (git-ignored) ----
+        const localConfig: LocalConfig = { databaseId };
         const localPath = path.join(sourcePath, PROJECT_FILES.localConfig);
-        if (!fsSync.existsSync(localPath)) {
-            await this.writeJSON(localPath, {} as LocalConfig);
-        }
+        const existingLocal = fsSync.existsSync(localPath)
+            ? await this.readJSON<LocalConfig>(localPath)
+            : null;
+        await this.writeJSON(localPath, { ...existingLocal, ...localConfig });
 
-        // ---- 5. Update sub-resource files in-place (projectId + databaseId) ----
-        const subFiles = [
-            path.join(sourcePath, PROJECT_FILES.schema),
-            path.join(sourcePath, PROJECT_FILES.erDiagram),
-            path.join(sourcePath, PROJECT_FILES.queries),
-        ];
-
-        await Promise.all(
-            subFiles.map(async (filePath) => {
-                if (fsSync.existsSync(filePath)) {
-                    try {
-                        const content = await fs.readFile(filePath, "utf-8");
-                        const parsed = JSON.parse(content);
-                        if (parsed && typeof parsed === "object") {
-                            parsed.projectId = id;
-                            if ("databaseId" in parsed) {
-                                parsed.databaseId = databaseId;
-                            }
-                        }
-                        await this.writeJSON(filePath, parsed);
-                    } catch {
-                        // malformed — leave as-is
-                    }
-                }
-            })
-        );
-
-        // ---- 6. Add to the global index ----
-        const index = await this.loadIndex();
+        // ---- 8. Add to the global index ----
+        const now = new Date().toISOString();
         index.projects.push({
             id,
-            name: meta.name,
-            description: meta.description,
-            engine,
+            name: sourceMeta.name,
+            description: sourceMeta.description,
+            engine: engine ?? sourceMeta.engine,
             databaseId,
             sourcePath,
-            createdAt: now,
+            createdAt: sourceMeta.createdAt ?? now,
             updatedAt: now,
         });
         await this.saveIndex(index);
 
-        return meta;
+        // ---- 9. Return effective metadata (with local databaseId) ----
+        return {
+            ...sourceMeta,
+            engine: engine ?? sourceMeta.engine,
+            databaseId,
+            sourcePath,
+        };
     }
 }
 

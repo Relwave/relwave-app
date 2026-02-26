@@ -500,11 +500,14 @@ describe("ProjectStore — Import Project", () => {
             expect(project).toBeDefined();
             expect(project.name).toBe("Imported Project");
             expect(project.description).toBe("A test import");
+            // Effective databaseId comes from local config
             expect(project.databaseId).toBe("my-db-id");
             expect(project.sourcePath).toBe(SOURCE_DIR);
+            // Must keep the original projectId from relwave.json
+            expect(project.id).toBe("original-project-id");
         });
 
-        test("should update sub-resource files in-place (projectId + databaseId)", async () => {
+        test("should NOT modify tracked files (read-only import)", async () => {
             const schemaData = {
                 version: 1,
                 projectId: "original-id",
@@ -531,37 +534,48 @@ describe("ProjectStore — Import Project", () => {
                 queriesData,
             });
 
-            const project = await store.importProject({
+            // Snapshot the original file contents BEFORE import
+            const origRelwave = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+            const origSchema = await fs.readFile(path.join(SOURCE_DIR, "schema", "schema.json"), "utf-8");
+            const origER = await fs.readFile(path.join(SOURCE_DIR, "diagrams", "er.json"), "utf-8");
+            const origQueries = await fs.readFile(path.join(SOURCE_DIR, "queries", "queries.json"), "utf-8");
+
+            await store.importProject({
                 sourcePath: SOURCE_DIR,
                 databaseId: "copy-db-id",
             });
 
-            // Files are updated IN-PLACE in the source dir (not copied elsewhere)
-            const updatedSchema = JSON.parse(
-                await fs.readFile(path.join(SOURCE_DIR, "schema", "schema.json"), "utf-8")
-            );
-            const updatedER = JSON.parse(
-                await fs.readFile(path.join(SOURCE_DIR, "diagrams", "er.json"), "utf-8")
-            );
-            const updatedQueries = JSON.parse(
-                await fs.readFile(path.join(SOURCE_DIR, "queries", "queries.json"), "utf-8")
-            );
+            // ALL tracked files must be IDENTICAL after import
+            const afterRelwave = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+            const afterSchema = await fs.readFile(path.join(SOURCE_DIR, "schema", "schema.json"), "utf-8");
+            const afterER = await fs.readFile(path.join(SOURCE_DIR, "diagrams", "er.json"), "utf-8");
+            const afterQueries = await fs.readFile(path.join(SOURCE_DIR, "queries", "queries.json"), "utf-8");
 
-            // Verify projectId was updated to new project ID
-            expect(updatedSchema.projectId).toBe(project.id);
-            expect(updatedER.projectId).toBe(project.id);
-            expect(updatedQueries.projectId).toBe(project.id);
+            expect(afterRelwave).toBe(origRelwave);
+            expect(afterSchema).toBe(origSchema);
+            expect(afterER).toBe(origER);
+            expect(afterQueries).toBe(origQueries);
+        });
 
-            // Verify databaseId was updated in schema
-            expect(updatedSchema.databaseId).toBe("copy-db-id");
+        test("should store databaseId in local config (git-ignored)", async () => {
+            await createSourceProject({ name: "Local Config Test" });
 
-            // Verify data was preserved
-            expect(updatedSchema.schemas).toHaveLength(1);
-            expect(updatedSchema.schemas[0].name).toBe("public");
-            expect(updatedER.nodes).toHaveLength(1);
-            expect(updatedER.nodes[0].tableId).toBe("users");
-            expect(updatedQueries.queries).toHaveLength(1);
-            expect(updatedQueries.queries[0].sql).toBe("SELECT * FROM users");
+            await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "local-db-id",
+            });
+
+            // databaseId should be in relwave.local.json (git-ignored)
+            const localConfig = JSON.parse(
+                await fs.readFile(path.join(SOURCE_DIR, "relwave.local.json"), "utf-8")
+            );
+            expect(localConfig.databaseId).toBe("local-db-id");
+
+            // relwave.json should still have the ORIGINAL databaseId (untouched)
+            const meta = JSON.parse(
+                await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8")
+            );
+            expect(meta.databaseId).toBe("original-db-id");
         });
 
         test("should handle missing sub-resource files gracefully", async () => {
@@ -622,16 +636,16 @@ describe("ProjectStore — Import Project", () => {
             expect(resolvedDir).toBe(SOURCE_DIR);
         });
 
-        test("should generate unique project ID (different from source)", async () => {
-            await createSourceProject({ name: "Unique ID Test" });
+        test("should keep the original project ID from relwave.json", async () => {
+            await createSourceProject({ name: "Keep ID Test" });
 
             const project = await store.importProject({
                 sourcePath: SOURCE_DIR,
                 databaseId: "uid-db-id",
             });
 
-            expect(project.id).toBeDefined();
-            expect(project.id).not.toBe("original-project-id");
+            // Must reuse the original projectId — never generate a new one
+            expect(project.id).toBe("original-project-id");
         });
 
         test("should preserve defaultSchema from source metadata", async () => {
@@ -643,6 +657,36 @@ describe("ProjectStore — Import Project", () => {
             });
 
             expect(project.defaultSchema).toBe("public");
+        });
+
+        test("should reject importing the same project twice", async () => {
+            await createSourceProject({ name: "Duplicate Test" });
+
+            // First import succeeds
+            await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "dup-db-id",
+            });
+
+            // Second import of the same project ID should fail
+            await expect(
+                store.importProject({ sourcePath: SOURCE_DIR, databaseId: "dup-db-id" })
+            ).rejects.toThrow("already imported");
+        });
+
+        test("should merge databaseId from local config in getProject", async () => {
+            await createSourceProject({ name: "Merge Test" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "merged-db-id",
+            });
+
+            // getProject should return the local databaseId, not the original
+            const loaded = await store.getProject(project.id);
+            expect(loaded).toBeDefined();
+            expect(loaded!.databaseId).toBe("merged-db-id");
+            expect(loaded!.name).toBe("Merge Test");
         });
     });
 
@@ -721,6 +765,36 @@ describe("ProjectStore — Import Project", () => {
             const updated = await store.linkDatabase(project.id, "db-id");
 
             expect(updated!.updatedAt).not.toBe(project.updatedAt);
+        });
+
+        test("should write to local config (not relwave.json) for imported projects", async () => {
+            await createSourceProject({ name: "Link Imported" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "initial-db-id",
+            });
+
+            // Snapshot relwave.json BEFORE linkDatabase
+            const beforeMeta = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+
+            // Re-link to a different database
+            const updated = await store.linkDatabase(project.id, "relinked-db-id");
+            expect(updated!.databaseId).toBe("relinked-db-id");
+
+            // relwave.json must NOT have changed
+            const afterMeta = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+            expect(afterMeta).toBe(beforeMeta);
+
+            // databaseId should be in local config
+            const localConfig = JSON.parse(
+                await fs.readFile(path.join(SOURCE_DIR, "relwave.local.json"), "utf-8")
+            );
+            expect(localConfig.databaseId).toBe("relinked-db-id");
+
+            // Index should have the updated databaseId
+            const listed = await store.listProjects();
+            expect(listed[0].databaseId).toBe("relinked-db-id");
         });
     });
 });
