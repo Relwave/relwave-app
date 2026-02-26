@@ -144,12 +144,20 @@ export function ImportProjectDialog({
     let createdDbId: string | null = null;
 
     try {
-      // 1. Create the database connection first
+      // 1. Validate port
+      const port = parseInt(dbForm.port, 10);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        setError("Invalid port number. Must be between 1 and 65535.");
+        setStep("preview");
+        return;
+      }
+
+      // 2. Create the database connection first
       const db = await bridgeApi.addDatabase({
         name: dbForm.name,
         type: dbForm.type,
         host: dbForm.host,
-        port: parseInt(dbForm.port, 10),
+        port,
         user: dbForm.user,
         password: dbForm.password,
         database: dbForm.database,
@@ -157,7 +165,7 @@ export function ImportProjectDialog({
       });
       createdDbId = db.id;
 
-      // 2. Import the project with a valid databaseId
+      // 3. Import the project with a valid databaseId
       const project = await bridgeApi.importProject({
         sourcePath: selectedPath,
         databaseId: db.id,

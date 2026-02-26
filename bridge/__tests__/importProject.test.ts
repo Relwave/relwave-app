@@ -797,4 +797,120 @@ describe("ProjectStore — Import Project", () => {
             expect(listed[0].databaseId).toBe("relinked-db-id");
         });
     });
+
+    // ─── updateProject for imported projects ──────────────────────────
+
+    describe("updateProject (imported)", () => {
+        test("should NOT modify relwave.json for imported projects", async () => {
+            await createSourceProject({ name: "Imported Update", description: "Old desc" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "db-1",
+            });
+
+            // Snapshot relwave.json BEFORE update
+            const beforeMeta = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+
+            await store.updateProject(project.id, {
+                name: "Renamed Locally",
+                description: "New desc",
+            });
+
+            // relwave.json must NOT have changed
+            const afterMeta = await fs.readFile(path.join(SOURCE_DIR, "relwave.json"), "utf-8");
+            expect(afterMeta).toBe(beforeMeta);
+        });
+
+        test("should store overrides in local config", async () => {
+            await createSourceProject({ name: "Override Test" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "db-1",
+            });
+
+            await store.updateProject(project.id, {
+                name: "Local Name",
+                description: "Local desc",
+                defaultSchema: "custom",
+            });
+
+            const localConfig = JSON.parse(
+                await fs.readFile(path.join(SOURCE_DIR, "relwave.local.json"), "utf-8")
+            );
+            expect(localConfig.overrides).toBeDefined();
+            expect(localConfig.overrides.name).toBe("Local Name");
+            expect(localConfig.overrides.description).toBe("Local desc");
+            expect(localConfig.overrides.defaultSchema).toBe("custom");
+        });
+
+        test("should merge overrides into getProject result", async () => {
+            await createSourceProject({ name: "Merge Test", description: "Original" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "db-1",
+            });
+
+            await store.updateProject(project.id, { name: "Overridden" });
+
+            const fetched = await store.getProject(project.id);
+            expect(fetched!.name).toBe("Overridden");
+            // Description stays from relwave.json (not overridden)
+            expect(fetched!.description).toBe("Original");
+        });
+
+        test("should sync index after imported project update", async () => {
+            await createSourceProject({ name: "Index Sync" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "db-1",
+            });
+
+            await store.updateProject(project.id, { name: "Updated Name" });
+
+            const listed = await store.listProjects();
+            const entry = listed.find((p) => p.id === project.id);
+            expect(entry!.name).toBe("Updated Name");
+        });
+
+        test("should preserve existing local config fields when adding overrides", async () => {
+            await createSourceProject({ name: "Preserve Fields" });
+
+            const project = await store.importProject({
+                sourcePath: SOURCE_DIR,
+                databaseId: "db-1",
+            });
+
+            // Local config already has databaseId from import
+            await store.updateProject(project.id, { name: "New Name" });
+
+            const localConfig = JSON.parse(
+                await fs.readFile(path.join(SOURCE_DIR, "relwave.local.json"), "utf-8")
+            );
+            // databaseId should still be there
+            expect(localConfig.databaseId).toBe("db-1");
+            // And overrides should be added
+            expect(localConfig.overrides.name).toBe("New Name");
+        });
+
+        test("should still modify relwave.json for regular (non-imported) projects", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "Regular Project",
+            });
+
+            const updated = await store.updateProject(project.id, {
+                name: "Renamed Regular",
+            });
+
+            expect(updated!.name).toBe("Renamed Regular");
+
+            // For regular projects, relwave.json should be updated directly
+            const fetched = await store.getProject(project.id);
+            expect(fetched!.name).toBe("Renamed Regular");
+        });
+    });
 });

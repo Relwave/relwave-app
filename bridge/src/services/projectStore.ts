@@ -116,6 +116,16 @@ export type LocalConfig = {
 
     /** Any developer-specific notes */
     notes?: string;
+
+    /** Local overrides for project metadata (imported projects only).
+     *  These take precedence over the tracked relwave.json values
+     *  so that renaming/re-describing an imported project never
+     *  modifies the committed file. */
+    overrides?: {
+        name?: string;
+        description?: string;
+        defaultSchema?: string;
+    };
 };
 
 
@@ -146,6 +156,8 @@ export class ProjectStore {
      */
     private sourcePathCache = new Map<string, string>();
     private cacheLoaded = false;
+    /** In-flight cache load promise — prevents redundant concurrent reads */
+    private cacheLoadPromise: Promise<void> | null = null;
 
     constructor(
         projectsFolder: string = PROJECTS_FOLDER,
@@ -158,9 +170,21 @@ export class ProjectStore {
     /**
      * Ensure the sourcePathCache is populated from the index.
      * Safe to call multiple times — only reads once.
+     * Uses a promise lock so concurrent callers share the same load.
      */
     private async ensureSourcePathCache(): Promise<void> {
         if (this.cacheLoaded) return;
+        if (this.cacheLoadPromise) return this.cacheLoadPromise;
+
+        this.cacheLoadPromise = this.loadSourcePathCache();
+        try {
+            await this.cacheLoadPromise;
+        } finally {
+            this.cacheLoadPromise = null;
+        }
+    }
+
+    private async loadSourcePathCache(): Promise<void> {
         const index = await this.loadIndex();
         for (const p of index.projects) {
             if (p.sourcePath) {
@@ -270,10 +294,15 @@ export class ProjectStore {
         );
         if (!meta) return null;
 
-        // Merge databaseId from local config (overrides the tracked value)
+        // Merge local config overrides (git-ignored → takes precedence)
         const local = await this.getLocalConfig(projectId);
         if (local?.databaseId) {
             meta.databaseId = local.databaseId;
+        }
+        if (local?.overrides) {
+            if (local.overrides.name !== undefined) meta.name = local.overrides.name;
+            if (local.overrides.description !== undefined) meta.description = local.overrides.description;
+            if (local.overrides.defaultSchema !== undefined) meta.defaultSchema = local.overrides.defaultSchema;
         }
 
         return meta;
@@ -413,18 +442,30 @@ export class ProjectStore {
             safeUpdates.defaultSchema = defaultSchema;
         }
 
-        const updated: ProjectMetadata = {
-            ...meta,
-            ...safeUpdates,
-            updatedAt: now,
-        };
+        await this.ensureSourcePathCache();
+        const isImported = this.sourcePathCache.has(projectId);
 
-        await this.writeJSON(
-            this.projectFile(projectId, PROJECT_FILES.metadata),
-            updated
-        );
+        if (isImported) {
+            // ---- Imported project: store overrides in local config ----
+            // This keeps the tracked relwave.json pristine so forks/clones
+            // never produce unnecessary diffs.
+            const local = (await this.getLocalConfig(projectId)) ?? {};
+            local.overrides = { ...(local.overrides ?? {}), ...safeUpdates };
+            await this.saveLocalConfig(projectId, local);
+        } else {
+            // ---- Regular project: update relwave.json directly ----
+            const updated: ProjectMetadata = {
+                ...meta,
+                ...safeUpdates,
+                updatedAt: now,
+            };
+            await this.writeJSON(
+                this.projectFile(projectId, PROJECT_FILES.metadata),
+                updated
+            );
+        }
 
-        // Sync the index entry
+        // Sync the index entry (always — index is internal)
         const index = await this.loadIndex();
         const entry = index.projects.find((p) => p.id === projectId);
         if (entry) {
@@ -434,7 +475,11 @@ export class ProjectStore {
             await this.saveIndex(index);
         }
 
-        return updated;
+        return {
+            ...meta,
+            ...safeUpdates,
+            updatedAt: now,
+        };
     }
 
     /**
@@ -740,6 +785,10 @@ export class ProjectStore {
             "# RelWave — auto-generated",
             "# Local config (connection credentials, environment overrides)",
             "relwave.local.json",
+            "",
+            "# Environment variables (database credentials)",
+            ".env",
+            ".env.*",
             "",
             "# OS / Editor",
             ".DS_Store",
