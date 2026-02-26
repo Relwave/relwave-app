@@ -4,6 +4,7 @@ import {
   Search,
   Trash2,
   Database,
+  Upload,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ interface ProjectListProps {
   selectedProject: string | null;
   setSelectedProject: (id: string | null) => void;
   onCreateClick: () => void;
+  onImportClick: () => void;
   onDelete: (id: string, name: string) => void;
   onOpen: (id: string) => void;
 }
@@ -46,6 +48,7 @@ export function ProjectList({
   selectedProject,
   setSelectedProject,
   onCreateClick,
+  onImportClick,
   onDelete,
   onOpen,
 }: ProjectListProps) {
@@ -55,14 +58,26 @@ export function ProjectList({
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-sm font-semibold">Projects</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onCreateClick}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onImportClick}
+              title="Import project"
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onCreateClick}
+              title="Create project"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />

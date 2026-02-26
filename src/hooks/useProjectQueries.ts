@@ -6,6 +6,8 @@ import {
   UpdateProjectParams,
   SchemaSnapshot,
   ERNode,
+  ImportProjectParams,
+  ProjectMetadata,
 } from "@/types/project";
 
 // ============================================
@@ -95,6 +97,20 @@ export function useCreateProject() {
 
   return useMutation({
     mutationFn: (params: CreateProjectParams) => bridgeApi.createProject(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+// ============================================
+// Import Project (from cloned repo)
+// ============================================
+export function useImportProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectMetadata, Error, ImportProjectParams>({
+    mutationFn: (params: ImportProjectParams) => bridgeApi.importProject(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
     },

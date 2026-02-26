@@ -1,7 +1,6 @@
 import { Rpc } from "../types";
 import { Logger } from "pino";
 import { projectStoreInstance } from "../services/projectStore";
-import { getProjectDir } from "../utils/config";
 
 /**
  * RPC handlers for project CRUD and sub-resource operations.
@@ -337,7 +336,7 @@ export class ProjectHandlers {
                     message: "Missing projectId",
                 });
             }
-            const dir = getProjectDir(projectId);
+            const dir = await projectStoreInstance.resolveProjectDir(projectId);
             this.rpc.sendResponse(id, { ok: true, data: { dir } });
         } catch (e: any) {
             this.logger?.error({ e }, "project.getDir failed");
@@ -392,6 +391,79 @@ export class ProjectHandlers {
             this.rpc.sendResponse(id, { ok: true, data: { modified } });
         } catch (e: any) {
             this.logger?.error({ e }, "project.ensureGitignore failed");
+            this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+        }
+    }
+    
+    /** Read-only scan — returns metadata + .env info without creating anything. */
+    async handleScanImport(params: any, id: number | string) {
+        try {
+            const { sourcePath } = params || {};
+            if (!sourcePath) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing sourcePath",
+                });
+            }
+
+            const result = await projectStoreInstance.scanImportSource(sourcePath);
+            this.rpc.sendResponse(id, { ok: true, data: result });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.scanImport failed");
+            this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+        }
+    }
+
+    /** Import a project — requires a valid databaseId (no more "pending" fallback). */
+    async handleImportProject(params: any, id: number | string) {
+        try {
+            const { sourcePath, databaseId } = params || {};
+            if (!sourcePath) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing sourcePath",
+                });
+            }
+            if (!databaseId) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing databaseId — create a database connection first",
+                });
+            }
+
+            const project = await projectStoreInstance.importProject({
+                sourcePath,
+                databaseId,
+            });
+
+            this.rpc.sendResponse(id, { ok: true, data: project });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.import failed");
+            this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+        }
+    }
+
+    async handleLinkDatabase(params: any, id: number | string) {
+        try {
+            const { projectId, databaseId } = params || {};
+            if (!projectId || !databaseId) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing projectId or databaseId",
+                });
+            }
+
+            const project = await projectStoreInstance.linkDatabase(projectId, databaseId);
+            if (!project) {
+                return this.rpc.sendError(id, {
+                    code: "NOT_FOUND",
+                    message: "Project not found",
+                });
+            }
+
+            this.rpc.sendResponse(id, { ok: true, data: project });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.linkDatabase failed");
             this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
         }
     }
