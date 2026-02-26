@@ -129,6 +129,7 @@ type ProjectIndex = {
 const PROJECT_FILES = {
     metadata: "relwave.json",
     localConfig: "relwave.local.json",
+    readme: "README.md",
     schema: path.join("schema", "schema.json"),
     erDiagram: path.join("diagrams", "er.json"),
     queries: path.join("queries", "queries.json"),
@@ -360,6 +361,13 @@ export class ProjectStore {
         // Create empty local config (will be gitignored)
         const emptyLocal: LocalConfig = {};
         await this.writeJSON(this.projectFile(id, PROJECT_FILES.localConfig), emptyLocal);
+
+        // Generate README with setup instructions
+        await this.ensureReadme(id, {
+            name: params.name,
+            description: params.description,
+            engine,
+        });
 
         // Update global index
         const index = await this.loadIndex();
@@ -749,6 +757,178 @@ export class ProjectStore {
 
         await fs.writeFile(giPath, rules, "utf-8");
         return true;
+    }
+
+    // ==========================================
+    // README generation
+    // ==========================================
+
+    /**
+     * Generate a README.md with connection instructions and .env reference.
+     * Only writes if a README.md doesn't already exist (idempotent).
+     */
+    async ensureReadme(
+        projectId: string,
+        meta: { name: string; description?: string; engine?: string }
+    ): Promise<boolean> {
+        const readmePath = this.projectFile(projectId, PROJECT_FILES.readme);
+        if (fsSync.existsSync(readmePath)) return false;
+
+        const engineLabel = this.engineDisplayName(meta.engine);
+        const envExample = this.envExampleBlock(meta.engine);
+
+        const lines = [
+            `# ${meta.name}`,
+            "",
+        ];
+
+        if (meta.description) {
+            lines.push(meta.description, "");
+        }
+
+        lines.push(
+            `> Managed with [RelWave](https://github.com/Relwave/relwave-app) — a git-native database management app.`,
+            "",
+            "---",
+            "",
+            "## Getting Started",
+            "",
+            "### 1. Clone and open in RelWave",
+            "",
+            "```bash",
+            "git clone <repo-url>",
+            "```",
+            "",
+            "Open **RelWave → Import Project** and select the cloned folder.",
+            "",
+            `### 2. Configure your local database connection`,
+            "",
+            `Each developer connects to their **own** ${engineLabel} instance.`,
+            "Connection credentials are stored in `relwave.local.json` (git-ignored),",
+            "so they never leak into version control.",
+            "",
+            "You can either:",
+            "",
+            "- Enter connection details in the **RelWave UI** when importing the project, or",
+            "- Create a `.env` file in the project root (also git-ignored by default).",
+            "",
+            "### 3. `.env` file reference",
+            "",
+            "Create a `.env` file in the project root with your database credentials:",
+            "",
+            "```env",
+            ...envExample,
+            "```",
+            "",
+            "RelWave will auto-detect these variables when you import the project.",
+            "",
+            "#### Supported variable names",
+            "",
+            "| Variable | Aliases |",
+            "|----------|---------|",
+            "| `DB_HOST` | `DATABASE_HOST`, `PGHOST`, `MYSQL_HOST` |",
+            "| `DB_PORT` | `DATABASE_PORT`, `PGPORT`, `MYSQL_PORT` |",
+            "| `DB_USER` | `DATABASE_USER`, `PGUSER`, `MYSQL_USER`, `DB_USERNAME` |",
+            "| `DB_PASSWORD` | `DATABASE_PASSWORD`, `PGPASSWORD`, `MYSQL_PASSWORD` |",
+            "| `DB_NAME` | `DB_DATABASE`, `DATABASE_NAME`, `PGDATABASE`, `MYSQL_DATABASE` |",
+            "| `DB_TYPE` | `DATABASE_TYPE`, `DB_ENGINE` |",
+            "| `DB_SSL` | `DATABASE_SSL` |",
+            "",
+            "---",
+            "",
+            "## Project Structure",
+            "",
+            "```",
+            "├── relwave.json            # Project metadata (committed)",
+            "├── relwave.local.json      # Local connection config (git-ignored)",
+            "├── .gitignore",
+            "├── .env                    # Optional — local DB credentials (git-ignored)",
+            "├── README.md",
+            "├── schema/",
+            "│   └── schema.json         # Cached database schema snapshot",
+            "├── diagrams/",
+            "│   └── er.json             # ER diagram layout",
+            "└── queries/",
+            "    └── queries.json         # Saved SQL queries",
+            "```",
+            "",
+            "---",
+            "",
+            "## Collaboration",
+            "",
+            "- **`relwave.json`** is committed — it contains the project name, description,",
+            "  and default schema. The `projectId` is stable across all forks.",
+            "- **`relwave.local.json`** is git-ignored — each developer stores their own",
+            "  `databaseId` and connection preferences here. No credentials are ever committed.",
+            "- **Schema / ER / Queries** are committed so all collaborators share the same",
+            "  database documentation and saved queries.",
+            "",
+        );
+
+        await fs.writeFile(readmePath, lines.join("\n"), "utf-8");
+        return true;
+    }
+
+    /**
+     * Return a user-friendly engine name for README text.
+     */
+    private engineDisplayName(engine?: string): string {
+        switch (engine?.toLowerCase()) {
+            case "postgresql":
+            case "postgres":
+                return "PostgreSQL";
+            case "mysql":
+                return "MySQL";
+            case "mariadb":
+                return "MariaDB";
+            default:
+                return "database";
+        }
+    }
+
+    /**
+     * Return engine-appropriate .env example lines.
+     */
+    private envExampleBlock(engine?: string): string[] {
+        const e = engine?.toLowerCase();
+        if (e === "mysql") {
+            return [
+                "MYSQL_HOST=localhost",
+                "MYSQL_PORT=3306",
+                "MYSQL_USER=root",
+                "MYSQL_PASSWORD=your_password",
+                "MYSQL_DATABASE=your_database",
+            ];
+        }
+        if (e === "mariadb") {
+            return [
+                "DB_HOST=localhost",
+                "DB_PORT=3307",
+                "DB_USER=root",
+                "DB_PASSWORD=your_password",
+                "DB_NAME=your_database",
+                "DB_TYPE=mariadb",
+            ];
+        }
+        // Default to PostgreSQL-style
+        if (!e || e === "postgresql" || e === "postgres") {
+            return [
+                "PGHOST=localhost",
+                "PGPORT=5432",
+                "PGUSER=postgres",
+                "PGPASSWORD=your_password",
+                "PGDATABASE=your_database",
+            ];
+        }
+        // Generic fallback
+        return [
+            "DB_HOST=localhost",
+            "DB_PORT=5432",
+            "DB_USER=your_user",
+            "DB_PASSWORD=your_password",
+            "DB_NAME=your_database",
+            "DB_TYPE=" + (engine || "postgresql"),
+        ];
     }
 
     // ==========================================

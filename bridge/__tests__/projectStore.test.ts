@@ -563,4 +563,90 @@ describe("ProjectStore", () => {
             expect(content).toContain("relwave.local.json");
         });
     });
+
+    // ==========================================
+    // README Generation
+    // ==========================================
+
+    describe("README Generation", () => {
+        test("should create README.md on project creation", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "My Project",
+                description: "A cool database project",
+            });
+            const dir = getProjectDir(project.id);
+            const readmePath = path.join(dir, "README.md");
+            expect(fsSync.existsSync(readmePath)).toBe(true);
+        });
+
+        test("should include project name and description", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "ReadmeProject",
+                description: "This is the project description",
+            });
+            const dir = getProjectDir(project.id);
+            const content = await fs.readFile(path.join(dir, "README.md"), "utf-8");
+            expect(content).toContain("# ReadmeProject");
+            expect(content).toContain("This is the project description");
+        });
+
+        test("should include .env reference and variable table", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "EnvRef",
+            });
+            const dir = getProjectDir(project.id);
+            const content = await fs.readFile(path.join(dir, "README.md"), "utf-8");
+            expect(content).toContain(".env");
+            expect(content).toContain("DB_HOST");
+            expect(content).toContain("PGHOST");
+            expect(content).toContain("MYSQL_HOST");
+        });
+
+        test("should include project structure section", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "StructureRef",
+            });
+            const dir = getProjectDir(project.id);
+            const content = await fs.readFile(path.join(dir, "README.md"), "utf-8");
+            expect(content).toContain("relwave.json");
+            expect(content).toContain("relwave.local.json");
+            expect(content).toContain("schema.json");
+            expect(content).toContain("er.json");
+            expect(content).toContain("queries.json");
+        });
+
+        test("should include collaboration notes", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "CollabRef",
+            });
+            const dir = getProjectDir(project.id);
+            const content = await fs.readFile(path.join(dir, "README.md"), "utf-8");
+            expect(content).toContain("Collaboration");
+            expect(content).toContain("git-ignored");
+        });
+
+        test("should be idempotent (not overwrite existing README)", async () => {
+            const project = await store.createProject({
+                databaseId: "db-1",
+                name: "IdempotentReadme",
+            });
+            const dir = getProjectDir(project.id);
+            const readmePath = path.join(dir, "README.md");
+
+            // Overwrite with custom content
+            await fs.writeFile(readmePath, "# Custom README\n", "utf-8");
+
+            // ensureReadme should NOT replace it
+            const result = await store.ensureReadme(project.id, { name: "IdempotentReadme" });
+            expect(result).toBe(false);
+
+            const content = await fs.readFile(readmePath, "utf-8");
+            expect(content).toBe("# Custom README\n");
+        });
+    });
 });
