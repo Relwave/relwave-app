@@ -38,6 +38,20 @@ function ThemeVariantInitializer() {
 import TitleBar from './components/common/TitleBar';
 
 function AppRoot() {
+  useEffect(() => {
+    const handleSelectAll = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        const tag = (e.target as HTMLElement)?.tagName;
+        const isEditable = (e.target as HTMLElement)?.isContentEditable;
+        // Allow Ctrl+A inside inputs, textareas, and contenteditable
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('keydown', handleSelectAll);
+    return () => document.removeEventListener('keydown', handleSelectAll);
+  }, []);
+
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
