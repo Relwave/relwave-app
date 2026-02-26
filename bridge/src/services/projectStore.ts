@@ -263,6 +263,8 @@ export class ProjectStore {
      * modified with machine-specific connection IDs.
      */
     async getProject(projectId: string): Promise<ProjectMetadata | null> {
+        // Ensure the source path cache is loaded before resolving project files.
+        await this.ensureSourcePathCache();
         const meta = await this.readJSON<ProjectMetadata>(
             this.projectFile(projectId, PROJECT_FILES.metadata)
         );
@@ -996,7 +998,7 @@ export class ProjectStore {
         if (!host && !database) return null;
 
         const port = portStr ? parseInt(portStr, 10) : undefined;
-        const ssl = sslStr ? ["true", "1", "yes"].includes(sslStr.toLowerCase()) : undefined;
+        const ssl = sslStr ? !["false", "0", "no"].includes(sslStr.toLowerCase()) : undefined;
 
         return {
             host,

@@ -141,6 +141,8 @@ export function ImportProjectDialog({
     setError(null);
     setStep("importing");
 
+    let createdDbId: string | null = null;
+
     try {
       // 1. Create the database connection first
       const db = await bridgeApi.addDatabase({
@@ -153,6 +155,7 @@ export function ImportProjectDialog({
         database: dbForm.database,
         ssl: dbForm.ssl,
       });
+      createdDbId = db.id;
 
       // 2. Import the project with a valid databaseId
       const project = await bridgeApi.importProject({
@@ -166,6 +169,14 @@ export function ImportProjectDialog({
       // Notify parent so it can invalidate caches + select the project
       onComplete(project.id, project.name);
     } catch (err: any) {
+      // Roll back the database connection if it was created but import failed
+      if (createdDbId) {
+        try {
+          await bridgeApi.deleteDatabase(createdDbId);
+        } catch {
+          // Best-effort cleanup — don't mask the original error
+        }
+      }
       setError(err.message || "Import failed");
       setStep("preview"); // Go back so user can retry
     }
