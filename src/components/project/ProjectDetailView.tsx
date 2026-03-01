@@ -184,20 +184,6 @@ export function ProjectDetailView({
             </p>
           </div>
         </div>
-
-        {/* Future: git-native section placeholder */}
-        <div className="mt-8 p-4 rounded-xl border border-dashed border-border/50 flex items-center gap-3">
-          <GitBranch className="h-5 w-5 text-muted-foreground/50" />
-          <div>
-            <p className="text-sm font-medium text-muted-foreground/70">
-              Git-native support coming soon
-            </p>
-            <p className="text-xs text-muted-foreground/50">
-              Version-control your project files, track schema changes, and
-              collaborate with your team.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
