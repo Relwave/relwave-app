@@ -47,10 +47,10 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                             <div
                                                 className={`flex items-center gap-2 p-2 rounded-md cursor-pointer 
                                                         hover:bg-accent transition-colors 
-                                                        ${selectedItem === `${database.name}.${schema.name}` ? "bg-accent/60" : ""}`}
+                                                        ${selectedItem === `${database.name}:::${schema.name}` ? "bg-accent/60" : ""}`}
                                                 onClick={() => {
                                                     toggleSchema(schema.name);
-                                                    setSelectedItem(`${database.name}.${schema.name}`);
+                                                    setSelectedItem(`${database.name}:::${schema.name}`);
                                                 }}
                                             >
                                                 {expandedSchemas.has(schema.name) ? (
@@ -101,10 +101,10 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                         <div
                                                                             className={`flex items-center gap-2 p-2 rounded-md cursor-pointer 
                                                                                     hover:bg-accent transition-colors 
-                                                                                    ${selectedItem === `${database.name}.${schema.name}.${table.name}` ? "bg-accent/60" : ""}`}
+                                                                                    ${selectedItem === `${database.name}:::${schema.name}:::${table.name}` ? "bg-accent/60" : ""}`}
                                                                             onClick={() => {
                                                                                 toggleTable(table.name);
-                                                                                setSelectedItem(`${database.name}.${schema.name}.${table.name}`);
+                                                                                setSelectedItem(`${database.name}:::${schema.name}:::${table.name}`);
                                                                             }}
                                                                         >
                                                                             {expandedTables.has(table.name) ? (
@@ -150,9 +150,9 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                                                             <div
                                                                                                                 className={`flex items-center justify-between gap-2 p-1.5 rounded-md cursor-pointer text-xs 
                                                                                                                         hover:bg-accent transition-colors
-                                                                                                                        ${selectedItem === `${database.name}.${schema.name}.${table.name}.${column.name}` ? "bg-accent/60" : ""}`}
+                                                                                                                        ${selectedItem === `${database.name}:::${schema.name}:::${table.name}:::${column.name}` ? "bg-accent/60" : ""}`}
                                                                                                                 onClick={() =>
-                                                                                                                    setSelectedItem(`${database.name}.${schema.name}.${table.name}.${column.name}`)
+                                                                                                                    setSelectedItem(`${database.name}:::${schema.name}:::${table.name}:::${column.name}`)
                                                                                                                 }
                                                                                                             >
                                                                                                                 <div className="flex items-center gap-1 flex-1 min-w-0">
@@ -241,8 +241,8 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                         <TooltipTrigger asChild>
                                                                             <div
                                                                                 className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer text-xs hover:bg-accent transition-colors
-                                                                                        ${selectedItem === `${database.name}.${schema.name}.enum.${enumName}` ? "bg-accent/60" : ""}`}
-                                                                                onClick={() => setSelectedItem(`${database.name}.${schema.name}.enum.${enumName}`)}
+                                                                                        ${selectedItem === `${database.name}:::${schema.name}:::enum:::${enumName}` ? "bg-accent/60" : ""}`}
+                                                                                onClick={() => setSelectedItem(`${database.name}:::${schema.name}:::enum:::${enumName}`)}
                                                                             >
                                                                                 <List className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                                                                                 <span className="text-foreground">{enumName}</span>
@@ -272,8 +272,8 @@ const TreeViewPanel = ({ database, expandedSchemas, expandedTables, toggleSchema
                                                                     <TooltipTrigger asChild>
                                                                         <div
                                                                             className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer text-xs hover:bg-accent transition-colors
-                                                                                    ${selectedItem === `${database.name}.${schema.name}.seq.${seq.sequence_name}` ? "bg-accent/60" : ""}`}
-                                                                            onClick={() => setSelectedItem(`${database.name}.${schema.name}.seq.${seq.sequence_name}`)}
+                                                                                    ${selectedItem === `${database.name}:::${schema.name}:::seq:::${seq.sequence_name}` ? "bg-accent/60" : ""}`}
+                                                                            onClick={() => setSelectedItem(`${database.name}:::${schema.name}:::seq:::${seq.sequence_name}`)}
                                                                         >
                                                                             <Hash className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                                                                             <span className="text-foreground truncate">{seq.sequence_name}</span>

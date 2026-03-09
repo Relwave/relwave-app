@@ -69,7 +69,7 @@ export default function SchemaExplorerPanel({ dbId, projectId }: SchemaExplorerP
         }
 
         // Parse selectedItem format: "database.schema.table"
-        const parts = selectedItem.split('.');
+        const parts = selectedItem.split(':::');
 
         // If it's just database or database.schema, no table selected
         if (parts.length < 3) {

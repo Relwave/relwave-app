@@ -24,7 +24,7 @@ const MetaDataPanel = ({ selectedItem, database }: MetaDataPanelProps) => {
             );
         }
 
-        const pathParts = selectedItem.split(".");
+        const pathParts = selectedItem.split(":::");
 
         // === DATABASE ===
         if (pathParts.length === 1) {
