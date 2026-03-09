@@ -391,8 +391,10 @@ export class QueryExecutor {
     } else if (dbType === DBType.MARIADB) {
       return this.mariadb.listSchemaNames(conn);
     } else if (dbType === DBType.MYSQL) {
-      return this.mysql.listSchemaNames(conn);    } else if (dbType === DBType.SQLITE) {
-      return this.sqlite.listSchemaNames(conn);    }
+      return this.mysql.listSchemaNames(conn);
+    } else if (dbType === DBType.SQLITE) {
+      return this.sqlite.listSchemaNames(conn);
+    }
     return ["public"];
   }
 }

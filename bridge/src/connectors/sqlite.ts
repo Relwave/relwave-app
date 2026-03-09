@@ -270,12 +270,24 @@ function quoteIdent(name: string): string {
 /** Test connection to SQLite database (checks if file is accessible) */
 export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
   try {
-    const db = openDB(cfg);
+    // Ensure the database file exists to avoid implicitly creating a new empty DB
+    if (!fs.existsSync(cfg.path)) {
+      return {
+        ok: false,
+        status: "disconnected",
+        message: `Database file does not exist at path: ${cfg.path}`,
+      };
+    }
+    // Use fileMustExist so better-sqlite3 will not create a new file during connection test
+    const db = new Database(cfg.path, {
+      readonly: cfg.readonly ?? false,
+      fileMustExist: true,
+    });
     db.pragma("journal_mode");
     db.close();
-    return { ok: true, status: 'connected', message: "Connection successful" };
+    return { ok: true, status: "connected", message: "Connection successful" };
   } catch (err: any) {
-    return { ok: false, message: err.message || String(err), status: 'disconnected' };
+    return { ok: false, message: err.message || String(err), status: "disconnected" };
   }
 }
 
@@ -451,15 +463,23 @@ export async function getDBStats(cfg: SQLiteConfig): Promise<DBStats> {
     const pageSize = db.pragma("page_size", { simple: true }) as number;
     const totalSizeMB = (pageCount * pageSize) / (1024 * 1024);
 
-    // Count total rows across all tables
+    // Count total rows across all tables.
+    // On large databases this can be very expensive and will block the event loop
+    // because better-sqlite3 is synchronous. To keep stats fetching responsive,
+    // only compute total_rows for databases up to a certain size.
+    const MAX_DB_SIZE_MB_FOR_ROWCOUNT = 50;
     let totalRows = 0;
-    const tables = db.prepare(SQLITE_LIST_TABLES).all() as any[];
-    for (const t of tables) {
-      try {
-        const countRow = db.prepare(`SELECT COUNT(*) AS cnt FROM ${quoteIdent(t.name)}`).get() as any;
-        totalRows += Number(countRow?.cnt) || 0;
-      } catch {
-        // Skip tables that can't be counted
+    if (totalSizeMB <= MAX_DB_SIZE_MB_FOR_ROWCOUNT) {
+      const tables = db.prepare(SQLITE_LIST_TABLES).all() as any[];
+      for (const t of tables) {
+        try {
+          const countRow = db
+            .prepare(`SELECT COUNT(*) AS cnt FROM ${quoteIdent(t.name)}`)
+            .get() as any;
+          totalRows += Number(countRow?.cnt) || 0;
+        } catch {
+          // Skip tables that can't be counted
+        }
       }
     }
 

@@ -62,40 +62,72 @@ fn spawn_bridge_process(app_handle: &AppHandle) -> Result<Child, String> {
         }
     }
 
-    // 2) Try bundled bridge executable (PRODUCTION - compiled with pkg)
-    if let Some(resource_path) = get_resource_path(app_handle) {
-        if let Some(child) = try_bundled_exe(&resource_path) {
-            return Ok(child);
-        }
-        if let Some(child) = try_bundled_scripts(&resource_path) {
-            return Ok(child);
-        }
-    }
-
-    // 3) Try exe directory (where the executable is located - works for deb/appimage on Linux)
-    if let Some(exe_dir) = get_exe_dir() {
-        if let Some(child) = try_exe_dir_binary(&exe_dir) {
-            return Ok(child);
-        }
-        if let Some(child) = try_exe_dir_scripts(&exe_dir) {
-            return Ok(child);
-        }
-    }
-
-    // 4) Try local development path ./bridge/dist
-    if let Some(child) = try_local_dev_path() {
-        return Ok(child);
-    }
-
-    // 5) Check ../../bridge/dist (two levels up from target/release)
-    if let Some(child) = try_parent_dev_path() {
-        return Ok(child);
-    }
-
-    // 6) Try pnpm dev (development only)
+    // --- Development: prefer Node scripts over pkg binaries ---
+    // In debug builds, Tauri copies the pkg-compiled bridge binary from
+    // externalBin into target/debug/. That binary cannot load native modules
+    // (e.g. better-sqlite3), so we must find and run the Node script first.
     #[cfg(debug_assertions)]
-    if let Some(child) = try_pnpm_dev() {
-        return Ok(child);
+    {
+        // Try local development path ./bridge/dist
+        if let Some(child) = try_local_dev_path() {
+            return Ok(child);
+        }
+
+        // Check ../../bridge/dist (two levels up from target/debug)
+        if let Some(child) = try_parent_dev_path() {
+            return Ok(child);
+        }
+
+        // Try bundled scripts in resource directory
+        if let Some(resource_path) = get_resource_path(app_handle) {
+            if let Some(child) = try_bundled_scripts(&resource_path) {
+                return Ok(child);
+            }
+        }
+
+        // Try scripts in exe directory
+        if let Some(exe_dir) = get_exe_dir() {
+            if let Some(child) = try_exe_dir_scripts(&exe_dir) {
+                return Ok(child);
+            }
+        }
+
+        // Try pnpm dev as last resort
+        if let Some(child) = try_pnpm_dev() {
+            return Ok(child);
+        }
+    }
+
+    // --- Production: prefer bundled binaries ---
+    #[cfg(not(debug_assertions))]
+    {
+        // Try bundled bridge executable (compiled with pkg)
+        if let Some(resource_path) = get_resource_path(app_handle) {
+            if let Some(child) = try_bundled_exe(&resource_path) {
+                return Ok(child);
+            }
+            if let Some(child) = try_bundled_scripts(&resource_path) {
+                return Ok(child);
+            }
+        }
+
+        // Try exe directory (works for deb/appimage on Linux)
+        if let Some(exe_dir) = get_exe_dir() {
+            if let Some(child) = try_exe_dir_binary(&exe_dir) {
+                return Ok(child);
+            }
+            if let Some(child) = try_exe_dir_scripts(&exe_dir) {
+                return Ok(child);
+            }
+        }
+
+        // Fallback to local dev paths
+        if let Some(child) = try_local_dev_path() {
+            return Ok(child);
+        }
+        if let Some(child) = try_parent_dev_path() {
+            return Ok(child);
+        }
     }
 
     Err(
@@ -107,6 +139,7 @@ fn spawn_bridge_process(app_handle: &AppHandle) -> Result<Child, String> {
     )
 }
 
+#[cfg(not(debug_assertions))]
 fn try_bundled_exe(resource_path: &Path) -> Option<Child> {
     #[cfg(target_os = "windows")]
     let bridge_exe = resource_path.join("bridge.exe");
@@ -180,6 +213,7 @@ fn try_exe_dir_scripts(exe_dir: &Path) -> Option<Child> {
 }
 
 /// Try to find and spawn bridge binary in the exe directory (for Linux deb/appimage and Windows)
+#[cfg(not(debug_assertions))]
 fn try_exe_dir_binary(exe_dir: &Path) -> Option<Child> {
     #[cfg(target_os = "windows")]
     let binary_names = ["bridge.exe", "_up_/bridge.exe"];

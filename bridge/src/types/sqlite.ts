@@ -27,8 +27,11 @@ export type SQLiteSchemaMetadataBatch = {
 };
 
 /**
- * SQLite-specific alter table operations
- * SQLite has limited ALTER TABLE support (only ADD COLUMN and RENAME COLUMN/TABLE)
+* SQLite has limited ALTER TABLE support:
+ * - ADD COLUMN
+ * - DROP COLUMN (requires SQLite 3.35.0+)
+ * - RENAME COLUMN
+ * - RENAME TABLE
  */
 export type SQLiteAlterTableOperation =
     | { type: "ADD_COLUMN"; column: ColumnDetail }

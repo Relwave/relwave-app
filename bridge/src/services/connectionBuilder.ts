@@ -8,8 +8,12 @@ export class ConnectionBuilder {
     dbType: DBType
   ): DatabaseConfig | SQLiteConfig {
     if (dbType === DBType.SQLITE) {
+      const path = db.database || db.path;
+      if (!path || typeof path !== "string" || !path.trim()) {
+        throw new Error("SQLite connection requires a non-empty file path");
+      }
       return {
-        path: db.database || db.path,
+        path,
         readonly: db.readonly ?? false,
       } as SQLiteConfig;
     }
