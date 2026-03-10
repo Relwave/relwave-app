@@ -1,6 +1,6 @@
 import { toPng, toSvg } from "html-to-image";
-import { ChevronDown, Cloud, Database, Download, Filter, HardDrive, LayoutGrid, Layers, RefreshCw, Search, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Cloud, Database, Download, HardDrive, LayoutGrid, Layers, MessageSquare, RefreshCw, Search, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
     Background,
@@ -35,6 +35,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+
+const AnnotationLayer = lazy(() => import("@/components/er-diagram/AnnotationLayer"));
 
 interface Column extends ColumnDetails {
     fkRef?: string; // e.g., "public.roles.id"
@@ -75,6 +77,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
     const [hoveredEdge, setHoveredEdge] = useState<Edge | null>(null);
     const [selectedSchema, setSelectedSchema] = useState<string>("__all__");
     const [isSyncing, setIsSyncing] = useState(false);
+    const [annotationMode, setAnnotationMode] = useState(false);
 
     // Use the smart data source hook (offline-first + live fallback)
     const {
@@ -304,9 +307,14 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
     }, []);
 
     // --- Export logic ---
+    const diagramContainerRef = useRef<HTMLDivElement>(null);
+
     const handleExport = useCallback(
         async (format: ExportFormat) => {
-            const flowContainer = document.querySelector(".react-flow__renderer");
+            // When annotation mode is on, capture the full container (ReactFlow + annotations)
+            const flowContainer = annotationMode && diagramContainerRef.current
+                ? diagramContainerRef.current
+                : document.querySelector(".react-flow__renderer");
             if (!flowContainer) {
                 toast.error("Export Failed", { description: "Could not find the diagram container." });
                 return;
@@ -332,7 +340,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                 toast.error("Export Failed", { description: "Error capturing image data." });
             }
         },
-        [schemaData]
+        [schemaData, annotationMode]
     );
 
     // MiniMap node color based on schema
@@ -528,6 +536,26 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                                 </TooltipContent>
                             </Tooltip>
                         )}
+                        {/* Annotation mode toggle */}
+                        {projectId && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={() => setAnnotationMode(prev => !prev)}
+                                        className={`p-2 border rounded-md transition-colors ${
+                                            annotationMode
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-border hover:bg-muted"
+                                        }`}
+                                    >
+                                        <MessageSquare className="h-4 w-4" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" sideOffset={8}>
+                                    {annotationMode ? "Exit annotation mode" : "Annotate diagram"}
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <button
@@ -553,7 +581,14 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                 </div>
             </header>
 
-            <div className="flex-1 relative">
+            <div className="flex-1 relative" ref={diagramContainerRef}>
+                {/* Annotation overlay — rendered above ReactFlow when project has annotations support */}
+                {projectId && annotationMode && (
+                    <Suspense fallback={null}>
+                        <AnnotationLayer projectId={projectId} active={annotationMode} />
+                    </Suspense>
+                )}
+
                 <ReactFlow
                     nodes={searchQuery ? filteredNodes : nodes}
                     edges={edges}
@@ -567,6 +602,13 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                     minZoom={0.1}
                     maxZoom={4}
                     defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+                    nodesDraggable={!annotationMode}
+                    nodesConnectable={!annotationMode}
+                    elementsSelectable={!annotationMode}
+                    panOnDrag={!annotationMode}
+                    zoomOnScroll={!annotationMode}
+                    zoomOnDoubleClick={!annotationMode}
+                    zoomOnPinch={!annotationMode}
                 >
                     <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="bg-background" />
                     <Controls showFitView={true} style={{ bottom: 16, left: 16 }} />
@@ -626,10 +668,17 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                         {selectedNodeId && ` • Selected: ${selectedNodeId.split('.')[1]}`}
                     </span>
                     <span className="flex items-center gap-3">
+                        {annotationMode && (
+                            <span className="text-primary font-medium">Annotation Mode</span>
+                        )}
                         {savedLayout && (
                             <span className="text-muted-foreground/60">Layout saved</span>
                         )}
-                        <span>Click table to highlight • Drag to pan • Scroll to zoom</span>
+                        <span>
+                            {annotationMode
+                                ? "Draw on the canvas • Press Esc or toggle button to exit"
+                                : "Click table to highlight • Drag to pan • Scroll to zoom"}
+                        </span>
                     </span>
                 </div>
             </div>

@@ -55,6 +55,13 @@ export interface ERDiagramFile {
   updatedAt: string;
 }
 
+export interface AnnotationsFile {
+  version: number;
+  projectId: string;
+  snapshot: Record<string, any>;
+  updatedAt: string;
+}
+
 export interface SchemaSnapshot {
   name: string;
   tables: TableSnapshot[];
@@ -102,6 +109,7 @@ export interface ProjectExport {
   metadata: ProjectMetadata;
   schema: SchemaFile | null;
   erDiagram: ERDiagramFile | null;
+  annotations: AnnotationsFile | null;
   queries: QueriesFile | null;
 }
 
