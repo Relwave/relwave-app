@@ -79,6 +79,16 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
     const [isSyncing, setIsSyncing] = useState(false);
     const [annotationMode, setAnnotationMode] = useState(false);
 
+    // Exit annotation mode on Escape key
+    useEffect(() => {
+        if (!annotationMode) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setAnnotationMode(false);
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [annotationMode]);
+
     // Use the smart data source hook (offline-first + live fallback)
     const {
         schemaData,
@@ -582,8 +592,8 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
             </header>
 
             <div className="flex-1 relative" ref={diagramContainerRef}>
-                {/* Annotation overlay — rendered above ReactFlow when project has annotations support */}
-                {projectId && annotationMode && (
+                {/* Annotation overlay — stays mounted to avoid re-loading; toggled via active prop */}
+                {projectId && (
                     <Suspense fallback={null}>
                         <AnnotationLayer projectId={projectId} active={annotationMode} />
                     </Suspense>

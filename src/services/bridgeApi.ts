@@ -1,5 +1,6 @@
 import { AddDatabaseParams, ConnectionTestResult, CreateTableColumn, DatabaseConnection, DatabaseSchemaDetails, DatabaseStats, DiscoveredDatabase, RunQueryParams, TableRow, UpdateDatabaseParams } from "@/types/database";
 import { ProjectSummary, ProjectMetadata, CreateProjectParams, UpdateProjectParams, SchemaFile, SchemaSnapshot, ERDiagramFile, ERNode, QueriesFile, SavedQuery, ProjectExport, ImportProjectParams, ScanImportResult, AnnotationsFile } from "@/types/project";
+import type { TLEditorSnapshot } from "tldraw";
 import { GitStatus, GitFileChange, GitLogEntry, GitBranchInfo, GitRemoteInfo, GitPushPullResult } from "@/types/git";
 import { bridgeRequest } from "./bridgeClient";
 
@@ -968,10 +969,13 @@ class BridgeApiService {
    */
   async saveProjectAnnotations(
     projectId: string,
-    snapshot: Record<string, any>
+    snapshot: TLEditorSnapshot
   ): Promise<AnnotationsFile> {
     try {
       if (!projectId) throw new Error("Project ID is required");
+      if (!snapshot || typeof snapshot !== "object" || Object.keys(snapshot).length === 0) {
+        throw new Error("A non-empty snapshot object is required");
+      }
       const result = await bridgeRequest("project.saveAnnotations", { projectId, snapshot });
       return result?.data;
     } catch (error: any) {

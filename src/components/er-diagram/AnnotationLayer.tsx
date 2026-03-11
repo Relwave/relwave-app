@@ -27,7 +27,7 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
 
             const snapshot = editor.getSnapshot();
             bridgeApi
-                .saveProjectAnnotations(projectId, snapshot as unknown as Record<string, any>)
+                .saveProjectAnnotations(projectId, snapshot)
                 .then(() => console.debug("[Annotations] Saved"))
                 .catch((err) => console.warn("[Annotations] Save failed:", err.message));
         }, ANNOTATION_SAVE_DEBOUNCE_MS);
@@ -44,7 +44,7 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
                     .getProjectAnnotations(projectId)
                     .then((file) => {
                         if (file?.snapshot && Object.keys(file.snapshot).length > 0) {
-                            editor.loadSnapshot(file.snapshot as any);
+                            editor.loadSnapshot(file.snapshot);
                         }
                         loadedRef.current = true;
                     })
@@ -83,12 +83,23 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
 
     return (
         <div
-            className="absolute inset-0 z-20"
+            className="absolute inset-0 z-20 tldraw-annotation-layer"
             style={{
                 pointerEvents: active ? "auto" : "none",
-                opacity: active ? 1 : 0.5,
+                visibility: active ? "visible" : "hidden",
             }}
         >
+            <style>{`
+                .tldraw-annotation-layer .tl-background {
+                    background: rgba(255, 255, 255, 0.85) !important;
+                }
+                .tldraw-annotation-layer .tl-canvas {
+                    background: transparent !important;
+                }
+                .tldraw-annotation-layer [data-testid="tldraw"] {
+                    background: transparent !important;
+                }
+            `}</style>
             <Tldraw
                 onMount={handleMount}
                 hideUi={!active}

@@ -69,7 +69,7 @@ export type ERDiagramFile = {
 export type AnnotationsFile = {
     version: number;
     projectId: string;
-    snapshot: Record<string, any>;
+    snapshot: Record<string, unknown>;
     updatedAt: string;
 };
 
@@ -666,7 +666,7 @@ export class ProjectStore {
 
     async saveAnnotations(
         projectId: string,
-        snapshot: Record<string, any>
+        snapshot: Record<string, unknown>
     ): Promise<AnnotationsFile> {
         const now = new Date().toISOString();
         const file: AnnotationsFile = {
