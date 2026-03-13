@@ -101,6 +101,7 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
                 }
             `}</style>
             <Tldraw
+                licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
                 onMount={handleMount}
                 hideUi={!active}
                 options={{ maxPages: 1 }}
