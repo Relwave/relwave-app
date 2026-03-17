@@ -124,9 +124,7 @@ pnpm tauri dev
 **Windows:**
 
 ```bash
-cd bridge && pnpm build && cd ..
-npx pkg ./bridge/dist/index.cjs --target node18-win-x64 \
-  --output ./src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe
+pnpm run package-bridge
 pnpm tauri build
 ```
 
@@ -135,9 +133,7 @@ pnpm tauri build
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-cd bridge && pnpm build && cd ..
-npx pkg ./bridge/dist/index.cjs --target node18-linux-x64 \
-  --output ./src-tauri/resources/bridge-x86_64-unknown-linux-gnu
+pnpm --dir bridge run build:pkg:linux
 pnpm tauri build
 ```
 

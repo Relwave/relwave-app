@@ -9,14 +9,19 @@
     "preview": "vite preview",
     "tauri": "tauri ",
     "beforeDevCommand": "npm --prefix bridge run dev",
-    "package-bridge": "cd bridge && pnpm build && cd .. && pkg ./bridge/dist/index.cjs --target node16-win-x64 --output ./src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe"
+    "copy-sqlite-binding": "pnpm --dir bridge run copy:native",
+    "package-bridge": "pnpm --dir bridge run build:pkg"
   },
   "pkg": {
     "scripts": [],
     "assets": [
       "./bridge/dist/**/*",
       "node_modules/pg/**/*",
-      "bridge/node_modules/pg/**/*"
+      "bridge/node_modules/pg/**/*",
+      "bridge/node_modules/**/build/Release/*.node",
+      "bridge/node_modules/**/build/Debug/*.node",
+      "bridge/node_modules/**/lib/binding/**/*.node",
+      "bridge/node_modules/**/prebuilds/**/*"
     ],
     "targets": [
       "node18-win-x64"
