@@ -8,7 +8,6 @@
     "start": "node dist/index.cjs",
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
     "copy:native": "node scripts/copy-native.js",
-    "build:pkg": "node scripts/build-pkg.js",
     "build:pkg:win": "npm run build && npm run copy:native && pkg . --target node18-win-x64 --output ../src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe",
     "build:pkg:linux": "npm run build && npm run copy:native && pkg . --target node18-linux-x64 --output ../src-tauri/resources/bridge-x86_64-unknown-linux-gnu",
     "test": "jest",

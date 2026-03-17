@@ -10,7 +10,7 @@
     "tauri": "tauri ",
     "beforeDevCommand": "npm --prefix bridge run dev",
     "copy-sqlite-binding": "npm --prefix bridge run copy:native",
-    "package-bridge": "npm --prefix bridge run build:pkg"
+    "package-bridge": "node -e \"const { execSync } = require('child_process'); const script = process.platform === 'win32' ? 'build:pkg:win' : process.platform === 'linux' ? 'build:pkg:linux' : ''; if (!script) throw new Error('Unsupported platform for package-bridge: ' + process.platform); execSync('npm --prefix bridge run ' + script, { stdio: 'inherit' });\""
   },
   "pkg": {
     "scripts": [],
