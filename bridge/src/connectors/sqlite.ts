@@ -3,6 +3,8 @@ import Database from "better-sqlite3";
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
 import crypto from "crypto";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import { ensureDir, getMigrationsDir } from "../utils/config";
 import {
   CacheEntry,
@@ -253,10 +255,131 @@ export const sqliteCache = new SQLiteCacheManager();
 // DATABASE HELPER
 // ============================================
 
-function openDB(cfg: SQLiteConfig): Database.Database {
-  return new Database(cfg.path, {
+let cachedNativeBindingPath: string | null | undefined = undefined;
+
+function findExistingBindingPath(candidates: Iterable<string>): string | undefined {
+  for (const candidate of candidates) {
+    const resolved = path.resolve(candidate);
+    if (fs.existsSync(resolved)) {
+      return resolved;
+    }
+  }
+
+  return undefined;
+}
+
+function getInstalledBindingCandidates(execDir: string): string[] {
+  const searchRoots = new Set([
+    execDir,
+    path.join(execDir, "bridge"),
+    path.join(execDir, "resources"),
+    path.join(execDir, "Resources"),
+    path.join(execDir, "_up_"),
+    path.join(execDir, "_up_", "bridge"),
+    path.join(execDir, "_up_", "resources"),
+    path.join(execDir, ".."),
+    path.join(execDir, "..", "bridge"),
+    path.join(execDir, "..", "resources"),
+    path.join(execDir, "..", "Resources"),
+    path.join(execDir, "..", "_up_"),
+    path.join(execDir, "..", "_up_", "bridge"),
+    path.join(execDir, "..", "_up_", "resources"),
+    path.join(execDir, "..", "..", "Resources"),
+  ]);
+
+  return Array.from(searchRoots, (root) => path.join(root, "better_sqlite3.node"));
+}
+
+function resolvePkgNativeBindingPath(): string | undefined {
+  if (cachedNativeBindingPath !== undefined) {
+    return cachedNativeBindingPath ?? undefined;
+  }
+
+  const isPkgRuntime = Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg);
+  if (!isPkgRuntime) {
+    cachedNativeBindingPath = null;
+    return undefined;
+  }
+
+  const envOverride = process.env.RELWAVE_SQLITE_NATIVE_BINDING || process.env.BETTER_SQLITE3_BINDING;
+  if (envOverride) {
+    const resolvedOverride = path.resolve(envOverride);
+    if (fs.existsSync(resolvedOverride)) {
+      cachedNativeBindingPath = resolvedOverride;
+      return resolvedOverride;
+    }
+  }
+
+  // pkg cannot load native .node addons from its virtual snapshot filesystem —
+  // the OS linker requires a real on-disk path.
+  //
+  // Tauri bundles better_sqlite3.node as a resource (listed in tauri.conf.json
+  // bundle.resources) and places it in the same directory as the bridge sidecar
+  // exe at install time. We look for it relative to process.execPath first,
+  // which is the correct production path after installation.
+  const execDir = path.dirname(process.execPath);
+  const realPath = findExistingBindingPath(getInstalledBindingCandidates(execDir));
+  if (realPath) {
+    cachedNativeBindingPath = realPath;
+    return realPath;
+  }
+
+  // Fallback: try to extract from the pkg snapshot via readFileSync.
+  // pkg CAN serve asset bytes via readFileSync even though existsSync returns false.
+  const snapshotCandidates: string[] = [];
+
+  try {
+    const pkgJsonPath = require.resolve("better-sqlite3/package.json");
+    const pkgDir = path.dirname(pkgJsonPath);
+    snapshotCandidates.push(
+      path.join(pkgDir, "build", "Release", "better_sqlite3.node"),
+      path.join(pkgDir, "build", "Debug", "better_sqlite3.node"),
+      path.join(pkgDir, "compiled", `${process.versions.node}`, process.platform, process.arch, "better_sqlite3.node"),
+      path.join(pkgDir, "lib", "binding", `node-v${process.versions.modules}-${process.platform}-${process.arch}`, "better_sqlite3.node")
+    );
+  } catch {
+    // Ignore; fall back to hardcoded snapshot paths below.
+  }
+
+  const snapshotRoot = path.join(path.sep, "snapshot", "bridge", "node_modules");
+  snapshotCandidates.push(
+    path.join(snapshotRoot, "better-sqlite3", "build", "Release", "better_sqlite3.node"),
+    path.join(snapshotRoot, ".pnpm", "better-sqlite3@12.6.2", "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node")
+  );
+
+  const targetNodeFile = path.join(os.tmpdir(), `relwave-better_sqlite3-${process.pid}.node`);
+
+  for (const candidate of snapshotCandidates) {
+    try {
+      const data = fs.readFileSync(candidate);
+      try {
+        fs.writeFileSync(targetNodeFile, data);
+      } catch {
+        // Target may already exist; that's fine.
+      }
+      cachedNativeBindingPath = targetNodeFile;
+      return targetNodeFile;
+    } catch {
+      // This candidate isn't readable; try the next.
+    }
+  }
+
+  cachedNativeBindingPath = null;
+  return undefined;
+}
+
+function openDB(cfg: SQLiteConfig, extraOptions: Database.Options = {}): Database.Database {
+  const nativeBinding = resolvePkgNativeBindingPath();
+  const options: Database.Options = {
     readonly: cfg.readonly ?? false,
-  });
+    ...extraOptions,
+  };
+
+  if (nativeBinding) {
+    options.nativeBinding = nativeBinding;
+  }
+
+  return new Database(cfg.path, options);
 }
 
 function quoteIdent(name: string): string {
@@ -279,8 +402,7 @@ export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; 
       };
     }
     // Use fileMustExist so better-sqlite3 will not create a new file during connection test
-    const db = new Database(cfg.path, {
-      readonly: cfg.readonly ?? false,
+    const db = openDB(cfg, {
       fileMustExist: true,
     });
     db.pragma("journal_mode");

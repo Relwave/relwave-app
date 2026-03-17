@@ -75,9 +75,15 @@ logger.info("--- System Info ---");
 logger.info(`Process PID: ${process.pid}`);
 logger.info(`Node.js version: ${process.version}`);
 logger.info(`Uptime at start: ${process.uptime()} sec`);
+logger.info(`process.execPath: ${process.execPath}`);
+logger.info(`process.cwd(): ${process.cwd()}`);
+logger.info(`isPkg: ${Boolean((process as any).pkg)}`);
+logger.info(`RELWAVE_SQLITE_NATIVE_BINDING: ${process.env.RELWAVE_SQLITE_NATIVE_BINDING ?? "(not set)"}`);
+logger.info(`BETTER_SQLITE3_BINDING: ${process.env.BETTER_SQLITE3_BINDING ?? "(not set)"}`);
 // send initial ready notification
 rpc.sendNotification("bridge.ready", { pid: process.pid });
 rpc.sendNotification("bridge.uptime", { uptimeSec: process.uptime() });
+
 
 
 // handle incoming notifications (one-way)

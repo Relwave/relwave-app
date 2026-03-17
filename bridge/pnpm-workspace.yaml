@@ -1,7 +1,5 @@
 packages: []
 
-ignoredBuiltDependencies:
-  - better-sqlite3
-
 onlyBuiltDependencies:
-  - keytar
+  - better-sqlite3
+  - "@napi-rs/keyring"

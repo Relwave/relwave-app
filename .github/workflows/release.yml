@@ -36,12 +36,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
+          cache: "pnpm"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -50,27 +51,10 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Build bridge (Windows)
-        if: matrix.platform == 'windows-latest'
-        run: |
-          cd bridge
-          pnpm install --frozen-lockfile=false
-          npx esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external
-          cd ..
-          npm install -g pkg@5.8.1
-          pkg ./bridge/dist/index.cjs --target node18-win-x64 --output ./src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe
-
-      - name: Build bridge (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          cd bridge
-          pnpm install --frozen-lockfile=false
-          npx esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external
-          cd ..
-          npm install -g pkg@5.8.1
-          pkg ./bridge/dist/index.cjs --target node18-linux-x64 --output ./src-tauri/resources/bridge-x86_64-unknown-linux-gnu
+      - name: Install bridge dependencies
+        run: pnpm --dir bridge install --frozen-lockfile
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
