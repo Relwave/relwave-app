@@ -1,5 +1,5 @@
 {
-  "name": "db-visualizer-bridge",
+  "name": "relwave-bridge",
   "version": "0.4.0-beta.2",
   "type": "commonjs",
   "main": "dist/index.cjs",
@@ -8,8 +8,9 @@
     "start": "node dist/index.cjs",
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external",
     "copy:native": "node scripts/copy-native.js",
-    "build:pkg:win": "npm run build && npm run copy:native && pkg . --target node18-win-x64 --output ../src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe",
-    "build:pkg:linux": "npm run build && npm run copy:native && pkg . --target node18-linux-x64 --output ../src-tauri/resources/bridge-x86_64-unknown-linux-gnu",
+    "rebuild:native": "npm rebuild better-sqlite3",
+    "build:pkg:win": "npm run build && npm run rebuild:native && npm run copy:native && npx @yao-pkg/pkg . --target node22-win-x64 --output ../src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe",
+    "build:pkg:linux": "npm run build && npm run rebuild:native && npm run copy:native && npx @yao-pkg/pkg . --target node22-linux-x64 --output ../src-tauri/resources/bridge-x86_64-unknown-linux-gnu",
     "test": "jest",
     "test:watch": "jest --watchAll --detectOpenHandles"
   },
@@ -27,15 +28,13 @@
   },
   "bin": "./dist/index.cjs",
   "pkg": {
-    "outputPath": "exece",
     "targets": [
-      "node18-win-x64",
-      "node18-linux-x64"
+      "node22-win-x64",
+      "node22-linux-x64"
     ],
     "assets": [
       "node_modules/**/build/Release/*.node",
-      "node_modules/**/prebuilds/**/*",
-      "node_modules/@nut-tree/libnut-win32/build/Release/*"
+      "node_modules/**/prebuilds/**/*"
     ]
   },
   "devDependencies": {
@@ -43,9 +42,9 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.15.6",
+    "@yao-pkg/pkg": "^5.12.0",
     "esbuild": "^0.27.0",
     "jest": "^30.2.0",
-    "pkg": "^5.8.1",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

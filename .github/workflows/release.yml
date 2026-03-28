@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   release:
@@ -15,13 +16,12 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
+            bridge-target: "node22-win-x64"
+            bridge-output: "bridge-x86_64-pc-windows-msvc.exe"
           - platform: "ubuntu-22.04"
             args: ""
-          # Add more platforms as needed:
-          # - platform: 'macos-latest'
-          #   args: '--target aarch64-apple-darwin'
-          # - platform: 'macos-latest'
-          #   args: '--target x86_64-apple-darwin'
+            bridge-target: "node22-linux-x64"
+            bridge-output: "bridge-x86_64-unknown-linux-gnu"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -42,37 +42,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: "pnpm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          # Add targets for cross-compilation if needed
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build bridge (Windows)
-        if: matrix.platform == 'windows-latest'
+      - name: Build bridge
         run: |
           cd bridge
           pnpm install --frozen-lockfile
+          npm rebuild better-sqlite3
           npx esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external
           cd ..
           node ./bridge/scripts/copy-native.js
-          npm install -g pkg@5.8.1
-          pkg ./bridge/dist/index.cjs --target node18-win-x64 --output ./src-tauri/resources/bridge-x86_64-pc-windows-msvc.exe
+          npx @yao-pkg/pkg ./bridge/dist/index.cjs --target ${{ matrix.bridge-target }} --output ./src-tauri/resources/${{ matrix.bridge-output }}
 
-      - name: Build bridge (Linux)
+      - name: Mark bridge executable (Linux)
         if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          cd bridge
-          pnpm install --frozen-lockfile
-          npx esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs --packages=external
-          cd ..
-          node ./bridge/scripts/copy-native.js
-          npm install -g pkg@5.8.1
-          pkg ./bridge/dist/index.cjs --target node18-linux-x64 --output ./src-tauri/resources/bridge-x86_64-unknown-linux-gnu
+        run: chmod +x ./src-tauri/resources/${{ matrix.bridge-output }}
+
+      - name: Verify sidecar binary
+        shell: bash
+        run: ls -la src-tauri/resources/
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
