@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { WelcomeViewProps } from "./types";
 import { formatRelativeTime } from "./utils";
 import { DiscoveredDatabasesCard } from "./DiscoveredDatabasesCard";
-import { DiscoveredDatabase } from "@/types/database";
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
   postgresql: { bg: "bg-blue-500/10", text: "text-blue-500" },
@@ -40,6 +39,9 @@ export function WelcomeView({
   onDatabaseHover,
   onDiscoveredDatabaseAdd,
 }: WelcomeViewProps) {
+
+  const texts = ['Welcome to Relwave', 'Good to see you again!', 'Ready to dive into your data?', 'Your database companion awaits!', 'Let’s explore your data together!'];
+  const randomText = texts[Math.floor(Math.random() * texts.length)];
   return (
     <div className="h-full flex flex-col p-6">
       {/* Welcome Header */}
@@ -49,7 +51,7 @@ export function WelcomeView({
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Welcome to RelWave</h1>
+            <h1 className="text-xl font-semibold">{randomText}</h1>
             <p className="text-sm text-muted-foreground">
               Select a connection or add a new one
             </p>

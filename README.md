@@ -103,17 +103,19 @@ For a comprehensive breakdown of all features, see the [Feature Reference](FEATU
 - pnpm
 - Rust toolchain (for Tauri)
 
+RelWave uses separate package manifests for the app and the bridge, so install dependencies in both locations.
+
 #### Development
 
 ```bash
 git clone https://github.com/Relwave/relwave-app.git
 cd relwave-app
 
-# Install frontend dependencies
+# Install app dependencies
 pnpm install
 
 # Install bridge dependencies
-cd bridge && pnpm install && cd ..
+pnpm --dir bridge install
 
 # Start development mode
 pnpm tauri dev
@@ -121,10 +123,17 @@ pnpm tauri dev
 
 #### Production Build
 
+Install both dependency sets first:
+
+```bash
+pnpm install
+pnpm --dir bridge install
+```
+
 **Windows:**
 
 ```bash
-pnpm run package-bridge
+pnpm run bridge:package
 pnpm tauri build
 ```
 
@@ -133,9 +142,11 @@ pnpm tauri build
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-pnpm --dir bridge run build:pkg:linux
+pnpm run bridge:package
 pnpm tauri build
 ```
+
+The root `bridge:package` script delegates to the platform-specific bridge packaging command in `bridge/package.json` and prepares the bundled SQLite native binary in `src-tauri/resources/`.
 
 ## Documentation
 
@@ -206,7 +217,7 @@ relwave-app/
 └── src-tauri/                    # Tauri backend (Rust)
     ├── src/                      # Application entry point
     ├── capabilities/             # Permission definitions
-    └── resources/                # Bundled bridge executable
+    └── resources/                # Bundled bridge executable and SQLite native binding
 ```
 
 ### Configuration
