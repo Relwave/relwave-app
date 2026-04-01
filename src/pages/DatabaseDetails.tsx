@@ -15,9 +15,9 @@ import { useMigrations, useFullSchema } from "@/features/project/hooks/useDbQuer
 import { useExport } from "@/features/database/hooks/useExport";
 import { useProjectSync } from "@/features/project/hooks/useProjectSync";
 import { useProjectDir } from "@/features/project/hooks/useProjectQueries";
-import BridgeLoader from "@/components/BridgeLoader";
+import BridgeLoader from "@/components/feedback/BridgeLoader";
 import { Spinner } from "@/components/ui/spinner";
-import VerticalIconBar, { PanelType } from "@/components/VerticalIconBar";
+import VerticalIconBar, { PanelType } from "@/components/layout/VerticalIconBar";
 import SlideOutPanel from "@/components/SlideOutPanel";
 import { bridgeApi } from "@/services/bridgeApi";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import ERDiagramPanel from "@/features/er-diagram/components/ERDiagramPanel";
 import { QueryBuilderPanel } from "@/features/query-builder/components";
 import { SchemaExplorerPanel } from "@/features/schema-explorer/components";
+import { databaseService } from "@/services/bridge/database";
 
 const DatabaseDetail = () => {
   const { id: dbId } = useParams<{ id: string }>();
@@ -285,7 +286,7 @@ const DatabaseDetail = () => {
                   onRefresh={() => {
                     if (searchResults !== null && searchTerm) {
                       setSearchPage(1);
-                      bridgeApi.searchTable({
+                      databaseService.searchTable({
                         dbId: dbId || "",
                         schemaName: selectedTable?.schema || "public",
                         tableName: selectedTable?.name || "",
@@ -305,7 +306,7 @@ const DatabaseDetail = () => {
                       setSearchPage(page);
                       setIsSearching(true);
                       try {
-                        const result = await bridgeApi.searchTable({
+                        const result = await databaseService.searchTable({
                           dbId,
                           schemaName: selectedTable.schema || "public",
                           tableName: selectedTable.name,
@@ -338,7 +339,7 @@ const DatabaseDetail = () => {
                     setIsSearching(true);
                     setSearchPage(1);
                     try {
-                      const result = await bridgeApi.searchTable({
+                      const result = await databaseService.searchTable({
                         dbId,
                         schemaName: selectedTable.schema || "public",
                         tableName: selectedTable.name,
@@ -362,7 +363,7 @@ const DatabaseDetail = () => {
                     try {
                       let pk = "";
                       try {
-                        pk = await bridgeApi.getPrimaryKeys(
+                        pk = await databaseService.getPrimaryKeys(
                           dbId || "",
                           selectedTable?.schema || "public",
                           selectedTable?.name || ""
@@ -382,7 +383,7 @@ const DatabaseDetail = () => {
                       let pk = "";
                       let hasPK = false;
                       try {
-                        pk = await bridgeApi.getPrimaryKeys(
+                        pk = await databaseService.getPrimaryKeys(
                           dbId || "",
                           selectedTable?.schema || "public",
                           selectedTable?.name || ""
@@ -502,7 +503,7 @@ const DatabaseDetail = () => {
         onConfirm={async () => {
           if (!deletingRow || !selectedTable || !dbId) return;
           try {
-            await bridgeApi.deleteRow({
+            await databaseService.deleteRow({
               dbId,
               schemaName: selectedTable.schema || "public",
               tableName: selectedTable.name,

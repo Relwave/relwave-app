@@ -8,9 +8,9 @@ import {
     ProjectDetailView,
 } from "@/features/project/components";
 import { ProjectsEmptyState } from "@/features/project/components/ProjectsEmptyState";
-import BridgeLoader from "@/components/BridgeLoader";
-import BridgeFailed from "@/components/BridgeFailed";
-import VerticalIconBar from "@/components/VerticalIconBar";
+import BridgeLoader from "@/components/feedback/BridgeLoader";
+import BridgeFailed from "@/components/feedback/BridgeFailed";
+import VerticalIconBar from "@/components/layout/VerticalIconBar";
 
 const Projects = () => {
     const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();

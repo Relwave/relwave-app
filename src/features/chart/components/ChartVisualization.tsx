@@ -13,6 +13,7 @@ import { ChartConfigPanel } from "./ChartConfigPanel";
 import ChartRenderer from "./ChartRenderer";
 import { ColumnDetails, SelectedTable } from '@/features/database/types';
 import { bridgeApi } from "@/services/bridgeApi";
+import { databaseService } from "@/services/bridge/database";
 
 interface ChartVisualizationProps {
   selectedTable: SelectedTable;
@@ -79,7 +80,7 @@ export const ChartVisualization = ({ selectedTable, dbId }: ChartVisualizationPr
     async function getTables() {
       if (dbId) {
         try {
-          const result = await bridgeApi.getSchema(dbId);
+          const result = await databaseService.getSchema(dbId);
           const schemas = result?.schemas
 
           schemas?.map((schema) => {

@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { bridgeApi } from "@/services/bridgeApi";
 import type { ScanImportResult } from "@/features/project/types";
 import { projectService } from "@/services/bridge/project";
+import { databaseService } from "@/services/bridge/database";
 
 // ==========================================
 // Types
@@ -159,7 +160,7 @@ export function ImportProjectDialog({
       }
 
       // 2. Create the database connection first
-      const db = await bridgeApi.addDatabase({
+      const db = await databaseService.addDatabase({
         name: dbForm.name,
         type: dbForm.type,
         host: isSQLite ? "" : dbForm.host,
@@ -186,7 +187,7 @@ export function ImportProjectDialog({
       // Roll back the database connection if it was created but import failed
       if (createdDbId) {
         try {
-          await bridgeApi.deleteDatabase(createdDbId);
+          await databaseService.deleteDatabase(createdDbId);
         } catch {
           // Best-effort cleanup — don't mask the original error
         }
@@ -207,7 +208,7 @@ export function ImportProjectDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-120">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="h-4 w-4 text-muted-foreground" />

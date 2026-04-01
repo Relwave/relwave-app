@@ -14,6 +14,7 @@ import {
   ExportFormat,
 } from "@/lib/dataExport";
 import { TableInfo, TableRow } from "@/features/database/types";
+import { databaseService } from "@/services/bridge/database";
 
 interface ExportProgress {
   currentTable: string;
@@ -93,7 +94,7 @@ export function useExport({ dbId, databaseName }: UseExportOptions) {
           status: "fetching",
           currentTable: "Loading table list...",
         }));
-        const tables: TableInfo[] = await bridgeApi.listTables(dbId);
+        const tables: TableInfo[] = await databaseService.listTables(dbId);
 
         if (!tables || tables.length === 0) {
           toast.error("No tables found to export", { id: toastId });

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
-import { bridgeApi } from "@/services/bridgeApi";
+import { databaseService } from "@/services/bridge/database";
 
 interface EditRowDialogProps {
     open: boolean;
@@ -121,7 +121,7 @@ export default function EditRowDialog({
                 }
             });
 
-            await bridgeApi.updateRow({
+            await databaseService.updateRow({
                 dbId,
                 schemaName,
                 tableName,

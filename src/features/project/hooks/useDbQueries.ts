@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { bridgeApi } from "@/services/bridgeApi";
-import { DatabaseConnection, TableInfo, DatabaseStats } from "@/features/database/types";
+import { TableInfo } from "@/features/database/types";
 import { isBridgeReady } from "@/services/bridgeClient";
+import { databaseService } from "@/services/bridge/database";
 
 // ============================================
 // Query Keys - Centralized for cache management
@@ -52,7 +53,7 @@ export function useDatabases() {
 
   return useQuery({
     queryKey: queryKeys.databases,
-    queryFn: () => bridgeApi.listDatabases(),
+    queryFn: () => databaseService.listDatabases(),
     staleTime: STALE_TIMES.databases,
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     enabled: bridgeReady, // Only fetch when bridge is ready
@@ -65,7 +66,7 @@ export function useDatabases() {
 export function useDatabase(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.database(id!),
-    queryFn: () => bridgeApi.getDatabase(id!),
+    queryFn: () => databaseService.getDatabase(id!),
     enabled: !!id,
     staleTime: STALE_TIMES.databases,
   });
@@ -77,7 +78,7 @@ export function useDatabase(id: string | undefined) {
 export function useMigrations(dbId: string | undefined) {
   return useQuery({
     queryKey: ["migrations", dbId] as const,
-    queryFn: () => bridgeApi.getMigrations(dbId!),
+    queryFn: () => databaseService.getMigrations(dbId!),
     enabled: !!dbId,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000,
@@ -97,7 +98,7 @@ export function useTables(dbId: string | undefined, schema?: string) {
   return useQuery({
     queryKey: queryKeys.tables(dbId!, schema),
     queryFn: async () => {
-      const result = await bridgeApi.listTables(dbId!, schema);
+      const result = await databaseService.listTables(dbId!, schema);
       return result.map((item: any): TableInfo => ({
         schema: item.schema || "public",
         name: item.name || "unknown",
@@ -116,7 +117,7 @@ export function useTables(dbId: string | undefined, schema?: string) {
 export function useSchemaNames(dbId: string | undefined) {
   return useQuery({
     queryKey: ["schemaNames", dbId] as const,
-    queryFn: () => bridgeApi.listSchemas(dbId!),
+    queryFn: () => databaseService.listSchemas(dbId!),
     enabled: !!dbId,
     staleTime: STALE_TIMES.schemas,
   });
@@ -154,7 +155,7 @@ export function useTableData(
 export function useDbStats(dbId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.stats(dbId!),
-    queryFn: () => bridgeApi.getDataBaseStats(dbId!),
+    queryFn: () => databaseService.getDataBaseStats(dbId!),
     enabled: !!dbId,
     staleTime: STALE_TIMES.stats,
     refetchInterval: 60 * 1000, // Auto-refresh every minute
@@ -167,7 +168,7 @@ export function useDbStats(dbId: string | undefined) {
 export function useSchemas(dbId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.schemas(dbId!),
-    queryFn: () => bridgeApi.getSchema(dbId!),
+    queryFn: () => databaseService.getSchema(dbId!),
     enabled: !!dbId,
     staleTime: STALE_TIMES.schemas,
   });
@@ -183,7 +184,7 @@ export function useFullSchema(dbId: string | undefined) {
 
   return useQuery({
     queryKey: ["fullSchema", dbId] as const,
-    queryFn: () => bridgeApi.getSchema(dbId!),
+    queryFn: () => databaseService.getSchema(dbId!),
     enabled: !!dbId && bridgeReady,
     staleTime: STALE_TIMES.schemas, // 5 minutes - schema structure rarely changes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
@@ -200,7 +201,7 @@ export function usePrimaryKeys(
 ) {
   return useQuery({
     queryKey: queryKeys.primaryKeys(dbId!, schema!, table!),
-    queryFn: () => bridgeApi.getPrimaryKeys(dbId!, schema!, table!),
+    queryFn: () => databaseService.getPrimaryKeys(dbId!, schema!, table!),
     enabled: !!dbId && !!schema && !!table,
     staleTime: STALE_TIMES.tableDetails,
   });
@@ -218,7 +219,7 @@ export function useAddDatabase() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: bridgeApi.addDatabase.bind(bridgeApi),
+    mutationFn: databaseService.addDatabase.bind(databaseService),
     onSuccess: () => {
       // Invalidate and refetch database list
       queryClient.invalidateQueries({ queryKey: queryKeys.databases });
@@ -233,7 +234,7 @@ export function useUpdateDatabase() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: any) => bridgeApi.updateDatabase(params),
+    mutationFn: (params: any) => databaseService.updateDatabase(params),
     onSuccess: (_, params) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.databases });
       if (params.id) {
@@ -250,7 +251,7 @@ export function useDeleteDatabase() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => bridgeApi.deleteDatabase(id),
+    mutationFn: (id: string) => databaseService.deleteDatabase(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.databases });
       // Remove all cached data for this database
@@ -265,7 +266,7 @@ export function useDeleteDatabase() {
  */
 export function useTestConnection() {
   return useMutation({
-    mutationFn: bridgeApi.testConnection.bind(bridgeApi),
+    mutationFn: databaseService.testConnection.bind(bridgeApi),
   });
 }
 
@@ -286,7 +287,7 @@ export function usePrefetch() {
     prefetchTables: (dbId: string) => {
       queryClient.prefetchQuery({
         queryKey: queryKeys.tables(dbId),
-        queryFn: () => bridgeApi.listTables(dbId),
+        queryFn: () => databaseService.listTables(dbId),
         staleTime: STALE_TIMES.tables,
       });
     },
@@ -314,7 +315,7 @@ export function usePrefetch() {
     prefetchStats: (dbId: string) => {
       queryClient.prefetchQuery({
         queryKey: queryKeys.stats(dbId),
-        queryFn: () => bridgeApi.getDataBaseStats(dbId),
+        queryFn: () => databaseService.getDataBaseStats(dbId),
         staleTime: STALE_TIMES.stats,
       });
     },
@@ -325,7 +326,7 @@ export function usePrefetch() {
     prefetchSchema: (dbId: string) => {
       queryClient.prefetchQuery({
         queryKey: ["fullSchema", dbId],
-        queryFn: () => bridgeApi.getSchema(dbId),
+        queryFn: () => databaseService.getSchema(dbId),
         staleTime: STALE_TIMES.schemas,
       });
     },

@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Database, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import IndexRow from "./IndexRow";
-import { bridgeApi } from "@/services/bridgeApi";
 import { CreateIndexDefinition } from "@/features/database/types";
+import { databaseService } from "@/services/bridge/database";
 
 interface AddIndexesDialogProps {
     open: boolean;
@@ -110,7 +110,7 @@ export default function AddIndexesDialog({
                 table_name: tableName.trim(),
             }));
 
-            const res = await bridgeApi.createIndexes({
+            const res = await databaseService.createIndexes({
                 dbId,
                 schemaName,
                 indexes: preparedIndexes,

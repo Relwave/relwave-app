@@ -6,10 +6,10 @@ import {
     useProjectSchema,
     projectKeys,
 } from "@/features/project/hooks/useProjectQueries";
-import { bridgeApi } from "@/services/bridgeApi";
 import { snapshotToSchemaDetails, schemaGroupsToSnapshots } from "@/lib/schemaConverters";
 import type { DatabaseSchemaDetails } from "@/features/database/types";
 import { projectService } from "@/services/bridge/project";
+import { databaseService } from "@/services/bridge/database";
 
 // ================================================================
 // useSchemaExplorerData
@@ -118,7 +118,7 @@ export function useSchemaExplorerData(
 
         try {
             // 1. Fetch fresh schema from live database
-            const freshSchema = await bridgeApi.getSchema(dbId);
+            const freshSchema = await databaseService.getSchema(dbId);
 
             if (!freshSchema?.schemas?.length) {
                 toast.warning("Database returned no schemas");

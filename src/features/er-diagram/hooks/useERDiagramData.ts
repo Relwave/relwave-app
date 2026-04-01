@@ -7,7 +7,6 @@ import {
     useProjectERDiagram,
     projectKeys,
 } from "@/features/project/hooks/useProjectQueries";
-import { bridgeApi } from "@/services/bridgeApi";
 import { snapshotToSchemaDetails, schemaGroupsToSnapshots } from "@/lib/schemaConverters";
 import type {
     DatabaseSchemaDetails,
@@ -17,6 +16,7 @@ import type {
     ERNode,
 } from "@/features/project/types";
 import { projectService } from "@/services/bridge/project";
+import { databaseService } from "@/services/bridge/database";
 
 // ================================================================
 // useERDiagramData
@@ -127,7 +127,7 @@ export function useERDiagramData(
 
         try {
             // 1. Fetch fresh schema from live database
-            const freshSchema = await bridgeApi.getSchema(dbId);
+            const freshSchema = await databaseService.getSchema(dbId);
 
             if (!freshSchema?.schemas?.length) {
                 toast.warning("Database returned no schemas");

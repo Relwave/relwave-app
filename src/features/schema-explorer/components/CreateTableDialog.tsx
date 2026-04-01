@@ -14,6 +14,7 @@ import TableDesignerForm from "./TableDesignerForm";
 import AddIndexesDialog from "./AddIndexesDialog";
 import { CreateTableColumn, ForeignKeyConstraint } from "@/features/database/types";
 import { bridgeApi } from "@/services/bridgeApi";
+import { databaseService } from "@/services/bridge/database";
 
 interface CreateTableDialogProps {
     open: boolean;
@@ -49,7 +50,7 @@ export default function CreateTableDialog({
 
     const fetchAvailableTables = async () => {
         try {
-            const schema = await bridgeApi.getSchema(dbId);
+            const schema = await databaseService.getSchema(dbId);
             const tables: Array<{ schema: string; name: string }> = [];
 
             schema?.schemas?.forEach((schemaGroup: any) => {

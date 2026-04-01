@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { bridgeApi } from "@/services/bridgeApi";
 import { ColumnDetails, ForeignKeyInfo } from "@/features/database/types";
+import { databaseService } from "@/services/bridge/database";
 
 interface InsertDataDialogProps {
     open: boolean;
@@ -79,7 +80,7 @@ export default function InsertDataDialog({
     const fetchTableInfo = async () => {
         setLoading(true);
         try {
-            const schemaData = await bridgeApi.getSchema(dbId);
+            const schemaData = await databaseService.getSchema(dbId);
             if (!schemaData) {
                 throw new Error("Failed to fetch schema");
             }
@@ -213,7 +214,7 @@ export default function InsertDataDialog({
                 }
             }
 
-            await bridgeApi.insertRow({
+            await databaseService.insertRow({
                 dbId,
                 schemaName,
                 tableName,

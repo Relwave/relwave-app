@@ -1,281 +1,144 @@
-import { useState, useCallback } from "react";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { bridgeApi } from "@/services/bridgeApi";
+// pages/Index.tsx
+
 import { useBridgeQuery } from "@/hooks/useBridgeQuery";
 import {
-  useDatabases,
-  useAddDatabase,
-  useDeleteDatabase,
-  usePrefetch
-} from "@/features/project/hooks/useDbQueries";
-import {
-  useCachedConnectionStatus,
-  useCachedTotalStats,
-  useCachedDbStats,
-} from "@/features/database/hooks/useCachedData";
-import BridgeLoader from "@/components/BridgeLoader";
-import BridgeFailed from "@/components/BridgeFailed";
-import VerticalIconBar from "@/components/VerticalIconBar";
-import { bytesToMBString } from "@/lib/bytesToMB";
-import { useQuery } from "@tanstack/react-query";
-import {
-  ConnectionList,
-  DatabaseDetail,
-  WelcomeView,
-  AddConnectionDialog,
-  DeleteDialog,
+    ConnectionList,
+    DatabaseDetail,
+    WelcomeView,
+    AddConnectionDialog,
+    DeleteDialog,
 } from "@/features/home/components";
-import { ConnectionFormData, REQUIRED_FIELDS, SQLITE_REQUIRED_FIELDS } from "@/features/home/types";
+import BridgeLoader from "@/components/feedback/BridgeLoader";
+import BridgeFailed from "@/components/feedback/BridgeFailed";
+import VerticalIconBar from "@/components/layout/VerticalIconBar";
+import { useIndexPage } from "@/features/home/hooks/useIndexPage";
 
 const Index = () => {
-  const navigate = useNavigate();
-  const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
+    const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
 
-  // Caching hooks - load cached data instantly
-  const { cachedStatus, updateCache: updateStatusCache } = useCachedConnectionStatus();
-  const { cachedStats, updateCache: updateStatsCache } = useCachedTotalStats();
-  const { getStats: getCachedDbStats, updateCache: updateDbStatsCache } = useCachedDbStats();
+    // Bridge guard — only logic allowed in page
+    if (bridgeLoading || bridgeReady === undefined) return <BridgeLoader />;
+    if (!bridgeReady) return <BridgeFailed />;
 
-  const { data: databases = [], isLoading: loading, refetch: refetchDatabases } = useDatabases();
+    return <IndexContent bridgeReady={bridgeReady} />;
+};
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ["totalStats"],
-    queryFn: async () => {
-      const result = await bridgeApi.getTotalDatabaseStats();
-      // Update cache when fresh data arrives
-      if (result) updateStatsCache(result);
-      return result;
-    },
-    enabled: !!bridgeReady && databases.length > 0,
-    staleTime: 30 * 1000,
-  });
+// Separated so hooks only run after bridge is ready
+const IndexContent = ({ bridgeReady }: { bridgeReady: boolean }) => {
+    const {
+        // Data
+        databases,
+        filteredDatabases,
+        recentDatabases,
+        selectedDatabase,
+        selectedDbStats,
+        loading,
 
-  const { data: statusData, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
-    queryKey: ["connectionStatus"],
-    queryFn: async () => {
-      const res = await bridgeApi.testAllConnections();
-      const statusMap = new Map<string, string>();
-      res.forEach((r) => statusMap.set(r.id, r.result.status));
-      // Update cache when fresh data arrives
-      updateStatusCache(statusMap);
-      return statusMap;
-    },
-    enabled: !!bridgeReady,
-    staleTime: 60 * 1000,
-  });
+        // Status + stats
+        status,
+        totalSize,
+        totalTables,
+        connectedCount,
+        showStatsLoading,
+        isSelectedConnected,
 
-  const addDatabaseMutation = useAddDatabase();
-  const deleteDatabaseMutation = useDeleteDatabase();
-  const { prefetchTables, prefetchStats } = usePrefetch();
+        // Mutation states
+        isAdding,
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [dbToDelete, setDbToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [selectedDb, setSelectedDb] = useState<string | null>(null);
-  const [prefilledConnectionData, setPrefilledConnectionData] = useState<Partial<ConnectionFormData> | undefined>(undefined);
+        // UI state
+        searchQuery,
+        setSearchQuery,
+        selectedDb,
+        setSelectedDb,
+        isDialogOpen,
+        deleteDialogOpen,
+        setDeleteDialogOpen,
+        dbToDelete,
+        prefilledConnectionData,
 
-  // Use fresh data if available, fall back to cached data
-  const status = statusData || cachedStatus;
-  const effectiveStats = stats || cachedStats;
-  const totalSize = effectiveStats?.sizeBytes ? bytesToMBString(effectiveStats.sizeBytes) : "—";
-  const totalTables = effectiveStats?.tables ?? "—";
-  const connectedCount = [...status.values()].filter(s => s === "connected").length;
+        // Handlers
+        handleAddDatabase,
+        handleDeleteDatabase,
+        handleTestConnection,
+        handleDatabaseClick,
+        handleDatabaseHover,
+        handleDiscoveredDatabaseAdd,
+        handleDialogClose,
+        openDeleteDialog,
+    } = useIndexPage(bridgeReady);
 
-  // Show loading state only if we have no cached data
-  const showStatsLoading = statsLoading && !cachedStats;
-  const showStatusLoading = statusLoading && cachedStatus.size === 0;
+    return (
+        <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
+            <VerticalIconBar />
 
-  // Fetch stats for the selected database
-  const { data: selectedDbStats, isLoading: selectedDbStatsLoading } = useQuery({
-    queryKey: ["dbStats", selectedDb],
-    queryFn: async () => {
-      const result = await bridgeApi.getDataBaseStats(selectedDb!);
-      // Update cache when fresh data arrives
-      if (result && selectedDb) updateDbStatsCache(selectedDb, result);
-      return result;
-    },
-    enabled: !!bridgeReady && !!selectedDb && status.get(selectedDb) === "connected",
-    staleTime: 30 * 1000,
-  });
+            <main className="flex-1 ml-15 flex">
+                {/* Left Panel */}
+                <ConnectionList
+                    databases={databases}
+                    filteredDatabases={filteredDatabases}
+                    loading={loading}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    selectedDb={selectedDb}
+                    setSelectedDb={setSelectedDb}
+                    status={status}
+                    connectedCount={connectedCount}
+                    totalTables={totalTables}
+                    statsLoading={showStatsLoading}
+                    onAddClick={() => handleDialogClose(true)}
+                    onDatabaseHover={handleDatabaseHover}
+                    onDelete={openDeleteDialog}
+                    onTest={handleTestConnection}
+                />
 
-  // Get cached stats for selected db
-  const cachedSelectedDbStats = selectedDb ? getCachedDbStats(selectedDb) : undefined;
-  const effectiveSelectedDbStats = selectedDbStats || cachedSelectedDbStats;
+                {/* Right Panel */}
+                <div className="flex-1 overflow-y-auto">
+                    {selectedDatabase ? (
+                        <DatabaseDetail
+                            database={selectedDatabase}
+                            isConnected={isSelectedConnected}
+                            tables={selectedDbStats.tables}
+                            size={selectedDbStats.size}
+                            onTest={() => handleTestConnection(selectedDatabase.id, selectedDatabase.name)}
+                            onOpen={() => handleDatabaseClick(selectedDatabase.id)}
+                            onDelete={() => openDeleteDialog(selectedDatabase.id, selectedDatabase.name)}
+                        />
+                    ) : (
+                        <WelcomeView
+                            databases={databases}
+                            recentDatabases={recentDatabases}
+                            status={status}
+                            connectedCount={connectedCount}
+                            totalTables={totalTables}
+                            totalSize={totalSize}
+                            statsLoading={showStatsLoading}
+                            onAddClick={() => handleDialogClose(true)}
+                            onSelectDb={setSelectedDb}
+                            onDatabaseClick={handleDatabaseClick}
+                            onDatabaseHover={handleDatabaseHover}
+                            onDiscoveredDatabaseAdd={handleDiscoveredDatabaseAdd}
+                        />
+                    )}
+                </div>
+            </main>
 
-  const recentDatabases = [...databases]
-    .filter(db => db.lastAccessedAt)
-    .sort((a, b) => new Date(b.lastAccessedAt!).getTime() - new Date(a.lastAccessedAt!).getTime())
-    .slice(0, 5);
-
-  const filteredDatabases = databases.filter(db =>
-    db.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    db.host.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-
-
-  const handleAddDatabase = async (formData: ConnectionFormData) => {
-    const isSQLite = formData.type === "sqlite";
-    const requiredFields = isSQLite ? SQLITE_REQUIRED_FIELDS : REQUIRED_FIELDS;
-    const missing = requiredFields.filter(field => !formData[field as keyof typeof formData]);
-    if (missing.length) {
-      toast.error("Missing required fields", { description: `Please fill in: ${missing.join(", ")}` });
-      return;
-    }
-    try {
-      await addDatabaseMutation.mutateAsync({
-        ...formData,
-        port: isSQLite ? 0 : parseInt(formData.port),
-        sslmode: isSQLite ? "disable" : (formData.ssl ? (formData.sslmode || "require") : "disable")
-      });
-      toast.success("Database connection added");
-      setIsDialogOpen(false);
-      await Promise.all([refetchStats(), refetchStatus()]);
-    } catch (err: any) {
-      toast.error("Failed to add database", { description: err.message });
-    }
-  };
-
-  const handleDeleteDatabase = async () => {
-    if (!dbToDelete) return;
-    try {
-      await deleteDatabaseMutation.mutateAsync(dbToDelete.id);
-      toast.success("Database removed");
-      setDeleteDialogOpen(false);
-      setDbToDelete(null);
-      if (selectedDb === dbToDelete.id) setSelectedDb(null);
-      refetchStats();
-    } catch (err: any) {
-      toast.error("Failed to delete", { description: err.message });
-    }
-  };
-
-  const handleTestConnection = async (id: string, name: string) => {
-    const result = await bridgeApi.testConnection(id);
-    if (result.ok) {
-      toast.success("Connected", { description: name });
-      refetchStatus();
-    } else {
-      toast.error("Failed", { description: result.message || "Could not connect" });
-    }
-  };
-
-  const handleDatabaseClick = (dbId: string) => {
-    bridgeApi.touchDatabase(dbId);
-    navigate(`/${dbId}`);
-  };
-
-  const handleDatabaseHover = (dbId: string) => {
-    prefetchTables(dbId);
-    prefetchStats(dbId);
-  };
-
-  // Handler for when a discovered database is selected
-  const handleDiscoveredDatabaseAdd = useCallback((db: { type: string; host: string; port: number; suggestedName: string; defaultUser: string; defaultDatabase: string; defaultPassword?: string }) => {
-    setPrefilledConnectionData({
-      name: db.suggestedName,
-      type: db.type,
-      host: db.host,
-      port: String(db.port),
-      user: db.defaultUser,
-      database: db.defaultDatabase,
-      password: db.defaultPassword || "",
-      ssl: false,
-      sslmode: "",
-    });
-    setIsDialogOpen(true);
-  }, []);
-
-  // Loading states
-  if (bridgeLoading || bridgeReady === undefined) return <BridgeLoader />;
-  if (!bridgeReady) return <BridgeFailed />;
-
-  const selectedDatabase = selectedDb ? databases.find(db => db.id === selectedDb) : null;
-  const isSelectedConnected = selectedDb ? status.get(selectedDb) === "connected" : false;
-
-  return (
-    <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
-      <VerticalIconBar />
-      <main className="flex-1 ml-15 flex">
-        {/* Left Panel - Database List */}
-        <ConnectionList
-          databases={databases}
-          filteredDatabases={filteredDatabases}
-          loading={loading}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedDb={selectedDb}
-          setSelectedDb={setSelectedDb}
-          status={status}
-          connectedCount={connectedCount}
-          totalTables={totalTables}
-          statsLoading={showStatsLoading}
-          onAddClick={() => setIsDialogOpen(true)}
-          onDatabaseHover={handleDatabaseHover}
-          onDelete={(dbId, dbName) => {
-            setDbToDelete({ id: dbId, name: dbName });
-            setDeleteDialogOpen(true);
-          }}
-          onTest={handleTestConnection}
-        />
-
-        {/* Right Panel - Main Content */}
-        <div className="flex-1 overflow-y-auto">
-          {selectedDatabase ? (
-            <DatabaseDetail
-              database={selectedDatabase}
-              isConnected={isSelectedConnected}
-              tables={(selectedDbStatsLoading && !cachedSelectedDbStats) ? "—" : effectiveSelectedDbStats?.tables ?? "—"}
-              size={(selectedDbStatsLoading && !cachedSelectedDbStats) ? "—" : effectiveSelectedDbStats?.sizeBytes ? bytesToMBString(effectiveSelectedDbStats.sizeBytes) : "—"}
-              onTest={() => handleTestConnection(selectedDatabase.id, selectedDatabase.name)}
-              onOpen={() => handleDatabaseClick(selectedDatabase.id)}
-              onDelete={() => {
-                setDbToDelete({ id: selectedDatabase.id, name: selectedDatabase.name });
-                setDeleteDialogOpen(true);
-              }}
+            {/* Dialogs */}
+            <AddConnectionDialog
+                open={isDialogOpen}
+                onOpenChange={handleDialogClose}
+                onSubmit={handleAddDatabase}
+                isLoading={isAdding}
+                initialData={prefilledConnectionData}
             />
-          ) : (
-            <WelcomeView
-              databases={databases}
-              recentDatabases={recentDatabases}
-              status={status}
-              connectedCount={connectedCount}
-              totalTables={totalTables}
-              totalSize={totalSize}
-              statsLoading={showStatsLoading}
-              onAddClick={() => setIsDialogOpen(true)}
-              onSelectDb={setSelectedDb}
-              onDatabaseClick={handleDatabaseClick}
-              onDatabaseHover={handleDatabaseHover}
-              onDiscoveredDatabaseAdd={handleDiscoveredDatabaseAdd}
+
+            <DeleteDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                databaseName={dbToDelete?.name}
+                onConfirm={handleDeleteDatabase}
             />
-          )}
         </div>
-      </main>
-
-      {/* Add Database Dialog */}
-      <AddConnectionDialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setPrefilledConnectionData(undefined);
-        }}
-        onSubmit={(formData) => handleAddDatabase(formData)}
-        isLoading={addDatabaseMutation.isPending}
-        initialData={prefilledConnectionData}
-      />
-
-      {/* Delete Dialog */}
-      <DeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        databaseName={dbToDelete?.name}
-        onConfirm={handleDeleteDatabase}
-      />
-    </div>
-  );
+    );
 };
 
 export default Index;
