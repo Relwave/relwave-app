@@ -35,6 +35,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { projectService } from "@/services/bridge/project";
 
 const AnnotationLayer = lazy(() => import("@/features/er-diagram/components/AnnotationLayer"));
 
@@ -187,7 +188,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                 height: n.height ?? undefined,
             }));
 
-            bridgeApi
+            projectService
                 .saveProjectERDiagram(projectId, {
                     nodes: erNodes,
                     zoom: viewport?.zoom,
@@ -553,8 +554,8 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
                                     <button
                                         onClick={() => setAnnotationMode(prev => !prev)}
                                         className={`p-2 border rounded-md transition-colors ${annotationMode
-                                                ? "border-primary bg-primary/10 text-primary"
-                                                : "border-border hover:bg-muted"
+                                            ? "border-primary bg-primary/10 text-primary"
+                                            : "border-border hover:bg-muted"
                                             }`}
                                     >
                                         <MessageSquare className="h-4 w-4" />

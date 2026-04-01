@@ -9,6 +9,7 @@ import {
 import { bridgeApi } from "@/services/bridgeApi";
 import { snapshotToSchemaDetails, schemaGroupsToSnapshots } from "@/lib/schemaConverters";
 import type { DatabaseSchemaDetails } from "@/features/database/types";
+import { projectService } from "@/services/bridge/project";
 
 // ================================================================
 // useSchemaExplorerData
@@ -126,7 +127,7 @@ export function useSchemaExplorerData(
 
             // 2. Convert to snapshots and save to project schema.json
             const snapshots = schemaGroupsToSnapshots(freshSchema.schemas);
-            await bridgeApi.saveProjectSchema(projectId, snapshots);
+            await projectService.saveProjectSchema(projectId, snapshots);
 
             // 3. Invalidate React Query caches to trigger re-render
             queryClient.invalidateQueries({

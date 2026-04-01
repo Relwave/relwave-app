@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
-import { bridgeApi } from "@/services/bridgeApi";
 import { useProjectByDatabaseId } from "@/features/project/hooks/useProjectQueries";
 import { schemaGroupsToSnapshots } from "@/lib/schemaConverters";
 import type { DatabaseSchemaDetails } from "@/features/database/types";
 import type { ERNode } from "@/features/project/types";
+import { projectService } from "@/services/bridge/project";
 
 // ==========================================
 // Hook: useProjectSync
@@ -52,7 +52,7 @@ export function useProjectSync(
         const snapshots = schemaGroupsToSnapshots(schemaData.schemas);
 
         // Fire-and-forget — sync in the background without blocking UI
-        bridgeApi
+        projectService
             .saveProjectSchema(projectId, snapshots)
             .then(() => {
                 lastSyncedSchemaRef.current = fingerprint;
@@ -69,7 +69,7 @@ export function useProjectSync(
     const saveERDiagram = useCallback(
         (nodes: ERNode[], zoom?: number, panX?: number, panY?: number) => {
             if (!projectId) return;
-            bridgeApi
+            projectService
                 .saveProjectERDiagram(projectId, { nodes, zoom, panX, panY })
                 .then(() => {
                     console.debug("[ProjectSync] ER diagram synced for project", projectId);

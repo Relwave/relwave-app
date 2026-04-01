@@ -21,6 +21,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { bridgeApi } from "@/services/bridgeApi";
 import type { ScanImportResult } from "@/features/project/types";
+import { projectService } from "@/services/bridge/project";
 
 // ==========================================
 // Types
@@ -110,7 +111,7 @@ export function ImportProjectDialog({
     setStep("scanning");
 
     try {
-      const result = await bridgeApi.scanImportSource(selectedPath);
+      const result = await projectService.scanImportSource(selectedPath);
       setScanResult(result);
 
       // Pre-fill DB form from scan results
@@ -171,7 +172,7 @@ export function ImportProjectDialog({
       createdDbId = db.id;
 
       // 3. Import the project with a valid databaseId
-      const project = await bridgeApi.importProject({
+      const project = await projectService.importProject({
         sourcePath: selectedPath,
         databaseId: db.id,
       });

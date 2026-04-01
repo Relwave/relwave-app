@@ -16,6 +16,7 @@ import type {
     ERDiagramFile,
     ERNode,
 } from "@/features/project/types";
+import { projectService } from "@/services/bridge/project";
 
 // ================================================================
 // useERDiagramData
@@ -136,7 +137,7 @@ export function useERDiagramData(
             // 2. Convert to snapshots and save to project schema.json
             //    ❗ This does NOT touch er-diagram.json
             const snapshots = schemaGroupsToSnapshots(freshSchema.schemas);
-            await bridgeApi.saveProjectSchema(projectId, snapshots);
+            await projectService.saveProjectSchema(projectId, snapshots);
 
             // 3. Invalidate React Query caches to trigger re-render
             queryClient.invalidateQueries({

@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { bridgeApi } from "@/services/bridgeApi";
 import { isBridgeReady } from "@/services/bridgeClient";
 import {
   CreateProjectParams,
@@ -9,6 +8,7 @@ import {
   ImportProjectParams,
   ProjectMetadata,
 } from "@/features/project/types";
+import { projectService } from "@/services/bridge/project";
 
 // ============================================
 // Query Keys
@@ -45,7 +45,7 @@ export function useProjects() {
 
   return useQuery({
     queryKey: projectKeys.all,
-    queryFn: () => bridgeApi.listProjects(),
+    queryFn: () => projectService.listProjects(),
     staleTime: STALE_TIMES.list,
     gcTime: 10 * 60 * 1000,
     enabled: bridgeReady,
@@ -58,7 +58,7 @@ export function useProjects() {
 export function useProject(projectId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.detail(projectId!),
-    queryFn: () => bridgeApi.getProject(projectId!),
+    queryFn: () => projectService.getProject(projectId!),
     staleTime: STALE_TIMES.detail,
     enabled: !!projectId,
   });
@@ -70,7 +70,7 @@ export function useProject(projectId: string | undefined) {
 export function useProjectByDatabaseId(databaseId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.byDatabaseId(databaseId!),
-    queryFn: () => bridgeApi.getProjectByDatabaseId(databaseId!),
+    queryFn: () => projectService.getProjectByDatabaseId(databaseId!),
     staleTime: STALE_TIMES.detail,
     enabled: !!databaseId,
   });
@@ -82,7 +82,7 @@ export function useProjectByDatabaseId(databaseId: string | undefined) {
 export function useProjectDir(projectId: string | null | undefined) {
   return useQuery({
     queryKey: projectKeys.dir(projectId!),
-    queryFn: () => bridgeApi.getProjectDir(projectId!),
+    queryFn: () => projectService.getProjectDir(projectId!),
     staleTime: Infinity, // path never changes for a given project
     gcTime: 30 * 60 * 1000,
     enabled: !!projectId,
@@ -96,7 +96,7 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: CreateProjectParams) => bridgeApi.createProject(params),
+    mutationFn: (params: CreateProjectParams) => projectService.createProject(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
     },
@@ -110,7 +110,7 @@ export function useImportProject() {
   const queryClient = useQueryClient();
 
   return useMutation<ProjectMetadata, Error, ImportProjectParams>({
-    mutationFn: (params: ImportProjectParams) => bridgeApi.importProject(params),
+    mutationFn: (params: ImportProjectParams) => projectService.importProject(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
     },
@@ -124,7 +124,7 @@ export function useUpdateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: UpdateProjectParams) => bridgeApi.updateProject(params),
+    mutationFn: (params: UpdateProjectParams) => projectService.updateProject(params),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
       queryClient.invalidateQueries({
@@ -141,7 +141,7 @@ export function useDeleteProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (projectId: string) => bridgeApi.deleteProject(projectId),
+    mutationFn: (projectId: string) => projectService.deleteProject(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
     },
@@ -154,7 +154,7 @@ export function useDeleteProject() {
 export function useProjectSchema(projectId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.schema(projectId!),
-    queryFn: () => bridgeApi.getProjectSchema(projectId!),
+    queryFn: () => projectService.getProjectSchema(projectId!),
     staleTime: STALE_TIMES.schema,
     enabled: !!projectId,
   });
@@ -170,7 +170,7 @@ export function useSaveProjectSchema() {
     }: {
       projectId: string;
       schemas: SchemaSnapshot[];
-    }) => bridgeApi.saveProjectSchema(projectId, schemas),
+    }) => projectService.saveProjectSchema(projectId, schemas),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.schema(variables.projectId),
@@ -185,7 +185,7 @@ export function useSaveProjectSchema() {
 export function useProjectERDiagram(projectId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.erDiagram(projectId!),
-    queryFn: () => bridgeApi.getProjectERDiagram(projectId!),
+    queryFn: () => projectService.getProjectERDiagram(projectId!),
     staleTime: STALE_TIMES.erDiagram,
     enabled: !!projectId,
   });
@@ -207,7 +207,7 @@ export function useSaveProjectERDiagram() {
       zoom?: number;
       panX?: number;
       panY?: number;
-    }) => bridgeApi.saveProjectERDiagram(projectId, { nodes, zoom, panX, panY }),
+    }) => projectService.saveProjectERDiagram(projectId, { nodes, zoom, panX, panY }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.erDiagram(variables.projectId),
@@ -222,7 +222,7 @@ export function useSaveProjectERDiagram() {
 export function useProjectQueries(projectId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.queries(projectId!),
-    queryFn: () => bridgeApi.getProjectQueries(projectId!),
+    queryFn: () => projectService.getProjectQueries(projectId!),
     staleTime: STALE_TIMES.queries,
     enabled: !!projectId,
   });
@@ -242,7 +242,7 @@ export function useAddProjectQuery() {
       name: string;
       sql: string;
       description?: string;
-    }) => bridgeApi.addProjectQuery(projectId, { name, sql, description }),
+    }) => projectService.addProjectQuery(projectId, { name, sql, description }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.queries(variables.projectId),
@@ -265,7 +265,7 @@ export function useUpdateProjectQuery() {
       name?: string;
       sql?: string;
       description?: string;
-    }) => bridgeApi.updateProjectQuery(projectId, queryId, updates),
+    }) => projectService.updateProjectQuery(projectId, queryId, updates),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.queries(variables.projectId),
@@ -284,7 +284,7 @@ export function useDeleteProjectQuery() {
     }: {
       projectId: string;
       queryId: string;
-    }) => bridgeApi.deleteProjectQuery(projectId, queryId),
+    }) => projectService.deleteProjectQuery(projectId, queryId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.queries(variables.projectId),
@@ -299,7 +299,7 @@ export function useDeleteProjectQuery() {
 export function useExportProject(projectId: string | undefined) {
   return useQuery({
     queryKey: projectKeys.export(projectId!),
-    queryFn: () => bridgeApi.exportProject(projectId!),
+    queryFn: () => projectService.exportProject(projectId!),
     enabled: false, // Manual trigger only
   });
 }

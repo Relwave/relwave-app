@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
-import { bridgeApi } from "@/services/bridgeApi";
+import { projectService } from "@/services/bridge/project";
 
 const ANNOTATION_SAVE_DEBOUNCE_MS = 2000;
 
@@ -26,7 +26,7 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
             if (!editor) return;
 
             const snapshot = editor.getSnapshot();
-            bridgeApi
+            projectService
                 .saveProjectAnnotations(projectId, snapshot)
                 .then(() => console.debug("[Annotations] Saved"))
                 .catch((err) => console.warn("[Annotations] Save failed:", err.message));
@@ -40,7 +40,7 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
 
             // Load saved annotations
             if (projectId) {
-                bridgeApi
+                projectService
                     .getProjectAnnotations(projectId)
                     .then((file) => {
                         if (file?.snapshot && Object.keys(file.snapshot).length > 0) {
