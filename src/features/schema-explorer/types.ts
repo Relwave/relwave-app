@@ -34,20 +34,7 @@ export const getFkInfo = (
     return foreignKeys?.find((fk) => fk.source_column === columnName);
 };
 
-// Props interfaces
-export interface TreeViewPanelProps {
-    database: DatabaseSchema;
-    expandedSchemas: Set<string>;
-    expandedTables: Set<string>;
-    toggleSchema: (schemaName: string) => void;
-    toggleTable: (tableName: string) => void;
-    selectedItem: string | null;
-    setSelectedItem: (itemPath: string) => void;
-    handlePreviewRows: (tableName: string) => void;
-    handleShowDDL: (tableName: string) => void;
-    handleCopy: (name: string, type: string) => void;
-    handleExport: (tableName: string) => void;
-}
+
 
 export interface MetaDataPanelProps {
     selectedItem: string | null;

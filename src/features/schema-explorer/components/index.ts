@@ -2,7 +2,6 @@
 export { default as SchemaExplorerPanel } from './SchemaExplorerPanel';
 export { default as SchemaExplorerHeader } from './SchemaExplorerHeader';
 export { default as MetaDataPanel } from './MetaDataPanel';
-export { default as TreeViewPanel } from './TreeViewPanel';
 
 // Dialogs
 export { default as CreateTableDialog } from './CreateTableDialog';
@@ -24,7 +23,6 @@ export type {
     TableSchema,
     Schema,
     DatabaseSchema,
-    TreeViewPanelProps,
     MetaDataPanelProps,
     TableSelection,
 } from '../types';
