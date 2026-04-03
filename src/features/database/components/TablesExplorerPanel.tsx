@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { SelectedTable, TableInfo } from "@/features/database/types";
 import { CreateTableDialog } from '@/features/schema-explorer/components';
+import { useTableExplorerPanel } from '../hooks/useTableExplorerPanel';
 
 
 interface TablesExplorerPanelProps {
@@ -25,37 +26,26 @@ export default function TablesExplorerPanel({
     onSelectTable,
     loading = false,
 }: TablesExplorerPanelProps) {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [createTableOpen, setCreateTableOpen] = useState(false);
 
-    const [favorites, setFavorites] = useState<Set<string>>(
-        new Set(JSON.parse(localStorage.getItem('favoriteTables') || '[]'))
-    );
-    const [filter, setFilter] = useState<'all' | 'system' | 'favorites'>('all');
-
-    const toggleFavorite = (tableName: string) => {
-        const newFavorites = new Set(favorites);
-        if (newFavorites.has(tableName)) {
-            newFavorites.delete(tableName);
-        } else {
-            newFavorites.add(tableName);
-        }
-        setFavorites(newFavorites);
-        localStorage.setItem('favoriteTables', JSON.stringify(Array.from(newFavorites)));
-    };
-
-    const filteredTables = tables.filter((table) => {
-        const matchesSearch = table.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const isSystemTable = table.name.startsWith('pg_') || table.name.startsWith('information_');
-
-        if (filter === 'system') return matchesSearch && isSystemTable;
-        if (filter === 'favorites') return matchesSearch && favorites.has(table.name);
-        return matchesSearch && !isSystemTable; // 'all' shows non-system tables
-    });
-
-    const isSelected = (table: TableInfo) => {
-        return selectedTable?.name === table.name && selectedTable?.schema === table.schema;
-    };
+    const {
+        searchQuery,
+        setSearchQuery,
+        createTableOpen,
+        setCreateTableOpen,
+        favorites,
+        filter,
+        setFilter,
+        toggleFavorite,
+        filteredTables,
+        isSelected
+    } = useTableExplorerPanel({
+        dbId,
+        tables,
+        selectedTable,
+        selectedSchema,
+        loading,
+        onSelectTable,
+    })
 
     return (
         <div className="h-full w-64 flex flex-col bg-background overflow-hidden">

@@ -22,12 +22,12 @@ export default function ExpandableBottomPanel({
             className={`
         border-t border-border/20 bg-background
         transition-all duration-300 ease-in-out
-        ${isExpanded ? '' : 'h-[60px]'}
+        ${isExpanded ? '' : 'h-15'}
       `}
             style={isExpanded ? { height: defaultHeight } : undefined}
         >
             {/* Header Bar */}
-            <div className="h-[60px] px-6 flex items-center justify-between border-b border-border/20">
+            <div className="h-15 px-6 flex items-center justify-between border-b border-border/20">
                 <h3 className="text-sm font-semibold">{title}</h3>
                 <Button
                     variant="ghost"
