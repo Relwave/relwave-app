@@ -9,7 +9,7 @@ import Projects from './pages/Projects';
 import NotFound from './pages/NotFound';
 import { ThemeProvider } from './components/providers/ThemeProvider';
 import Settings from './pages/Settings';
-import { useBridgeInit } from "@/hooks/useBridgeInit";
+import { useBridgeInit } from "@/services/bridge/useBridgeInit";
 import { useEffect } from 'react';
 import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
 import { UpdateNotification } from './components/shared/UpdateNotification';

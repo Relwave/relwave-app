@@ -1,6 +1,6 @@
 // pages/Index.tsx
 
-import { useBridgeQuery } from "@/hooks/useBridgeQuery";
+import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import {
     ConnectionList,
     DatabaseDetail,

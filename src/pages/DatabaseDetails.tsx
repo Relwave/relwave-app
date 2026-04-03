@@ -1,7 +1,7 @@
 // pages/DatabaseDetail.tsx
 
 import { useParams } from "react-router-dom";
-import { useBridgeQuery } from "@/hooks/useBridgeQuery";
+import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { useDatabaseDetails } from "@/features/database/hooks/useDatabaseDetails";
 import { useDatabaseDetailPage } from "@/features/database/hooks/useDatabaseDetailPage";
 import { useMigrations, useFullSchema } from "@/features/project/hooks/useDbQueries";

@@ -1,4 +1,4 @@
-import { useBridgeQuery } from "@/hooks/useBridgeQuery";
+import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { useProjectsPage } from "@/features/project/hooks/useProjectsPage";
 import {
     ProjectList,

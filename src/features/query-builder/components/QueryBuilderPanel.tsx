@@ -12,7 +12,7 @@ import { useFullSchema } from "@/features/project/hooks/useDbQueries";
 import { useQueryHistory } from "@/features/query-builder/hooks/useQueryHistory";
 import { useDatabase } from "@/features/project/hooks/useDbQueries";
 import { Spinner } from "@/components/ui/spinner";
-import { useBridgeQuery } from "@/hooks/useBridgeQuery";
+import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { TableRow } from "@/features/database/types";
 import { BuilderHeader } from "./BuilderHeader";
 import { BuilderSidebar } from "./BuilderSidebar";
