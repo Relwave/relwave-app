@@ -9,7 +9,6 @@ import os from "os";
 const TEST_CONFIG_FOLDER = path.join(os.tmpdir(), "dbstore-test-" + Date.now());
 const TEST_CONFIG_FILE = path.join(TEST_CONFIG_FOLDER, "databases.json");
 const TEST_CREDENTIALS_FILE = path.join(TEST_CONFIG_FOLDER, ".credentials");
-const TEST_ENCRYPTION_KEY = "test-encryption-key";
 
 // Short TTL for testing cache expiration
 const SHORT_CACHE_TTL = 200; // 200ms for testing
@@ -41,7 +40,6 @@ describe("DbStore Cache Tests", () => {
       TEST_CONFIG_FOLDER,
       TEST_CONFIG_FILE,
       TEST_CREDENTIALS_FILE,
-      TEST_ENCRYPTION_KEY,
       NORMAL_CACHE_TTL,
       true // autoPreload
     );
@@ -197,7 +195,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         SHORT_CACHE_TTL,
         true // autoPreload
       );
@@ -221,7 +218,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         true // autoPreload enabled
       );
@@ -240,7 +236,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         false // autoPreload disabled
       );
@@ -261,7 +256,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         true
       );
@@ -277,7 +271,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         false // no preload
       );
@@ -301,7 +294,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         true
       );
@@ -327,7 +319,6 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FOLDER,
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
-        TEST_ENCRYPTION_KEY,
         NORMAL_CACHE_TTL,
         false
       );
@@ -488,3 +479,4 @@ describe("DbStore Cache Tests", () => {
     });
   });
 });
+

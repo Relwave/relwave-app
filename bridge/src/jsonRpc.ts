@@ -21,6 +21,7 @@ export type RpcNotification = { method: string; params?: any };
 export class JsonStdio extends EventEmitter {
   private _id = 1;
   private closed = false;
+  private _handlers = new Map<string, (params: any, id: number | string) => Promise<void> | void>();
 
   constructor() {
     super();
@@ -48,14 +49,20 @@ export class JsonStdio extends EventEmitter {
     });
   }
 
+  /**
+   * Register a method handler.
+   * Registered handlers are called before the generic 'request' event.
+   */
+  register(method: string, handler: (params: any, id: number | string) => Promise<void> | void): void {
+    this._handlers.set(method, handler);
+  }
+
   private _handleLine(line: string) {
     let obj: any = null;
     try {
       obj = JSON.parse(line);
     } catch (err: any) {
-      // Handle invalid JSON gracefully: emit a parse error notification
       const parseErr = { code: 'PARSE_ERROR', message: String(err), raw: line };
-      // Try to notify consumer in a safe manner
       try {
         this.sendNotification('bridge.parse_error', parseErr);
       } catch (e) {
@@ -65,16 +72,21 @@ export class JsonStdio extends EventEmitter {
       return;
     }
 
-    // distinguish requests (have id) vs notifications (no id)
     if (obj && typeof obj === 'object') {
       if (obj.method && obj.id !== undefined) {
-        // Request: { id, method, params }
-        this.emit('request', obj as RpcRequest);
+        // Registered handler takes priority over the 'request' event
+        const handler = this._handlers.get(obj.method);
+        if (handler) {
+          Promise.resolve(handler(obj.params, obj.id)).catch((err) => {
+            logger.error({ err, method: obj.method }, 'registered handler threw');
+            this.sendError(obj.id, { code: 'HANDLER_ERROR', message: String(err) });
+          });
+        } else {
+          this.emit('request', obj as RpcRequest);
+        }
       } else if (obj.method && obj.id === undefined) {
-        // Notification
         this.emit('notification', obj as RpcNotification);
       } else {
-        // Unknown shape — treat as request if id present else notification
         if (obj.id !== undefined) this.emit('request', obj as RpcRequest);
         else this.emit('notification', obj as RpcNotification);
       }
@@ -104,4 +116,4 @@ export class JsonStdio extends EventEmitter {
   newId(): number {
     return this._id++;
   }
-}
+}

@@ -1,74 +1,73 @@
-import * as postgresConnector from "../connectors/postgres";
-import * as mysqlConnector from "../connectors/mysql";
-import * as mariadbConnector from "../connectors/mariadb";
-import * as sqliteConnector from "../connectors/sqlite";
-import { DBType, Rpc, QueryParams, DatabaseConfig } from "../types";
+import { DBType, Rpc, QueryParams } from "../types";
+import { getConnector } from "./connectorRegistry";
+import logger from "./logger";
 
 // Concurrency limit for parallel processing
 const PARALLEL_LIMIT = 5;
 
 /**
- * Process items in parallel with concurrency limit
+ * Process items in parallel with a concurrency limit.
+ * Results are returned in INPUT ORDER regardless of completion order.
  */
 async function parallelMap<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
   limit: number = PARALLEL_LIMIT
 ): Promise<R[]> {
-  const results: R[] = [];
-  const executing: Promise<void>[] = [];
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
 
-  for (const item of items) {
-    const p = fn(item).then((result) => {
-      results.push(result);
-    });
-
-    executing.push(p);
-
-    if (executing.length >= limit) {
-      await Promise.race(executing);
-      // Remove completed promises
-      for (let i = executing.length - 1; i >= 0; i--) {
-        const status = await Promise.race([
-          executing[i].then(() => 'fulfilled'),
-          Promise.resolve('pending')
-        ]);
-        if (status === 'fulfilled') {
-          executing.splice(i, 1);
-        }
-      }
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
     }
   }
 
-  await Promise.all(executing);
+  const workerCount = Math.min(limit, items.length);
+  if (workerCount === 0) return results;
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
 }
 
+/** Map a column row to the canonical shape used by schemaExplorer */
+function mapColumn(col: any) {
+  return {
+    name: col.name,
+    type: col.type,
+    nullable: !col.not_nullable,
+    isPrimaryKey: col.is_primary_key === true,
+    isForeignKey: col.is_foreign_key === true,
+    defaultValue: col.default_value || null,
+    isUnique: false,
+  };
+}
+
 export class QueryExecutor {
-  constructor(
-    public postgres = postgresConnector,
-    public mysql = mysqlConnector,
-    public mariadb = mariadbConnector,
-    public sqlite = sqliteConnector
-  ) { }
+  // Keep direct connector references for cache-clear calls in queryHandlers
+  // (e.g. mysqlCache.clearForConnection). These aren't used for dispatch.
+  public postgres = getConnector(DBType.POSTGRES) as typeof import("../connectors/postgres");
+  public mysql = getConnector(DBType.MYSQL) as typeof import("../connectors/mysql");
+  public mariadb = getConnector(DBType.MARIADB) as typeof import("../connectors/mariadb");
+  public sqlite = getConnector(DBType.SQLITE) as typeof import("../connectors/sqlite");
 
   async executeQuery(
     params: QueryParams,
-    conn: any,
+    conn: unknown,
     dbType: DBType,
     rpc: Rpc,
     onCancel: (cancelFn: () => Promise<void>) => void
   ) {
     const { sessionId, sql, batchSize = 200 } = params;
+    const connector = getConnector(dbType);
 
     let totalRows = 0;
     let batchIndex = 0;
     const start = Date.now();
     let lastProgressEmit = Date.now();
 
-    const onBatch = async (rows: any[], columns: any[]) => {
+    const onBatch = async (rows: unknown[], columns: unknown[]) => {
       totalRows += rows.length;
-
       rpc.sendNotification?.("query.result", {
         sessionId,
         batchIndex: batchIndex++,
@@ -97,304 +96,70 @@ export class QueryExecutor {
       });
     };
 
-    let runner;
-    if (dbType === DBType.MYSQL) {
-      runner = this.mysql.streamQueryCancelable(
-        conn,
-        sql,
-        batchSize,
-        onBatch,
-        onDone
-      );
-    } else if (dbType === DBType.POSTGRES) {
-      runner = this.postgres.streamQueryCancelable(
-        conn,
-        sql,
-        batchSize,
-        onBatch,
-        onDone
-      );
-    } else if (dbType === DBType.MARIADB) {
-      runner = this.mariadb.streamQueryCancelable(
-        conn,
-        sql,
-        batchSize,
-        onBatch,
-        onDone
-      );
-    } else if (dbType === DBType.SQLITE) {
-      runner = this.sqlite.streamQueryCancelable(
-        conn,
-        sql,
-        batchSize,
-        onBatch,
-        onDone
-      );
-    }
-
+    const runner = (connector as any).streamQueryCancelable(conn, sql, batchSize, onBatch, onDone);
     onCancel(runner.cancel);
     return { runner, totalRows, start };
   }
 
-  async testConnection(conn: any, dbType: DBType): Promise<any> {
-    if (dbType === DBType.MYSQL) {
-      return await this.mysql.testConnection(conn);
-    } else if (dbType === DBType.POSTGRES) {
-      return await this.postgres.testConnection(conn);
-    } else if (dbType === DBType.SQLITE) {
-      return await this.sqlite.testConnection(conn);
-    } else {
-      return await this.mariadb.testConnection(conn);
-    }
+  async testConnection(conn: unknown, dbType: DBType): Promise<unknown> {
+    return (getConnector(dbType) as any).testConnection(conn);
   }
 
-  async listTables(conn: any, dbType: DBType, schema?: string) {
-    if (dbType === DBType.MYSQL) {
-      return this.mysql.listTables(conn, schema);
-    } else if (dbType === DBType.POSTGRES) {
-      return this.postgres.listTables(conn, schema);
-    } else if (dbType === DBType.MARIADB) {
-      return this.mariadb.listTables(conn, schema);
-    } else if (dbType === DBType.SQLITE) {
-      return this.sqlite.listTables(conn, schema);
-    }
+  async listTables(conn: unknown, dbType: DBType, schema?: string) {
+    return (getConnector(dbType) as any).listTables(conn, schema);
   }
 
-  async getStats(conn: any, dbType: DBType) {
-    if (dbType === DBType.MYSQL) {
-      return this.mysql.getDBStats(conn);
-    } else if (dbType === DBType.POSTGRES) {
-      return this.postgres.getDBStats(conn);
-    } else if (dbType === DBType.MARIADB) {
-      return this.mariadb.getDBStats(conn);
-    } else if (dbType === DBType.SQLITE) {
-      return this.sqlite.getDBStats(conn);
-    }
+  async getStats(conn: unknown, dbType: DBType) {
+    return (getConnector(dbType) as any).getDBStats(conn);
   }
 
-  async listSchemas(conn: any, dbType: DBType): Promise<any> {
-    if (dbType === DBType.MYSQL) {
-      const schemas = await this.mysql.listSchemas(conn);
-
-      // Process schemas in parallel with batch queries
-      const finalSchemas = await parallelMap(schemas, async (schema) => {
-        try {
-          // Get tables list
-          const tablesInSchema = await this.mysql.listTables(conn, schema.name);
-
-          // Use batch query to get all metadata at once
-          const batchData = await this.mysql.getSchemaMetadataBatch(conn, schema.name);
-
-          const finalTables = tablesInSchema.map((table) => {
-            const tableData = batchData.tables.get(table.name);
-
-            const columns = tableData?.columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              nullable: !col.not_nullable,
-              isPrimaryKey: col.is_primary_key === true,
-              isForeignKey: col.is_foreign_key === true,
-              defaultValue: col.default_value || null,
-              isUnique: false,
-            })) || [];
-
-            return {
-              name: table.name,
-              type: table.type,
-              columns: columns,
-              primaryKeys: tableData?.primaryKeys || [],
-              foreignKeys: tableData?.foreignKeys || [],
-              indexes: tableData?.indexes || [],
-              uniqueConstraints: tableData?.uniqueConstraints || [],
-              checkConstraints: tableData?.checkConstraints || [],
-            };
-          });
-
-          return {
-            name: schema.name,
-            tables: finalTables,
-            enumColumns: batchData.enumColumns,
-            autoIncrements: batchData.autoIncrements,
-          };
-        } catch (e: any) {
-          console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);
-          return null;
-        }
-      });
-
-      return {
-        name: conn.database,
-        schemas: finalSchemas.filter(Boolean), // Remove null entries from failed schemas
-      };
-    } else if (dbType === DBType.POSTGRES) {
-      // PostgreSQL - Use optimized batch query
-      const schemas = await this.postgres.listSchemas(conn);
-
-      // Process schemas in parallel with batch queries
-      const finalSchemas = await parallelMap(schemas, async (schema) => {
-        try {
-          // Get tables list
-          const tablesInSchema = await this.postgres.listTables(conn, schema.name);
-
-          // Use batch query to get all metadata at once
-          const batchData = await this.postgres.getSchemaMetadataBatch(conn, schema.name);
-
-          const finalTables = tablesInSchema.map((table) => {
-            const tableData = batchData.tables.get(table.name);
-
-            const columns = tableData?.columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              nullable: !col.not_nullable,
-              isPrimaryKey: col.is_primary_key === true,
-              isForeignKey: col.is_foreign_key === true,
-              defaultValue: col.default_value || null,
-              isUnique: false,
-            })) || [];
-
-            return {
-              name: table.name,
-              type: table.type,
-              columns: columns,
-              primaryKeys: tableData?.primaryKeys || [],
-              foreignKeys: tableData?.foreignKeys || [],
-              indexes: tableData?.indexes || [],
-              uniqueConstraints: tableData?.uniqueConstraints || [],
-              checkConstraints: tableData?.checkConstraints || [],
-            };
-          });
-
-          return {
-            name: schema.name,
-            tables: finalTables,
-            enumTypes: batchData.enumTypes,
-            sequences: batchData.sequences,
-          };
-        } catch (e: any) {
-          console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);
-          return null;
-        }
-      });
-
-      return {
-        name: conn.database,
-        schemas: finalSchemas.filter(Boolean), // Remove null entries from failed schemas
-      };
-    } else if (dbType === DBType.MARIADB) {
-      // MariaDB - Use optimized batch query
-      const schemas = await this.mariadb.listSchemas(conn);
-
-      // Process schemas in parallel with batch queries
-      const finalSchemas = await parallelMap(schemas, async (schema) => {
-        try {
-          // Get tables list
-          const tablesInSchema = await this.mariadb.listTables(conn, schema.name);
-
-          // Use batch query to get all metadata at once
-          const batchData = await this.mariadb.getSchemaMetadataBatch(conn, schema.name);
-
-          const finalTables = tablesInSchema.map((table) => {
-            const tableData = batchData.tables.get(table.name);
-
-            const columns = tableData?.columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              nullable: !col.not_nullable,
-              isPrimaryKey: col.is_primary_key === true,
-              isForeignKey: col.is_foreign_key === true,
-              defaultValue: col.default_value || null,
-              isUnique: false,
-            })) || [];
-
-            return {
-              name: table.name,
-              type: table.type,
-              columns: columns,
-              primaryKeys: tableData?.primaryKeys || [],
-              foreignKeys: tableData?.foreignKeys || [],
-              indexes: tableData?.indexes || [],
-              uniqueConstraints: tableData?.uniqueConstraints || [],
-              checkConstraints: tableData?.checkConstraints || [],
-            };
-          });
-
-          return {
-            name: schema.name,
-            tables: finalTables,
-            enumColumns: batchData.enumColumns,
-            autoIncrements: batchData.autoIncrements,
-          };
-        } catch (e: any) {
-          console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);
-          return null;
-        }
-      });
-
-      return {
-        name: conn.database,
-        schemas: finalSchemas.filter(Boolean), // Remove null entries from failed schemas
-      };
-    } else if (dbType === DBType.SQLITE) {
-      // SQLite - only has 'main' schema
-      const schemas = await this.sqlite.listSchemas(conn);
-
-      const finalSchemas = await parallelMap(schemas, async (schema) => {
-        try {
-          const tablesInSchema = await this.sqlite.listTables(conn, schema.name);
-          const batchData = await this.sqlite.getSchemaMetadataBatch(conn, schema.name);
-
-          const finalTables = tablesInSchema.map((table) => {
-            const tableData = batchData.tables.get(table.name);
-
-            const columns = tableData?.columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              nullable: !col.not_nullable,
-              isPrimaryKey: col.is_primary_key === true,
-              isForeignKey: col.is_foreign_key === true,
-              defaultValue: col.default_value || null,
-              isUnique: false,
-            })) || [];
-
-            return {
-              name: table.name,
-              type: table.type,
-              columns: columns,
-              primaryKeys: tableData?.primaryKeys || [],
-              foreignKeys: tableData?.foreignKeys || [],
-              indexes: tableData?.indexes || [],
-              uniqueConstraints: tableData?.uniqueConstraints || [],
-              checkConstraints: tableData?.checkConstraints || [],
-            };
-          });
-
-          return {
-            name: schema.name,
-            tables: finalTables,
-          };
-        } catch (e: any) {
-          console.warn(`Skipping schema ${schema.name} due to error: ${e.message}`);
-          return null;
-        }
-      });
-
-      return {
-        name: conn.path || conn.database,
-        schemas: finalSchemas.filter(Boolean),
-      };
-    }
+  async listSchemaNames(conn: unknown, dbType: DBType): Promise<string[]> {
+    const result = await (getConnector(dbType) as any).listSchemaNames(conn);
+    return result ?? ["public"];
   }
 
-  async listSchemaNames(conn: any, dbType: DBType): Promise<string[]> {
-    if (dbType === DBType.POSTGRES) {
-      return this.postgres.listSchemaNames(conn);
-    } else if (dbType === DBType.MARIADB) {
-      return this.mariadb.listSchemaNames(conn);
-    } else if (dbType === DBType.MYSQL) {
-      return this.mysql.listSchemaNames(conn);
-    } else if (dbType === DBType.SQLITE) {
-      return this.sqlite.listSchemaNames(conn);
-    }
-    return ["public"];
+  async listSchemas(conn: unknown, dbType: DBType): Promise<unknown> {
+    const connector = getConnector(dbType) as any;
+    const schemas: Array<{ name: string }> = await connector.listSchemas(conn);
+
+    const finalSchemas = await parallelMap(schemas, async (schema) => {
+      try {
+        const tablesInSchema = await connector.listTables(conn, schema.name);
+        const batchData = await connector.getSchemaMetadataBatch(conn, schema.name);
+
+        const finalTables = tablesInSchema.map((table: any) => {
+          const tableData = batchData.tables.get(table.name);
+          return {
+            name: table.name,
+            type: table.type,
+            columns: tableData?.columns.map(mapColumn) ?? [],
+            primaryKeys: tableData?.primaryKeys ?? [],
+            foreignKeys: tableData?.foreignKeys ?? [],
+            indexes: tableData?.indexes ?? [],
+            uniqueConstraints: tableData?.uniqueConstraints ?? [],
+            checkConstraints: tableData?.checkConstraints ?? [],
+          };
+        });
+
+        // Merge any DB-type-specific extra fields from batchData
+        const extra: Record<string, unknown> = {};
+        if (batchData.enumTypes !== undefined) extra.enumTypes = batchData.enumTypes;
+        if (batchData.sequences !== undefined) extra.sequences = batchData.sequences;
+        if (batchData.enumColumns !== undefined) extra.enumColumns = batchData.enumColumns;
+        if (batchData.autoIncrements !== undefined) extra.autoIncrements = batchData.autoIncrements;
+
+        return { name: schema.name, tables: finalTables, ...extra };
+      } catch (e: any) {
+        logger.warn({ err: e.message, schema: schema.name }, "Skipping schema due to error");
+        return null;
+      }
+    });
+
+    const dbName =
+      dbType === DBType.SQLITE
+        ? (conn as any).path || (conn as any).database
+        : (conn as any).database;
+
+    return { name: dbName, schemas: finalSchemas.filter(Boolean) };
   }
 }
