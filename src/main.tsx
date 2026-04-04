@@ -13,6 +13,7 @@ import { useBridgeInit } from "@/services/bridge/useBridgeInit";
 import { useEffect } from 'react';
 import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
 import { UpdateNotification } from './components/shared/UpdateNotification';
+import TitleBar from './components/layout/TitleBar';
 
 const queryClient = new QueryClient();
 
@@ -34,9 +35,6 @@ function ThemeVariantInitializer() {
   return null;
 }
 
-
-import TitleBar from './components/layout/TitleBar';
-
 function AppRoot() {
   useEffect(() => {
     const handleSelectAll = (e: KeyboardEvent) => {
@@ -53,7 +51,7 @@ function AppRoot() {
   }, []);
 
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="relwave-ui-theme">
       <QueryClientProvider client={queryClient}>
         <BridgeInitializer />
         <ThemeVariantInitializer />
