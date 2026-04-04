@@ -3,7 +3,6 @@
 // ----------------------------
 
 import path from "path";
-import os from "os";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { v4 as uuidv4 } from "uuid";
@@ -12,10 +11,34 @@ import { promisify } from "util";
 import { CONFIG_FOLDER, CONFIG_FILE, CREDENTIALS_FILE } from "../utils/config";
 const scryptAsync = promisify(scrypt);
 
+/** Path of the app-level random secret used for password encryption */
+const APP_KEY_FILE = path.join(CONFIG_FOLDER, "relwave.key");
 
-
-// Use machine-specific key for encryption
-const ENCRYPTION_KEY_SOURCE = os.hostname() + os.userInfo().username;
+/**
+ * Load the 32-byte app encryption secret from disk.
+ * If it does not exist yet, generates and persists a new one.
+ * The key file is chmod 600 on non-Windows platforms.
+ */
+async function loadOrCreateAppKey(): Promise<Buffer> {
+  try {
+    if (!fsSync.existsSync(CONFIG_FOLDER)) {
+      await fs.mkdir(CONFIG_FOLDER, { recursive: true });
+    }
+    if (fsSync.existsSync(APP_KEY_FILE)) {
+      const raw = await fs.readFile(APP_KEY_FILE);
+      return raw;
+    }
+    // Generate a new 32-byte random secret
+    const key = randomBytes(32);
+    await fs.writeFile(APP_KEY_FILE, key);
+    if (process.platform !== "win32") {
+      await fs.chmod(APP_KEY_FILE, 0o600);
+    }
+    return key;
+  } catch (err) {
+    throw new Error(`Failed to load or create app encryption key: ${err}`);
+  }
+}
 
 // Cache configuration
 const DEFAULT_CACHE_TTL = 30000; // 30 seconds TTL for cache entries
@@ -181,7 +204,6 @@ export class DbStore {
   private configFolder: string;
   private configFile: string;
   private credentialsFile: string;
-  private encryptionKeySource: string;
   private cache: DbStoreCache;
   private preloadPromise: Promise<void> | null = null;
   private isPreloaded: boolean = false;
@@ -190,14 +212,12 @@ export class DbStore {
     configFolder: string = CONFIG_FOLDER,
     configFile: string = CONFIG_FILE,
     credentialsFile: string = CREDENTIALS_FILE,
-    encryptionKeySource: string = ENCRYPTION_KEY_SOURCE,
     cacheTtl: number = DEFAULT_CACHE_TTL,
     autoPreload: boolean = true
   ) {
     this.configFolder = configFolder;
     this.configFile = configFile;
     this.credentialsFile = credentialsFile;
-    this.encryptionKeySource = encryptionKeySource;
     this.cache = new DbStoreCache(cacheTtl);
 
     // Auto-preload cache on instantiation for faster first access
@@ -263,46 +283,44 @@ export class DbStore {
   }
 
   /**
-   * Encrypt password using AES-256-CBC
+   * Encrypt password using AES-256-CBC.
+   * Format: salt(32) + iv(16) + ciphertext, base64-encoded.
+   * Each credential gets its own unique salt so the derived key differs
+   * even when the same app-key is used.
    */
   private async encryptPassword(password: string): Promise<string> {
+    const appKey = await loadOrCreateAppKey();
+    const salt = randomBytes(32);
     const iv = randomBytes(16);
-    const key = (await scryptAsync(
-      this.encryptionKeySource,
-      "salt",
-      32
-    )) as Buffer;
+    const key = (await scryptAsync(appKey, salt, 32)) as Buffer;
     const cipher = createCipheriv("aes-256-cbc", key, iv);
-
     const encrypted = Buffer.concat([
       cipher.update(password, "utf8"),
       cipher.final(),
     ]);
-
-    // Return IV + encrypted data as base64
-    return Buffer.concat([iv, encrypted]).toString("base64");
+    // salt(32) + iv(16) + ciphertext → base64
+    return Buffer.concat([salt, iv, encrypted]).toString("base64");
   }
 
   /**
-   * Decrypt password
+   * Decrypt password.
+   * Expects the format written by encryptPassword: salt(32)+iv(16)+ciphertext.
    */
   private async decryptPassword(encryptedData: string): Promise<string> {
     const buffer = Buffer.from(encryptedData, "base64");
-    const iv = buffer.slice(0, 16);
-    const encrypted = buffer.slice(16);
-
-    const key = (await scryptAsync(
-      this.encryptionKeySource,
-      "salt",
-      32
-    )) as Buffer;
+    if (buffer.length < 49) {
+      throw new Error("Invalid credential format — please re-enter the password");
+    }
+    const salt = buffer.slice(0, 32);
+    const iv = buffer.slice(32, 48);
+    const encrypted = buffer.slice(48);
+    const appKey = await loadOrCreateAppKey();
+    const key = (await scryptAsync(appKey, salt, 32)) as Buffer;
     const decipher = createDecipheriv("aes-256-cbc", key, iv);
-
     const decrypted = Buffer.concat([
       decipher.update(encrypted),
       decipher.final(),
     ]);
-
     return decrypted.toString("utf8");
   }
 
