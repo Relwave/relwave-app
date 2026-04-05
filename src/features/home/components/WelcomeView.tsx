@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { WelcomeViewProps } from "../types";
 import { formatRelativeTime } from "../utils";
 import { DiscoveredDatabasesCard } from "./DiscoveredDatabasesCard";
+import { Spinner } from "@/components/ui/spinner";
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
   postgresql: { bg: "bg-blue-500/10", text: "text-blue-500" },
@@ -36,7 +37,6 @@ export function WelcomeView({
   welcomeMessage,
   onAddClick,
   onSelectDb,
-  onDatabaseClick,
   onDatabaseHover,
   onDiscoveredDatabaseAdd,
 }: WelcomeViewProps) {
@@ -85,7 +85,7 @@ export function WelcomeView({
             </div>
           </div>
           <p className="text-2xl font-bold tabular-nums font-mono">
-            {statsLoading ? "—" : totalTables}
+            {statsLoading ? <Spinner className="h-4.5 w-4.5 text-violet-500" /> : totalTables}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Total Tables</p>
         </div>
@@ -96,7 +96,7 @@ export function WelcomeView({
             </div>
           </div>
           <p className="text-2xl font-bold tabular-nums font-mono">
-            {statsLoading ? "—" : totalSize}
+            {statsLoading ? <Spinner className="h-4.5 w-4.5 text-amber-500" /> : totalSize}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Data Size</p>
         </div>
@@ -120,10 +120,7 @@ export function WelcomeView({
               return (
                 <button
                   key={db.id}
-                  onClick={() => {
-                    onSelectDb(db.id);
-                    if (isConnected) onDatabaseClick(db.id);
-                  }}
+                  onClick={() => onSelectDb(db.id)}
                   onMouseEnter={() => onDatabaseHover(db.id)}
                   disabled={!isConnected}
                   className={cn(

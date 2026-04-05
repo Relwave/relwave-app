@@ -103,6 +103,7 @@ const IndexContent = ({ bridgeReady }: { bridgeReady: boolean }) => {
                             onTest={() => handleTestConnection(selectedDatabase.id, selectedDatabase.name)}
                             onOpen={() => handleDatabaseClick(selectedDatabase.id)}
                             onDelete={() => openDeleteDialog(selectedDatabase.id, selectedDatabase.name)}
+                            onBack={() => setSelectedDb(null)}
                         />
                     ) : (
                         <WelcomeView
@@ -116,7 +117,6 @@ const IndexContent = ({ bridgeReady }: { bridgeReady: boolean }) => {
                             statsLoading={showStatsLoading}
                             onAddClick={() => handleDialogClose(true)}
                             onSelectDb={setSelectedDb}
-                            onDatabaseClick={handleDatabaseClick}
                             onDatabaseHover={handleDatabaseHover}
                             onDiscoveredDatabaseAdd={handleDiscoveredDatabaseAdd}
                         />

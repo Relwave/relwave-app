@@ -26,6 +26,7 @@ export interface DatabaseDetailProps {
     onTest: () => void;
     onOpen: () => void;
     onDelete: () => void;
+    onBack: () => void;
 }
 
 export interface WelcomeViewProps {
@@ -39,7 +40,6 @@ export interface WelcomeViewProps {
     welcomeMessage: string;
     onAddClick: () => void;
     onSelectDb: (id: string) => void;
-    onDatabaseClick: (id: string) => void;
     onDatabaseHover: (dbId: string) => void;
     onDiscoveredDatabaseAdd?: (db: DiscoveredDatabase) => void;
 }

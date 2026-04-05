@@ -8,6 +8,7 @@ import {
     MoreHorizontal,
     Trash2,
     CircleDot,
+    ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ export function DatabaseDetail({
     onTest,
     onOpen,
     onDelete,
+    onBack,
     size,
     tables
 }: DatabaseDetailProps) {
@@ -60,6 +62,12 @@ export function DatabaseDetail({
                             />
                         </div>
                         <div>
+                            <div className="mb-2">
+                                <Button variant="ghost" size="sm" onClick={onBack} className="h-8 px-2 text-muted-foreground -ml-2">
+                                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                                    Back
+                                </Button>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-xl font-semibold">{database.name}</h2>
                                 <span

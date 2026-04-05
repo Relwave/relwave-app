@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { ConnectionListProps } from "../types";
+import { Spinner } from "@/components/ui/spinner";
 
 export function ConnectionList({
   databases,
@@ -135,7 +136,7 @@ export function ConnectionList({
           </div>
           <div className="text-center p-2 rounded-md bg-muted/30">
             <p className="text-lg font-bold tabular-nums font-mono">
-              {statsLoading ? "—" : totalTables}
+              {statsLoading ? <Spinner className="h-4.5 w-4.5 text-amber-500" /> : totalTables}
             </p>
             <p className="text-[10px] text-muted-foreground">Tables</p>
           </div>
