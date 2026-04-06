@@ -3,8 +3,10 @@ export default function Header() {
         <header className="border-b border-border/20 bg-background/95 backdrop-blur-sm">
             <div className="container mx-auto px-8 py-6">
                 <div>
-                    <h1 className="text-2xl font-semibold">Settings</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <h2 className="scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+                        Settings
+                    </h2>
+                    <p className="leading-5 not-first:mt-2">
                         Customize your app appearance
                     </p>
                 </div>

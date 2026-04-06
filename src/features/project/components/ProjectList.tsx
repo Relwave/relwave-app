@@ -60,7 +60,9 @@ export function ProjectList({
       {/* Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-sm font-semibold">Projects</h1>
+          <h2 className="scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+            Projects
+          </h2>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"

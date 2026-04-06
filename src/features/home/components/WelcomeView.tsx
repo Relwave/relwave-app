@@ -48,16 +48,18 @@ export function WelcomeView({
     <div className="h-full flex flex-col p-6">
       {/* Welcome Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary" />
+        <div className="flex flex-col gap-1 mb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="scroll-m-20 pb-0 text-3xl font-semibold tracking-tight first:mt-0">
+              {welcomeMessage}
+            </h2>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold">{welcomeMessage}</h1>
-            <p className="text-sm text-muted-foreground">
-              Select a connection or add a new one
-            </p>
-          </div>
+          <p className="leading-7 text-muted-foreground ml-[52px]">
+            Select a connection or add a new one
+          </p>
         </div>
       </div>
 

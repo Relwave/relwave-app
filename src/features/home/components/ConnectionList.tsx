@@ -34,7 +34,9 @@ export function ConnectionList({
       {/* Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-sm font-semibold">Connections</h1>
+          <h2 className="scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+            Connections
+          </h2>
           <Button
             variant="ghost"
             size="icon"
