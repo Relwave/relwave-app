@@ -80,6 +80,7 @@ const Projects = () => {
                             onOpen={() => handleOpen(selectedProjectData.id)}
                             onDelete={() => openDeleteDialog(selectedProjectData.id, selectedProjectData.name)}
                             onExport={() => handleExport(selectedProjectData.id)}
+                            onBack={() => setSelectedProject(null)}
                         />
                     ) : (
                         <ProjectsEmptyState

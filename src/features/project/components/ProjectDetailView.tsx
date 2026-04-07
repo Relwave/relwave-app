@@ -8,6 +8,7 @@ import {
   Trash2,
   Download,
   FolderOpen,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ interface ProjectDetailViewProps {
   onOpen: () => void;
   onDelete: () => void;
   onExport: () => void;
+  onBack?: () => void;
 }
 
 function formatRelativeTime(dateStr: string) {
@@ -65,6 +67,7 @@ export function ProjectDetailView({
   onOpen,
   onDelete,
   onExport,
+  onBack,
 }: ProjectDetailViewProps) {
   const colors =
     ENGINE_COLORS[project.engine?.toLowerCase() ?? ""] ?? {
@@ -87,6 +90,12 @@ export function ProjectDetailView({
               <FolderOpen className={cn("h-7 w-7", colors.text)} />
             </div>
             <div>
+              <div className="mb-2">
+                  <Button variant="ghost" size="sm" onClick={onBack} className="h-8 px-2 text-muted-foreground -ml-2">
+                      <ArrowLeft className="h-4 w-4 mr-1.5" />
+                      Back
+                  </Button>
+              </div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold">{project.name}</h2>
                 {project.engine && (
