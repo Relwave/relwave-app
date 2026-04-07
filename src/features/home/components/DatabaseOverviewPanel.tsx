@@ -2,6 +2,7 @@ import { Card, CardAction, CardContent, CardHeader } from "@/components/ui/card"
 import { Clock, Database, HardDrive, Table2 } from "lucide-react";
 import { formatRelativeTime } from "../utils";
 import { DatabaseConnection } from "@/features/database/types";
+import { ConnectionDetails } from "./ConnectionDetails";
 
 
 interface DatabaseOverviewPanelProps {
@@ -69,41 +70,7 @@ export function DatabaseOverviewPanel({
             </div>
 
             {/* Connection Details */}
-            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-                <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
-                    <h3 className="text-sm font-medium">Connection Details</h3>
-                </div>
-                <div className="p-4 space-y-3">
-                    {database.type !== "sqlite" && (
-                        <>
-                            <div className="flex items-center justify-between py-2 border-b border-border/30">
-                                <span className="text-sm text-muted-foreground">Host</span>
-                                <span className="text-sm font-mono">{database.host}</span>
-                            </div>
-                            <div className="flex items-center justify-between py-2 border-b border-border/30">
-                                <span className="text-sm text-muted-foreground">Port</span>
-                                <span className="text-sm font-mono">{database.port}</span>
-                            </div>
-                        </>
-                    )}
-                    <div className="flex items-center justify-between py-2 border-b border-border/30">
-                        <span className="text-sm text-muted-foreground">{database.type === "sqlite" ? "File" : "Database"}</span>
-                        <span className="text-sm font-mono">{database.database}</span>
-                    </div>
-                    {database.type !== "sqlite" && (
-                        <div className="flex items-center justify-between py-2 border-b border-border/30">
-                            <span className="text-sm text-muted-foreground">User</span>
-                            <span className="text-sm font-mono">{database.user}</span>
-                        </div>
-                    )}
-                    <div className="flex items-center justify-between py-2">
-                        <span className="text-sm text-muted-foreground">Created</span>
-                        <span className="text-sm">
-                            {new Date(database.createdAt).toLocaleDateString()}
-                        </span>
-                    </div>
-                </div>
-            </div>
+            <ConnectionDetails database={database} />
         </div>
 
     );
