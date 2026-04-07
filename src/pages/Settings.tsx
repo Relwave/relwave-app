@@ -1,11 +1,8 @@
-import VerticalIconBar from "@/components/layout/VerticalIconBar";
 import { CheckForUpdates, ColorVariant, DeveloperMode, Header, Preview, ThemeMode, Version } from "@/features/settings/components";
 
 const Settings = () => {
     return (
         <div className="h-full flex bg-background text-foreground overflow-hidden">
-            <VerticalIconBar />
-
             <main className="flex-1 ml-15">
                 {/* Header */}
                 <Header />

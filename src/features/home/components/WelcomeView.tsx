@@ -143,7 +143,9 @@ export function WelcomeView({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-4">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium">Recent Activity</h2>
+              <h2 className="scroll-m-20 text-xl font-semibold tracking-tight">
+                Recent Activity
+              </h2>
             </div>
             <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
               {recentDatabases.map((db, index) => {

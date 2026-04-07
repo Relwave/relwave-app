@@ -10,7 +10,6 @@ import {
 } from "@/features/home/components";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
 import BridgeFailed from "@/components/feedback/BridgeFailed";
-import VerticalIconBar from "@/components/layout/VerticalIconBar";
 import { useIndexPage } from "@/features/home/hooks/useIndexPage";
 
 const Index = () => {
@@ -70,8 +69,6 @@ const IndexContent = ({ bridgeReady }: { bridgeReady: boolean }) => {
 
     return (
         <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
-            <VerticalIconBar />
-
             <main className="flex-1 ml-15 flex">
                 {/* Left Panel */}
                 <ConnectionList

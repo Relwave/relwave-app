@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import DatabaseDetail from './pages/DatabaseDetails';
 import Projects from './pages/Projects';
@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
 import { UpdateNotification } from './components/shared/UpdateNotification';
 import TitleBar from './components/layout/TitleBar';
+import VerticalIconBar from './components/layout/VerticalIconBar';
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,17 @@ function ThemeVariantInitializer() {
     }
   }, []);
   return null;
+}
+
+function GlobalSidebar() {
+  const location = useLocation();
+  const showOnGlobalRoutes = ['/', '/projects', '/settings'].includes(location.pathname);
+
+  if (!showOnGlobalRoutes) {
+    return null;
+  }
+
+  return <VerticalIconBar />;
 }
 
 function AppRoot() {
@@ -62,6 +74,7 @@ function AppRoot() {
             <TitleBar />
             <div className="pt-8">
               <BrowserRouter>
+                <GlobalSidebar />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/projects" element={<Projects />} />
