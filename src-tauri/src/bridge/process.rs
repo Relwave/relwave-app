@@ -36,6 +36,7 @@ fn try_spawn(program: &str, args: &[&str]) -> Result<Child, String> {
         .map_err(|e| format!("failed to spawn '{}': {}", program, e))
 }
 
+#[cfg(not(debug_assertions))]
 fn try_spawn_with_env(program: &str, args: &[&str], envs: &[(&str, &str)]) -> Result<Child, String> {
     let mut cmd = Command::new(program);
     for a in args {
@@ -67,6 +68,7 @@ fn get_exe_dir() -> Option<PathBuf> {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
 }
 
+#[cfg(not(debug_assertions))]
 fn find_sqlite_native_binding(base_dir: &Path) -> Option<PathBuf> {
     let mut candidates = vec![
         base_dir.join("better_sqlite3.node"),

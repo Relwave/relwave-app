@@ -1,12 +1,12 @@
 [package]
-name = "RelWave"
-version = "0.1.0"
-description = "A beautiful database management tool"
+name = "relwave"
+version = "0.4.0-beta.2"
+description = "A powerful, cross-platform desktop application for database management with native Git version control."
 authors = ["yashh56"]
 edition = "2021"
 
 [lib]
-name = "RelWave_lib"
+name = "relwave_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -22,5 +22,5 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [[bin]]
-name = "RelWave"
+name = "relwave"
 path = "src/main.rs"
