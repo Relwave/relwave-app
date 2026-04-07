@@ -8,7 +8,7 @@
 
 A powerful, cross-platform desktop application for database management with native Git version control — built with Tauri, React, and TypeScript.
 
-[![Version](https://img.shields.io/badge/version-0.2.0--beta.1-0066ff?style=for-the-badge)](https://github.com/Relwave/relwave-app/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0--beta.1-0066ff?style=for-the-badge)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgray?style=for-the-badge)](https://github.com/Relwave/relwave-app/releases)
 
@@ -53,7 +53,7 @@ For a comprehensive breakdown of all features, see the [Feature Reference](FEATU
 
 ### Database Management
 
-- **Multi-database support** — PostgreSQL, MySQL, and MariaDB with native drivers
+- **Multi-database support** — PostgreSQL, MySQL, MariaDB, and SQLite with native drivers
 - **Auto-discovery** — Detect local and Docker-based databases automatically
 - **Connection URL parsing** — Import connections via standard database URLs
 - **Schema Explorer** — Navigate tables, columns, indexes, and relationships
@@ -193,31 +193,23 @@ RelWave uses a **bridge architecture** — a Tauri/React frontend communicates w
 ```
 relwave-app/
 ├── src/                          # React frontend
-│   ├── components/
-│   │   ├── database/             # Database management UI
-│   │   ├── er-diagram/           # ER diagram visualization
-│   │   ├── git/                  # Git interface components
-│   │   ├── query-builder/        # Visual query builder
-│   │   └── schema-explorer/      # Schema navigation
-│   ├── hooks/                    # Custom React hooks
-│   ├── services/                 # API communication layer
-│   └── types/                    # TypeScript type definitions
+│   ├── components/               # Shared UI components
+│   ├── features/                 # Feature-based modules (database, git, etc.)
+│   ├── lib/                      # Shared libraries and utilities
+│   ├── pages/                    # Top-level page components
+│   └── services/                 # API communication layer
 │
 ├── bridge/                       # Node.js bridge process
 │   ├── src/
-│   │   ├── connectors/           # Database drivers (pg, mysql2)
+│   │   ├── connectors/           # Database drivers (pg, mysql2, better-sqlite3)
 │   │   ├── handlers/             # JSON-RPC request handlers
-│   │   │   ├── databaseHandlers.ts
-│   │   │   ├── gitHandlers.ts
-│   │   │   └── gitAdvancedHandlers.ts
-│   │   ├── services/             # Business logic and Git service
+│   │   ├── services/             # Business logic (Git, DB)
 │   │   └── queries/              # SQL query templates
-│   └── __tests__/                # Test suite
+│   └── __tests__/                # Bridge test suite
 │
 └── src-tauri/                    # Tauri backend (Rust)
-    ├── src/                      # Application entry point
-    ├── capabilities/             # Permission definitions
-    └── resources/                # Bundled bridge executable and SQLite native binding
+    ├── src/                      # Application entry point and bridge management
+    └── resources/                # Bundled bridge executable and native bindings
 ```
 
 ### Configuration
