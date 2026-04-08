@@ -47,6 +47,9 @@
     "externalBin": [
       "resources/bridge"
     ],
+    "resources": [
+      "resources/better_sqlite3.node"
+    ],
     "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {
