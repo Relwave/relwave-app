@@ -393,6 +393,24 @@ function quoteIdent(name: string): string {
 /** Test connection to SQLite database (checks if file is accessible) */
 export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
   try {
+    // Validate the path field exists
+    if (!cfg.path || typeof cfg.path !== "string" || !cfg.path.trim()) {
+      return {
+        ok: false,
+        status: "disconnected",
+        message: `Invalid SQLite path: path is empty or missing. Received: ${JSON.stringify(cfg)}`,
+      };
+    }
+
+    // Detect truncated Windows drive-letter-only paths (e.g. "C:" or "D:")
+    if (/^[A-Za-z]:$/.test(cfg.path.trim())) {
+      return {
+        ok: false,
+        status: "disconnected",
+        message: `Invalid SQLite path "${cfg.path}" — looks like a truncated Windows drive letter. Please re-add the database with the full file path.`,
+      };
+    }
+
     // Ensure the database file exists to avoid implicitly creating a new empty DB
     if (!fs.existsSync(cfg.path)) {
       return {

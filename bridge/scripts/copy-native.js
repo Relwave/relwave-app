@@ -14,8 +14,8 @@ const os = require("os");
 const path = require("path");
 
 const PKG_RUNTIME = {
-  nodeVersion: "18.5.0",
-  nodeModules: "108",
+  nodeVersion: "22.12.0",
+  nodeModules: "127",
   platform: process.platform,
   arch: process.arch,
 };

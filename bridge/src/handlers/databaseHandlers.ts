@@ -1,6 +1,7 @@
 import { Rpc } from "../types";
 import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
+import { ConnectionBuilder } from "../services/connectionBuilder";
 import { Logger } from "pino";
 
 export class DatabaseHandlers {
@@ -164,7 +165,7 @@ export class DatabaseHandlers {
         conn = result.conn;
         dbType = result.dbType;
       } else {
-        conn = connection;
+        // Detect DB type from the raw connection object
         if (connection.type?.toLowerCase().includes("mariadb")) {
           dbType = "mariadb";
         } else if (connection.type?.toLowerCase().includes("mysql")) {
@@ -176,6 +177,14 @@ export class DatabaseHandlers {
         } else {
           dbType = connection.type;
         }
+
+        // Normalize the raw connection through ConnectionBuilder so
+        // SQLite's `database` field is properly mapped to `path`.
+        conn = ConnectionBuilder.buildConnection(
+          connection,
+          connection.password ?? null,
+          dbType
+        );
       }
       const result = await this.queryExecutor.testConnection(conn, dbType);
       this.rpc.sendResponse(id, { ok: true, data: result });
