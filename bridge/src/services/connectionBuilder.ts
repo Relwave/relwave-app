@@ -1,42 +1,6 @@
 import { DBType, DatabaseConfig } from "../types";
 import { SQLiteConfig } from "../types/sqlite";
-
-function normalizeSQLitePath(rawPath: unknown): string {
-  if (typeof rawPath !== "string") {
-    return "";
-  }
-
-  const trimmed = rawPath.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  if (/^\/[A-Za-z]:\//.test(trimmed)) {
-    return trimmed.slice(1);
-  }
-
-  if (/^(?:file|sqlite):\/\//i.test(trimmed)) {
-    try {
-      const parsed = new URL(trimmed);
-      const hostname = parsed.hostname || "";
-      const pathname = parsed.pathname || "";
-
-      if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
-        return `${hostname}:${pathname}`;
-      }
-
-      if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
-        return pathname.slice(1);
-      }
-
-      return decodeURIComponent(`${hostname}${pathname}`);
-    } catch {
-      return trimmed;
-    }
-  }
-
-  return trimmed;
-}
+import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
 
 export class ConnectionBuilder {
   static buildConnection(
@@ -50,6 +14,11 @@ export class ConnectionBuilder {
         throw new Error(
           `SQLite connection requires a non-empty file path. ` +
           `Got database=${JSON.stringify(db.database)}, path=${JSON.stringify(db.path)}`
+        );
+      }
+      if (isWindowsDriveRootPath(dbPath)) {
+        throw new Error(
+          `Invalid SQLite path "${dbPath}" — it points to a Windows drive root, not a database file.`
         );
       }
       return {

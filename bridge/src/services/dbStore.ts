@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from "crypto";
 import { promisify } from "util";
 import { CONFIG_FOLDER, CONFIG_FILE, CREDENTIALS_FILE } from "../utils/config";
+import { normalizeSQLitePath } from "../utils/sqlitePath";
 const scryptAsync = promisify(scrypt);
 
 /** Path of the app-level random secret used for password encryption */
@@ -195,6 +196,51 @@ type ConfigData = {
   databases: DBMeta[];
 };
 
+function normalizeSQLiteDatabaseValue(rawPath: unknown): string {
+  return normalizeSQLitePath(rawPath);
+}
+
+function normalizeSQLiteMeta<T extends Pick<DBMeta, "type" | "database">>(meta: T): T {
+  const isSQLite = typeof meta.type === "string" && meta.type.toLowerCase().includes("sqlite");
+  if (!isSQLite) {
+    return meta;
+  }
+
+  const normalizedDatabase = normalizeSQLiteDatabaseValue(meta.database);
+  if (!normalizedDatabase || normalizedDatabase === meta.database) {
+    return meta;
+  }
+
+  return {
+    ...meta,
+    database: normalizedDatabase,
+  } as T;
+}
+
+function normalizeConfigData(data: ConfigData): { changed: boolean; data: ConfigData } {
+  let changed = false;
+
+  const databases = data.databases.map((db) => {
+    const normalized = normalizeSQLiteMeta(db);
+    if (normalized !== db) {
+      changed = true;
+    }
+    return normalized;
+  });
+
+  if (!changed) {
+    return { changed: false, data };
+  }
+
+  return {
+    changed: true,
+    data: {
+      ...data,
+      databases,
+    },
+  };
+}
+
 /**
  * Database Store Service
  * Handles persistence and encryption of database connections
@@ -244,8 +290,15 @@ export class DbStore {
       // Load config file
       if (fsSync.existsSync(this.configFile)) {
         const configData = await fs.readFile(this.configFile, "utf-8");
-        const config = JSON.parse(configData);
-        this.cache.setConfig(config);
+        const normalized = normalizeConfigData(JSON.parse(configData));
+        if (normalized.changed) {
+          await fs.writeFile(
+            this.configFile,
+            JSON.stringify(normalized.data, null, 2),
+            "utf-8"
+          );
+        }
+        this.cache.setConfig(normalized.data);
       } else {
         // Create empty config and cache it
         const emptyConfig: ConfigData = { version: 1, databases: [] };
@@ -411,22 +464,26 @@ export class DbStore {
 
     await this.ensureConfigDir();
     const txt = await fs.readFile(this.configFile, "utf-8");
-    const config = JSON.parse(txt);
-    this.cache.setConfig(config);
-    return config;
+    const normalized = normalizeConfigData(JSON.parse(txt));
+    if (normalized.changed) {
+      await fs.writeFile(this.configFile, JSON.stringify(normalized.data, null, 2), "utf-8");
+    }
+    this.cache.setConfig(normalized.data);
+    return normalized.data;
   }
 
   /**
    * Save all database configurations (invalidates cache)
    */
   private async saveAll(data: ConfigData): Promise<void> {
+    const normalized = normalizeConfigData(data).data;
     // Only ensure directory exists, don't call ensureConfigDir to avoid recursion
     if (!fsSync.existsSync(this.configFolder)) {
       await fs.mkdir(this.configFolder, { recursive: true });
     }
-    await fs.writeFile(this.configFile, JSON.stringify(data, null, 2), "utf-8");
+    await fs.writeFile(this.configFile, JSON.stringify(normalized, null, 2), "utf-8");
     // Update cache with new data
-    this.cache.setConfig(data);
+    this.cache.setConfig(normalized);
   }
 
   /**
@@ -476,7 +533,7 @@ export class DbStore {
     const now = new Date().toISOString();
     const credentialId = payload.password ? `db_${id}` : undefined;
 
-    const meta: DBMeta = {
+    const meta: DBMeta = normalizeSQLiteMeta({
       id,
       name: payload.name,
       host: payload.host,
@@ -491,7 +548,7 @@ export class DbStore {
       tags: payload.tags || [],
       createdAt: now,
       updatedAt: now,
-    };
+    });
 
     all.databases.push(meta);
     await this.saveAll(all);
@@ -525,11 +582,11 @@ export class DbStore {
 
     const now = new Date().toISOString();
     const curr = all.databases[idx];
-    const updated = {
+    const updated = normalizeSQLiteMeta({
       ...curr,
       ...patch,
       updatedAt: now,
-    };
+    });
 
     if (patch.password) {
       const credentialId = updated.credentialId || `db_${id}`;

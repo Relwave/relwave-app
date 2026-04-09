@@ -1,5 +1,14 @@
 import { afterAll, describe, expect, test } from "@jest/globals";
-import { DatabaseService } from "../src/services/databaseService";
+import fs from "fs/promises";
+import fsSync from "fs";
+import os from "os";
+import path from "path";
+
+const TEST_RELWAVE_HOME = path.join(os.tmpdir(), `database-service-test-${Date.now()}`);
+process.env.RELWAVE_HOME = TEST_RELWAVE_HOME;
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { DatabaseService } = require("../src/services/databaseService");
 
 const mockInput = {
   name: "TestDB",
@@ -46,6 +55,10 @@ describe("Database Service Method", () => {
     } catch (e) {
       // Ignore errors during final cleanup
     }
+
+    if (fsSync.existsSync(TEST_RELWAVE_HOME)) {
+      await fs.rm(TEST_RELWAVE_HOME, { recursive: true, force: true });
+    }
   });
 
   // Test Case 1: All required fields provided
@@ -58,6 +71,35 @@ describe("Database Service Method", () => {
     // Assert
     expect(result).toBeDefined();
     expect(result.name).toBe(payload.name);
+  });
+
+  test("should normalize SQLite database paths when adding a database", async () => {
+    const payload = {
+      name: "SQLiteTestDB",
+      host: "",
+      port: 0,
+      user: "",
+      database: "sqlite:///C:/Users/test/relwave.db",
+      type: "sqlite",
+    };
+
+    const result = await dbService.addDatabase(payload);
+    createdDbIds.push(result.id);
+
+    expect(result.database).toBe("C:/Users/test/relwave.db");
+  });
+
+  test("should reject Windows drive roots for SQLite databases", async () => {
+    const payload = {
+      name: "SQLiteDriveRootDB",
+      host: "",
+      port: 0,
+      user: "",
+      database: "D:/",
+      type: "sqlite",
+    };
+
+    await expect(dbService.addDatabase(payload)).rejects.toThrow('Invalid SQLite path "D:/"');
   });
 
   // Test Case 2: Missing required field 'host'

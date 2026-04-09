@@ -25,6 +25,15 @@ const mockDBPayload = {
   password: "testpassword123",
 };
 
+const mockSQLitePayload = {
+  name: "SQLiteDB",
+  host: "",
+  port: 0,
+  user: "",
+  database: "sqlite:///C:/Users/test/example.db",
+  type: "sqlite",
+};
+
 describe("DbStore Cache Tests", () => {
   let dbStore: DbStore;
 
@@ -90,6 +99,15 @@ describe("DbStore Cache Tests", () => {
 
       const deleted = await dbStore.getDB(result.id);
       expect(deleted).toBeUndefined();
+    });
+
+    test("should normalize stored SQLite database paths", async () => {
+      const result = await dbStore.addDB(mockSQLitePayload);
+
+      expect(result.database).toBe("C:/Users/test/example.db");
+
+      const retrieved = await dbStore.getDB(result.id);
+      expect(retrieved?.database).toBe("C:/Users/test/example.db");
     });
   });
 
@@ -330,6 +348,42 @@ describe("DbStore Cache Tests", () => {
 
       expect(manualStore.isReady()).toBe(true);
       expect(manualStore.getCacheStats().configCached).toBe(true);
+    });
+
+    test("should normalize SQLite paths while preloading existing config data", async () => {
+      const existingConfig = {
+        version: 1,
+        databases: [
+          {
+            id: "sqlite-1",
+            name: "SQLite Existing",
+            host: "",
+            port: 0,
+            user: "",
+            database: "file:///C:/Users/test/preloaded.db",
+            type: "sqlite",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      };
+
+      await fs.writeFile(TEST_CONFIG_FILE, JSON.stringify(existingConfig, null, 2), "utf-8");
+
+      const preloadStore = new DbStore(
+        TEST_CONFIG_FOLDER,
+        TEST_CONFIG_FILE,
+        TEST_CREDENTIALS_FILE,
+        NORMAL_CACHE_TTL,
+        true
+      );
+      await preloadStore.waitUntilReady();
+
+      const db = await preloadStore.getDB("sqlite-1");
+      expect(db?.database).toBe("C:/Users/test/preloaded.db");
+
+      const persisted = JSON.parse(await fs.readFile(TEST_CONFIG_FILE, "utf-8"));
+      expect(persisted.databases[0].database).toBe("C:/Users/test/preloaded.db");
     });
   });
 

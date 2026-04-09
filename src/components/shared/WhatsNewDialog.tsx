@@ -142,27 +142,32 @@ export function WhatsNewDialog() {
         const raw = localStorage.getItem(LAST_INSTALLED_UPDATE_KEY);
         const lastSeenVersion = localStorage.getItem(LAST_SEEN_WHATS_NEW_VERSION_KEY);
 
-        if (!raw) return;
+        // Only show the dialog when the app version actually changed.
+        // This covers both updater-driven installs and manual installer upgrades.
+        const versionChanged = Boolean(lastSeenVersion && lastSeenVersion !== installedVersion);
+
+        if (!raw && !versionChanged) return;
 
         let parsed: StoredInstalledUpdate | null = null;
-        try {
-          parsed = JSON.parse(raw) as StoredInstalledUpdate;
-        } catch {
-          localStorage.removeItem(LAST_INSTALLED_UPDATE_KEY);
+        if (raw) {
+          try {
+            parsed = JSON.parse(raw) as StoredInstalledUpdate;
+          } catch {
+            localStorage.removeItem(LAST_INSTALLED_UPDATE_KEY);
+          }
+        }
+
+        const updateVersion = parsed?.version || installedVersion;
+
+        if (!versionChanged && updateVersion !== installedVersion) {
           return;
         }
 
-        if (!parsed?.version) {
-          localStorage.removeItem(LAST_INSTALLED_UPDATE_KEY);
-          return;
-        }
-
-        if (parsed.version !== installedVersion) {
-          return;
-        }
-
-        if (lastSeenVersion === installedVersion) {
-          return;
+        if (!parsed?.version || parsed.version !== installedVersion) {
+          parsed = {
+            version: installedVersion,
+            previousVersion: lastSeenVersion || undefined,
+          };
         }
 
         setReleaseInfo(parsed);

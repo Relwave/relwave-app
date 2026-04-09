@@ -6,6 +6,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { ensureDir, getMigrationsDir } from "../utils/config";
+import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
 import {
   CacheEntry,
   CACHE_TTL,
@@ -257,37 +258,35 @@ export const sqliteCache = new SQLiteCacheManager();
 
 let cachedNativeBindingPath: string | null | undefined = undefined;
 
-function normalizeSQLitePath(rawPath: string): string {
-  const trimmed = rawPath.trim();
-  if (!trimmed) {
-    return trimmed;
+function validateSQLitePath(
+  rawPath: string,
+  options: { requireExistingFile?: boolean } = {}
+): string {
+  const dbPath = normalizeSQLitePath(rawPath);
+
+  if (!dbPath || !dbPath.trim()) {
+    throw new Error(`Invalid SQLite path: path is empty or missing. Received: ${JSON.stringify(rawPath)}`);
   }
 
-  if (/^\/[A-Za-z]:\//.test(trimmed)) {
-    return trimmed.slice(1);
+  if (isWindowsDriveRootPath(dbPath)) {
+    throw new Error(
+      `Invalid SQLite path "${dbPath}" - it points to a Windows drive root, not a database file.`
+    );
   }
 
-  if (/^(?:file|sqlite):\/\//i.test(trimmed)) {
-    try {
-      const parsed = new URL(trimmed);
-      const hostname = parsed.hostname || "";
-      const pathname = parsed.pathname || "";
-
-      if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
-        return `${hostname}:${pathname}`;
-      }
-
-      if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
-        return pathname.slice(1);
-      }
-
-      return decodeURIComponent(`${hostname}${pathname}`);
-    } catch {
-      return trimmed;
+  if (fs.existsSync(dbPath)) {
+    const stat = fs.statSync(dbPath);
+    if (stat.isDirectory()) {
+      throw new Error(`Invalid SQLite path "${dbPath}" - it points to a directory, not a database file.`);
     }
+    return dbPath;
   }
 
-  return trimmed;
+  if (options.requireExistingFile) {
+    throw new Error(`Database file does not exist at path: ${dbPath}`);
+  }
+
+  return dbPath;
 }
 
 function findExistingBindingPath(candidates: Iterable<string>): string | undefined {
@@ -403,7 +402,9 @@ function resolvePkgNativeBindingPath(): string | undefined {
 
 function openDB(cfg: SQLiteConfig, extraOptions: Database.Options = {}): Database.Database {
   const nativeBinding = resolvePkgNativeBindingPath();
-  const dbPath = normalizeSQLitePath(cfg.path);
+  const dbPath = validateSQLitePath(cfg.path, {
+    requireExistingFile: Boolean(extraOptions.fileMustExist),
+  });
   const options: Database.Options = {
     readonly: cfg.readonly ?? false,
     ...extraOptions,
@@ -427,32 +428,13 @@ function quoteIdent(name: string): string {
 /** Test connection to SQLite database (checks if file is accessible) */
 export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
   try {
-    const dbPath = normalizeSQLitePath(cfg.path);
+    const dbPath = validateSQLitePath(cfg.path, { requireExistingFile: true });
 
-    // Validate the path field exists
-    if (!dbPath || typeof dbPath !== "string" || !dbPath.trim()) {
-      return {
-        ok: false,
-        status: "disconnected",
-        message: `Invalid SQLite path: path is empty or missing. Received: ${JSON.stringify(cfg)}`,
-      };
-    }
-
-    // Detect truncated Windows drive-letter-only paths (e.g. "C:" or "D:")
     if (/^[A-Za-z]:$/.test(dbPath)) {
       return {
         ok: false,
         status: "disconnected",
         message: `Invalid SQLite path "${cfg.path}" — looks like a truncated Windows drive letter. Please re-add the database with the full file path.`,
-      };
-    }
-
-    // Ensure the database file exists to avoid implicitly creating a new empty DB
-    if (!fs.existsSync(dbPath)) {
-      return {
-        ok: false,
-        status: "disconnected",
-        message: `Database file does not exist at path: ${dbPath}`,
       };
     }
     // Use fileMustExist so better-sqlite3 will not create a new file during connection test

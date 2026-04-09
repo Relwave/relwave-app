@@ -98,6 +98,13 @@ describe("SQLite Connector", () => {
       expect(connection.status).toBe("disconnected");
       expect(connection.message).toBeDefined();
     });
+
+    test("Should fail cleanly when SQLite path is a directory", async () => {
+      const connection = await sqliteConnector.testConnection({ path: tmpDir });
+      expect(connection.ok).toBe(false);
+      expect(connection.status).toBe("disconnected");
+      expect(connection.message).toContain("directory");
+    });
   });
 
   // ===============================

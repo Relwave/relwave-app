@@ -180,6 +180,13 @@ describe("ConnectionBuilder", () => {
       expect(config.readonly).toBe(true);
     });
 
+    test("should reject Windows drive roots for SQLite", () => {
+      const dbInput = { database: "D:/" };
+      expect(() => ConnectionBuilder.buildSQLiteConnection(dbInput)).toThrow(
+        'Invalid SQLite path "D:/"'
+      );
+    });
+
     test("buildConnection with DBType.SQLITE should return SQLiteConfig", () => {
       const dbInput = { database: "/tmp/test.db" };
       const config = ConnectionBuilder.buildConnection(dbInput, null, DBType.SQLITE) as SQLiteConfig;
