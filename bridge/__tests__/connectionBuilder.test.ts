@@ -156,6 +156,18 @@ describe("ConnectionBuilder", () => {
       expect(config.path).toBe("/tmp/test.db");
     });
 
+    test("should normalize SQLite URLs with Windows drive letters", () => {
+      const dbInput = { database: "sqlite:///C:/Users/me/test.db" };
+      const config = ConnectionBuilder.buildSQLiteConnection(dbInput);
+      expect(config.path).toBe("C:/Users/me/test.db");
+    });
+
+    test("should normalize SQLite file URLs with Windows drive letters", () => {
+      const dbInput = { path: "file:///C:/Users/me/test.db" };
+      const config = ConnectionBuilder.buildSQLiteConnection(dbInput);
+      expect(config.path).toBe("C:/Users/me/test.db");
+    });
+
     test("should build SQLite config with path from path field", () => {
       const dbInput = { path: "/tmp/test.db" };
       const config = ConnectionBuilder.buildSQLiteConnection(dbInput);

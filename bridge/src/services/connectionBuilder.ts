@@ -1,6 +1,43 @@
 import { DBType, DatabaseConfig } from "../types";
 import { SQLiteConfig } from "../types/sqlite";
 
+function normalizeSQLitePath(rawPath: unknown): string {
+  if (typeof rawPath !== "string") {
+    return "";
+  }
+
+  const trimmed = rawPath.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^\/[A-Za-z]:\//.test(trimmed)) {
+    return trimmed.slice(1);
+  }
+
+  if (/^(?:file|sqlite):\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const hostname = parsed.hostname || "";
+      const pathname = parsed.pathname || "";
+
+      if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
+        return `${hostname}:${pathname}`;
+      }
+
+      if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
+        return pathname.slice(1);
+      }
+
+      return decodeURIComponent(`${hostname}${pathname}`);
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
 export class ConnectionBuilder {
   static buildConnection(
     db: any,
@@ -8,7 +45,7 @@ export class ConnectionBuilder {
     dbType: DBType
   ): DatabaseConfig | SQLiteConfig {
     if (dbType === DBType.SQLITE) {
-      const dbPath = db.database || db.path;
+      const dbPath = normalizeSQLitePath(db.database || db.path);
       if (!dbPath || typeof dbPath !== "string" || !dbPath.trim()) {
         throw new Error(
           `SQLite connection requires a non-empty file path. ` +

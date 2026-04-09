@@ -17,6 +17,30 @@ export interface ParsedConnectionUrl {
     sslmode: string;
 }
 
+function normalizeSqlitePathFromUrl(parsed: URL): string {
+    const hostname = parsed.hostname || "";
+    const pathname = parsed.pathname || "";
+
+    if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
+        return decodeURIComponent(`${hostname}:${pathname}`);
+    }
+
+    if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
+        return decodeURIComponent(pathname.slice(1));
+    }
+
+    return decodeURIComponent(`${hostname}${pathname}`);
+}
+
+function encodeSqlitePathSegments(database: string): string {
+    return database
+        .replace(/\\/g, "/")
+        .replace(/^\/+/, "")
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+}
+
 export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
     try {
         // Trim whitespace
@@ -44,7 +68,7 @@ export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
 
         // SQLite uses path only, no host/port/auth
         if (type === "sqlite") {
-            const dbPath = decodeURIComponent((parsed.hostname || "") + parsed.pathname);
+            const dbPath = normalizeSqlitePathFromUrl(parsed);
             return {
                 type,
                 host: "",
@@ -99,7 +123,7 @@ export function buildConnectionUrl(params: {
     sslmode?: string;
 }): string {
     if (params.type === "sqlite") {
-        return `sqlite://${encodeURIComponent(params.database)}`;
+        return `sqlite:///${encodeSqlitePathSegments(params.database)}`;
     }
     const protocol = params.type === "mysql" ? "mysql" : "postgres";
     const auth = params.password

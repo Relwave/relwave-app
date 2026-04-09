@@ -257,6 +257,39 @@ export const sqliteCache = new SQLiteCacheManager();
 
 let cachedNativeBindingPath: string | null | undefined = undefined;
 
+function normalizeSQLitePath(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (/^\/[A-Za-z]:\//.test(trimmed)) {
+    return trimmed.slice(1);
+  }
+
+  if (/^(?:file|sqlite):\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const hostname = parsed.hostname || "";
+      const pathname = parsed.pathname || "";
+
+      if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
+        return `${hostname}:${pathname}`;
+      }
+
+      if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
+        return pathname.slice(1);
+      }
+
+      return decodeURIComponent(`${hostname}${pathname}`);
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
 function findExistingBindingPath(candidates: Iterable<string>): string | undefined {
   for (const candidate of candidates) {
     const resolved = path.resolve(candidate);
@@ -370,6 +403,7 @@ function resolvePkgNativeBindingPath(): string | undefined {
 
 function openDB(cfg: SQLiteConfig, extraOptions: Database.Options = {}): Database.Database {
   const nativeBinding = resolvePkgNativeBindingPath();
+  const dbPath = normalizeSQLitePath(cfg.path);
   const options: Database.Options = {
     readonly: cfg.readonly ?? false,
     ...extraOptions,
@@ -379,7 +413,7 @@ function openDB(cfg: SQLiteConfig, extraOptions: Database.Options = {}): Databas
     options.nativeBinding = nativeBinding;
   }
 
-  return new Database(cfg.path, options);
+  return new Database(dbPath, options);
 }
 
 function quoteIdent(name: string): string {
@@ -393,8 +427,10 @@ function quoteIdent(name: string): string {
 /** Test connection to SQLite database (checks if file is accessible) */
 export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
   try {
+    const dbPath = normalizeSQLitePath(cfg.path);
+
     // Validate the path field exists
-    if (!cfg.path || typeof cfg.path !== "string" || !cfg.path.trim()) {
+    if (!dbPath || typeof dbPath !== "string" || !dbPath.trim()) {
       return {
         ok: false,
         status: "disconnected",
@@ -403,7 +439,7 @@ export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; 
     }
 
     // Detect truncated Windows drive-letter-only paths (e.g. "C:" or "D:")
-    if (/^[A-Za-z]:$/.test(cfg.path.trim())) {
+    if (/^[A-Za-z]:$/.test(dbPath)) {
       return {
         ok: false,
         status: "disconnected",
@@ -412,15 +448,15 @@ export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; 
     }
 
     // Ensure the database file exists to avoid implicitly creating a new empty DB
-    if (!fs.existsSync(cfg.path)) {
+    if (!fs.existsSync(dbPath)) {
       return {
         ok: false,
         status: "disconnected",
-        message: `Database file does not exist at path: ${cfg.path}`,
+        message: `Database file does not exist at path: ${dbPath}`,
       };
     }
     // Use fileMustExist so better-sqlite3 will not create a new file during connection test
-    const db = openDB(cfg, {
+    const db = openDB({ ...cfg, path: dbPath }, {
       fileMustExist: true,
     });
     db.pragma("journal_mode");
