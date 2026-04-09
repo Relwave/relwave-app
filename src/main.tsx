@@ -13,6 +13,7 @@ import { useBridgeInit } from "@/services/bridge/useBridgeInit";
 import { useEffect, useState } from 'react';
 import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
 import { UpdateNotification } from './components/shared/UpdateNotification';
+import { WhatsNewDialog } from './components/shared/WhatsNewDialog';
 import TitleBar from './components/layout/TitleBar';
 import VerticalIconBar from './components/layout/VerticalIconBar';
 
@@ -100,6 +101,7 @@ function AppRoot() {
         <BridgeInitializer />
         <ThemeVariantInitializer />
         <UpdateNotification />
+        <WhatsNewDialog />
         <TooltipProvider>
           <DeveloperContextMenu>
             <Toaster />

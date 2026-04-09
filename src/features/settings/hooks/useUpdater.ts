@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
+const LAST_INSTALLED_UPDATE_KEY = "relwave:last-installed-update";
+
 export type UpdateStatus = 
   | "idle" 
   | "checking" 
@@ -112,6 +114,23 @@ export function useUpdater(): UseUpdaterReturn {
             break;
         }
       });
+
+      if (updateInfo?.version) {
+        try {
+          localStorage.setItem(
+            LAST_INSTALLED_UPDATE_KEY,
+            JSON.stringify({
+              version: updateInfo.version,
+              body: updateInfo.body,
+              date: updateInfo.date,
+              previousVersion: updateInfo.currentVersion,
+              installedAt: new Date().toISOString(),
+            })
+          );
+        } catch {
+          // Non-blocking: if storage fails we still complete update flow.
+        }
+      }
       
       setStatus("ready");
     } catch (err) {
@@ -119,7 +138,7 @@ export function useUpdater(): UseUpdaterReturn {
       setError(err instanceof Error ? err.message : String(err));
       setStatus("error");
     }
-  }, [update]);
+  }, [update, updateInfo]);
 
   const relaunchApp = useCallback(async () => {
     try {
