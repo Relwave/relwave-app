@@ -53,11 +53,33 @@ export class DatabaseService {
     for (const field of required) {
       if (!payload[field]) throw new Error(`Missing required field: ${field}`);
     }
+    if (isSQLite) {
+      const sqliteConfig = ConnectionBuilder.buildSQLiteConnection(payload);
+      payload = {
+        ...payload,
+        database: sqliteConfig.path,
+      };
+    }
     return dbStoreInstance.addDB(payload as Parameters<typeof dbStoreInstance.addDB>[0]);
   }
 
   async updateDatabase(id: string, payload: Record<string, unknown>) {
     if (!id) throw new Error("Missing id");
+    const isSQLite = (payload.type as string | undefined)?.toLowerCase().includes("sqlite");
+    if (isSQLite || typeof payload.database === "string") {
+      const current = await dbStoreInstance.getDB(id);
+      const currentIsSQLite = (current?.type as string | undefined)?.toLowerCase().includes("sqlite");
+      if (currentIsSQLite || isSQLite) {
+        const sqliteConfig = ConnectionBuilder.buildSQLiteConnection({
+          ...current,
+          ...payload,
+        });
+        payload = {
+          ...payload,
+          database: sqliteConfig.path,
+        };
+      }
+    }
     connectionPool.invalidate(id); // evict stale cached config
     return dbStoreInstance.updateDB(id, payload as Parameters<typeof dbStoreInstance.updateDB>[1]);
   }
