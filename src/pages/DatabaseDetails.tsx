@@ -150,20 +150,20 @@ const DatabaseDetail = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-32px)] flex flex-col bg-background text-foreground overflow-hidden">
-      <div className="flex-1 flex overflow-hidden">
+    <div className="w-full h-[calc(100vh-32px)] flex flex-col app-surface text-foreground overflow-hidden">
+      <div className="flex-1 flex overflow-hidden pl-15 min-w-0">
         <VerticalIconBar
           dbId={dbId}
           activePanel={activePanel}
           onPanelChange={setActivePanel}
         />
-        <main className="flex-1 ml-15 flex flex-col overflow-hidden">
+        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {renderPanel()}
         </main>
       </div>
 
       {/* Status bar */}
-      <div className="shrink-0 h-7 border-t border-border/30 bg-background/95 backdrop-blur-sm flex items-center px-2 ml-15 gap-4">
+      <div className="shrink-0 h-7 border-t border-border/30 bg-background/80 backdrop-blur-xl flex items-center px-2 pl-15 gap-4 min-w-0">
         <GitStatusBar projectDir={projectDir} />
         <div className="flex-1" />
         <span className="text-[10px] text-muted-foreground/60 font-mono">

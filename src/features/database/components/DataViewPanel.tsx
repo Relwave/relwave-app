@@ -105,9 +105,9 @@ export const DataViewPanel = ({
     return (
         <>
             {/* Header */}
-            <header className="shrink-0 border-b border-border/20 bg-background/95 backdrop-blur-sm">
-                <div className="px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+            <header className="shrink-0 border-b border-border/30 bg-background/80 backdrop-blur-xl">
+                <div className="px-6 py-3 flex items-center justify-between gap-4 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -121,13 +121,13 @@ export const DataViewPanel = ({
                                 <PanelLeft className="h-4 w-4" />
                             )}
                         </Button>
-                        <div>
+                        <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                                <h1 className="text-lg font-semibold">{databaseName || "Database"}</h1>
+                                <h1 className="text-lg font-semibold tracking-tight truncate">{databaseName || "Database"}</h1>
                                 {schemas.length > 0 && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 ml-2 border-dashed">
+                                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 ml-2 border-dashed bg-background/60">
                                                 {selectedSchema}
                                                 <ChevronDown className="h-3 w-3 ml-1" />
                                             </Button>
@@ -148,7 +148,7 @@ export const DataViewPanel = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <Button size="sm" variant="outline" onClick={onMigrationsOpen} className="text-xs">
                             <FileText className="h-3.5 w-3.5 mr-1.5" />
                             Migrations
@@ -193,10 +193,10 @@ export const DataViewPanel = ({
             </header>
 
             {/* Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden p-3 gap-3">
                 <div
                     className={cn(
-                        "shrink-0 border-r border-border/20 transition-all duration-200 overflow-hidden",
+                        "shrink-0 min-h-0 rounded-lg border border-border/50 bg-card/45 transition-all duration-200 overflow-hidden shadow-sm",
                         sidebarOpen ? "w-64" : "w-0"
                     )}
                 >
@@ -210,7 +210,7 @@ export const DataViewPanel = ({
                     />
                 </div>
 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 min-w-0 min-h-0 overflow-hidden rounded-lg border border-border/50 bg-card/50 shadow-sm">
                     <ContentViewerPanel
                         selectedTable={selectedTable?.name || null}
                         tableData={isSearchActive ? searchResults! : tableData}
