@@ -44,7 +44,7 @@ export function DiagramCanvas({
                         onClick={onCloseMenu}
                     />
                     <div
-                        className="fixed z-50 bg-popover border rounded-lg shadow-lg p-1.5 min-w-25"
+                        className="fixed z-50 bg-popover/95 border border-border/60 rounded-lg shadow-xl p-1.5 min-w-25 backdrop-blur-xl"
                         style={{ left: menuPosition.x, top: menuPosition.y }}
                     >
                         <div className="text-[10px] font-medium text-muted-foreground mb-1 px-2">
@@ -78,7 +78,7 @@ export function DiagramCanvas({
                     {nodes.map((node) => (
                         <span
                             key={node.id}
-                            className="inline-flex items-center gap-1 bg-background/90 border border-border/40 text-xs px-2 py-1 rounded-md shadow-sm"
+                            className="inline-flex items-center gap-1 bg-background/90 border border-border/50 text-xs px-2 py-1 rounded-md shadow-sm backdrop-blur-sm"
                         >
                             <Table2 className="h-3 w-3 text-primary" />
                             {node.data.tableName}
@@ -102,7 +102,7 @@ export function DiagramCanvas({
                 onEdgeClick={onEdgeClick}
                 nodeTypes={nodeTypes}
                 fitView
-                className="bg-muted/10"
+                className="bg-muted/10 hairline-grid"
             >
                 <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="opacity-30" />
                 <Controls className="bg-background border-border/40" />
@@ -111,7 +111,7 @@ export function DiagramCanvas({
             {/* Empty State */}
             {nodes.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center">
+                    <div className="text-center rounded-lg border border-border/50 bg-background/70 p-6 shadow-sm backdrop-blur-sm">
                         <Table2 className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
                         <p className="text-sm text-muted-foreground/60">
                             Click tables from sidebar to add them

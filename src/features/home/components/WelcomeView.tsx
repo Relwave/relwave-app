@@ -45,15 +45,15 @@ export function WelcomeView({
 }: WelcomeViewProps) {
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-6 xl:p-8">
       {/* Welcome Header */}
-      <div className="mb-8">
+      <div className="mb-8 rounded-lg border border-border/50 bg-card/55 p-5 shadow-sm backdrop-blur-sm">
         <div className="flex flex-col gap-1 mb-2">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 ring-1 ring-primary/20">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="scroll-m-20 pb-0 text-3xl font-semibold tracking-tight first:mt-0">
+            <h2 className="scroll-m-20 pb-0 text-2xl font-semibold tracking-tight first:mt-0">
               {welcomeMessage}
             </h2>
           </div>
@@ -65,7 +65,7 @@ export function WelcomeView({
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card className="@container/card">
+        <Card className="@container/card premium-card">
           <CardHeader className="flex flex-row items-start justify-between">
             <div className="space-y-1">
               <CardDescription>Total Connections</CardDescription>
@@ -79,7 +79,7 @@ export function WelcomeView({
           </CardHeader>
         </Card>
 
-        <Card className="@container/card">
+        <Card className="@container/card premium-card">
           <CardHeader className="flex flex-row items-start justify-between">
             <div className="space-y-1">
               <CardDescription>Online Now</CardDescription>
@@ -93,7 +93,7 @@ export function WelcomeView({
           </CardHeader>
         </Card>
 
-        <Card className="@container/card">
+        <Card className="@container/card premium-card">
           <CardHeader className="flex flex-row items-start justify-between">
             <div className="space-y-1">
               <CardDescription>Total Tables</CardDescription>
@@ -111,7 +111,7 @@ export function WelcomeView({
           </CardHeader>
         </Card>
 
-        <Card className="@container/card">
+        <Card className="@container/card premium-card">
           <CardHeader className="flex flex-row items-start justify-between">
             <div className="space-y-1">
               <CardDescription>Data Size</CardDescription>
@@ -147,7 +147,7 @@ export function WelcomeView({
                 Recent Activity
               </h2>
             </div>
-            <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+            <div className="rounded-lg border border-border/50 bg-card/80 overflow-hidden shadow-sm">
               {recentDatabases.map((db, index) => {
                 const isConnected = status.get(db.id) === "connected";
                 return (
@@ -162,13 +162,13 @@ export function WelcomeView({
                       index !== recentDatabases.length - 1 &&
                       "border-b border-border/30",
                       isConnected
-                        ? "hover:bg-muted/50 text-foreground"
+                        ? "hover:bg-accent/50 text-foreground"
                         : "opacity-50 cursor-not-allowed"
                     )}
                   >
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+                        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-border/50",
                         getDbColors(db.type).bg
                       )}
                     >
@@ -198,7 +198,7 @@ export function WelcomeView({
       {
         databases.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            <div className="h-20 w-20 rounded-lg bg-muted/50 flex items-center justify-center mb-4 ring-1 ring-border/50">
               <Database className="h-10 w-10 text-muted-foreground/30" />
             </div>
             <h3 className="text-lg font-medium mb-1">No connections yet</h3>

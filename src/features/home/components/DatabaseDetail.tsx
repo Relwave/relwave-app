@@ -45,12 +45,12 @@ export function DatabaseDetail({
     return (
         <div className="h-full flex flex-col">
             {/* Detail Header */}
-            <div className="p-6 border-b border-border/50">
+            <div className="p-6 border-b border-border/50 bg-card/45 backdrop-blur-xl">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                         <div
                             className={cn(
-                                "h-14 w-14 rounded-xl flex items-center justify-center",
+                                "h-14 w-14 rounded-lg flex items-center justify-center ring-1 ring-border/50 shadow-sm",
                                 getDbColors(database.type).bg
                             )}
                         >

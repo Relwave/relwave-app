@@ -73,7 +73,7 @@ export function DiscoveredDatabasesCard({
             </div>
 
             {isScanning && databases.length === 0 ? (
-                <div className="rounded-xl border border-border/50 bg-card p-8 flex flex-col items-center justify-center">
+                <div className="rounded-lg border border-border/50 bg-card/80 p-8 flex flex-col items-center justify-center shadow-sm">
                     <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3" />
                     <p className="text-sm text-muted-foreground">
                         Scanning local ports...
@@ -87,7 +87,7 @@ export function DiscoveredDatabasesCard({
                             <Card
                                 key={`${db.host}:${db.port}-${index}`}
                                 className={cn(
-                                    "group relative rounded-xl border bg-card p-4 transition-all hover:shadow-md",
+                                    "group relative rounded-lg border bg-card/85 p-4 premium-card",
                                     colors.border
                                 )}
                             >

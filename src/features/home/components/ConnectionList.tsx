@@ -31,11 +31,11 @@ export function ConnectionList({
   onTest,
 }: ConnectionListProps) {
   return (
-    <div className="w-72 border-r border-border/50 flex flex-col bg-muted/20">
+    <div className="w-78 border-r border-border/50 flex flex-col bg-card/55 backdrop-blur-xl">
       {/* Header */}
-      <div className="p-4 border-b border-border/50">
+      <div className="p-4 border-b border-border/50 bg-background/35">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+          <h2 className="scroll-m-20 pb-1 text-xl font-semibold tracking-tight first:mt-0">
             Connections
           </h2>
           <Button
@@ -53,7 +53,7 @@ export function ConnectionList({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs bg-background/50"
+            className="h-8 pl-8 text-xs bg-background/65 border-border/60 shadow-inner"
           />
         </div>
       </div>
@@ -83,17 +83,17 @@ export function ConnectionList({
                       onClick={() => setSelectedDb(db.id)}
                       onMouseEnter={() => onDatabaseHover(db.id)}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors",
+                        "w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-md text-left transition-all duration-150 border border-transparent",
                         isSelected
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-accent/50",
+                          ? "bg-accent/85 text-accent-foreground border-primary/20 shadow-sm"
+                          : "hover:bg-accent/45 hover:border-border/60",
                         !isConnected && "opacity-50"
                       )}
                     >
                       <div
                         className={cn(
-                          "h-2 w-2 rounded-full shrink-0",
-                          isConnected ? "bg-emerald-500" : "bg-muted-foreground/30"
+                          "h-2.5 w-2.5 rounded-full shrink-0 ring-4",
+                          isConnected ? "bg-emerald-500 ring-emerald-500/10" : "bg-muted-foreground/30 ring-muted/40"
                         )}
                       />
                       <div className="flex-1 min-w-0">
@@ -129,18 +129,18 @@ export function ConnectionList({
       </div>
 
       {/* Quick Stats Footer */}
-      <div className="p-3 border-t border-border/50 bg-background/50">
+      <div className="p-3 border-t border-border/50 bg-background/55">
         <div className="grid grid-cols-2 gap-2">
-          <Card className="text-center p-2 rounded-md">
-            <CardContent>
+          <Card className="text-center p-2 rounded-md premium-card">
+            <CardContent className="px-2">
               <CardTitle className="text-lg font-bold tabular-nums font-mono">
                 {connectedCount}/{databases.length}
               </CardTitle>
               <CardDescription className="text-[10px] text-muted-foreground">Online</CardDescription>
             </CardContent>
           </Card>
-          <Card className="text-center p-2 rounded-md">
-            <CardContent>
+          <Card className="text-center p-2 rounded-md premium-card">
+            <CardContent className="px-2">
               <CardTitle className="text-lg font-bold tabular-nums font-mono">
                 {statsLoading ? <Spinner className="h-4.5 w-4.5 text-amber-500" /> : totalTables}
               </CardTitle>
