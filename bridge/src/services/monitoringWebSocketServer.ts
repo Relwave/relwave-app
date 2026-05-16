@@ -44,7 +44,8 @@ export class MonitoringWebSocketServer {
     });
 
     this.server.on("connection", (socket: WebSocketClient, request: IncomingMessage) => {
-      this.handleConnection(socket, request);
+      // return the promise from handler so test harness can await completion
+      return this.handleConnection(socket, request);
     });
 
     this.server.on("error", (error: Error) => {
