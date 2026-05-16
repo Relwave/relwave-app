@@ -6,6 +6,7 @@ import {
     DatabaseSchemaDetails,
     DatabaseStats,
     DiscoveredDatabase,
+    MonitoringSnapshot,
     RunQueryParams,
     TableRow,
     UpdateDatabaseParams
@@ -248,6 +249,29 @@ class DatabaseService {
         } catch (error) {
             console.log(error);
             throw new Error(`Failed to get total database stats: ${error}`);
+        }
+    }
+
+    async getMonitoringSnapshot(id: string): Promise<MonitoringSnapshot> {
+        try {
+            if (!id) {
+                throw new Error("Database ID is required");
+            }
+            const result = await bridgeRequest("db.monitoringSnapshot", { id }, 15000);
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to get monitoring snapshot:", error);
+            throw new Error(`Failed to get monitoring snapshot: ${error.message}`);
+        }
+    }
+
+    async getMonitoringWebSocketInfo(): Promise<{ url: string; intervalMs: number }> {
+        try {
+            const result = await bridgeRequest("db.monitoringWsInfo", {}, 5000);
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to get monitoring WebSocket info:", error);
+            throw new Error(`Failed to get monitoring WebSocket info: ${error.message}`);
         }
     }
 

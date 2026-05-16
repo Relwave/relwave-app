@@ -162,6 +162,11 @@ export function useDbStats(dbId: string | undefined) {
   });
 }
 
+// Polling hook intentionally removed — prefer WebSocket streaming.
+// If a polling-based snapshot is needed in the future, call
+// `databaseService.getMonitoringSnapshot(dbId)` directly or reintroduce
+// a dedicated polling hook with an explicit name to avoid accidental use.
+
 /**
  * Fetch schemas for a database
  */

@@ -181,6 +181,35 @@ export interface DatabaseStats {
     tables: number;
 }
 
+export interface MonitoringActiveQuery {
+    id: string | number;
+    user: string;
+    query: string;
+    state: string;
+    durationSeconds: number;
+}
+
+export interface MonitoringSnapshot {
+    databaseType: "postgres" | "mysql" | "mariadb";
+    sampledAt: string;
+    health: {
+        ok: boolean;
+        latencyMs: number | null;
+        message?: string;
+    };
+    connections: {
+        active: number;
+        max: number;
+        usagePct: number;
+    };
+    throughput: {
+        qps: number;
+        totalQueries: number;
+    };
+    cacheHitRatio: number | null;
+    activeQueries: MonitoringActiveQuery[];
+}
+
 export interface TableInfo {
     schema: string;
     name: string;

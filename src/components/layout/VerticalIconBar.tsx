@@ -1,4 +1,4 @@
-import { Home, Database, Search, GitBranch, GitCommitHorizontal, Settings, Layers, Terminal, FolderOpen } from 'lucide-react';
+import { Activity, Home, Database, Search, GitBranch, GitCommitHorizontal, Settings, Layers, Terminal, FolderOpen } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,10 +7,11 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export type PanelType = 'data' | 'sql-workspace' | 'query-builder' | 'schema-explorer' | 'er-diagram' | 'git-status';
+export type PanelType = 'data' | 'sql-workspace' | 'query-builder' | 'schema-explorer' | 'er-diagram' | 'monitoring' | 'git-status';
 
 interface VerticalIconBarProps {
     dbId?: string;
+    databaseType?: string;
     activePanel?: PanelType;
     onPanelChange?: (panel: PanelType) => void;
 }
@@ -21,7 +22,12 @@ const globalNavigationItems = [
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
-export default function VerticalIconBar({ dbId, activePanel, onPanelChange }: VerticalIconBarProps) {
+function supportsMonitoring(databaseType?: string) {
+    const type = databaseType?.toLowerCase();
+    return type === "postgres" || type === "postgresql" || type === "mysql" || type === "mariadb";
+}
+
+export default function VerticalIconBar({ dbId, databaseType, activePanel, onPanelChange }: VerticalIconBarProps) {
     const location = useLocation();
 
     const isGlobalActive = (path: string) => {
@@ -38,6 +44,7 @@ export default function VerticalIconBar({ dbId, activePanel, onPanelChange }: Ve
         { icon: Search, label: 'Query Builder', panel: 'query-builder' },
         { icon: GitBranch, label: 'Schema Explorer', panel: 'schema-explorer' },
         { icon: Database, label: 'ER Diagram', panel: 'er-diagram' },
+        ...(supportsMonitoring(databaseType) ? [{ icon: Activity, label: 'Monitoring', panel: 'monitoring' as PanelType }] : []),
         { icon: GitCommitHorizontal, label: 'Git Status', panel: 'git-status' },
     ] : [];
 

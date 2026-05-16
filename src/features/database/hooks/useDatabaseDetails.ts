@@ -12,6 +12,7 @@ interface UseDatabaseDetailsOptions {
 
 interface UseDatabaseDetailsReturn {
     databaseName: string;
+    databaseType: string | undefined;
     tables: TableInfo[];
     selectedTable: SelectedTable | null;
     tableData: TableRow[];
@@ -46,6 +47,7 @@ export function useDatabaseDetails({
 }: UseDatabaseDetailsOptions): UseDatabaseDetailsReturn {
     const { data: dbDetails } = useDatabase(dbId);
     const databaseName = dbDetails?.name || "Database";
+    const databaseType = dbDetails?.type;
 
     const { data: schemas = [] } = useSchemaNames(dbId);
     const [selectedSchema, setSelectedSchema] = useState<string>("public");
@@ -307,6 +309,7 @@ export function useDatabaseDetails({
 
     return {
         databaseName,
+        databaseType,
         tables,
         selectedTable,
         tableData: showQueryResults ? queryResults : tableData,

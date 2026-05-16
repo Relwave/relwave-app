@@ -26,6 +26,7 @@ import { SchemaExplorerPanel } from "@/features/schema-explorer/components";
 import SQLWorkspacePanel from "@/features/workspace/components/SQLWorkspacePanel";
 import GitStatusPanel from "@/features/git/components/GitStatusPanel";
 import GitStatusBar from "@/features/git/components/GitStatusBar";
+import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel";
 
 const DatabaseDetail = () => {
   const { id: dbId } = useParams<{ id: string }>();
@@ -48,6 +49,7 @@ const DatabaseDetail = () => {
   // Core database data
   const {
     databaseName,
+    databaseType,
     tables,
     selectedTable,
     tableData,
@@ -102,6 +104,7 @@ const DatabaseDetail = () => {
       case "query-builder": return <QueryBuilderPanel dbId={dbId || ""} />;
       case "schema-explorer": return <SchemaExplorerPanel dbId={dbId || ""} projectId={projectId} />;
       case "er-diagram": return <ERDiagramPanel projectId={projectId} />;
+      case "monitoring": return <MonitoringPanel dbId={dbId || ""} databaseName={databaseName} databaseType={databaseType} />;
       case "git-status": return <GitStatusPanel projectDir={projectDir} />;
       default:
         return (
@@ -154,6 +157,7 @@ const DatabaseDetail = () => {
       <div className="flex-1 flex overflow-hidden pl-15 min-w-0">
         <VerticalIconBar
           dbId={dbId}
+          databaseType={databaseType}
           activePanel={activePanel}
           onPanelChange={setActivePanel}
         />
