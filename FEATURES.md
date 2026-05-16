@@ -574,6 +574,6 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ---
 
-**Last Updated:** March 2026
+**Last Updated:** May 2026
 
 This document is maintained alongside the application and updated with each release.
