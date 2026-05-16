@@ -12,6 +12,7 @@ This document provides a comprehensive breakdown of all features and capabilitie
 - [Core Pages and Navigation](#core-pages-and-navigation)
 - [Git Version Control](#git-version-control)
 - [Visual Tools](#visual-tools)
+- [Monitoring](#monitoring)
 - [UI and Design System](#ui-and-design-system)
 - [Integration and Architecture](#integration-and-architecture)
 - [Performance](#performance)
@@ -297,27 +298,13 @@ Interactive entity-relationship diagram visualization.
 
 - ReactFlow-based interactive canvas
 - Automatic table node generation with column and type information
-- Primary key highlighting
-- Foreign key relationship lines between tables
-- Auto-layout algorithms
 - Minimap for large diagrams
 - Pan, zoom, and fit-to-screen controls
-- Drag to reposition tables
-- Hover tooltips for relationship details
-
----
-
 ### 7. Settings
 
-Application appearance and preference management.
-
-**Theme Mode**
 
 - Light, dark, and system-preference (auto) modes
-- Real-time theme switching
-
 **Accent Colors**
-
 - Multiple color variants: Blue (default), Purple, Green, Pink, Orange, and more
 - Visual color preview with live UI element updates
 - Persistent preferences
@@ -435,6 +422,87 @@ RelWave includes native Git integration powered by `simple-git`, providing a ful
 
 ---
 
+## Monitoring
+
+RelWave includes a dedicated monitoring feature for live database and bridge health metrics. It provides low-latency charts, gauges, and streaming query insights to help diagnose performance and availability issues.
+
+### The Architecture
+
+- The Poller (Backend): a background worker queries the database every 2–5 seconds (configurable). Use a separate monitoring connection pool.
+- The Stream: metrics are pushed to the UI via WebSockets for real-time charts; HTTP polling is available as a fallback.
+- The Chart (Frontend): time-series charts (Recharts/ApexCharts) append incoming samples and support zoom/hover for details.
+
+### 1. Application-Level Health Checks
+
+- Add a `/health` or `/ping` endpoint that runs a lightweight query to confirm DB availability.
+
+```sql
+SELECT 1;
+```
+
+### 2. Database-Level Monitoring (Metrics & Request Counts)
+
+- PostgreSQL exposes statistics via `pg_stat_database` and `pg_stat_activity` for live query and transaction counts.
+
+Postgres example — total transactions:
+```sql
+SELECT xact_commit + xact_rollback AS total_transactions
+FROM pg_stat_database
+WHERE datname = 'your_db_name';
+```
+
+MySQL/MariaDB example — queries counter:
+```sql
+SHOW GLOBAL STATUS LIKE 'Queries';
+```
+
+### 3. Active Connections (Gauge)
+
+Postgres:
+```sql
+SELECT
+  (SELECT count(*) FROM pg_stat_activity) AS active_connections,
+  (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_connections;
+```
+
+MySQL/MariaDB:
+```sql
+SHOW GLOBAL STATUS LIKE 'Threads_connected';
+SHOW VARIABLES LIKE 'max_connections';
+```
+
+### 4. Database Throughput / QPS (Time-Series)
+
+- Track total transaction counters over time and compute deltas to derive requests-per-second.
+
+Example calculation: sample the `total_transactions` value every N seconds and compute `(current - previous) / N`.
+
+### 5. Cache Hit Ratio (Health Percentage)
+
+For Postgres the cache hit ratio is:
+$$\text{Cache Hit Ratio} = \left( \frac{\text{blks\_hit}}{\text{blks\_read} + \text{blks\_hit}} \right) \times 100$$
+
+SQL example:
+```sql
+SELECT
+  datname,
+  round(100 * blks_hit / (blks_read + blks_hit + 1), 2) AS cache_hit_ratio
+FROM pg_stat_database
+WHERE datname = 'your_db_name';
+```
+
+MySQL/MariaDB (InnoDB buffer pool): fetch `Innodb_buffer_pool_read_requests` and `Innodb_buffer_pool_reads` and compute:
+$$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_reads}}{\text{Innodb\_buffer\_pool\_read\_requests}} \right) \times 100$$
+
+### Implementation Tips
+
+- Use a separate connection pool for monitoring queries so UI monitoring doesn't starve application queries.
+- Default polling interval: 2–5 seconds; allow users to increase for low-impact polling.
+- Prefer WebSocket streaming for live dashboards; fallback to polling for environments without persistent sockets.
+- Monitoring queries are low-overhead (read internal stats) but should be rate-limited on large fleets.
+
+---
+
 ## UI and Design System
 
 ### Layout Components
@@ -444,9 +512,9 @@ RelWave includes native Git integration powered by `simple-git`, providing a ful
 - Native minimize, maximize, and close buttons
 - Proper z-index layering
 
-**Vertical Icon Bar**
+-**Vertical Icon Bar**
 - Fixed 60px left sidebar with navigation icons
-- Pages: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram
+- Pages: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram, Monitoring
 - Active state indicators and tooltip labels
 
 **Slide-Out Panels**
