@@ -6,7 +6,7 @@ export default function ColorVariant() {
 
     const { variant, setVariant } = useThemeVariant();
     return (
-        <section className="border border-border/20 rounded-lg p-6 bg-background">
+        <section className="border border-border/50 rounded-lg p-6 bg-card/65 shadow-sm backdrop-blur-sm">
             <div className="flex items-center gap-2.5 mb-4">
                 <Palette className="h-4 w-4 text-muted-foreground/60" />
                 <div>
@@ -26,7 +26,7 @@ export default function ColorVariant() {
                             key={key}
                             onClick={() => setVariant(key as ThemeVariant)}
                             className={`
-                      relative p-4 rounded-lg border-2 transition-all
+                      relative p-4 rounded-lg border transition-all
                       ${isActive
                                     ? "border-primary bg-primary/5"
                                     : "border-border/20 hover:border-border/40 bg-background"

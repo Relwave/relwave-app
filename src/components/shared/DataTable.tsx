@@ -44,8 +44,8 @@ export const DataTable = ({
 
   const tableContent = (
     <Table>
-      <TableHeader>
-        <TableRow className="bg-muted/20 hover:bg-muted/20 border-b border-border/20">
+      <TableHeader className="sticky top-0 z-10">
+        <TableRow className="bg-muted/45 hover:bg-muted/45 border-b border-border/30 backdrop-blur-sm">
           {showRowNumbers && (
             <TableHead className="w-12 text-center text-[11px] font-medium text-muted-foreground/60 px-3 py-2">
               #
@@ -54,7 +54,7 @@ export const DataTable = ({
           {columns.map((column) => (
             <TableHead
               key={column}
-              className="text-xs font-medium font-mono text-muted-foreground/70 whitespace-nowrap px-4 py-2.5 first:pl-4"
+              className="text-xs font-semibold font-mono text-muted-foreground/80 whitespace-nowrap px-4 py-2.5 first:pl-4"
             >
               {column}
             </TableHead>
@@ -70,7 +70,7 @@ export const DataTable = ({
         {data.map((row, index) => (
           <TableRow
             key={index}
-            className="group transition-colors hover:bg-muted/10 border-b border-border/10 last:border-0"
+            className="group transition-colors hover:bg-accent/20 border-b border-border/10 last:border-0"
           >
             {showRowNumbers && (
               <TableCell className="w-12 text-center text-[11px] tabular-nums text-muted-foreground/40 px-3 py-2 font-normal">
@@ -97,7 +97,7 @@ export const DataTable = ({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-primary/10"
                       onClick={() => onEditRow(row)}
                       title="Edit row"
                     >
@@ -108,7 +108,7 @@ export const DataTable = ({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-destructive/10"
                       onClick={() => onDeleteRow(row)}
                       title="Delete row"
                     >
@@ -127,7 +127,7 @@ export const DataTable = ({
   // If maxHeight is "none", render table directly (parent handles scrolling)
   if (maxHeight === "none") {
     return (
-      <div className="rounded-md border border-border/20 overflow-x-auto bg-background">
+      <div className="max-w-full min-w-0 rounded-lg border border-border/50 overflow-x-auto bg-background/70 shadow-sm">
         {tableContent}
       </div>
     );
@@ -135,7 +135,7 @@ export const DataTable = ({
 
   // Otherwise use ScrollArea with maxHeight
   return (
-    <div className="rounded-md border border-border/20 overflow-hidden bg-background">
+    <div className="max-w-full min-w-0 rounded-lg border border-border/50 overflow-hidden bg-background/70 shadow-sm">
       <ScrollArea className="w-full" style={{ maxHeight }}>
         {tableContent}
         <ScrollBar orientation="horizontal" />

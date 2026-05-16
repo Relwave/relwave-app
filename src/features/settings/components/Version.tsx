@@ -10,7 +10,7 @@ export default function Version() {
         getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
     }, []);
     return (
-        <section className="border border-border/20 rounded-lg p-6 bg-background">
+        <section className="border border-border/50 rounded-lg p-6 bg-card/65 shadow-sm backdrop-blur-sm">
             <div className="flex items-center gap-2.5">
                 <Info className="h-4 w-4 text-muted-foreground/60" />
                 <div>

@@ -356,7 +356,7 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col bg-transparent">
             <BuilderHeader
                 databaseName={databaseName}
                 isExecuting={isExecuting}
@@ -369,7 +369,7 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
             />
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden p-3 gap-3">
                 <BuilderSidebar
                     isOpen={sidebarOpen}
                     onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -405,7 +405,7 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
                 />
 
                 {/* Main Area */}
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 flex flex-col overflow-hidden rounded-lg border border-border/50 bg-card/55 shadow-sm">
                     <DiagramCanvas
                         nodes={nodes}
                         edges={edges}

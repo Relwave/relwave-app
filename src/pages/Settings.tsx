@@ -2,8 +2,8 @@ import { CheckForUpdates, ColorVariant, DeveloperMode, Header, Preview, ThemeMod
 
 const Settings = () => {
     return (
-        <div className="h-full flex bg-background text-foreground overflow-hidden">
-            <main className="flex-1 ml-15">
+        <div className="h-[calc(100vh-32px)] flex app-surface text-foreground overflow-hidden">
+            <main className="flex-1 ml-15 min-h-0 overflow-y-auto">
                 {/* Header */}
                 <Header />
 

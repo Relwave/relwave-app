@@ -41,12 +41,12 @@ export function WorkspaceSidebar({
     return (
         <aside
             className={cn(
-                "border-r border-border/40 bg-muted/20 flex flex-col shrink-0 transition-all duration-200",
+                "rounded-lg border border-border/50 bg-card/55 flex flex-col shrink-0 transition-all duration-200 shadow-sm overflow-hidden",
                 collapsed ? "w-12" : "w-64"
             )}
         >
             {/* Sidebar Header */}
-            <div className="h-10 border-b border-border/40 flex items-center justify-between px-3">
+            <div className="h-10 border-b border-border/40 flex items-center justify-between px-3 bg-background/55">
                 {!collapsed && (
                     <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as 'tables' | 'history')}>
                         <TabsList className="h-7 p-0.5 bg-transparent">
@@ -82,7 +82,7 @@ export function WorkspaceSidebar({
                                 <button
                                     key={`${table.schema}.${table.name}`}
                                     onClick={() => onTableClick(table.name, table.schema)}
-                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-muted/50 transition-colors group"
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/45 transition-colors group border border-transparent hover:border-border/40"
                                 >
                                     <Table2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                     <span className="text-xs truncate flex-1 font-mono">{table.name}</span>
@@ -104,7 +104,7 @@ export function WorkspaceSidebar({
                                     <button
                                         key={index}
                                         onClick={() => onHistoryClick(item.query)}
-                                        className="w-full text-left px-2 py-2 rounded-md hover:bg-muted/50 transition-colors mb-1"
+                                        className="w-full text-left px-2 py-2 rounded-md hover:bg-accent/45 transition-colors mb-1 border border-transparent hover:border-border/40"
                                     >
                                         <div className="flex items-center gap-1.5 mb-1">
                                             {item.success ? (

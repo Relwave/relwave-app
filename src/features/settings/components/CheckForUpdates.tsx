@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle2, Download, Info, Loader2, RefreshCw } from 'l
 export default function CheckForUpdates() {
     const { status, updateInfo, downloadProgress, error: updateError, checkForUpdates, downloadAndInstall, relaunchApp } = useUpdater();
     return (
-        <section className="border border-border/20 rounded-lg p-6 bg-background">
+        <section className="border border-border/50 rounded-lg p-6 bg-card/65 shadow-sm backdrop-blur-sm">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                     <RefreshCw className="h-4 w-4 text-muted-foreground/60" />

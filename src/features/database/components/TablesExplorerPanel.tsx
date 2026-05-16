@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Search, Star, Table } from 'lucide-react';
+import { Plus, Search, Star, Table } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { SelectedTable, TableInfo } from "@/features/database/types";
 import { CreateTableDialog } from '@/features/schema-explorer/components';
 import { useTableExplorerPanel } from '../hooks/useTableExplorerPanel';
@@ -48,9 +47,9 @@ export default function TablesExplorerPanel({
     })
 
     return (
-        <div className="h-full w-64 flex flex-col bg-background overflow-hidden">
+        <div className="h-full min-h-0 w-full flex flex-col bg-transparent overflow-hidden">
             {/* Header */}
-            <div className="p-3 border-b border-border/20 shrink-0">
+            <div className="p-3 border-b border-border/30 shrink-0 bg-transparent">
                 <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Table className="h-4 w-4" />
                     Tables
@@ -63,7 +62,7 @@ export default function TablesExplorerPanel({
                         placeholder="Search tables..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-9 text-sm"
+                        className="pl-9 h-9 text-sm bg-background/70"
                     />
                 </div>
 
@@ -97,7 +96,7 @@ export default function TablesExplorerPanel({
             </div>
 
             {/* Tables List */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0 overflow-hidden">
                 <div className="p-2 space-y-1">
                     {loading ? (
                         <div className="text-center py-8 text-sm text-muted-foreground">
@@ -113,11 +112,11 @@ export default function TablesExplorerPanel({
                                 key={`${table.schema}.${table.name}`}
                                 onClick={() => onSelectTable(table.name, table.schema)}
                                 className={`
-                  w-full flex items-center justify-between px-3 py-2 rounded-lg
-                  transition-colors text-left group
+                  w-full flex items-center justify-between px-3 py-2 rounded-md
+                  transition-all duration-150 text-left group border border-transparent
                   ${isSelected(table)
-                                        ? 'bg-primary/10 text-primary'
-                                        : 'hover:bg-muted/50 text-foreground'
+                                        ? 'bg-primary/10 text-primary border-primary/20 shadow-sm'
+                                        : 'hover:bg-muted/55 hover:border-border/50 text-foreground'
                                     }
                 `}
                             >
@@ -145,9 +144,10 @@ export default function TablesExplorerPanel({
             </ScrollArea>
 
             {/* Footer */}
-            <div className="p-3 border-t border-border/20">
+            <div className="shrink-0 p-3 border-t border-border/30 bg-transparent">
                 <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setCreateTableOpen(true)}>
-                    + Create Table
+                    <Plus className="h-3.5 w-3.5" />
+                    Create Table
                 </Button>
                 <CreateTableDialog
                     dbId={dbId}

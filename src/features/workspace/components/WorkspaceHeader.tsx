@@ -19,7 +19,7 @@ export function WorkspaceHeader({
     onCancel,
 }: WorkspaceHeaderProps) {
     return (
-        <header className="h-12 border-b border-border/40 bg-background flex items-center justify-between px-4 shrink-0">
+        <header className="h-12 border-b border-border/40 bg-background/80 backdrop-blur-xl flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-3">
                 <Database className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">{databaseName || 'Database'}</span>
@@ -30,7 +30,7 @@ export function WorkspaceHeader({
             <div className="flex items-center gap-2">
                 {/* Execution status */}
                 {isExecuting && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/65 px-3 py-1.5 rounded-md border border-border/50">
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                         <span>{queryProgress?.rows || 0} rows</span>
                         <span className="text-muted-foreground/50">•</span>

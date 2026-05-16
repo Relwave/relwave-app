@@ -78,7 +78,7 @@ export function BuilderSidebar({
 
     if (!isOpen) {
         return (
-            <div className="w-10 border-r border-border/40 flex flex-col items-center py-2">
+            <div className="w-10 rounded-lg border border-border/50 bg-card/55 flex flex-col items-center py-2 shadow-sm">
                 <Button
                     variant="ghost"
                     size="sm"
@@ -92,9 +92,9 @@ export function BuilderSidebar({
     }
 
     return (
-        <aside className="w-64 border-r border-border/40 bg-muted/20 flex flex-col shrink-0">
+        <aside className="w-64 rounded-lg border border-border/50 bg-card/55 flex flex-col shrink-0 shadow-sm overflow-hidden">
             {/* Sidebar Header */}
-            <div className="h-10 border-b border-border/40 flex items-center justify-between px-3 shrink-0">
+            <div className="h-10 border-b border-border/40 flex items-center justify-between px-3 shrink-0 bg-background/55">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Explorer
                 </span>
@@ -112,7 +112,7 @@ export function BuilderSidebar({
                 <div className="p-2 space-y-1">
                     {/* Tables Section */}
                     <Collapsible open={tablesExpanded} onOpenChange={onTablesExpandedChange}>
-                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded hover:bg-muted/50">
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-accent/45">
                             {tablesExpanded ? (
                                 <ChevronDown className="h-3.5 w-3.5" />
                             ) : (
@@ -167,10 +167,10 @@ export function BuilderSidebar({
                                                 }
                                             }}
                                             className={cn(
-                                                "flex items-center gap-2 w-full px-2 py-1 text-xs rounded transition-colors text-left",
+                                                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md transition-colors text-left border border-transparent",
                                                 isAdded
-                                                    ? "text-primary bg-primary/10 hover:bg-primary/5"
-                                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                                    ? "text-primary bg-primary/10 border-primary/20 hover:bg-primary/5"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/45 hover:border-border/40"
                                             )}
                                         >
                                             <Table2 className="h-3 w-3 shrink-0" />
@@ -189,7 +189,7 @@ export function BuilderSidebar({
 
                     {/* Query Config Section */}
                     <Collapsible open={configExpanded} onOpenChange={onConfigExpandedChange}>
-                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded hover:bg-muted/50">
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-accent/45">
                             {configExpanded ? (
                                 <ChevronDown className="h-3.5 w-3.5" />
                             ) : (
@@ -409,7 +409,7 @@ export function BuilderSidebar({
 
                     {/* History Section */}
                     <Collapsible open={historyExpanded} onOpenChange={onHistoryExpandedChange}>
-                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded hover:bg-muted/50">
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-accent/45">
                             {historyExpanded ? (
                                 <ChevronDown className="h-3.5 w-3.5" />
                             ) : (

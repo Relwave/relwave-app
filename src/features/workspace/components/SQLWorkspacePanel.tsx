@@ -161,7 +161,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col bg-transparent">
             <WorkspaceHeader
                 databaseName={databaseName || 'Database'}
                 isExecuting={isExecuting}
@@ -172,7 +172,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
             />
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden p-3 gap-3">
                 <WorkspaceSidebar
                     tables={tables}
                     queryHistory={queryHistory}
@@ -185,7 +185,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                 />
 
                 {/* Editor Area */}
-                <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 flex flex-col min-w-0 rounded-lg border border-border/50 bg-card/55 shadow-sm overflow-hidden">
                     <QueryTabBar
                         tabs={tabs}
                         activeTabId={activeTabId}
@@ -197,7 +197,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                     {/* Split View: Editor + Results */}
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Editor */}
-                        <div className="h-[45%] min-h-50 border-b border-border/40">
+                        <div className="h-[45%] min-h-50 border-b border-border/40 bg-background/70">
                             <SqlEditor
                                 value={activeTab?.query || ''}
                                 onChange={updateActiveTabQuery}

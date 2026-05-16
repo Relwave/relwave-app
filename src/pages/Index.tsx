@@ -68,7 +68,7 @@ const IndexContent = ({ bridgeReady }: { bridgeReady: boolean }) => {
     } = useIndexPage(bridgeReady);
 
     return (
-        <div className="h-[calc(100vh-32px)] flex bg-background text-foreground overflow-hidden">
+        <div className="h-[calc(100vh-32px)] flex app-surface text-foreground overflow-hidden">
             <main className="flex-1 ml-15 flex">
                 {/* Left Panel */}
                 <ConnectionList
