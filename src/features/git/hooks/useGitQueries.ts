@@ -8,6 +8,7 @@ export const gitKeys = {
     status: (dir: string) => ["git", "status", dir] as const,
     changes: (dir: string) => ["git", "changes", dir] as const,
     log: (dir: string) => ["git", "log", dir] as const,
+    logGraph: (dir: string) => ["git", "logGraph", dir] as const,
     branches: (dir: string) => ["git", "branches", dir] as const,
 };
 
@@ -15,6 +16,7 @@ const STALE = {
     status: 10_000,    // 10s — polled frequently
     changes: 15_000,   // 15s
     log: 60_000,       // 1 min
+    logGraph: 60_000,  // 1 min
     branches: 60_000,  // 1 min
 };
 
@@ -59,6 +61,19 @@ export function useGitLog(dir: string | null | undefined, count = 20) {
     });
 }
 
+export function useGitLogGraph(dir: string | null | undefined, count = 100) {
+    const queryClient = useQueryClient();
+    const bridgeReady =
+        queryClient.getQueryData<boolean>(["bridge-ready"]) ?? isBridgeReady();
+
+    return useQuery<GitLogEntry[]>({
+        queryKey: gitKeys.logGraph(dir ?? ""),
+        queryFn: () => gitService.gitLogGraph(dir!, count),
+        enabled: !!dir && bridgeReady,
+        staleTime: STALE.logGraph,
+    });
+}
+
 export function useGitBranches(dir: string | null | undefined) {
     const queryClient = useQueryClient();
     const bridgeReady =
@@ -79,6 +94,7 @@ function useInvalidateGit(dir: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: gitKeys.status(dir) });
         queryClient.invalidateQueries({ queryKey: gitKeys.changes(dir) });
         queryClient.invalidateQueries({ queryKey: gitKeys.log(dir) });
+        queryClient.invalidateQueries({ queryKey: gitKeys.logGraph(dir) });
         queryClient.invalidateQueries({ queryKey: gitKeys.branches(dir) });
     };
 }

@@ -62,6 +62,9 @@ export interface GitLogEntry {
     /** Full commit hash */
     fullHash: string;
 
+    /** Parent hashes (space-separated) */
+    parents: string[];
+
     /** Author name */
     author: string;
 
@@ -70,15 +73,16 @@ export interface GitLogEntry {
 
     /** First line of commit message */
     subject: string;
+
+    /** Ref names (branches, tags) */
+    refs: string;
 }
 
 export interface GitBranchInfo {
     /** Branch name */
     name: string;
-
     /** Is this the current branch? */
     current: boolean;
-
     /** Remote tracking branch (null for local-only branches) */
     upstream: string | null;
 }
@@ -233,7 +237,7 @@ export class GitService {
                 for (const line of statusOutput.split("\n")) {
                     if (!line) continue;
                     const x = line[0]; // staged status
-                    const y = line[1]; // unstaged status
+                    const y = line[1]; // working tree
 
                     if (x === "?" && y === "?") {
                         untrackedCount++;
@@ -332,7 +336,7 @@ export class GitService {
     async log(dir: string, count = 20): Promise<GitLogEntry[]> {
         try {
             const SEP = "<<SEP>>";
-            const format = ["%h", "%H", "%an", "%aI", "%s"].join(SEP);
+            const format = ["%h", "%H", "%p", "%an", "%aI", "%s", "%D"].join(SEP);
             const output = await this.git(
                 dir,
                 "log",
@@ -342,12 +346,55 @@ export class GitService {
 
             if (!output) return [];
 
-            return output.split("\n").map((line) => {
-                const [hash, fullHash, author, date, subject] = line.split(SEP);
-                return { hash, fullHash, author, date, subject };
+            return output.split("\n").filter(Boolean).map((line) => {
+                const [hash, fullHash, parents, author, date, subject, refs] = line.split(SEP);
+                return { 
+                    hash, 
+                    fullHash, 
+                    parents: parents ? parents.split(" ") : [], 
+                    author, 
+                    date, 
+                    subject, 
+                    refs: refs || "" 
+                };
             });
         } catch {
             return []; // No commits yet
+        }
+    }
+
+    /**
+     * Get detailed commit log for graph visualization
+     */
+    async logGraph(dir: string, count = 100): Promise<GitLogEntry[]> {
+        try {
+            // %h: short hash, %H: full hash, %p: abbreviated parent hashes, %an: author name, %aI: author date ISO, %s: subject, %D: ref names
+            const SEP = "<<SEP>>";
+            const format = ["%h", "%H", "%p", "%an", "%aI", "%s", "%D"].join(SEP);
+            const output = await this.git(
+                dir,
+                "log",
+                `--max-count=${count}`,
+                `--format=${format}`,
+                "--all" // Include all branches
+            );
+
+            if (!output) return [];
+
+            return output.split("\n").filter(Boolean).map((line) => {
+                const [hash, fullHash, parents, author, date, subject, refs] = line.split(SEP);
+                return { 
+                    hash, 
+                    fullHash, 
+                    parents: parents ? parents.split(" ") : [], 
+                    author, 
+                    date, 
+                    subject, 
+                    refs: refs || "" 
+                };
+            });
+        } catch (err: any) {
+            return [];
         }
     }
 
@@ -444,7 +491,7 @@ export class GitService {
     async fileLog(dir: string, filePath: string, count = 20): Promise<GitLogEntry[]> {
         try {
             const SEP = "<<SEP>>";
-            const format = ["%h", "%H", "%an", "%aI", "%s"].join(SEP);
+            const format = ["%h", "%H", "%p", "%an", "%aI", "%s", "%D"].join(SEP);
             const output = await this.git(
                 dir,
                 "log",
@@ -455,9 +502,17 @@ export class GitService {
                 filePath
             );
             if (!output) return [];
-            return output.split("\n").map((line) => {
-                const [hash, fullHash, author, date, subject] = line.split(SEP);
-                return { hash, fullHash, author, date, subject };
+            return output.split("\n").filter(Boolean).map((line) => {
+                const [hash, fullHash, parents, author, date, subject, refs] = line.split(SEP);
+                return { 
+                    hash, 
+                    fullHash, 
+                    parents: parents ? parents.split(" ") : [], 
+                    author, 
+                    date, 
+                    subject, 
+                    refs: refs || "" 
+                };
             });
         } catch {
             return [];

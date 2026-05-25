@@ -27,14 +27,19 @@ import SQLWorkspacePanel from "@/features/workspace/components/SQLWorkspacePanel
 import GitStatusPanel from "@/features/git/components/GitStatusPanel";
 import GitStatusBar from "@/features/git/components/GitStatusBar";
 import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel";
+import { ShortcutsHelp } from "@/components/shared/ShortcutsHelp";
+import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
+import { useState } from "react";
 
 const DatabaseDetail = () => {
   const { id: dbId } = useParams<{ id: string }>();
   const { data: bridgeReady, isLoading: bridgeLoading } = useBridgeQuery();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Page UI state
   const {
     activePanel,
+    // ... rest of imports ...
     setActivePanel,
     migrationsOpen,
     setMigrationsOpen,
@@ -170,10 +175,13 @@ const DatabaseDetail = () => {
       <div className="shrink-0 h-7 border-t border-border/30 bg-background/80 backdrop-blur-xl flex items-center px-2 pl-15 gap-4 min-w-0">
         <GitStatusBar projectDir={projectDir} />
         <div className="flex-1" />
+        <ShortcutsTrigger onClick={() => setShortcutsOpen(true)} />
         <span className="text-[10px] text-muted-foreground/60 font-mono">
           {databaseName || "Database"}
         </span>
       </div>
+
+      <ShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       {/* Migrations */}
       <SlideOutPanel isOpen={migrationsOpen} onClose={() => setMigrationsOpen(false)} title="Migrations" disableScroll>
