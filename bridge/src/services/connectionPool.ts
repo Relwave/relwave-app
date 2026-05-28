@@ -7,11 +7,13 @@
 // per bridge lifetime and is reconnected on-demand after idle eviction.
 
 import { DBType } from "../types";
+import { TunnelInfo } from "./sshTunnelService";
 
 interface PoolEntry {
   conn: unknown;
   dbType: DBType;
   lastUsed: number;
+  tunnel?: TunnelInfo;
 }
 
 /** Idle timeout before a connection is evicted (10 minutes) */
@@ -44,8 +46,13 @@ export class ConnectionPool {
   /**
    * Store a connection for the given dbId.
    */
-  set(dbId: string, conn: unknown, dbType: DBType): void {
-    this.pool.set(dbId, { conn, dbType, lastUsed: Date.now() });
+  set(dbId: string, conn: unknown, dbType: DBType, tunnel?: TunnelInfo): void {
+    // If there's an existing entry with a tunnel, close it first
+    const existing = this.pool.get(dbId);
+    if (existing?.tunnel) {
+      existing.tunnel.close();
+    }
+    this.pool.set(dbId, { conn, dbType, lastUsed: Date.now(), tunnel });
   }
 
   /**
@@ -53,6 +60,10 @@ export class ConnectionPool {
    * Call this after db.delete, db.update (when credentials change), etc.
    */
   invalidate(dbId: string): void {
+    const entry = this.pool.get(dbId);
+    if (entry?.tunnel) {
+      entry.tunnel.close();
+    }
     this.pool.delete(dbId);
   }
 
@@ -61,6 +72,11 @@ export class ConnectionPool {
    * Call this on bridge shutdown.
    */
   invalidateAll(): void {
+    for (const entry of this.pool.values()) {
+      if (entry.tunnel) {
+        entry.tunnel.close();
+      }
+    }
     this.pool.clear();
   }
 
@@ -71,6 +87,9 @@ export class ConnectionPool {
     const now = Date.now();
     for (const [id, entry] of this.pool) {
       if (now - entry.lastUsed > IDLE_TIMEOUT_MS) {
+        if (entry.tunnel) {
+          entry.tunnel.close();
+        }
         this.pool.delete(id);
       }
     }
@@ -82,7 +101,7 @@ export class ConnectionPool {
       clearInterval(this.sweepTimer);
       this.sweepTimer = null;
     }
-    this.pool.clear();
+    this.invalidateAll();
   }
 }
 

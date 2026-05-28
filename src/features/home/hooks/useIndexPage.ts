@@ -95,12 +95,56 @@ export const useIndexPage = (bridgeReady: boolean) => {
             return;
         }
 
+        // SSH Validation
+        if (formData.useSsh) {
+            const sshMissing = [];
+            if (!formData.sshHost) sshMissing.push("SSH Host");
+            if (!formData.sshPort) sshMissing.push("SSH Port");
+            if (!formData.sshUser) sshMissing.push("SSH Username");
+            if (formData.sshAuthMethod === "password" && !formData.sshPassword) sshMissing.push("SSH Password");
+            if (formData.sshAuthMethod === "privateKey" && !formData.sshPrivateKeyPath) sshMissing.push("SSH Private Key Path");
+
+            if (sshMissing.length) {
+                toast.error("Missing SSH fields", { description: `Please fill in: ${sshMissing.join(", ")}` });
+                return;
+            }
+        }
+
         try {
-            const payload = {
-                ...formData,
+            // Strip flat SSH form fields — the bridge expects only the nested `ssh` object.
+            // Sending them in the top-level payload would pollute the stored connection record.
+            const {
+                useSsh,
+                sshHost, sshPort, sshUser, sshAuthMethod,
+                sshPassword, sshPrivateKeyPath, sshPassphrase,
+                ...rest
+            } = formData;
+
+            const payload: any = {
+                ...rest,
                 port: isSQLite ? 0 : parseInt(formData.port),
                 sslmode: isSQLite ? "disable" : formData.ssl ? formData.sslmode || "require" : "disable",
             };
+
+            if (useSsh) {
+                // Only include the credential field that matches the selected auth method
+                // to avoid storing unused secrets.
+                const sshCredential = sshAuthMethod === "password"
+                    ? { password: sshPassword }
+                    : {
+                        privateKey: sshPrivateKeyPath,
+                        ...(sshPassphrase ? { passphrase: sshPassphrase } : {}),
+                    };
+
+                payload.ssh = {
+                    host: sshHost,
+                    port: parseInt(sshPort) || 22,
+                    username: sshUser,
+                    authMethod: sshAuthMethod,
+                    ...sshCredential,
+                };
+            }
+
             await addDatabaseMutation.mutateAsync(payload);
             toast.success("Database connection added");
             setIsDialogOpen(false);

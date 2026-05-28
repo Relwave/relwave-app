@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from "crypto";
 import { promisify } from "util";
 import { CONFIG_FOLDER, CONFIG_FILE, CREDENTIALS_FILE } from "../utils/config";
+import { SSHConfig } from "../types/common";
 import { normalizeSQLitePath } from "../utils/sqlitePath";
 const scryptAsync = promisify(scrypt);
 
@@ -182,6 +183,7 @@ type DBMeta = {
   tags?: string[];
   ssl?: boolean;
   sslmode?: string;
+  ssh?: SSHConfig;
   createdAt: string;
   updatedAt: string;
   lastAccessedAt?: string;

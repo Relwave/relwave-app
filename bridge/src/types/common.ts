@@ -128,3 +128,16 @@ export type AlterTableOperation =
  * Drop mode for table/schema operations
  */
 export type DropMode = "CASCADE" | "RESTRICT" | undefined;
+
+/**
+ * SSH Tunnel Configuration
+ */
+export type SSHConfig = {
+    host: string;
+    port: number;
+    username: string;
+    authMethod: "password" | "privateKey";
+    password?: string;
+    privateKey?: string; // file path OR raw PEM string
+    passphrase?: string;
+};

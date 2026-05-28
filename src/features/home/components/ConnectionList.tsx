@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus } from "lucide-react";
+import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -139,8 +139,11 @@ function DraggableConnectionItem({
                     />
                     <div className="flex-1 min-w-0 pr-6 ml-1">
                         <p className="text-sm font-medium truncate">{db.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate font-mono">
+                        <p className="text-[10px] text-muted-foreground truncate font-mono flex items-center gap-1">
                             {db.type} • {db.type === "sqlite" ? db.database : db.host}
+                            {db.ssh && (
+                                <Shield className="h-2.5 w-2.5 text-blue-400 shrink-0" aria-label="SSH tunnel" />
+                            )}
                         </p>
                     </div>
                 </div>

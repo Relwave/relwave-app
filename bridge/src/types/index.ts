@@ -7,11 +7,14 @@
  *   import { DBType, MySQLConfig, PGConfig, CacheEntry } from '../types';
  */
 
+import type { SSHConfig } from './common';
+
 export * from './cache';
 export * from './common';
 export * from './mysql';
 export * from './postgres';
 export * from './sqlite';
+export { SSHConfig } from './common';
 
 export enum DBType {
     POSTGRES = "postgres",
@@ -33,6 +36,7 @@ export interface DatabaseConfig {
     password?: string;
     ssl?: boolean;
     database: string;
+    ssh?: SSHConfig;
 }
 
 export interface QueryParams {

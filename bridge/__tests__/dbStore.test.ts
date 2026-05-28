@@ -457,35 +457,31 @@ describe("DbStore Cache Tests", () => {
       const totalTime = performance.now() - startTime;
       const avgTimePerRead = totalTime / iterations;
 
-      // Each cached read should be very fast (under 1ms typically)
+      // Each cached read should be very fast (under 5ms typically)
       expect(avgTimePerRead).toBeLessThan(5); // Allow some buffer for slow systems
     });
 
-    test("should benchmark credentials caching", async () => {
+    test("should cache credentials and return correct password on repeated calls", async () => {
       const result = await dbStore.addDB(mockDBPayload);
 
-      // Invalidate cache
+      // Invalidate cache to start from cold state
       dbStore.invalidateCache();
 
-      // Uncached password retrieval
-      const uncachedStart = performance.now();
-      await dbStore.getPasswordFor(result);
-      const uncachedTime = performance.now() - uncachedStart;
+      // First retrieval primes the credentials cache
+      const firstResult = await dbStore.getPasswordFor(result);
+      expect(firstResult).toBe(mockDBPayload.password);
 
-      // Cached password retrievals
-      const cachedTimes: number[] = [];
-      for (let i = 0; i < 10; i++) {
-        const cachedStart = performance.now();
-        await dbStore.getPasswordFor(result);
-        cachedTimes.push(performance.now() - cachedStart);
+      // Credentials cache should now be populated
+      expect(dbStore.getCacheStats().credentialsCached).toBe(true);
+
+      // Subsequent retrievals should return the same correct value (served from cache)
+      for (let i = 0; i < 5; i++) {
+        const pw = await dbStore.getPasswordFor(result);
+        expect(pw).toBe(mockDBPayload.password);
       }
 
-      const avgCachedTime =
-        cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
-
-      // Note: Password retrieval includes decryption which takes constant time
-      // But file I/O should still be cached
-      expect(avgCachedTime).toBeLessThanOrEqual(uncachedTime * 1.5); // Allow some variance due to crypto
+      // Cache stats should still show credentials as cached
+      expect(dbStore.getCacheStats().credentialsCached).toBe(true);
     });
   });
 
