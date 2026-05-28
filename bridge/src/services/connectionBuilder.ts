@@ -37,7 +37,7 @@ export class ConnectionBuilder {
 
     const base: DatabaseConfig = {
       host: db.host,
-      port: db.port || (dbType === DBType.MYSQL ? 3306 : 5432),
+      port: db.port || (dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432),
       user: db.user,
       password: pwd ?? undefined,
       ssl: db.ssl,
