@@ -48,3 +48,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  ssh-server:
+    image: linuxserver/openssh-server
+    environment:
+      USER_PASSWORD: testpassword
+      USER_NAME: testsshuser
+      PASSWORD_ACCESS: "true"
+      PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMf8jq8w6c2VngDpjQn4fA7ovq8w6c2VngDpjQn4fA7o test@relwave"
+    ports:
+      - "2222:22"
+
+  postgres-behind-ssh:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+    # NO ports exposed to host
+    volumes:
+      - ./scripts/seed-test-db.sql:/docker-entrypoint-initdb.d/seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

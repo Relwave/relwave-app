@@ -64,6 +64,15 @@ class GitService {
     }
 
     /**
+     * Get detailed commit log for graph visualization
+     */
+    async gitLogGraph(dir: string, count = 100): Promise<GitLogEntry[]> {
+        const result = await bridgeRequest("git.logGraph", { dir, count });
+        console.log(result, "gitLogGraph result");
+        return result?.data || [];
+    }
+
+    /**
      * List all branches
      */
     async gitBranches(dir: string): Promise<GitBranchInfo[]> {

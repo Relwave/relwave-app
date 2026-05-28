@@ -1,5 +1,14 @@
-
 export type DatabaseType = "postgresql" | "mysql" | "sqlite";
+
+export interface SSHConfig {
+    host: string;
+    port: number;
+    username: string;
+    authMethod: "password" | "privateKey";
+    password?: string;
+    privateKey?: string;
+    passphrase?: string;
+}
 
 export interface DiscoveredDatabase {
     type: "postgresql" | "mysql" | "mariadb" | "sqlite";
@@ -27,6 +36,7 @@ export interface DatabaseConnection {
     updatedAt: string;
     lastAccessedAt?: string;
     credentialId?: string;
+    ssh?: SSHConfig;
 }
 
 export interface AddDatabaseParams {
@@ -41,6 +51,7 @@ export interface AddDatabaseParams {
     tags?: string[];
     ssl?: boolean;
     sslmode?: string;
+    ssh?: SSHConfig;
 }
 
 export interface UpdateDatabaseParams {
@@ -53,6 +64,7 @@ export interface UpdateDatabaseParams {
     password?: string;
     notes?: string;
     tags?: string[];
+    ssh?: SSHConfig;
 }
 
 export interface ConnectionTestResult {

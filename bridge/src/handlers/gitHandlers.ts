@@ -167,6 +167,19 @@ export class GitHandlers {
         }
     }
 
+    async handleLogGraph(params: any, id: number | string) {
+        const dir = this.requireDir(params, id);
+        if (!dir) return;
+        try {
+            const count = params?.count ?? 100;
+            const entries = await this.gitService.logGraph(dir, count);
+            this.rpc.sendResponse(id, { ok: true, data: entries });
+        } catch (e: any) {
+            this.logger?.error({ e }, "git.logGraph failed");
+            this.rpc.sendError(id, { code: "GIT_ERROR", message: String(e.message || e) });
+        }
+    }
+
     async handleBranches(params: any, id: number | string) {
         const dir = this.requireDir(params, id);
         if (!dir) return;

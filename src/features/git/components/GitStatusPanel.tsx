@@ -33,7 +33,7 @@ import {
 import {
     useGitStatus,
     useGitChanges,
-    useGitLog,
+    useGitLogGraph,
     useGitBranches,
 } from "@/features/git/hooks/useGitQueries";
 import { useGitRevert } from "@/features/git/hooks/useGitAdvanced";
@@ -41,6 +41,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import type { GitFileChange, GitLogEntry } from "@/features/git/types";
 import { gitService } from "@/services/bridge/git";
+import { GitHistoryGraph } from "./GitHistoryGraph";
 
 // ─── Helpers ──────────────────────────────────────────
 
@@ -106,9 +107,9 @@ export default function GitStatusPanel({ projectDir }: GitStatusPanelProps) {
     const { data: changes } = useGitChanges(
         status?.isGitRepo ? projectDir : undefined
     );
-    const { data: log } = useGitLog(
+    const { data: logGraph } = useGitLogGraph(
         status?.isGitRepo ? projectDir : undefined,
-        50
+        100
     );
     const { data: branches } = useGitBranches(
         status?.isGitRepo ? projectDir : undefined
@@ -302,27 +303,15 @@ export default function GitStatusPanel({ projectDir }: GitStatusPanelProps) {
                 </TabsContent>
 
                 {/* ── History Tab ─────────────────────────── */}
-                <TabsContent value="history" className="flex-1 min-h-0 mt-0 px-2">
-                    <ScrollArea className="h-full">
-                        {(!log || log.length === 0) ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-                                <Clock className="h-8 w-8 opacity-30" />
-                                <span>No commits yet</span>
-                            </div>
-                        ) : (
-                            <div className="py-2">
-                                {log.map((entry, idx) => (
-                                    <CommitRow
-                                        key={entry.hash}
-                                        entry={entry}
-                                        isLatest={idx === 0}
-                                        onRevert={() => handleRevert(entry.hash, entry.subject)}
-                                        reverting={revertMutation.isPending}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </ScrollArea>
+                <TabsContent value="history" className="flex-1 min-h-0 mt-0">
+                    {(!logGraph || logGraph.length === 0) ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+                            <Clock className="h-8 w-8 opacity-30" />
+                            <span>No commits yet</span>
+                        </div>
+                    ) : (
+                        <GitHistoryGraph log={logGraph} className="border-t border-border/5" />
+                    )}
                 </TabsContent>
 
                 {/* ── Branches Tab ────────────────────────── */}
@@ -339,8 +328,8 @@ export default function GitStatusPanel({ projectDir }: GitStatusPanelProps) {
                                     <div
                                         key={b.name}
                                         className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${b.current
-                                                ? "bg-primary/10 text-primary font-medium"
-                                                : "text-foreground hover:bg-muted/50"
+                                            ? "bg-primary/10 text-primary font-medium"
+                                            : "text-foreground hover:bg-muted/50"
                                             }`}
                                     >
                                         <GitBranch className={`h-4 w-4 shrink-0 ${b.current ? "text-primary" : "text-muted-foreground"}`} />

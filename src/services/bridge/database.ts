@@ -8,6 +8,7 @@ import {
     DiscoveredDatabase,
     MonitoringSnapshot,
     RunQueryParams,
+    SSHConfig,
     TableRow,
     UpdateDatabaseParams
 } from '@/features/database/types'; import { bridgeRequest } from "./bridgeClient";
@@ -184,6 +185,8 @@ class DatabaseService {
         user: string;
         password?: string;
         database: string;
+        type?: string;
+        ssh?: SSHConfig;
     }): Promise<ConnectionTestResult> {
         try {
             const result = await bridgeRequest("db.connectTest", { connection });

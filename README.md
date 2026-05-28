@@ -1,357 +1,131 @@
 <div align="center">
 
-<img src="public/wave.png" alt="RelWave Logo" width="140" />
+<img src="public/wave.png" alt="RelWave Logo" width="160" />
 
 # RelWave
 
-### Modern Database Management, Visualization & Version Control
+### **Elevate Your Database Experience**
+**Modern Management · Visual Schema Design · Native Git Version Control**
 
-A powerful, cross-platform desktop application for database management with native Git version control — built with Tauri, React, and TypeScript.
+*A high-performance, cross-platform desktop suite for developers who demand more from their database tools.*
 
-[![Version](https://img.shields.io/badge/version-0.5.0--beta.1-0066ff?style=for-the-badge)](https://github.com/Relwave/relwave-app/releases)
+[![Version](https://img.shields.io/badge/version-0.6.0--beta.1-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgray?style=for-the-badge)](https://github.com/Relwave/relwave-app/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgray?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
+[![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
 
-[**Download**](https://github.com/Relwave/relwave-app/releases) · [**Features**](FEATURES.md) · [**Quick Start**](#quick-start) · [**Documentation**](#documentation)
+[**✨ Explore Features**](FEATURES.md) • [**🚀 Quick Start**](#quick-start) • [**📖 Documentation**](#documentation) • [**📥 Download**](https://github.com/Relwave/relwave-app/releases)
 
+---
+</div>
+
+## 🌊 Why RelWave?
+
+**RelWave** isn't just another database client. It's a cohesive environment where schema exploration, visual modeling, and version control collide. Built on a native bridge architecture, it delivers the power of low-level drivers with the elegance of a modern React interface.
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <br />
+      <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/database.svg" width="54" />
+      <h4>Native Core</h4>
+      <p>Direct connections via native drivers. Zero browser overhead. Pure speed.</p>
+    </td>
+    <td align="center" width="25%">
+      <br />
+      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" width="54" />
+      <h4>Git Integrated</h4>
+      <p>The only DB tool with first-class Git support. Commit your schema changes naturally.</p>
+    </td>
+    <td align="center" width="25%">
+      <br />
+      <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/lock.svg" width="54" />
+      <h4>Secure & Private</h4>
+      <p>Local-first design. Encrypted credentials stored in your system's secure keyring.</p>
+    </td>
+    <td align="center" width="25%">
+      <br />
+      <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/visualstudio.svg" width="54" />
+      <h4>Visual First</h4>
+      <p>ER Diagrams, Query Builders, and Data Visualization built directly into your workflow.</p>
+    </td>
+  </tr>
+</table>
 </div>
 
 ---
 
-## Overview
 
-**RelWave** is a desktop-native database management tool that brings together schema exploration, data visualization, query building, and Git version control into a single cohesive interface. It connects directly to your databases using native drivers — no browser, no cloud dependency, no compromise.
+## 🛠️ Technology Stack
 
-<table>
-<tr>
-<td width="25%" align="center">
-<img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/database.svg" width="48" /><br/>
-<strong>Native Performance</strong><br/>
-Direct database connections without browser overhead
-</td>
-<td width="25%" align="center">
-<img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/lock.svg" width="48" /><br/>
-<strong>Secure by Design</strong><br/>
-Encrypted credentials with machine-level protection
-</td>
-<td width="25%" align="center">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" width="48" /><br/>
-<strong>Git Native</strong><br/>
-Built-in version control for database projects
-</td>
-<td width="25%" align="center">
-<img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons/settings.svg" width="48" /><br/>
-<strong>Offline-First</strong><br/>
-Full functionality without internet dependency
-</td>
-</tr>
-</table>
+<div align="center">
+<br />
+<img src="https://skillicons.dev/icons?i=tauri,rust,react,ts,nodejs,tailwind,git,postgres,mysql,sqlite&perline=10" />
+<br /><br />
+<i>Powered by Tauri, React 19, and a high-speed Node.js Bridge.</i>
+</div>
 
-## Features
+---
 
-For a comprehensive breakdown of all features, see the [Feature Reference](FEATURES.md).
-
-### Database Management
-
-- **Multi-database support** — PostgreSQL, MySQL, MariaDB, and SQLite with native drivers
-- **Auto-discovery** — Detect local and Docker-based databases automatically
-- **Connection URL parsing** — Import connections via standard database URLs
-- **Schema Explorer** — Navigate tables, columns, indexes, and relationships
-- **Row operations** — Insert, edit, and delete rows with foreign key support
-- **Migration management** — Track, apply, and rollback schema migrations
-
-### Git Version Control
-
-- **Repository management** — Initialize and manage Git repositories from within the app
-- **Staging and commits** — Stage files individually or in bulk with full diff preview
-- **Branch operations** — Create, switch, and manage branches
-- **Remote sync** — Push, pull, and fetch with remote repository support
-- **Change tracking** — View file-level diffs and full commit history
-- **Stash management** — Save and restore work-in-progress changes
-- **Smart .gitignore** — Automatic generation and management of ignore rules
-
-### Visual Tools
-
-- **ER Diagrams** — Auto-generated, interactive entity-relationship diagrams
-- **Visual Query Builder** — Drag-and-drop query construction with live SQL preview
-- **Data Visualization** — Bar, line, pie, and scatter charts with export to PNG/SVG
-- **SQL Workspace** — Multi-tab CodeMirror editor with syntax highlighting and execution
-
-### Developer Experience
-
-- **Multi-format export** — CSV, JSON, and SQL export for tables and query results
-- **Query history** — Persistent history with instant replay
-- **Automatic updates** — Background downloads with cryptographically signed releases
-- **Customizable themes** — Light/dark modes with multiple accent color variants
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
-| Platform | Formats | Notes |
-| -------- | ------- | ----- |
-| **Windows** | `.exe` · `.msi` | NSIS installer (recommended) or MSI package |
-| **Linux** | `.deb` · `.AppImage` | Debian package or portable AppImage |
+| OS | Format | Link |
+| :--- | :--- | :--- |
+| **Windows** | `.exe` / `.msi` | [Download Installer](https://github.com/Relwave/relwave-app/releases) |
+| **Linux** | `.deb` / `.AppImage` | [Download Package](https://github.com/Relwave/relwave-app/releases) |
 
-**[Download the latest release](https://github.com/Relwave/relwave-app/releases)**
-
-### Build from Source
-
-#### Prerequisites
-
-- Node.js 18+
-- pnpm
-- Rust toolchain (for Tauri)
-
-RelWave uses separate package manifests for the app and the bridge, so install dependencies in both locations.
-
-#### Development
+### Development Setup
 
 ```bash
+# Clone the repository
 git clone https://github.com/Relwave/relwave-app.git
 cd relwave-app
 
-# Install app dependencies
+# Install everything
 pnpm install
-
-# Install bridge dependencies
 pnpm --dir bridge install
 
-# Start development mode
+# Launch development environment
 pnpm tauri dev
 ```
 
-#### Production Build
+---
 
-Install both dependency sets first:
+## 🏗️ Architecture
 
-```bash
-pnpm install
-pnpm --dir bridge install
+RelWave leverages a **Hybrid Bridge Architecture**. This unique setup ensures that while the UI remains fluid and responsive, the heavy-duty database and Git operations run in a dedicated, secure Node.js process.
+
+```mermaid
+graph TD
+    A[Tauri / React Frontend] <-->|JSON-RPC via stdio| B[Node.js Bridge]
+    B <--> C[(Native Databases)]
+    B <--> D[Git Repositories]
+    style A fill:#0066ff,color:#fff
+    style B fill:#00cc66,color:#fff
+    style C fill:#f39c12,color:#fff
+    style D fill:#e74c3c,color:#fff
 ```
 
-**Windows:**
+---
 
-```bash
-pnpm run bridge:package
-pnpm tauri build
-```
+## 🤝 Contributing
 
-**Linux:**
+We love contributions! Whether it's a bug fix, a new feature, or a documentation improvement, your help makes RelWave better for everyone.
 
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-pnpm run bridge:package
-pnpm tauri build
-```
-
-The root `bridge:package` script delegates to the platform-specific bridge packaging command in `bridge/package.json` and prepares the bundled SQLite native binary in `src-tauri/resources/`.
-
-## Documentation
-
-### Architecture
-
-RelWave uses a **bridge architecture** — a Tauri/React frontend communicates with a Node.js process over JSON-RPC via stdin/stdout. The bridge handles all database and Git operations using native drivers.
-
-```
-┌──────────────────────────┐
-│     Tauri + React UI     │
-│      (TypeScript)        │
-│                          │
-│   Database Explorer      │
-│   ER Diagrams            │
-│   Query Builder          │
-│   Git Interface          │
-└────────────┬─────────────┘
-             │ JSON-RPC (stdio)
-             │
-┌────────────┴─────────────┐
-│     Node.js Bridge       │
-│                          │
-│   pg · mysql2            │
-│   simple-git             │
-│   Query Cache            │
-└────────────┬─────────────┘
-             │
-       ┌─────┴──────┐
-       │            │
-   Databases    Git Repos
-```
-
-**Why this architecture?**
-
-| Benefit | Description |
-| ------- | ----------- |
-| Performance | Native database drivers without complex Rust FFI bindings |
-| Security | Process isolation prevents direct memory access vulnerabilities |
-| Flexibility | New drivers and integrations added without modifying the Rust layer |
-| Reliability | Independent process lifecycle — bridge crashes don't take down the UI |
-
-### Project Structure
-
-```
-relwave-app/
-├── src/                          # React frontend
-│   ├── components/               # Shared UI components
-│   ├── features/                 # Feature-based modules (database, git, etc.)
-│   ├── lib/                      # Shared libraries and utilities
-│   ├── pages/                    # Top-level page components
-│   └── services/                 # API communication layer
-│
-├── bridge/                       # Node.js bridge process
-│   ├── src/
-│   │   ├── connectors/           # Database drivers (pg, mysql2, better-sqlite3)
-│   │   ├── handlers/             # JSON-RPC request handlers
-│   │   ├── services/             # Business logic (Git, DB)
-│   │   └── queries/              # SQL query templates
-│   └── __tests__/                # Bridge test suite
-│
-└── src-tauri/                    # Tauri backend (Rust)
-    ├── src/                      # Application entry point and bridge management
-    └── resources/                # Bundled bridge executable and native bindings
-```
-
-### Configuration
-
-**Connection storage locations:**
-
-| Platform | Path |
-| -------- | ---- |
-| Windows | `%APPDATA%\relwave\databases.json` |
-| Linux | `~/.config/relwave/databases.json` |
-
-All credentials are encrypted using machine-specific keys. Connection strings and passwords are never stored in plain text.
-
-**Environment variables:**
-
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `RELWAVE_HOME` | Override configuration directory | — |
-| `RELWAVE_LOG` | Enable debug logging | `false` |
-| `RELWAVE_BRIDGE` | Custom bridge executable path | — |
-
-## Testing
-
-### Prerequisites
-
-Start the test databases using Docker:
-
-```bash
-cd bridge
-docker-compose -f docker-compose.test.yml up -d
-```
-
-Create `bridge/.env` with the test configuration:
-
-```env
-REAL_POSTGRES_HOST=localhost
-REAL_POSTGRES_PORT=5432
-REAL_POSTGRES_USER=testuser
-REAL_POSTGRES_PASSWORD=testpass
-REAL_POSTGRES_DATABASE=testdb
-
-REAL_MYSQL_HOST=localhost
-REAL_MYSQL_PORT=3306
-REAL_MYSQL_USER=testuser
-REAL_MYSQL_PASSWORD=testpass
-REAL_MYSQL_DATABASE=testdb
-
-REAL_MARIADB_HOST=localhost
-REAL_MARIADB_PORT=3307
-REAL_MARIADB_USER=testuser
-REAL_MARIADB_PASSWORD=testpass
-REAL_MARIADB_DATABASE=testdb
-```
-
-### Running Tests
-
-```bash
-cd bridge
-pnpm test
-```
-
-### Coverage
-
-| Area | Status |
-| ---- | ------ |
-| Database service operations | Covered |
-| Connection management | Covered |
-| PostgreSQL integration | Covered |
-| MySQL integration | Covered |
-| MariaDB integration | Covered |
-| Query result caching | Covered |
-| Encryption and persistence | Covered |
-| Git operations (status, commit, branch, remote) | Covered |
-| Git advanced features (push, pull, fetch, revert) | Covered |
-
-## Contributing
-
-Contributions are welcome. Whether fixing bugs, adding features, or improving documentation — all help is appreciated.
-
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/relwave-app.git`
-3. Create a feature branch: `git checkout -b feature/your-feature-name`
-4. Commit your changes: `git commit -m 'Add: description of change'`
-5. Push to your fork: `git push origin feature/your-feature-name`
-6. Open a Pull Request
-
-**Guidelines:**
-
-- Follow the existing TypeScript and React conventions
-- Add tests for new functionality
-- Update documentation when applicable
-- Write clear, descriptive commit messages
-- Provide context in Pull Request descriptions
-
-## Technology Stack
-
-<table>
-<tr>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tauri/tauri-original.svg" width="40" /><br/>
-<strong>Tauri</strong>
-</td>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/rust/rust-original.svg" width="40" /><br/>
-<strong>Rust</strong>
-</td>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg" width="40" /><br/>
-<strong>React 18</strong>
-</td>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg" width="40" /><br/>
-<strong>TypeScript</strong>
-</td>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original.svg" width="40" /><br/>
-<strong>Node.js</strong>
-</td>
-<td align="center" width="16%">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" width="40" /><br/>
-<strong>Git</strong>
-</td>
-</tr>
-</table>
-
-**Additional libraries:** Tailwind CSS, shadcn/ui, React Flow, Recharts, CodeMirror, React Query, simple-git, node-postgres, mysql2
-
-### Acknowledgments
-
-- [Freepik](https://www.freepik.com) — Logo design via [Flaticon](https://www.flaticon.com)
-- [shadcn/ui](https://ui.shadcn.com/) — Component library
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+1.  **Fork** the project.
+2.  **Create** your feature branch (`git checkout -b feature/amazing-feature`).
+3.  **Commit** your changes (`git commit -m 'Add some amazing feature'`).
+4.  **Push** to the branch (`git push origin feature/amazing-feature`).
+5.  **Open** a Pull Request.
 
 ---
 
 <div align="center">
 
-**Database Management · Visual Schema Tools · Git Version Control**
-
-[Star on GitHub](https://github.com/Relwave/relwave-app) · [Download](https://github.com/Relwave/relwave-app/releases) · [Report Issues](https://github.com/Relwave/relwave-app/issues) · [Request Features](https://github.com/Relwave/relwave-app/issues)
+Built with ❤️ by the RelWave team.  
+[Report Bug](https://github.com/Relwave/relwave-app/issues) · [Request Feature](https://github.com/Relwave/relwave-app/issues)
 
 </div>

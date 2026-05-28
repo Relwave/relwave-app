@@ -69,6 +69,14 @@ export interface ConnectionFormData {
     database: string;
     sslmode: string;
     ssl: boolean;
+    useSsh: boolean;
+    sshHost: string;
+    sshPort: string;
+    sshUser: string;
+    sshAuthMethod: "password" | "privateKey";
+    sshPassword?: string;
+    sshPrivateKeyPath?: string;
+    sshPassphrase?: string;
 }
 
 export const INITIAL_FORM_DATA: ConnectionFormData = {
@@ -80,7 +88,15 @@ export const INITIAL_FORM_DATA: ConnectionFormData = {
     password: "",
     database: "",
     sslmode: "",
-    ssl: false
+    ssl: false,
+    useSsh: false,
+    sshHost: "",
+    sshPort: "22",
+    sshUser: "",
+    sshAuthMethod: "password",
+    sshPassword: "",
+    sshPrivateKeyPath: "",
+    sshPassphrase: ""
 };
 
 export const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "database"];

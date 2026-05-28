@@ -294,6 +294,7 @@ export function registerDbHandlers(
   rpcRegister(rpc, "git.stashPop", (p, id) => gitHandlers.handleStashPop(p, id));
   rpcRegister(rpc, "git.diff", (p, id) => gitHandlers.handleDiff(p, id));
   rpcRegister(rpc, "git.ensureIgnore", (p, id) => gitHandlers.handleEnsureIgnore(p, id));
+  rpcRegister(rpc, "git.logGraph", (p, id) => gitHandlers.handleLogGraph(p, id));
 
   // ==========================================
   // GIT ADVANCED HANDLERS

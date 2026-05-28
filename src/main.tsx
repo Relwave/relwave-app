@@ -16,6 +16,7 @@ import { UpdateNotification } from './components/shared/UpdateNotification';
 import { WhatsNewDialog } from './components/shared/WhatsNewDialog';
 import TitleBar from './components/layout/TitleBar';
 import VerticalIconBar from './components/layout/VerticalIconBar';
+import { CommandPalette } from './components/layout/CommandPalette';
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,7 @@ function AppRoot() {
             <TitleBar />
             <div className="pt-8">
               <BrowserRouter>
+                <CommandPalette />
                 <GlobalSidebar />
                 <AnimatedRoutes />
               </BrowserRouter>

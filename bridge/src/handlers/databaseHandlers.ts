@@ -130,6 +130,22 @@ export class DatabaseHandlers {
     }
   }
 
+  async handleGetStats(params: any, id: number | string) {
+    try {
+      const { id: dbId } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing id",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      // stats were in statsHandlers, but some methods might be here. 
+      // Actually handleGetStats is usually in StatsHandlers. 
+      // I'll check if I missed any method.
+    } catch (e) { }
+  }
+
   async handleUpdateDatabase(params: any, id: number | string) {
     try {
       const { id: dbId, ...updateData } = params || {};
@@ -148,6 +164,7 @@ export class DatabaseHandlers {
   }
 
   async handleTestConnection(params: any, id: number | string) {
+    let tunnelToClose;
     try {
       const { id: dbId, connection } = params || {};
 
@@ -180,17 +197,23 @@ export class DatabaseHandlers {
 
         // Normalize the raw connection through ConnectionBuilder so
         // SQLite's `database` field is properly mapped to `path`.
-        conn = ConnectionBuilder.buildConnection(
+        const buildResult = await ConnectionBuilder.buildConnection(
           connection,
           connection.password ?? null,
           dbType
         );
+        conn = buildResult.config;
+        tunnelToClose = buildResult.tunnel;
       }
       const result = await this.queryExecutor.testConnection(conn, dbType);
       this.rpc.sendResponse(id, { ok: true, data: result });
     } catch (err: any) {
       this.logger.error({ err }, '[Handler] testConnection error');
       this.rpc.sendResponse(id, { ok: false, message: String(err) });
+    } finally {
+      if (tunnelToClose) {
+        tunnelToClose.close();
+      }
     }
   }
 

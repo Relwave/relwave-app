@@ -48,6 +48,9 @@ export interface GitLogEntry {
     /** Full commit hash */
     fullHash: string;
 
+    /** Parent hashes */
+    parents: string[];
+
     /** Author name */
     author: string;
 
@@ -56,6 +59,9 @@ export interface GitLogEntry {
 
     /** First line of commit message */
     subject: string;
+
+    /** Ref names (branches, tags) */
+    refs: string;
 }
 
 export interface GitBranchInfo {
