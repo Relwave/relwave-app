@@ -5,21 +5,23 @@
 # RelWave
 
 ### **Elevate Your Database Experience**
+
 **Modern Management · Visual Schema Design · Native Git Version Control**
 
-*A high-performance, cross-platform desktop suite for developers who demand more from their database tools.*
+_A high-performance, cross-platform desktop suite for developers who demand more from their database tools._
 
 [![Version](https://img.shields.io/badge/version-0.6.0--beta.1-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgray?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
 
-[**✨ Explore Features**](FEATURES.md) • [**🚀 Quick Start**](#quick-start) • [**📖 Documentation**](#documentation) • [**📥 Download**](https://github.com/Relwave/relwave-app/releases)
+[**🚀 Quick Start**](#quick-start) • [**📥 Download**](https://github.com/Relwave/relwave-app/releases)
 
 ---
+
 </div>
 
-## 🌊 Why RelWave?
+## Why RelWave?
 
 **RelWave** isn't just another database client. It's a cohesive environment where schema exploration, visual modeling, and version control collide. Built on a native bridge architecture, it delivers the power of low-level drivers with the elegance of a modern React interface.
 
@@ -36,7 +38,7 @@
       <br />
       <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" width="54" />
       <h4>Git Integrated</h4>
-      <p>The only DB tool with first-class Git support. Commit your schema changes naturally.</p>
+      <p> DB tool with first-class Git support. Commit your schema changes naturally.</p>
     </td>
     <td align="center" width="25%">
       <br />
@@ -56,7 +58,6 @@
 
 ---
 
-
 ## 🛠️ Technology Stack
 
 <div align="center">
@@ -72,10 +73,12 @@
 
 ### Installation
 
-| OS | Format | Link |
-| :--- | :--- | :--- |
-| **Windows** | `.exe` / `.msi` | [Download Installer](https://github.com/Relwave/relwave-app/releases) |
-| **Linux** | `.deb` / `.AppImage` | [Download Package](https://github.com/Relwave/relwave-app/releases) |
+For a full setup guide, see [INSTALLATION.md](INSTALLATION.md).
+
+| OS          | Format               | Link                                                                  |
+| :---------- | :------------------- | :-------------------------------------------------------------------- |
+| **Windows** | `.exe` / `.msi`      | [Download Installer](https://github.com/Relwave/relwave-app/releases) |
+| **Linux**   | `.deb` / `.AppImage` | [Download Package](https://github.com/Relwave/relwave-app/releases)   |
 
 ### Development Setup
 
@@ -91,6 +94,8 @@ pnpm --dir bridge install
 # Launch development environment
 pnpm tauri dev
 ```
+
+If you need custom bridge database values, copy [bridge/.env.example](bridge/.env.example) to `bridge/.env` and adjust the local settings.
 
 ---
 
@@ -114,6 +119,8 @@ graph TD
 ## 🤝 Contributing
 
 We love contributions! Whether it's a bug fix, a new feature, or a documentation improvement, your help makes RelWave better for everyone.
+
+See the full contributing guide in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1.  **Fork** the project.
 2.  **Create** your feature branch (`git checkout -b feature/amazing-feature`).
