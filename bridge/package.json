@@ -1,6 +1,6 @@
 {
   "name": "relwave-bridge",
-  "version": "0.6.0-beta-5",
+  "version": "0.6.0-beta-6",
   "type": "commonjs",
   "main": "dist/index.cjs",
   "scripts": {
