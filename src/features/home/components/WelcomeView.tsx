@@ -14,8 +14,7 @@ import { WelcomeViewProps } from "../types";
 import { formatRelativeTime } from "../utils";
 import { DiscoveredDatabasesCard } from "./DiscoveredDatabasesCard";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
@@ -99,7 +98,9 @@ export function WelcomeView({
               <CardDescription>Total Tables</CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
                 {statsLoading ? (
-                  <Spinner className="h-4.5 w-4.5 text-violet-500" />
+                  <div className="flex justify-center text-primary text-center items-center gap-2">
+                    <Spinner className="h-8.5 w-8.5 " />
+                  </div>
                 ) : (
                   totalTables
                 )}
@@ -117,14 +118,16 @@ export function WelcomeView({
               <CardDescription>Data Size</CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
                 {statsLoading ? (
-                  <Spinner className="h-4.5 w-4.5 text-amber-500" />
+                  <div className="flex justify-center text-primary text-center items-center gap-2">
+                    <Spinner className="h-8.5 w-8.5 " />
+                  </div>
                 ) : (
                   totalSize
                 )}
               </CardTitle>
             </div>
             <CardAction>
-              <HardDrive className="h-4.5 w-4.5 text-amber-500" />
+              <HardDrive className="h-4.5 w-4.5 " />
             </CardAction>
           </CardHeader>
         </Card>
