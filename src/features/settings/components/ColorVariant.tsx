@@ -3,7 +3,7 @@ import { themeVariants, ThemeVariant } from "@/lib/themes";
 import { Check, Palette, Layers } from 'lucide-react';
 
 const ACCENT_THEMES: ThemeVariant[] = ['blue', 'slate', 'green', 'purple', 'orange', 'rose'];
-const FULL_THEMES: ThemeVariant[] = ['cyberpunk', 'vscode'];
+const FULL_THEMES: ThemeVariant[] = ['cyberpunk', 'vscode', 'valorant', 'ghibli'];
 
 interface ThemeCardProps {
     themeKey: ThemeVariant;
@@ -15,7 +15,11 @@ function ThemeCard({ themeKey, isActive, onSelect }: ThemeCardProps) {
     const config = themeVariants[themeKey];
 
     if (config.fullPalette) {
-        // Rich preview card for full-palette themes
+        // Determine which palette(s) to draw from for the preview
+        const previewLight = config.lightPalette ?? config.palette;
+        const previewDark  = config.darkPalette  ?? config.palette;
+        const isDual = Boolean(config.lightPalette && config.darkPalette);
+
         return (
             <button
                 onClick={onSelect}
@@ -27,43 +31,65 @@ function ThemeCard({ themeKey, isActive, onSelect }: ThemeCardProps) {
                     }
                 `}
             >
-                {/* Preview banner */}
-                <div
-                    className="h-14 w-full"
-                    style={{ background: config.previewGradient ?? config.primary }}
-                />
+                {/* Preview banner — split for dual-mode themes */}
+                {isDual ? (
+                    <div className="h-14 w-full flex">
+                        <div
+                            className="flex-1"
+                            style={{ background: previewLight?.background }}
+                        >
+                            <div className="flex items-end justify-end h-full pb-1 pr-1.5">
+                                <div className="h-3 w-3 rounded-full" style={{ background: previewLight?.primary }} />
+                            </div>
+                        </div>
+                        <div
+                            className="flex-1"
+                            style={{ background: previewDark?.background }}
+                        >
+                            <div className="flex items-end justify-start h-full pb-1 pl-1.5">
+                                <div className="h-3 w-3 rounded-full" style={{ background: previewDark?.primary }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div
+                        className="h-14 w-full"
+                        style={{ background: config.previewGradient ?? config.primary }}
+                    />
+                )}
+
                 {/* Mini chrome mockup */}
                 <div
                     className="px-3 py-2.5 flex flex-col gap-1.5"
                     style={{
-                        background: config.palette?.background ?? '#1e1e1e',
-                        borderTop: `1px solid ${config.palette?.border ?? '#333'}`,
+                        background: previewDark?.background ?? '#1e1e1e',
+                        borderTop: `1px solid ${previewDark?.border ?? '#333'}`,
                     }}
                 >
                     <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 rounded-full" style={{ background: config.palette?.primary }} />
-                        <div className="h-1.5 rounded-full flex-1" style={{ background: config.palette?.muted, opacity: 0.6 }} />
+                        <div className="h-2 w-2 rounded-full" style={{ background: previewDark?.primary }} />
+                        <div className="h-1.5 rounded-full flex-1" style={{ background: previewDark?.muted, opacity: 0.6 }} />
                     </div>
-                    <div className="h-1.5 rounded-full w-3/4" style={{ background: config.palette?.mutedForeground, opacity: 0.2 }} />
-                    <div className="h-1.5 rounded-full w-1/2" style={{ background: config.palette?.mutedForeground, opacity: 0.15 }} />
+                    <div className="h-1.5 rounded-full w-3/4" style={{ background: previewDark?.mutedForeground, opacity: 0.2 }} />
+                    <div className="h-1.5 rounded-full w-1/2" style={{ background: previewDark?.mutedForeground, opacity: 0.15 }} />
                 </div>
 
                 {/* Label */}
                 <div
                     className="px-3 pb-2.5 flex items-center justify-between"
-                    style={{ background: config.palette?.background ?? '#1e1e1e' }}
+                    style={{ background: previewDark?.background ?? '#1e1e1e' }}
                 >
                     <div>
-                        <p className="text-xs font-semibold" style={{ color: config.palette?.foreground ?? '#fff' }}>
+                        <p className="text-xs font-semibold" style={{ color: previewDark?.foreground ?? '#fff' }}>
                             {config.name}
                         </p>
                         {config.description && (
-                            <p className="text-[10px]" style={{ color: config.palette?.mutedForeground ?? '#888' }}>
+                            <p className="text-[10px]" style={{ color: previewDark?.mutedForeground ?? '#888' }}>
                                 {config.description}
                             </p>
                         )}
                     </div>
-                    <Layers className="h-3 w-3 shrink-0" style={{ color: config.palette?.primary ?? config.primary }} />
+                    <Layers className="h-3 w-3 shrink-0" style={{ color: previewDark?.primary ?? config.primary }} />
                 </div>
 
                 {isActive && (
