@@ -197,6 +197,92 @@ body,
   --ring: oklch(0.72 0.2 10);
 }
 
+/* ── Full-palette theme: Cyberpunk ─────────────────────────────────────── */
+/* These serve as a cascade-level backup. The hook also injects inline styles
+   on :root so they take precedence over .dark rules without needing specificity
+   tricks. */
+[data-theme-variant="cyberpunk"],
+.dark[data-theme-variant="cyberpunk"] {
+  --background:             #070b14;
+  --foreground:             #e2f0ff;
+  --card:                   #0d1526;
+  --card-foreground:        #e2f0ff;
+  --popover:                #0d1526;
+  --popover-foreground:     #e2f0ff;
+  --primary:                #00f5ff;
+  --primary-foreground:     #030c12;
+  --secondary:              #0f1e35;
+  --secondary-foreground:   #a8cfef;
+  --muted:                  #0d1a2e;
+  --muted-foreground:       #6a8faf;
+  --accent:                 #ff00c8;
+  --accent-foreground:      #fff;
+  --destructive:            #ff3366;
+  --border:                 #0e2540;
+  --input:                  #0a1a2e;
+  --ring:                   #00f5ff;
+  --sidebar:                #060d1c;
+  --sidebar-foreground:     #cde8ff;
+  --sidebar-primary:        #00f5ff;
+  --sidebar-primary-foreground: #030c12;
+  --sidebar-accent:         #0f2240;
+  --sidebar-accent-foreground: #00f5ff;
+  --sidebar-border:         rgba(0,245,255,0.08);
+  --sidebar-ring:           #00f5ff;
+  --card-shadow:            0 0 0 1px rgba(0,245,255,0.06), 0 8px 32px rgba(0,0,0,0.6);
+  --card-shadow-hover:      0 0 0 1px rgba(0,245,255,0.14), 0 12px 44px rgba(0,0,0,0.7);
+  --glass-bg:               rgba(7,11,20,0.85);
+  --surface:                #0a1220;
+  --surface-elevated:       #0d1526;
+  --surface-subtle:         #0f1d32;
+  --border-subtle:          rgba(0,245,255,0.07);
+}
+
+/* Cyberpunk neon glow on focused/primary interactive elements */
+[data-theme-variant="cyberpunk"] button[data-slot="button"]:not([data-variant="ghost"]):not([data-variant="outline"]):focus-visible,
+[data-theme-variant="cyberpunk"] [role="button"]:focus-visible {
+  box-shadow: 0 0 0 2px #00f5ff, 0 0 12px rgba(0,245,255,0.4);
+}
+
+/* ── Full-palette theme: VS Code ──────────────────────────────────────── */
+[data-theme-variant="vscode"],
+.dark[data-theme-variant="vscode"] {
+  --background:             #1e1e1e;
+  --foreground:             #d4d4d4;
+  --card:                   #252526;
+  --card-foreground:        #d4d4d4;
+  --popover:                #2d2d30;
+  --popover-foreground:     #d4d4d4;
+  --primary:                #569cd6;
+  --primary-foreground:     #1e1e1e;
+  --secondary:              #2d2d30;
+  --secondary-foreground:   #cccccc;
+  --muted:                  #333333;
+  --muted-foreground:       #808080;
+  --accent:                 #264f78;
+  --accent-foreground:      #d4d4d4;
+  --destructive:            #f44747;
+  --border:                 #3e3e42;
+  --input:                  #3c3c3c;
+  --ring:                   #569cd6;
+  --sidebar:                #252526;
+  --sidebar-foreground:     #bbbbbb;
+  --sidebar-primary:        #569cd6;
+  --sidebar-primary-foreground: #1e1e1e;
+  --sidebar-accent:         #37373d;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border:         #3e3e42;
+  --sidebar-ring:           #569cd6;
+  --card-shadow:            0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.4);
+  --card-shadow-hover:      0 1px 0 rgba(255,255,255,0.06) inset, 0 12px 32px rgba(0,0,0,0.5);
+  --glass-bg:               rgba(37,37,38,0.92);
+  --surface:                #252526;
+  --surface-elevated:       #2d2d30;
+  --surface-subtle:         #333333;
+  --border-subtle:          #3e3e42;
+}
+
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
