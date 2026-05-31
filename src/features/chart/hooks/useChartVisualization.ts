@@ -24,7 +24,7 @@ export interface QueryResultEventDetail {
 
 export const useChartVisualization = (selectedTable: SelectedTable, dbId?: string) => {
 
-    const [chartType, setChartType] = useState<"bar" | "line" | "pie" | "scatter">("bar");
+    const [chartType, setChartType] = useState<"bar" | "line" | "area" | "pie">("bar");
     const [xAxis, setXAxis] = useState("");
     const [yAxis, setYAxis] = useState("");
     const [chartTitle, setChartTitle] = useState("Query Results Visualization");

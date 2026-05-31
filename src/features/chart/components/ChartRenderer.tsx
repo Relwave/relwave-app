@@ -6,17 +6,20 @@ import {
     LineChart,
     Pie,
     PieChart,
-    Scatter,
-    ScatterChart,
+    Area,
+    AreaChart,
     XAxis,
     YAxis,
     CartesianGrid,
     Cell,
+    LabelList,
 } from "recharts";
 import {
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent,
     type ChartConfig,
 } from "@/components/ui/chart";
 
@@ -26,21 +29,44 @@ interface DataProps {
 }
 
 interface ChartRendererProps {
-    chartType: "bar" | "line" | "pie" | "scatter";
+    chartType: "bar" | "line" | "area" | "pie";
     xAxis: string;
     yAxis: string;
     data: DataProps[];
 }
 
-// Single theme-aware color using CSS variable
-const CHART_COLOR = "var(--primary)";
+// A curated palette using chart tokens so it respects the active theme
+const PALETTE_VARS = [
+    "var(--color-chart-1)",
+    "var(--color-chart-2)",
+    "var(--color-chart-3)",
+    "var(--color-chart-4)",
+    "var(--color-chart-5)",
+];
 
-// Chart config using theme color
-const chartConfig: ChartConfig = {
-    value: {
-        label: "Count",
-        color: "hsl(var(--primary))",
-    },
+const buildChartConfig = (data: { name: string; value: number }[]): ChartConfig => {
+    const cfg: ChartConfig = {
+        value: { label: "Count", color: "var(--color-chart-1)" },
+    };
+    data.forEach((item, i) => {
+        cfg[item.name] = {
+            label: item.name,
+            color: PALETTE_VARS[i % PALETTE_VARS.length],
+        };
+    });
+    return cfg;
+};
+
+const formatTick = (v: string | number) => {
+    if (typeof v === "number" && v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+    if (typeof v === "string" && v.length > 14) return v.slice(0, 13) + "…";
+    return v;
+};
+
+const axisStyle = {
+    fontSize: 11,
+    fill: "var(--color-muted-foreground)",
+    fontFamily: "var(--font-mono, ui-monospace)",
 };
 
 const ChartRendererComponent = ({
@@ -51,154 +77,162 @@ const ChartRendererComponent = ({
 }: ChartRendererProps) => {
     const chartData = useMemo(() => {
         if (!data || !Array.isArray(data) || !xAxis) return [];
-        return data.map((item) => ({
-            name: item.name != null ? String(item.name) : "N/A",
-            value: Number(item.count ?? item.COUNT ?? item.Count ?? 0) || 0,
-        }));
+        return data
+            .map((item) => ({
+                name: item.name != null ? String(item.name) : "N/A",
+                value: Number(item.count ?? item.COUNT ?? item.Count ?? 0) || 0,
+            }))
+            .slice(0, 40);
     }, [data, xAxis]);
 
-    if (!xAxis || chartData.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-75 text-muted-foreground">
-                <div className="rounded-full bg-muted/50 p-3 mb-3">
-                    <svg className="h-5 w-5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                </div>
-                <p className="text-xs font-medium">Configure axes to visualize</p>
-            </div>
-        );
-    }
+    const chartConfig = useMemo(() => buildChartConfig(chartData), [chartData]);
 
-    // Bar Chart
+    if (!xAxis || chartData.length === 0) return null;
+
+    const commonProps = { accessibilityLayer: true, data: chartData };
+    const commonGrid = <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.5} />;
+    const commonXAxis = (
+        <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={10}
+            tick={axisStyle}
+            tickFormatter={formatTick as any}
+        />
+    );
+    const commonYAxis = (
+        <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={axisStyle}
+            tickFormatter={formatTick as any}
+            width={44}
+        />
+    );
+    const commonTooltip = (
+        <ChartTooltip
+            cursor={{ fill: "var(--color-muted)", opacity: 0.3, radius: 4 }}
+            content={<ChartTooltipContent hideLabel className="text-[11px]" />}
+        />
+    );
+
+    // ── Bar Chart ────────────────────────────────────────────────────────────
     if (chartType === "bar") {
         return (
-            <ChartContainer config={chartConfig} className="h-75 w-full">
-                <BarChart accessibilityLayer data={chartData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                        dataKey="name"
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                            value.length > 12 ? value.slice(0, 12) + "…" : value
-                        }
-                    />
-                    <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                        }
-                    />
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                    />
+            <ChartContainer config={chartConfig} className="h-80 w-full">
+                <BarChart {...commonProps} barCategoryGap="28%">
+                    {commonGrid}
+                    {commonXAxis}
+                    {commonYAxis}
+                    {commonTooltip}
                     <Bar
                         dataKey="value"
-                        fill={CHART_COLOR}
-                        radius={6}
-                    />
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={56}
+                    >
+                        {chartData.map((_, i) => (
+                            <Cell
+                                key={i}
+                                fill={PALETTE_VARS[i % PALETTE_VARS.length]}
+                                fillOpacity={0.88}
+                            />
+                        ))}
+                    </Bar>
                 </BarChart>
             </ChartContainer>
         );
     }
 
-    // Line Chart
+    // ── Line Chart ───────────────────────────────────────────────────────────
     if (chartType === "line") {
         return (
-            <ChartContainer config={chartConfig} className="h-75 w-full">
-                <LineChart accessibilityLayer data={chartData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                        dataKey="name"
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                            value.length > 12 ? value.slice(0, 12) + "…" : value
-                        }
-                    />
-                    <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                        }
-                    />
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                    />
+            <ChartContainer config={chartConfig} className="h-80 w-full">
+                <LineChart {...commonProps}>
+                    {commonGrid}
+                    {commonXAxis}
+                    {commonYAxis}
+                    {commonTooltip}
                     <Line
                         dataKey="value"
                         type="monotone"
-                        stroke={CHART_COLOR}
-                        strokeWidth={2}
-                        dot={{ fill: CHART_COLOR, r: 4 }}
-                        activeDot={{ r: 6 }}
+                        stroke="var(--color-chart-1)"
+                        strokeWidth={2.5}
+                        dot={{ fill: "var(--color-chart-1)", r: 3.5, strokeWidth: 0 }}
+                        activeDot={{ r: 5.5, fill: "var(--color-chart-1)", strokeWidth: 0 }}
                     />
                 </LineChart>
             </ChartContainer>
         );
     }
 
-    // Pie Chart
-    if (chartType === "pie") {
+    // ── Area Chart ───────────────────────────────────────────────────────────
+    if (chartType === "area") {
         return (
-            <ChartContainer config={chartConfig} className="h-75 w-full">
-                <PieChart>
-                    <ChartTooltip
-                        content={<ChartTooltipContent nameKey="name" hideLabel />}
-                    />
-                    <Pie
-                        data={chartData}
+            <ChartContainer config={chartConfig} className="h-80 w-full">
+                <AreaChart {...commonProps}>
+                    <defs>
+                        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="var(--color-chart-1)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="var(--color-chart-1)" stopOpacity={0.02} />
+                        </linearGradient>
+                    </defs>
+                    {commonGrid}
+                    {commonXAxis}
+                    {commonYAxis}
+                    {commonTooltip}
+                    <Area
                         dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={100}
-                        fill={CHART_COLOR}
-                        label={({ percent }: { percent?: number }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
-                        labelLine={false}
+                        type="monotone"
+                        stroke="var(--color-chart-1)"
+                        strokeWidth={2.5}
+                        fill="url(#areaGradient)"
+                        dot={{ fill: "var(--color-chart-1)", r: 3, strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: "var(--color-chart-1)", strokeWidth: 0 }}
                     />
-                </PieChart>
+                </AreaChart>
             </ChartContainer>
         );
     }
 
-    // Scatter Chart
-    if (chartType === "scatter") {
+    // ── Pie / Donut Chart ────────────────────────────────────────────────────
+    if (chartType === "pie") {
+        const top = chartData.slice(0, 8);
         return (
-            <ChartContainer config={chartConfig} className="h-75 w-full">
-                <ScatterChart accessibilityLayer>
-                    <CartesianGrid />
-                    <XAxis
-                        dataKey="name"
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                    />
-                    <YAxis
+            <ChartContainer config={chartConfig} className="h-80 w-full">
+                <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" className="text-[11px]" />} />
+                    <Pie
+                        data={top}
                         dataKey="value"
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) =>
-                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                        }
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={64}
+                        outerRadius={108}
+                        paddingAngle={3}
+                        strokeWidth={0}
+                    >
+                        {top.map((_, i) => (
+                            <Cell
+                                key={i}
+                                fill={PALETTE_VARS[i % PALETTE_VARS.length]}
+                                fillOpacity={0.9}
+                            />
+                        ))}
+                        <LabelList
+                            dataKey="name"
+                            position="outside"
+                            offset={12}
+                            style={{ fontSize: 10, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-mono)" }}
+                            formatter={formatTick as any}
+                        />
+                    </Pie>
+                    <ChartLegend
+                        content={<ChartLegendContent nameKey="name" className="text-[10px] flex-wrap gap-x-4 gap-y-1.5 mt-2" />}
                     />
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                    />
-                    <Scatter
-                        data={chartData}
-                        fill={CHART_COLOR}
-                    />
-                </ScatterChart>
+                </PieChart>
             </ChartContainer>
         );
     }

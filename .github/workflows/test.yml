@@ -5,9 +5,15 @@ on:
     branches:
       - master
       - develop
+    paths:
+      - "bridge/**"
+      - ".github/workflows/test.yml"
   push:
     branches:
       - master
+    paths:
+      - "bridge/**"
+      - ".github/workflows/test.yml"
 
 jobs:
   test:
