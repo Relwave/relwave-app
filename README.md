@@ -10,7 +10,7 @@
 
 _A high-performance, cross-platform desktop suite for developers who demand more from their database tools._
 
-[![Version](https://img.shields.io/badge/version-0.6.0--beta.5-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
+[![Version](https://img.shields.io/badge/version-0.7.0--beta.1-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgray?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
