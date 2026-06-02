@@ -24,8 +24,18 @@ type NoteSection = {
   items: string[];
 };
 
+/**
+ * Written by useUpdater after a successful in-app download.
+ * Contains the release body, date, previousVersion, etc.
+ */
 const LAST_INSTALLED_UPDATE_KEY = "relwave:last-installed-update";
-const LAST_SEEN_WHATS_NEW_VERSION_KEY = "relwave:last-seen-whats-new-version";
+
+/**
+ * Written on every launch with the current app version.
+ * Used to detect version changes across manual installs, where the
+ * in-app updater never runs and LAST_INSTALLED_UPDATE_KEY is never set.
+ */
+const LAST_SEEN_VERSION_KEY = "relwave:last-seen-version";
 
 const TITLE_MAP: Record<string, string> = {
   new: "New",
@@ -151,34 +161,39 @@ export function WhatsNewDialog() {
 
         setCurrentVersion(installedVersion);
 
-        const raw = localStorage.getItem(LAST_INSTALLED_UPDATE_KEY);
-        const lastSeenVersion = localStorage.getItem(LAST_SEEN_WHATS_NEW_VERSION_KEY);
+        const lastSeenVersion = localStorage.getItem(LAST_SEEN_VERSION_KEY);
 
-        // Only show the dialog when the app version actually changed.
-        // This covers both updater-driven installs and manual installer upgrades.
-        const versionChanged = Boolean(lastSeenVersion && lastSeenVersion !== installedVersion);
+        // Show the dialog whenever the stored version differs from the current
+        // version. This covers both in-app updater installs AND manual installs
+        // where useUpdater never runs (so LAST_INSTALLED_UPDATE_KEY is absent).
+        const isNewVersion =
+          !lastSeenVersion || lastSeenVersion !== installedVersion;
 
-        if (!raw && !versionChanged) return;
+        if (!isNewVersion) return;
 
+        // Try to read the richer update payload written by useUpdater (contains
+        // the release body, date, previous version, etc.).  If it's absent or
+        // for a different version we still show the dialog — just with fallback
+        // content rather than nothing at all.
         let parsed: StoredInstalledUpdate | null = null;
+        const raw = localStorage.getItem(LAST_INSTALLED_UPDATE_KEY);
         if (raw) {
           try {
-            parsed = JSON.parse(raw) as StoredInstalledUpdate;
+            const candidate = JSON.parse(raw) as StoredInstalledUpdate;
+            // Only use the payload if it matches the installed version.
+            if (candidate.version === installedVersion) {
+              parsed = candidate;
+            }
           } catch {
             localStorage.removeItem(LAST_INSTALLED_UPDATE_KEY);
           }
         }
 
-        const updateVersion = parsed?.version || installedVersion;
-
-        if (!versionChanged && updateVersion !== installedVersion) {
-          return;
-        }
-
-        if (!parsed?.version || parsed.version !== installedVersion) {
+        // Fall back to a minimal record so the dialog still shows useful info.
+        if (!parsed) {
           parsed = {
             version: installedVersion,
-            previousVersion: lastSeenVersion || undefined,
+            previousVersion: lastSeenVersion ?? undefined,
           };
         }
 
@@ -200,7 +215,9 @@ export function WhatsNewDialog() {
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen && currentVersion) {
-      localStorage.setItem(LAST_SEEN_WHATS_NEW_VERSION_KEY, currentVersion);
+      // Record that the user has seen the dialog for this version.
+      // Both keys are updated so future launches don't re-show the dialog.
+      localStorage.setItem(LAST_SEEN_VERSION_KEY, currentVersion);
       localStorage.removeItem(LAST_INSTALLED_UPDATE_KEY);
     }
     setOpen(nextOpen);
