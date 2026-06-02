@@ -3,7 +3,7 @@ import {
   QueryExplanationInput,
   ChartRecommendationInput,
   ChartRecommendation,
-} from "../ai.types";
+} from "../../types/ai";
 
 // ── Provider interface ────────────────────────────────────────────────────
 

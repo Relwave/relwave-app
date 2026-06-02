@@ -1,4 +1,4 @@
-// ── Shared types for the AI integration layer ─────────────────────────────
+// ── Shared types for the AI integration layer (moved from src/ai/ai.types.ts)
 
 export type AIProviderName =
   | "anthropic"
@@ -71,7 +71,7 @@ export interface ChartRecommendation {
   reasoning: string;
 }
 
-// ── RPC param shapes ──────────────────────────────────────────────────────
+// ── RPC param shapes ─────────────────────────────────────────────────────
 
 export interface AIRequestBase {
   settings: AISettings;
