@@ -167,6 +167,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                 isExecuting={isExecuting}
                 queryProgress={queryProgress}
                 canExecute={!!activeTab?.query.trim()}
+                activeQuery={activeTab?.query}
                 onExecute={handleExecuteQuery}
                 onCancel={handleCancelQuery}
             />
