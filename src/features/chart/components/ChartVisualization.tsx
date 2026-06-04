@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Sparkles,
   AlertCircle,
+  Bot,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -19,6 +20,10 @@ import ChartRenderer from "./ChartRenderer";
 import { useChartVisualization } from "../hooks/useChartVisualization";
 import { SelectedTable } from "@/features/database/types";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useAISettings } from "@/features/ai/hooks/useAISettings";
+import { aiService } from "@/services/bridge/ai";
+import { toast } from "sonner";
 
 interface ChartVisualizationProps {
   selectedTable: SelectedTable;
@@ -29,6 +34,9 @@ export const ChartVisualization = ({
   selectedTable,
   dbId,
 }: ChartVisualizationProps) => {
+  const aiSettings = useAISettings();
+  const [aiLoading, setAiLoading] = useState(false);
+
   const {
     handleExport,
     chartType,
@@ -44,6 +52,29 @@ export const ChartVisualization = ({
     errorMessage,
     rowData,
   } = useChartVisualization(selectedTable, dbId);
+
+  const handleAISuggest = async () => {
+    if (!columnData.length) return;
+    setAiLoading(true);
+    try {
+      const rec = await aiService.recommendChart(aiSettings, {
+        tableName: selectedTable?.name ?? "table",
+        columns: columnData.map((c) => ({
+          name: c.name,
+          type: c.type,
+          isPrimaryKey: c.isPrimaryKey,
+        })),
+      });
+      setChartType(rec.chartType);
+      setXAxis(rec.xAxis);
+      setYAxis(rec.yAxis);
+      toast.success("AI suggestion applied", { description: rec.reasoning });
+    } catch (err: any) {
+      toast.error("AI suggestion failed", { description: err?.message ?? String(err) });
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const hasData = rowData.length > 0;
   const isReady = !isExecuting && !errorMessage && hasData;
@@ -71,6 +102,22 @@ export const ChartVisualization = ({
               {rowData.length} rows
             </span>
           )}
+
+          {/* AI Suggest button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5 border-border/40"
+            onClick={handleAISuggest}
+            disabled={aiLoading || !columnData.length}
+          >
+            {aiLoading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Bot className="h-3 w-3" />
+            )}
+            AI Suggest
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

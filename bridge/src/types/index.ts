@@ -14,6 +14,7 @@ export * from './common';
 export * from './mysql';
 export * from './postgres';
 export * from './sqlite';
+export * from './ai';
 export { SSHConfig } from './common';
 
 export enum DBType {

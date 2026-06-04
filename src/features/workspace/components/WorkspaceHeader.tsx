@@ -1,11 +1,13 @@
 import { Play, Square, Database, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExplainQueryButton } from "./ExplainQueryButton";
 
 interface WorkspaceHeaderProps {
     databaseName: string;
     isExecuting: boolean;
     queryProgress: { rows: number; elapsed: number } | null;
     canExecute: boolean;
+    activeQuery?: string;
     onExecute: () => void;
     onCancel: () => void;
 }
@@ -15,6 +17,7 @@ export function WorkspaceHeader({
     isExecuting,
     queryProgress,
     canExecute,
+    activeQuery,
     onExecute,
     onCancel,
 }: WorkspaceHeaderProps) {
@@ -37,6 +40,13 @@ export function WorkspaceHeader({
                         <span>{queryProgress?.elapsed || 0}s</span>
                     </div>
                 )}
+
+                {/* AI Explain Query */}
+                <ExplainQueryButton
+                    sql={activeQuery ?? ""}
+                    disabled={isExecuting || !activeQuery?.trim()}
+                    databaseName={databaseName}
+                />
 
                 {/* Run/Stop buttons */}
                 {isExecuting ? (

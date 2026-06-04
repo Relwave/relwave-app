@@ -6,11 +6,19 @@ import CreateTableDialog from './CreateTableDialog'
 import AddIndexesDialog from './AddIndexesDialog'
 import DropTableDialog from './DropTableDialog'
 import AlterTableDialog from './AlterTableDialog'
+import { AnalyzeSchemaButton } from './AnalyzeSchemaButton'
 
 interface SchemaExplorerHeaderProps {
     dbId: string;
     database: {
         name: string;
+        schemas?: Array<{
+            name?: string;
+            tables: Array<{
+                name: string;
+                columns: Array<{ name: string; type: string; nullable?: boolean; isPrimaryKey?: boolean; isForeignKey?: boolean }>;
+            }>;
+        }>;
     };
     onTableCreated?: () => void;
     selectedTable?: { schema: string; name: string; columns: string[] } | null;
@@ -39,6 +47,13 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
+                            {/* AI Analyze Schema */}
+                            {database.schemas && database.schemas.length > 0 && (
+                                <AnalyzeSchemaButton
+                                    schemaData={database as any}
+                                />
+                            )}
+
                             {/* Table Actions - only show if table is selected */}
                             {selectedTable && (
                                 <>

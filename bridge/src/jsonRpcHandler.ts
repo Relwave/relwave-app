@@ -69,6 +69,7 @@ export function registerDbHandlers(
   const gitHandlers = new GitHandlers(rpc, logger);
   const gitAdvancedHandlers = new GitAdvancedHandlers(rpc, logger);
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
+  const aiHandlers = new (require("./handlers/aiHandlers")).AIHandlers(rpc, logger);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -321,6 +322,34 @@ export function registerDbHandlers(
       rpc.sendError(id, { code: "DISCOVERY_ERROR", message: error.message });
     }
   });
+
+  // ==========================================
+  // AI HANDLERS
+  // ==========================================
+  rpcRegister(rpc, "ai.testConnection", (p, id) =>
+    aiHandlers.handleTestConnection(p, id)
+  );
+  rpcRegister(rpc, "ai.analyzeSchema", (p, id) =>
+    aiHandlers.handleAnalyzeSchema(p, id)
+  );
+  rpcRegister(rpc, "ai.explainQuery", (p, id) =>
+    aiHandlers.handleExplainQuery(p, id)
+  );
+  rpcRegister(rpc, "ai.recommendChart", (p, id) =>
+    aiHandlers.handleRecommendChart(p, id)
+  );
+  rpcRegister(rpc, "ai.getHistory", (p, id) =>
+    aiHandlers.handleGetHistory(p, id)
+  );
+  rpcRegister(rpc, "ai.getHistoryById", (p, id) =>
+    aiHandlers.handleGetHistoryById(p, id)
+  );
+  rpcRegister(rpc, "ai.deleteHistory", (p, id) =>
+    aiHandlers.handleDeleteHistory(p, id)
+  );
+  rpcRegister(rpc, "ai.clearHistory", (p, id) =>
+    aiHandlers.handleClearHistory(p, id)
+  );
 
   logger?.info("All RPC handlers registered successfully");
 }
