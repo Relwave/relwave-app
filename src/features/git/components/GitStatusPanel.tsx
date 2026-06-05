@@ -354,37 +354,41 @@ export default function GitStatusPanel({ projectDir }: GitStatusPanelProps) {
 
             {/* Diff Dialog */}
             <Dialog open={diffDialogOpen} onOpenChange={setDiffDialogOpen}>
-                <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col overflow-hidden">
                     <DialogHeader>
                         <DialogTitle className="font-mono text-sm flex items-center gap-2">
                             <FileDiff className="h-4 w-4" />
                             {diffFile}
                         </DialogTitle>
                     </DialogHeader>
-                    <ScrollArea className="flex-1 min-h-0">
+                    <div className="flex-1 min-h-0">
                         {diffLoading ? (
-                            <div className="flex items-center justify-center py-8">
+                            <div className="flex items-center justify-center h-full">
                                 <Spinner className="h-5 w-5" />
                             </div>
                         ) : (
-                            <pre className="text-xs font-mono whitespace-pre-wrap p-4 bg-muted/30 rounded-md leading-relaxed">
-                                {diffContent.split("\n").map((line, i) => {
-                                    let color = "text-foreground/80";
-                                    if (line.startsWith("+") && !line.startsWith("+++"))
-                                        color = "text-green-500";
-                                    else if (line.startsWith("-") && !line.startsWith("---"))
-                                        color = "text-red-500";
-                                    else if (line.startsWith("@@"))
-                                        color = "text-blue-400";
-                                    return (
-                                        <div key={i} className={color}>
-                                            {line}
-                                        </div>
-                                    );
-                                })}
-                            </pre>
+                            <ScrollArea className="h-full w-full rounded-md border">
+                                <pre className="text-xs font-mono p-4 leading-relaxed whitespace-pre">
+                                    {diffContent.split("\n").map((line, i) => {
+                                        let color = "text-foreground/80";
+
+                                        if (line.startsWith("+") && !line.startsWith("+++"))
+                                            color = "text-green-500";
+                                        else if (line.startsWith("-") && !line.startsWith("---"))
+                                            color = "text-red-500";
+                                        else if (line.startsWith("@@"))
+                                            color = "text-blue-400";
+
+                                        return (
+                                            <div key={i} className={color}>
+                                                {line}
+                                            </div>
+                                        );
+                                    })}
+                                </pre>
+                            </ScrollArea>
                         )}
-                    </ScrollArea>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
