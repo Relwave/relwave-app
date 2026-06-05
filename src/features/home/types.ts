@@ -16,6 +16,7 @@ export interface ConnectionListProps {
     onDatabaseHover: (dbId: string) => void;
     onDelete: (dbId: string, dbName: string) => void;
     onTest: (dbId: string, dbName: string) => void;
+    onImportClick?: () => void;
 }
 
 export interface DatabaseDetailProps {

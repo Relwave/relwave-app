@@ -1,4 +1,4 @@
-import { Activity, Home, Database, Search, GitBranch, GitCommitHorizontal, Settings, Layers, Terminal, FolderOpen } from 'lucide-react';
+import { Activity, Home, Database, Search, GitBranch, GitCommitHorizontal, Settings, Layers, Terminal } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +18,6 @@ interface VerticalIconBarProps {
 
 const globalNavigationItems = [
     { icon: Home, label: 'Dashboard', path: '/' },
-    { icon: FolderOpen, label: 'Projects', path: '/projects' },
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 

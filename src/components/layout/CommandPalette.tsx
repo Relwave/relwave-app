@@ -189,7 +189,7 @@ export function CommandPalette() {
 
   const dbId = React.useMemo(() => {
     const parts = location.pathname.split("/");
-    if (parts.length === 2 && parts[1] && !["projects", "settings"].includes(parts[1])) {
+    if (parts.length === 2 && parts[1] && !["settings"].includes(parts[1])) {
       return parts[1];
     }
     return null;
@@ -248,7 +248,6 @@ export function CommandPalette() {
 
   const pages = React.useMemo(() => [
     { icon: Home, label: "Dashboard", path: "/" },
-    { icon: FolderOpen, label: "Projects", path: "/projects" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ], []);
 
@@ -407,7 +406,7 @@ export function CommandPalette() {
               </Command.Group>
             )}
 
-            {/* Projects */}
+            {/* Projects — navigate to linked database */}
             {projects.length > 0 && (
               <Command.Group heading={<GroupHeading label="Projects" />}>
                 {projects.map((project) => (
@@ -418,8 +417,8 @@ export function CommandPalette() {
                     type="project"
                     query={search}
                     onSelect={() =>
-                      runCommand(() => navigate("/projects"), {
-                        id: project.id, type: "project", label: project.name, path: "/projects",
+                      runCommand(() => navigate(`/${project.databaseId}`), {
+                        id: project.id, type: "project", label: project.name, path: `/${project.databaseId}`,
                       })
                     }
                   />

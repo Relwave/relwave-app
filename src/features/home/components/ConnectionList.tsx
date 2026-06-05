@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus, Shield } from "lucide-react";
+import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus, Shield, FolderInput } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -302,6 +302,7 @@ export function ConnectionList({
   onDatabaseHover,
   onDelete,
   onTest,
+  onImportClick,
 }: ConnectionListProps) {
   const { 
     groups, 
@@ -377,6 +378,18 @@ export function ConnectionList({
                     <TooltipContent side="bottom"><p>New Group</p></TooltipContent>
                 </Tooltip>
             </TooltipProvider>
+            {onImportClick && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onImportClick}>
+                                <FolderInput className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom"><p>Import Project</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
             <Button
                 variant="ghost"
                 size="icon"

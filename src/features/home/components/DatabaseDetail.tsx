@@ -9,17 +9,22 @@ import {
     Trash2,
     CircleDot,
     ArrowLeft,
+    Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { DatabaseDetailProps } from "../types";
 import { DatabaseOverviewPanel } from "./DatabaseOverviewPanel";
+import { useProjectByDatabaseId, useProjectSchema, useProjectERDiagram, useProjectQueries } from "@/features/project/hooks/useProjectQueries";
+import { projectService } from "@/services/bridge/project";
+import { toast } from "sonner";
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
     postgresql: { bg: "bg-blue-500/10", text: "text-blue-500" },
@@ -42,6 +47,35 @@ export function DatabaseDetail({
     size,
     tables
 }: DatabaseDetailProps) {
+    // Fetch linked project and its sub-resources
+    const { data: project } = useProjectByDatabaseId(database.id);
+    const { data: schemaData } = useProjectSchema(project?.id);
+    const { data: erData } = useProjectERDiagram(project?.id);
+    const { data: queriesData } = useProjectQueries(project?.id);
+
+    const handleExport = async () => {
+        if (!project?.id) return;
+        try {
+            const bundle = await projectService.exportProject(project.id);
+            if (!bundle) {
+                toast.error("Project not found");
+                return;
+            }
+            const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+                type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${bundle.metadata.name.replace(/\s+/g, "-").toLowerCase()}-export.json`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+            toast.success("Project exported");
+        } catch (err: any) {
+            toast.error("Export failed", { description: err.message });
+        }
+    };
+
     return (
         <div className="h-full flex flex-col">
             {/* Detail Header */}
@@ -115,6 +149,15 @@ export function DatabaseDetail({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                                {project && (
+                                    <>
+                                        <DropdownMenuItem onClick={handleExport}>
+                                            <Download className="h-3.5 w-3.5 mr-2" />
+                                            Export Project
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                    </>
+                                )}
                                 <DropdownMenuItem
                                     onClick={onDelete}
                                     className="text-destructive focus:text-destructive"
@@ -134,6 +177,9 @@ export function DatabaseDetail({
                     database={database}
                     size={size}
                     tables={tables}
+                    schemaCount={schemaData?.schemas?.length}
+                    hasERLayout={(erData?.nodes?.length ?? 0) > 0}
+                    queryCount={queriesData?.queries?.length}
                 />
             </div>
         </div >
