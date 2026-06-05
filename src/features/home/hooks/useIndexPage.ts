@@ -8,6 +8,7 @@ import { ConnectionFormData, REQUIRED_FIELDS, SQLITE_REQUIRED_FIELDS } from "@/f
 import { useDatabaseStats } from "../../database/hooks/useDatabaseStats";
 import { useSelectedDbStats } from "../../database/hooks/useSelectedDbStats";
 import { databaseService } from "@/services/bridge/database";
+import { projectService } from "@/services/bridge/project";
 import { DatabaseConnection } from "@/features/database/types";
 import { useWelcomeMessage } from "@/features/database/hooks/useWelcomeMessage";
 
@@ -52,6 +53,7 @@ export const useIndexPage = (bridgeReady: boolean) => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [dbToDelete, setDbToDelete] = useState<{ id: string; name: string } | null>(null);
     const [prefilledConnectionData, setPrefilledConnectionData] = useState<Partial<ConnectionFormData> | undefined>(undefined);
+    const [isImportOpen, setIsImportOpen] = useState(false);
 
     // Selected db derived state
     const selectedDatabase = useMemo(
@@ -145,7 +147,21 @@ export const useIndexPage = (bridgeReady: boolean) => {
                 };
             }
 
-            await addDatabaseMutation.mutateAsync(payload);
+            const db = await addDatabaseMutation.mutateAsync(payload);
+
+            // Auto-create a linked project so the user gets git, schema cache,
+            // and saved queries for free — one click, two things.
+            try {
+                await projectService.createProject({
+                    databaseId: db.id,
+                    name: db.name,
+                    defaultSchema: db.type === "postgresql" ? "public" : undefined,
+                });
+            } catch {
+                // Non-fatal — project auto-creation shouldn't block the database add
+                console.warn("Auto-project creation failed for", db.name);
+            }
+
             toast.success("Database connection added");
             setIsDialogOpen(false);
             await Promise.all([refetchDatabases(), refetchStatus()]);
@@ -274,5 +290,9 @@ export const useIndexPage = (bridgeReady: boolean) => {
         handleDiscoveredDatabaseAdd,
         handleDialogClose,
         openDeleteDialog,
+
+        // Import
+        isImportOpen,
+        setIsImportOpen,
     };
 };
