@@ -8,6 +8,7 @@ import {
     AddConnectionDialog,
     DeleteDialog,
 } from "@/features/home/components";
+import { ImportProjectDialog } from "@/features/project/components";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
 import BridgeFailed from "@/components/feedback/BridgeFailed";
 import { useIndexPage } from "@/features/home/hooks/useIndexPage";
@@ -74,6 +75,11 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
         handleDiscoveredDatabaseAdd,
         handleDialogClose,
         openDeleteDialog,
+
+        // Import
+        isImportOpen,
+        setIsImportOpen,
+        handleImportComplete,
     } = useIndexPage(bridgeReady);
 
     return (
@@ -97,6 +103,7 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                         onDatabaseHover={handleDatabaseHover}
                         onDelete={openDeleteDialog}
                         onTest={handleTestConnection}
+                        onImportClick={() => setIsImportOpen(true)}
                     />
 
                     {/* Right Panel */}
@@ -155,6 +162,12 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                 onOpenChange={setDeleteDialogOpen}
                 databaseName={dbToDelete?.name}
                 onConfirm={handleDeleteDatabase}
+            />
+
+            <ImportProjectDialog
+                open={isImportOpen}
+                onOpenChange={setIsImportOpen}
+                onComplete={handleImportComplete}
             />
         </div>
     );

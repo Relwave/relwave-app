@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import DatabaseDetail from './pages/DatabaseDetails';
-import Projects from './pages/Projects';
 import NotFound from './pages/NotFound';
 import { ThemeProvider } from './components/providers/ThemeProvider';
 import Settings from './pages/Settings';
@@ -40,7 +39,7 @@ function ThemeVariantInitializer() {
 
 function GlobalSidebar() {
   const location = useLocation();
-  const showOnGlobalRoutes = ['/', '/projects', '/settings'].includes(location.pathname);
+  const showOnGlobalRoutes = ['/', '/settings'].includes(location.pathname);
 
   if (!showOnGlobalRoutes) {
     return null;
@@ -72,7 +71,6 @@ function AnimatedRoutes() {
     <div className={`route-transition route-transition--${transitionStage}`}>
       <Routes location={displayLocation}>
         <Route path="/" element={<Index />} />
-        <Route path="/projects" element={<Projects />} />
         <Route path="/:id" element={<DatabaseDetail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
