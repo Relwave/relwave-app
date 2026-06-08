@@ -21,6 +21,7 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
 const CONNECTION_TIMEOUT = 120000; // Consider unhealthy after 120s of no successful requests
 const SLEEP_DETECTION_THRESHOLD = 60000; // If interval fires 60s+ late, system likely slept
+const HEALTH_PING_METHOD = "health.ping";
 
 // Listeners for connection state changes
 type ConnectionStateListener = (healthy: boolean) => void;
@@ -37,6 +38,16 @@ function notifyConnectionState(healthy: boolean) {
     connectionHealthy = healthy;
     connectionStateListeners.forEach(listener => listener(healthy));
   }
+}
+
+function rejectPendingRequests(reason: string): void {
+  if (pending.size === 0) return;
+
+  const error = new Error(reason);
+  for (const { reject } of pending.values()) {
+    reject(error);
+  }
+  pending.clear();
 }
 
 /** Check if we're running in Tauri environment */
@@ -157,7 +168,7 @@ function setupVisibilityHandler(): void {
       try {
         const status = await invoke<string>("bridge_status");
         if (status === "running") {
-          await bridgeRequestInternal("ping", {}, 5000);
+          await bridgeRequestInternal(HEALTH_PING_METHOD, {}, 5000);
           console.log("bridgeClient: Connection OK after visibility change");
           lastSuccessfulRequest = Date.now();
           if (!connectionHealthy) {
@@ -211,7 +222,7 @@ function startHealthCheck(): void {
         const status = await invoke<string>("bridge_status");
         if (status === "running") {
           // Try a ping to verify connection is actually working
-          await bridgeRequestInternal("ping", {}, 10000);
+          await bridgeRequestInternal(HEALTH_PING_METHOD, {}, 10000);
           console.log("bridgeClient: Connection verified after wake");
           lastSuccessfulRequest = Date.now();
           notifyConnectionState(true);
@@ -254,7 +265,7 @@ function startHealthCheck(): void {
       
       // If process is running, try a ping
       try {
-        await bridgeRequestInternal("ping", {}, 10000);
+        await bridgeRequestInternal(HEALTH_PING_METHOD, {}, 10000);
         lastSuccessfulRequest = Date.now();
         reconnectAttempts = 0;
         notifyConnectionState(true);
@@ -296,6 +307,8 @@ async function handleBridgeReconnect(): Promise<void> {
  * - Call this when your component unmounts
  */
 export function stopBridgeListeners(): void {
+  rejectPendingRequests("Bridge listeners stopped before the request completed.");
+
   if (healthCheckInterval) {
     clearInterval(healthCheckInterval);
     healthCheckInterval = null;
@@ -323,7 +336,7 @@ export function stopBridgeListeners(): void {
  */
 function getTimeoutForMethod(method: string): number {
   // Ping should be fast
-  if (method === "ping" || method === "health.ping") return 5000; // 5 seconds
+  if (method === "ping" || method === HEALTH_PING_METHOD) return 5000; // 5 seconds
   
   // Schema operations can be very slow on large databases
   if (method === "db.getSchema") return 180000; // 3 minutes

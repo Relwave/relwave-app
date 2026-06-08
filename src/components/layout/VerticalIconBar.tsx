@@ -18,7 +18,6 @@ interface VerticalIconBarProps {
 
 const globalNavigationItems = [
     { icon: Home, label: 'Dashboard', path: '/' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 function supportsMonitoring(databaseType?: string) {

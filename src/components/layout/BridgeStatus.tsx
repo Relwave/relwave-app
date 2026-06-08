@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onConnectionStateChange, isBridgeHealthy, restartBridge } from '@/services/bridge/bridgeClient';
 import { WifiOff, RefreshCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const BridgeStatus = () => {
@@ -33,17 +34,20 @@ const BridgeStatus = () => {
         <WifiOff className="h-3 w-3 text-destructive" />
         <span className="text-[10px] font-bold text-destructive uppercase tracking-tight">Bridge Disconnected</span>
       </div>
-      <button 
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={handleRestart}
         disabled={restarting}
         className={cn(
-          "p-1 rounded-md hover:bg-muted/50 transition-colors group",
+          "size-6 rounded-md hover:bg-muted/50 group",
           restarting && "opacity-50 cursor-not-allowed"
         )}
         title="Attempt Reconnect"
       >
         <RefreshCcw className={cn("h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors", restarting && "animate-spin")} />
-      </button>
+      </Button>
     </div>
   );
 };
