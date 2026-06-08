@@ -24,6 +24,7 @@ export class GeminiProvider implements AIProvider {
       const model = this.genAI.getGenerativeModel({
         model: DEFAULT_MODEL,
         systemInstruction: system,
+        generationConfig: { maxOutputTokens: 4096 },
       });
       const result = await model.generateContent(user);
       return result.response.text();

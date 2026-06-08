@@ -29,6 +29,7 @@ export class OllamaProvider implements AIProvider {
           { role: "system", content: system },
           { role: "user", content: user },
         ],
+        options: { num_predict: 4096 },
       });
       return res.message?.content ?? "";
     } catch (err) {

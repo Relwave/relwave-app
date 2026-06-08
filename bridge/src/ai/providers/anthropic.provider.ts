@@ -23,7 +23,7 @@ export class AnthropicProvider implements AIProvider {
     try {
       const msg = await this.client.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 2048,
+        max_tokens: 4096,
         system,
         messages: [{ role: "user", content: user }],
       });

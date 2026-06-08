@@ -13,25 +13,22 @@ export function buildSchemaAnalysisPrompt(input: SchemaAnalysisInput): {
           if (c.isPrimaryKey) flags.push("PK");
           if (c.isForeignKey) flags.push("FK");
           if (!c.nullable) flags.push("NOT NULL");
-          if (c.references) flags.push(`→ ${c.references.table}.${c.references.column}`);
-          return `  - ${c.name} (${c.type})${flags.length ? " [" + flags.join(", ") + "]" : ""}`;
+          if (c.references) flags.push(`→${c.references.table}.${c.references.column}`);
+          return `${c.name}(${c.type})${flags.length ? "[" + flags.join(",") + "]" : ""}`;
         })
-        .join("\n");
+        .join(", ");
 
       const extras: string[] = [];
-      if (t.indexes?.length) extras.push(`Indexes: ${t.indexes.join(", ")}`);
-      if (t.foreignKeys?.length) extras.push(`Foreign keys: ${t.foreignKeys.join(", ")}`);
-      if (t.constraints?.length) extras.push(`Constraints: ${t.constraints.join(", ")}`);
+      if (t.indexes?.length) extras.push(`idx: ${t.indexes.join(",")}`);
+      if (t.foreignKeys?.length) extras.push(`fk: ${t.foreignKeys.join(",")}`);
+      if (t.constraints?.length) extras.push(`cons: ${t.constraints.join(",")}`);
 
-      return [
-        `### Table: ${t.schema ? `${t.schema}.` : ""}${t.name}`,
-        columns,
-        extras.length ? extras.map((e) => `  * ${e}`).join("\n") : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const tableName = `${t.schema ? `${t.schema}.` : ""}${t.name}`;
+      const extrasStr = extras.length ? ` | ${extras.join(" | ")}` : "";
+      
+      return `[${tableName}] cols: ${columns}${extrasStr}`;
     })
-    .join("\n\n");
+    .join("\n");
 
   const dbType = input.databaseType ? ` (${input.databaseType})` : "";
 

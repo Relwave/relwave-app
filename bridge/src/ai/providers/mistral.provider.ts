@@ -27,7 +27,7 @@ export class MistralProvider implements AIProvider {
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        maxTokens: 2048,
+        maxTokens: 4096,
       });
       const choice = res.choices?.[0];
       const content = choice?.message?.content;

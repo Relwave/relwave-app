@@ -27,7 +27,7 @@ export class OpenAIProvider implements AIProvider {
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        max_tokens: 2048,
+        max_tokens: 4096,
       });
       return res.choices[0]?.message?.content ?? "";
     } catch (err) {
