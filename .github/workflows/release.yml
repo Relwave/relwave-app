@@ -66,12 +66,6 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "RelWave v__VERSION__"
-          # Let GitHub auto-generate the changelog from merged PRs and commits
-          # since the last release tag. The generated markdown is injected into
-          # latest.json as the `notes` field, which the in-app updater reads and
-          # displays in the What's New dialog after update.
-          releaseBody: ""
-          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

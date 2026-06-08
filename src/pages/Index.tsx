@@ -85,7 +85,7 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
     return (
         <div className="h-[calc(100vh-32px)] flex flex-col app-surface text-foreground overflow-hidden">
             <div className="flex-1 flex overflow-hidden">
-                <main className="flex-1 ml-15 flex overflow-hidden">
+                <main className="flex-1 flex overflow-hidden">
                     {/* Left Panel */}
                     <ConnectionList
                         databases={databases}

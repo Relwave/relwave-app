@@ -7,14 +7,12 @@ import Index from "./pages/Index";
 import DatabaseDetail from './pages/DatabaseDetails';
 import NotFound from './pages/NotFound';
 import { ThemeProvider } from './components/providers/ThemeProvider';
-import Settings from './pages/Settings';
 import { useBridgeInit } from "@/services/bridge/useBridgeInit";
 import { useEffect, useState } from 'react';
 import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
 import { UpdateNotification } from './components/shared/UpdateNotification';
 import { WhatsNewDialog } from './components/shared/WhatsNewDialog';
 import TitleBar from './components/layout/TitleBar';
-import VerticalIconBar from './components/layout/VerticalIconBar';
 import { CommandPalette } from './components/layout/CommandPalette';
 
 const queryClient = new QueryClient();
@@ -37,16 +35,7 @@ function ThemeVariantInitializer() {
   return null;
 }
 
-function GlobalSidebar() {
-  const location = useLocation();
-  const showOnGlobalRoutes = ['/', '/settings'].includes(location.pathname);
 
-  if (!showOnGlobalRoutes) {
-    return null;
-  }
-
-  return <VerticalIconBar />;
-}
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -72,7 +61,6 @@ function AnimatedRoutes() {
       <Routes location={displayLocation}>
         <Route path="/" element={<Index />} />
         <Route path="/:id" element={<DatabaseDetail />} />
-        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
@@ -108,7 +96,6 @@ function AppRoot() {
             <div className="pt-8">
               <BrowserRouter>
                 <CommandPalette />
-                <GlobalSidebar />
                 <AnimatedRoutes />
               </BrowserRouter>
             </div>

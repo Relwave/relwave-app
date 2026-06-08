@@ -5,7 +5,7 @@ import { useDeveloperMode } from '@/features/settings/hooks/useDeveloperMode';
 export default function DeveloperMode() {
     const { isEnabled: devModeEnabled, setIsEnabled: setDevModeEnabled } = useDeveloperMode();
     return (
-        <section className="border border-border/50 rounded-lg p-6 bg-card/65 shadow-sm backdrop-blur-sm">
+        <section>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                     <Code2 className="h-4 w-4 text-muted-foreground/60" />

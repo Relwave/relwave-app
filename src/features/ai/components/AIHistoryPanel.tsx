@@ -165,7 +165,7 @@ export default function AIHistoryPanel() {
 
   return (
     <>
-      <Card className="border-border/40 bg-card/50">
+      <Card className="border-none bg-transparent shadow-none">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">

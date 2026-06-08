@@ -53,6 +53,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.9.6",
     "reactflow": "^11.11.4",
     "recharts": "^2.15.4",
