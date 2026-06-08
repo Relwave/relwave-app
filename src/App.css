@@ -629,4 +629,35 @@ body {
   .dark * {
     scrollbar-color: rgba(156, 163, 175, 0.2) transparent;
   }
+
+  .theme-transitioning *,
+  .theme-transitioning *::before,
+  .theme-transitioning *::after {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .theme-transitioning [data-slot="dialog-content"],
+  .theme-transitioning [data-slot="dialog-content"] *,
+  .theme-transitioning [data-slot="dialog-content"] *::before,
+  .theme-transitioning [data-slot="dialog-content"] *::after {
+    transition-property:
+      color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: 260ms !important;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  /* View Transition API rules for buttery smooth theme toggling */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 300ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0ms;
+    }
+  }
 }

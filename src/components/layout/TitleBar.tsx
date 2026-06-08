@@ -1,8 +1,12 @@
-import { Maximize2, Minus, Square, X } from 'lucide-react';
+import { Maximize2, Minus, Square, X, Settings as SettingsIcon } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import BridgeStatus from './BridgeStatus';
+import { SettingsDialog } from '@/features/settings/components';
+import { useState } from 'react';
 
 const TitleBar = () => {
+    const [settingsOpen, setSettingsOpen] = useState(false);
+
     const handleMinimize = async () => {
         try {
             const appWindow = getCurrentWindow();
@@ -33,7 +37,7 @@ const TitleBar = () => {
     return (
         <div
             data-tauri-drag-region
-            className="h-8 bg-background border-b border-border/10 flex items-center justify-between select-none fixed top-0 left-0 right-0 z-100"
+            className="h-8 bg-background border-b border-border/10 flex items-center justify-between select-none fixed top-0 left-0 right-0 z-[100]"
         >
             {/* App Title - Left */}
             <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-full">
@@ -47,7 +51,18 @@ const TitleBar = () => {
             </div>
 
             {/* Window Controls - Right */}
-            <div className="flex items-center gap-2 px-3 h-full">
+            <div className="flex items-center gap-4 px-3 h-full">
+                {/* Settings Button */}
+                <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors nodrag"
+                    aria-label="Settings"
+                    data-tauri-drag-region=""
+                >
+                    <SettingsIcon className="h-4 w-4" />
+                </button>
+
+                <div className="flex items-center gap-2">
                 {/* Close - Red */}
                 <button
                     onClick={handleClose}
@@ -74,7 +89,10 @@ const TitleBar = () => {
                 >
                     <Maximize2 className="h-2 w-2 text-[#006500] opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={2.5} />
                 </button>
+                </div>
             </div>
+
+            <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>
     );
 };

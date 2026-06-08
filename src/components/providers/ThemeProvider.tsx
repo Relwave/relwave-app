@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import { flushSync } from "react-dom"
 
-type Theme = "dark" | "light" | "system"
+export type Theme = "dark" | "light" | "system"
 
 type ThemeProviderProps = {
     children: React.ReactNode
@@ -20,44 +21,78 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
+function getSystemTheme(): Exclude<Theme, "system"> {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+}
+
+function applyTheme(theme: Theme) {
+    const root = window.document.documentElement
+    const resolvedTheme = theme === "system" ? getSystemTheme() : theme
+    root.classList.remove("light", "dark")
+    root.classList.add(resolvedTheme)
+}
+
 export function ThemeProvider({
     children,
     defaultTheme = "system",
-    storageKey = "vite-ui-theme",
-    ...props
+    storageKey = "relwave:theme",
 }: ThemeProviderProps) {
-    const [theme, setTheme] = useState<Theme>(
-        () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-    )
+    const [theme, setTheme] = useState<Theme>(() => {
+        const stored = (localStorage.getItem(storageKey) as Theme) || defaultTheme
+        applyTheme(stored)
+        return stored
+    })
 
     useEffect(() => {
-        const root = window.document.documentElement
+        applyTheme(theme)
+    }, [theme])
 
-        root.classList.remove("light", "dark")
+    useEffect(() => {
+        if (theme !== "system") return
 
-        if (theme === "system") {
-            const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-                .matches
-                ? "dark"
-                : "light"
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+        const handleSystemThemeChange = () => applyTheme("system")
 
-            root.classList.add(systemTheme)
-            return
-        }
-
-        root.classList.add(theme)
+        mediaQuery.addEventListener("change", handleSystemThemeChange)
+        return () => mediaQuery.removeEventListener("change", handleSystemThemeChange)
     }, [theme])
 
     const value = {
         theme,
-        setTheme: (theme: Theme) => {
-            localStorage.setItem(storageKey, theme)
-            setTheme(theme)
+        setTheme: (newTheme: Theme) => {
+            const root = window.document.documentElement
+
+            if (!document.startViewTransition) {
+                localStorage.setItem(storageKey, newTheme)
+                applyTheme(newTheme)
+                setTheme(newTheme)
+                return
+            }
+
+            root.classList.add("theme-transitioning")
+
+            const transition = document.startViewTransition(() => {
+                localStorage.setItem(storageKey, newTheme)
+                flushSync(() => {
+                    applyTheme(newTheme)
+                    setTheme(newTheme)
+                })
+            })
+
+            transition.ready.catch(() => {
+                root.classList.remove("theme-transitioning")
+            })
+
+            transition.finished.finally(() => {
+                root.classList.remove("theme-transitioning")
+            })
         },
     }
 
     return (
-        <ThemeProviderContext.Provider {...props} value={value}>
+        <ThemeProviderContext.Provider value={value}>
             {children}
         </ThemeProviderContext.Provider>
     )
