@@ -17,6 +17,20 @@ pnpm --dir bridge install
 pnpm tauri dev
 ```
 
+To build the bridge package for your platform, run one of these from the repo root:
+
+```bash
+cd bridge
+pnpm build:pkg:win
+```
+
+or on Linux:
+
+```bash
+cd bridge
+pnpm build:pkg:linux
+```
+
 If you are working on bridge-related code, you can run bridge tests directly:
 
 ```bash

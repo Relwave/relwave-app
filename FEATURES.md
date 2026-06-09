@@ -376,6 +376,30 @@ RelWave includes native Git integration powered by `simple-git`, providing a ful
 
 ---
 
+## AI Features and Providers
+
+RelWave integrates deeply with multiple Large Language Models (LLMs) to provide intelligent database assistance, schema analysis, and query explanations.
+
+### Supported Providers
+The application supports a flexible, multi-provider AI architecture:
+- **OpenAI** (GPT-4o, GPT-4 Turbo, etc.)
+- **Anthropic** (Claude 3.5 Sonnet, Opus, etc.)
+- **Mistral** (Mistral Large, Mistral Small, etc.)
+- **Groq** (Llama 3, Mixtral, etc. for ultra-fast inference)
+- **Ollama** (Local models like Llama 3, Phi-3, Mistral)
+- **Google Gemini** (Gemini 1.5 Pro, Flash)
+
+### AI Capabilities
+| Feature | Description |
+| ------- | ----------- |
+| **Schema Analysis** | Analyzes the structure of your database, identifying relationships, potential optimizations, and providing a human-readable summary of complex schemas. Uses a highly optimized, token-efficient dense schema representation. |
+| **Query Explanation** | Breaks down complex SQL queries into plain English, explaining joins, filters, performance implications, and the overall intent of the query. |
+| **Local AI Support** | Full privacy and zero-cost inference available through local Ollama integration, ensuring sensitive database schemas never leave your machine. |
+| **Context Aware** | The AI system automatically receives the dialect (PostgreSQL, MySQL, SQLite) and the relevant database schema context to provide accurate, dialect-specific responses. |
+| **High Token Capacity** | Configured with large output windows (up to 4096 tokens) to handle extensive schema analyses and complex query breakdowns without truncation. |
+
+---
+
 ## Visual Tools
 
 ### Chart Visualization
