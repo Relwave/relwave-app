@@ -32,6 +32,7 @@ import {
   PGAlterTableOperation,
   PGDropMode,
 } from "../types/postgres";
+import { SchemaFile } from "../services/projectStore";
 
 export type {
   PGConfig,
@@ -801,7 +802,12 @@ export async function getSchemaMetadataBatch(
         not_nullable: row.not_nullable,
         default_value: row.default_value,
         is_primary_key: row.is_primary_key,
-        is_foreign_key: row.is_foreign_key
+        is_foreign_key: row.is_foreign_key,
+        is_unique: row.is_unique,
+        is_serial: row.is_serial,
+        check_constraint: row.check_constraint,
+        comment: row.comment,
+        ordinal_position: row.ordinal_position
       });
     }
 
@@ -1409,10 +1415,10 @@ export async function insertBaseline(
   }
 }
 
-
 export async function baselineIfNeeded(
   conn: PGConfig,
-  migrationsDir: string
+  migrationsDir: string,
+  snapshot?: SchemaFile
 ) {
   const client = createClient(conn);
 
@@ -1426,10 +1432,22 @@ export async function baselineIfNeeded(
     const version = Date.now().toString();
     const name = "baseline_existing_schema";
 
+    const fakeSnapshot = snapshot || {
+      version: 2,
+      projectId: "",
+      databaseId: "",
+      dialect: "postgresql",
+      schemas: [],
+      cachedAt: "",
+      relwaveVersion: "",
+      schemaHash: ""
+    };
+
     const filePath = writeBaselineMigration(
       migrationsDir,
       version,
-      name
+      name,
+      fakeSnapshot
     );
 
     const checksum = crypto

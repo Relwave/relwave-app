@@ -34,6 +34,7 @@ import {
   MySQLAlterTableOperation,
   MySQLDropMode,
 } from "../types/mysql";
+import { SchemaFile } from "../services/projectStore";
 
 // Re-export types for backward compatibility
 export type {
@@ -892,7 +893,12 @@ export async function getSchemaMetadataBatch(
         not_nullable: Boolean(row.not_nullable),
         default_value: row.default_value,
         is_primary_key: Boolean(row.is_primary_key),
-        is_foreign_key: Boolean(row.is_foreign_key)
+        is_foreign_key: Boolean(row.is_foreign_key),
+        is_unique: Boolean(row.is_unique),
+        is_serial: Boolean(row.is_serial),
+        comment: row.comment,
+        check_constraint: row.check_constraint,
+        ordinal_position: row.ordinal_position
       });
     }
 
@@ -1324,10 +1330,10 @@ export async function insertBaseline(
   await connection.query(INSERT_MIGRATION, [version, name, checksum]);
 }
 
-
 export async function baselineIfNeeded(
   conn: MySQLConfig,
-  migrationsDir: string
+  migrationsDir: string,
+  snapshot?: SchemaFile
 ) {
   try {
     await ensureMigrationTable(conn);
@@ -1338,10 +1344,22 @@ export async function baselineIfNeeded(
     const version = Date.now().toString();
     const name = "baseline_existing_schema";
 
+    const fakeSnapshot = snapshot || {
+      version: 2,
+      projectId: "",
+      databaseId: "",
+      dialect: "mysql",
+      schemas: [],
+      cachedAt: "",
+      relwaveVersion: "",
+      schemaHash: ""
+    };
+
     const filePath = writeBaselineMigration(
       migrationsDir,
       version,
-      name
+      name,
+      fakeSnapshot
     );
 
     const checksum = crypto

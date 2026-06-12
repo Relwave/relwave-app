@@ -39,7 +39,12 @@ function mapColumn(col: any) {
     isPrimaryKey: col.is_primary_key === true,
     isForeignKey: col.is_foreign_key === true,
     defaultValue: col.default_value || null,
-    isUnique: false,
+    isUnique: col.is_unique === true,
+    isSerial: col.is_serial === true,
+    checkConstraint: col.check_constraint || null,
+    comment: col.comment || null,
+    maxLength: col.max_length || null,
+    ordinalPosition: col.ordinal_position || 0,
   };
 }
 

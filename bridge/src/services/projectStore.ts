@@ -74,22 +74,31 @@ export type AnnotationsFile = {
 };
 
 export type SchemaFile = {
-    version: number;
+    version: number; // bumped to 2
     projectId: string;
     databaseId: string;
+    dialect: "postgresql" | "mysql" | "sqlite";
     schemas: SchemaSnapshot[];
     cachedAt: string;
+    relwaveVersion: string;
+    schemaHash: string; // SHA-256 of entire schema content
 };
 
 export type SchemaSnapshot = {
     name: string;
     tables: TableSnapshot[];
+    enums?: EnumSnapshot[];
+    views?: ViewSnapshot[];
 };
 
 export type TableSnapshot = {
     name: string;
     type: string;
     columns: ColumnSnapshot[];
+    indexes: IndexSnapshot[];
+    foreignKeys: ForeignKeySnapshot[];
+    checks: CheckConstraint[];
+    comment?: string | null;
 };
 
 export type ColumnSnapshot = {
@@ -100,6 +109,49 @@ export type ColumnSnapshot = {
     isForeignKey: boolean;
     defaultValue: string | null;
     isUnique: boolean;
+    isSerial: boolean;
+    ordinalPosition: number;
+    foreignKey?: {
+        schema: string;
+        table: string;
+        column: string;
+        onDelete?: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION";
+        onUpdate?: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION";
+    };
+    checkConstraint?: string;
+    comment?: string | null;
+};
+
+export type IndexSnapshot = {
+    name: string;
+    columns: string[];
+    unique: boolean;
+    partial?: string | null;
+};
+
+export type ForeignKeySnapshot = {
+    name: string;
+    columns: string[];
+    referencedSchema: string;
+    referencedTable: string;
+    referencedColumns: string[];
+    onDelete: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION" | "SET DEFAULT";
+    onUpdate: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION" | "SET DEFAULT";
+};
+
+export type CheckConstraint = {
+    name: string;
+    expression: string;
+};
+
+export type EnumSnapshot = {
+    name: string;
+    values: string[];
+};
+
+export type ViewSnapshot = {
+    name: string;
+    definition: string;
 };
 
 export type ProjectSummary = Pick<
@@ -371,11 +423,14 @@ export class ProjectStore {
 
         // Initialise empty sub-files
         const emptySchema: SchemaFile = {
-            version: 1,
+            version: 2,
             projectId: id,
             databaseId: params.databaseId,
+            dialect: engine === "postgresql" ? "postgresql" : engine === "mysql" ? "mysql" : "sqlite", // Provide fallback or infer
             schemas: [],
             cachedAt: now,
+            relwaveVersion: "1.0.0", // Hardcoded for now
+            schemaHash: "",
         };
         const emptyER: ERDiagramFile = {
             version: 1,
@@ -572,6 +627,33 @@ export class ProjectStore {
      * For imported projects the source directory is NOT deleted
      * (the user owns it) — only the index entry is removed.
      */
+    async analyzeImportedProject(projectId: string): Promise<{ hasLock: boolean; hashMatch: boolean; migrationsCount: number }> {
+        const schemaFile = await this.getSchema(projectId);
+        const schemaHash = (schemaFile as any)?.schemaHash || "";
+
+        // Read lock file
+        let hasLock = false;
+        let hashMatch = false;
+        let migrationsCount = 0;
+
+        try {
+            const project = await this.getProject(projectId);
+            if (project?.databaseId) {
+                const { readMigrationLock } = await import("./migrationLock");
+                const lock = readMigrationLock(project.databaseId);
+                if (lock) {
+                    hasLock = true;
+                    hashMatch = lock.schemaHash === schemaHash;
+                    migrationsCount = lock.appliedMigrations.length;
+                }
+            }
+        } catch (e) {
+            // Ignore if lock file logic fails
+        }
+
+        return { hasLock, hashMatch, migrationsCount };
+    }
+
     async deleteProject(projectId: string): Promise<void> {
         await this.ensureSourcePathCache();
         const isImported = this.sourcePathCache.has(projectId);
@@ -592,33 +674,80 @@ export class ProjectStore {
     }
 
     async getSchema(projectId: string): Promise<SchemaFile | null> {
-        return this.readJSON<SchemaFile>(
+        const file = await this.readJSON<any>(
             this.projectFile(projectId, PROJECT_FILES.schema)
         );
+        if (!file) return null;
+        return this.migrateSchemaFile(file);
     }
 
-    async saveSchema(projectId: string, schemas: SchemaSnapshot[]): Promise<SchemaFile> {
+    private migrateSchemaFile(raw: any): SchemaFile {
+        if (raw.version >= 2) return raw as SchemaFile;
+
+        // Upgrade v1 to v2
+        return {
+            version: 2,
+            projectId: raw.projectId,
+            databaseId: raw.databaseId,
+            dialect: "postgresql", // assume postgresql for legacy files
+            cachedAt: raw.cachedAt || new Date().toISOString(),
+            relwaveVersion: "1.0.0",
+            schemaHash: "", // will be recomputed on next refresh
+            schemas: (raw.schemas || []).map((s: any) => ({
+                name: s.name,
+                tables: (s.tables || []).map((t: any) => ({
+                    name: t.name,
+                    type: t.type || "BASE TABLE",
+                    comment: null,
+                    columns: (t.columns || []).map((c: any, index: number) => {
+                        const isSerial = c.defaultValue ? c.defaultValue.includes("nextval") : false;
+                        return {
+                            ...c,
+                            isSerial,
+                            ordinalPosition: index + 1,
+                        };
+                    }),
+                    indexes: [],
+                    foreignKeys: [],
+                    checks: [],
+                })),
+                enums: [],
+                views: [],
+            })),
+        };
+    }
+
+    async saveSchema(
+        projectId: string,
+        schemas: SchemaSnapshot[],
+        schemaHash?: string,
+        dialect?: string
+    ): Promise<SchemaFile> {
         const meta = await this.getProject(projectId);
         if (!meta) throw new Error(`Project ${projectId} not found`);
 
         // Read existing file and skip write if schema data is identical
         // (avoids cachedAt churn that creates phantom git changes)
         const existing = await this.getSchema(projectId);
-        if (existing) {
+        if (existing && existing.version === 2) {
             const oldData = JSON.stringify(existing.schemas);
             const newData = JSON.stringify(schemas);
-            if (oldData === newData) {
+            // If schemaHash is provided, also check if it matches
+            if (oldData === newData && (!schemaHash || existing.schemaHash === schemaHash)) {
                 return existing; // nothing changed — keep old cachedAt
             }
         }
 
         const now = new Date().toISOString();
         const file: SchemaFile = {
-            version: 1,
+            version: 2,
             projectId,
             databaseId: meta.databaseId,
+            dialect: (dialect || (meta.engine === "postgresql" ? "postgresql" : (meta.engine === "mysql" || meta.engine === "mariadb") ? "mysql" : "sqlite")) as any,
             schemas,
             cachedAt: now,
+            relwaveVersion: "1.0.0",
+            schemaHash: schemaHash || "", 
         };
 
         await this.writeJSON(

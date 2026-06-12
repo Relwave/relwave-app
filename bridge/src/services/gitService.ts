@@ -87,6 +87,23 @@ export interface GitBranchInfo {
     upstream: string | null;
 }
 
+export type GitSyncResult = {
+  staged: string[];
+  commitHash: string;
+  commitMessage: string;
+  pushed: boolean;
+  error?: { code: string; message: string };
+};
+
+export class GitError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "GitError";
+  }
+}
+
 export class GitService {
     /**
      * Run a git command in a specific directory.
@@ -1087,6 +1104,205 @@ export class GitService {
      */
     async renameBranch(dir: string, newName: string): Promise<void> {
         await this.git(dir, "branch", "-m", newName);
+    }
+
+    // ==========================================
+    // Migration Sync (Task 1)
+    // ==========================================
+
+    /**
+     * Stage migration files and lock file
+     */
+    async stageMigrationFiles(projectPath: string): Promise<string[]> {
+        // Run git add on migrations/ and migration-lock.json
+        // But first check if they exist or have changes
+        const filesToStage = ["migrations", "migration-lock.json"];
+        const stagedPaths: string[] = [];
+        
+        for (const file of filesToStage) {
+            try {
+                await this.git(projectPath, "add", file);
+                stagedPaths.push(file);
+            } catch (err) {
+                // Ignore if path doesn't exist
+            }
+        }
+        
+        // Return actually staged files from status
+        const changes = await this.getChangedFiles(projectPath);
+        return changes.filter(c => c.staged).map(c => c.path);
+    }
+
+    /**
+     * Commit migration files with an auto-generated or provided message
+     */
+    async commitMigrationFiles(projectPath: string, message?: string): Promise<string> {
+        let commitMsg = message;
+        
+        if (!commitMsg) {
+            // Auto-generate message based on staged files
+            const changes = await this.getChangedFiles(projectPath);
+            const stagedMigrations = changes.filter(c => c.staged && c.path.startsWith("migrations/"));
+            
+            if (stagedMigrations.length === 1) {
+                const filename = path.basename(stagedMigrations[0].path);
+                if (filename.includes("baseline")) {
+                    commitMsg = "migrate: add baseline migration from schema snapshot";
+                } else {
+                    commitMsg = `migrate: apply ${filename}`;
+                }
+            } else if (stagedMigrations.length > 1) {
+                // Find highest migration
+                const sorted = stagedMigrations.map(m => path.basename(m.path)).sort();
+                const latest = sorted[sorted.length - 1];
+                commitMsg = `migrate: apply ${stagedMigrations.length} migrations up to ${latest}`;
+            } else {
+                commitMsg = "migrate: update schema lock";
+            }
+        }
+        
+        return this.commit(projectPath, commitMsg);
+    }
+
+    /**
+     * Push current branch to remote
+     */
+    async pushMigrations(projectPath: string): Promise<void> {
+        const remotes = await this.remoteList(projectPath);
+        if (remotes.length === 0) {
+            throw new GitError("NO_REMOTE", "No remote configured for this repository");
+        }
+        
+        try {
+            await this.git(projectPath, "push");
+        } catch (err: any) {
+            const errorMsg = err.stderr || err.message || "";
+            if (errorMsg.includes("non-fast-forward") || errorMsg.includes("fetch first")) {
+                throw new GitError("PUSH_REJECTED", "Push rejected due to diverged history");
+            }
+            throw new GitError("PUSH_FAILED", `Push failed: ${errorMsg}`);
+        }
+    }
+
+    /**
+     * Orchestrate staging, committing, and pushing
+     */
+    async syncMigrationFiles(projectPath: string, message?: string): Promise<GitSyncResult> {
+        const result: GitSyncResult = {
+            staged: [],
+            commitHash: "",
+            commitMessage: "",
+            pushed: false,
+        };
+
+        try {
+            result.staged = await this.stageMigrationFiles(projectPath);
+            if (result.staged.length === 0) {
+                return result; // Nothing to sync
+            }
+            
+            result.commitHash = await this.commitMigrationFiles(projectPath, message);
+            
+            // Get actual message used if auto-generated
+            if (!message && result.commitHash) {
+                const log = await this.log(projectPath, 1);
+                if (log.length > 0) result.commitMessage = log[0].subject;
+            } else {
+                result.commitMessage = message || "";
+            }
+            
+            // Read config to see if autoPushMigrations is true
+            let autoPush = false;
+            try {
+                const configPath = path.join(projectPath, "relwave.json");
+                if (fsSync.existsSync(configPath)) {
+                    const config = JSON.parse(fsSync.readFileSync(configPath, "utf-8"));
+                    if (config.autoPushMigrations === true) {
+                        autoPush = true;
+                    }
+                }
+            } catch (err) {
+                // Ignore config read errors
+            }
+
+            if (autoPush) {
+                try {
+                    await this.pushMigrations(projectPath);
+                    result.pushed = true;
+                } catch (pushErr: any) {
+                    result.error = {
+                        code: pushErr.code || "PUSH_FAILED",
+                        message: pushErr.message
+                    };
+                }
+            }
+
+        } catch (err: any) {
+            result.error = {
+                code: err.code || "SYNC_FAILED",
+                message: err.message
+            };
+        }
+        
+        return result;
+    }
+
+    /**
+     * Stash, sync schema.json
+     */
+    async syncSchemaFile(projectPath: string, message?: string): Promise<GitSyncResult> {
+        try {
+            await this.ensureGitignore(projectPath);
+            const changes = await this.getChangedFiles(projectPath);
+            const schemaFile = "schema/schema.json";
+            
+            const schemaModified = changes.some(c => c.path === schemaFile);
+
+            if (!schemaModified) {
+                return { staged: [], commitHash: "", commitMessage: "", pushed: false };
+            }
+
+            await this.stageFiles(projectPath, [schemaFile]);
+            
+            const commitMessage = message || `chore: update schema.json cache`;
+            const commitHash = await this.commit(projectPath, commitMessage);
+
+            let pushed = false;
+            try {
+                await this.pushMigrations(projectPath);
+                pushed = true;
+            } catch (pushErr: any) {
+                // Return result with push error but still considered successful commit
+                return {
+                    staged: [schemaFile],
+                    commitHash,
+                    commitMessage,
+                    pushed: false,
+                    error: {
+                        code: "GIT_PUSH_FAILED",
+                        message: `Committed successfully but failed to push: ${pushErr.message || String(pushErr)}`
+                    }
+                };
+            }
+
+            return {
+                staged: [schemaFile],
+                commitHash,
+                commitMessage,
+                pushed
+            };
+        } catch (error: any) {
+            return {
+                staged: [],
+                commitHash: "",
+                commitMessage: "",
+                pushed: false,
+                error: {
+                    code: "GIT_SYNC_FAILED",
+                    message: `Failed to sync schema file: ${error.message || String(error)}`
+                }
+            };
+        }
     }
 }
 

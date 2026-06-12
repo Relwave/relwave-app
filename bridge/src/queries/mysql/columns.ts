@@ -16,7 +16,11 @@ export const BATCH_GET_ALL_COLUMNS = `
     c.ORDINAL_POSITION AS ordinal_position,
     c.CHARACTER_MAXIMUM_LENGTH AS max_length,
     (c.COLUMN_KEY = 'PRI') AS is_primary_key,
-    CASE WHEN fk.COLUMN_NAME IS NOT NULL THEN TRUE ELSE FALSE END AS is_foreign_key
+    CASE WHEN fk.COLUMN_NAME IS NOT NULL THEN TRUE ELSE FALSE END AS is_foreign_key,
+    (c.COLUMN_KEY = 'UNI' OR c.COLUMN_KEY = 'PRI') AS is_unique,
+    (c.EXTRA LIKE '%auto_increment%') AS is_serial,
+    c.COLUMN_COMMENT AS comment,
+    NULL AS check_constraint
   FROM information_schema.columns c
   LEFT JOIN (
     SELECT DISTINCT kcu.TABLE_SCHEMA, kcu.TABLE_NAME, kcu.COLUMN_NAME

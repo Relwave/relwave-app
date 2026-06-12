@@ -65,7 +65,7 @@ export function registerDbHandlers(
     dbService,
     queryExecutor
   );
-  const projectHandlers = new ProjectHandlers(rpc, logger);
+  const projectHandlers = new ProjectHandlers(rpc, logger, dbService, queryExecutor);
   const gitHandlers = new GitHandlers(rpc, logger);
   const gitAdvancedHandlers = new GitAdvancedHandlers(rpc, logger);
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
@@ -168,6 +168,12 @@ export function registerDbHandlers(
   rpcRegister(rpc, "migration.apply", (p, id) =>
     migrationHandlers.handleApplyMigration(p, id)
   );
+  rpcRegister(rpc, "migration.applyMigrations", (p, id) =>
+    migrationHandlers.handleApplyMigrations(p, id)
+  );
+  rpcRegister(rpc, "migration.applySnapshot", (p, id) =>
+    migrationHandlers.handleApplySnapshot(p, id)
+  );
   rpcRegister(rpc, "migration.rollback", (p, id) =>
     migrationHandlers.handleRollbackMigration(p, id)
   );
@@ -227,6 +233,9 @@ export function registerDbHandlers(
   rpcRegister(rpc, "project.saveSchema", (p, id) =>
     projectHandlers.handleSaveSchema(p, id)
   );
+  rpcRegister(rpc, "project.refreshSchemaCache", (p, id) =>
+    projectHandlers.handleRefreshSchemaCache(p, id)
+  );
   rpcRegister(rpc, "project.getERDiagram", (p, id) =>
     projectHandlers.handleGetERDiagram(p, id)
   );
@@ -238,6 +247,21 @@ export function registerDbHandlers(
   );
   rpcRegister(rpc, "project.saveAnnotations", (p, id) =>
     projectHandlers.handleSaveAnnotations(p, id)
+  );
+  rpcRegister(rpc, "project.analyzeImport", (p, id) =>
+    projectHandlers.handleAnalyzeImport(p, id)
+  );
+  rpcRegister(rpc, "project.verifyLock", (p, id) =>
+    projectHandlers.handleVerifyLock(p, id)
+  );
+  rpcRegister(rpc, "project.pushMigrations", (p, id) =>
+    projectHandlers.handlePushMigrations(p, id)
+  );
+  rpcRegister(rpc, "project.syncMigrations", (p, id) =>
+    projectHandlers.handleSyncMigrations(p, id)
+  );
+  rpcRegister(rpc, "project.getDrift", (p, id) =>
+    projectHandlers.handleGetDrift(p, id)
   );
   rpcRegister(rpc, "project.getQueries", (p, id) =>
     projectHandlers.handleGetQueries(p, id)

@@ -47,6 +47,10 @@ export type ColumnDetail = {
     is_foreign_key: boolean;
     ordinal_position?: number;
     max_length?: number | null;
+    is_unique?: boolean;
+    is_serial?: boolean;
+    check_constraint?: string;
+    comment?: string | null;
 };
 
 /**

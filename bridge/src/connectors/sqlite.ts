@@ -55,6 +55,7 @@ import {
 } from "../queries/sqlite/migrations";
 import { SQLITE_GET_TABLE_SQL } from "../queries/sqlite/constraints";
 import { sqliteQuoteIdentifier } from "../queries/sqlite/crud";
+import { SchemaFile } from "../services/projectStore";
 
 // ============================================
 // CACHING SYSTEM FOR SQLITE CONNECTOR
@@ -734,6 +735,11 @@ export async function getSchemaMetadataBatch(
           default_value: col.dflt_value,
           is_primary_key: col.pk > 0,
           is_foreign_key: fkColumns.has(col.name),
+          is_unique: false, // will be updated below if unique index exists
+          is_serial: col.pk > 0 && (col.type || '').toLowerCase() === 'integer',
+          check_constraint: null,
+          comment: null,
+          ordinal_position: col.cid + 1,
         }));
 
       const primaryKeys: PrimaryKeyInfo[] = cols
@@ -771,14 +777,19 @@ export async function getSchemaMetadataBatch(
             ordinal_position: col.seqno,
           });
 
-          if (idx.unique === 1 && idx.origin !== 'pk') {
-            uniqueConstraints.push({
-              constraint_name: idx.name,
-              table_schema: 'main',
-              table_name: tableName,
-              column_name: col.name,
-              ordinal_position: col.seqno,
-            });
+          if (idx.unique === 1) {
+            const c = columns.find(c => c.name === col.name);
+            if (c) c.is_unique = true;
+
+            if (idx.origin !== 'pk') {
+              uniqueConstraints.push({
+                constraint_name: idx.name,
+                table_schema: 'main',
+                table_name: tableName,
+                column_name: col.name,
+                ordinal_position: col.seqno,
+              });
+            }
           }
         }
       }
@@ -1099,7 +1110,8 @@ export async function insertBaseline(
 /** Baseline if needed */
 export async function baselineIfNeeded(
   cfg: SQLiteConfig,
-  migrationsDir: string
+  migrationsDir: string,
+  snapshot?: SchemaFile
 ) {
   await ensureMigrationTable(cfg);
 
@@ -1109,7 +1121,18 @@ export async function baselineIfNeeded(
   const version = Date.now().toString();
   const name = "baseline_existing_schema";
 
-  const filePath = writeBaselineMigration(migrationsDir, version, name);
+  const fakeSnapshot = snapshot || {
+    version: 2,
+    projectId: "",
+    databaseId: "",
+    dialect: "sqlite",
+    schemas: [],
+    cachedAt: "",
+    relwaveVersion: "",
+    schemaHash: ""
+  };
+
+  const filePath = writeBaselineMigration(migrationsDir, version, name, fakeSnapshot);
 
   const checksum = crypto
     .createHash("sha256")

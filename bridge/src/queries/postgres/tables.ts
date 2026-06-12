@@ -28,8 +28,7 @@ export const PG_GET_TABLE_DETAILS = `
 `;
 
 /**
- * Get all columns in a schema (batch query)
- * @param schemaName - Use $1 placeholder
+ * Batch get all columns for all tables in a schema
  */
 export const PG_BATCH_GET_ALL_COLUMNS = `
   SELECT
@@ -56,7 +55,27 @@ export const PG_BATCH_GET_ALL_COLUMNS = `
          AND tc.table_name = c.table_name
          AND kcu.column_name = c.column_name),
       FALSE
-    ) AS is_foreign_key
+    ) AS is_foreign_key,
+    COALESCE(
+      (SELECT TRUE FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+       WHERE tc.constraint_type = 'UNIQUE'
+         AND tc.table_schema = c.table_schema
+         AND tc.table_name = c.table_name
+         AND kcu.column_name = c.column_name),
+      FALSE
+    ) AS is_unique,
+    (c.column_default ILIKE '%nextval%' OR c.is_identity = 'YES') AS is_serial,
+    (SELECT pg_catalog.col_description(format('%I.%I', c.table_schema, c.table_name)::regclass::oid, c.ordinal_position)) AS comment,
+    (SELECT cc.check_clause
+     FROM information_schema.table_constraints tc
+     JOIN information_schema.check_constraints cc ON tc.constraint_name = cc.constraint_name
+     JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
+     WHERE tc.constraint_type = 'CHECK'
+       AND tc.table_schema = c.table_schema
+       AND tc.table_name = c.table_name
+       AND ccu.column_name = c.column_name
+     LIMIT 1) AS check_constraint
   FROM information_schema.columns c
   WHERE c.table_schema = $1
   ORDER BY c.table_name, c.ordinal_position;
