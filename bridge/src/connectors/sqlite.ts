@@ -738,8 +738,8 @@ export async function getSchemaMetadataBatch(
           is_foreign_key: fkColumns.has(col.name),
           is_unique: false, // will be updated below if unique index exists
           is_serial: col.pk > 0 && (col.type || '').toLowerCase() === 'integer',
-          check_constraint: null,
-          comment: null,
+          check_constraint: undefined,
+          comment: undefined,
           ordinal_position: col.cid + 1,
         }));
 
@@ -1172,7 +1172,15 @@ export async function connectToDatabase(
   ensureDir(migrationsDir);
 
   if (!options?.readOnly) {
-    baselineResult = await baselineIfNeeded(cfg, migrationsDir);
+    // Pass real schema snapshot so baseline contains actual DDL
+    let snapshot: any = undefined;
+    try {
+      const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
+      if (project) {
+        snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
+      }
+    } catch {}
+    baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
   }
 
   const schema = await listSchemas(cfg);

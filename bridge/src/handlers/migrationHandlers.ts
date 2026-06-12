@@ -314,7 +314,8 @@ export class MigrationHandlers {
             // For now, we write the SQL and apply it. 
 
             const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
-            const tmpPath = path.join(migrationsDir, "tmp_snapshot_apply.sql");
+            const versionStr = Date.now().toString();
+            const tmpPath = path.join(migrationsDir, `${versionStr}_tmp_snapshot_apply.sql`);
             fs.writeFileSync(tmpPath, baselineSQL, "utf8");
 
             if (dbType === "mysql") await this.queryExecutor.mysql.applyMigration(conn, tmpPath);

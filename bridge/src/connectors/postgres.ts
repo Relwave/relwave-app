@@ -1176,7 +1176,7 @@ function groupIndexes(indexes: IndexInfo[]) {
   }
 
   return [...map.values()].map(group =>
-    group.sort((a, b) => a.ordinal_position - b.ordinal_position)
+    group.sort((a, b) => (a.ordinal_position ?? 0) - (b.ordinal_position ?? 0))
   );
 }
 
@@ -1508,7 +1508,15 @@ export async function connectToDatabase(
   ensureDir(migrationsDir);
 
   if (!options?.readOnly) {
-    baselineResult = await baselineIfNeeded(cfg, migrationsDir);
+    // Pass real schema snapshot so baseline contains actual DDL
+    let snapshot: any = undefined;
+    try {
+      const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
+      if (project) {
+        snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
+      }
+    } catch { }
+    baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
   }
 
   // 2️⃣ Load schema (read-only)

@@ -525,7 +525,7 @@ export function streamQueryCancelable(
       conn = await pool.getConnection();
 
       const [pidRows] = await conn.execute(GET_CONNECTION_ID);
-      backendPid = pidRows[0].pid;
+      backendPid = (pidRows as any[])[0].pid;
 
       const raw = (conn as any).connection;
       query = raw.query(sql);
@@ -1110,7 +1110,7 @@ function groupMySQLIndexes(indexes: IndexInfo[]) {
   }
 
   return [...map.values()].map(group =>
-    group.sort((a, b) => a.seq_in_index - b.seq_in_index)
+    group.sort((a, b) => (a.seq_in_index ?? 0) - (b.seq_in_index ?? 0))
   );
 }
 
@@ -1418,7 +1418,15 @@ export async function connectToDatabase(
   ensureDir(migrationsDir);
   // 1️⃣ Baseline (ONLY if not read-only)
   if (!options?.readOnly) {
-    baselineResult = await baselineIfNeeded(cfg, migrationsDir);
+    // Pass real schema snapshot so baseline contains actual DDL
+    let snapshot: any = undefined;
+    try {
+      const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
+      if (project) {
+        snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
+      }
+    } catch {}
+    baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
   }
 
   // 2️⃣ Load schema (read-only introspection)

@@ -41,8 +41,29 @@ export function generateBaselineSQL(snapshot: SchemaFile, version: string, name:
 
         // Tables
         for (const table of schema.tables) {
+            // Skip internal migration tracking tables
+            if (["schema_migrations", "__relwave_migrations", "relwave_migrations"].includes(table.name)) {
+                continue;
+            }
+
             const tableRef = dbType === "sqlite" ? quoteIdent(table.name, dbType) : `${quoteIdent(schema.name, dbType)}.${quoteIdent(table.name, dbType)}`;
             
+            // Check for sequences first (Postgres)
+            if (dbType === "postgresql") {
+                for (const col of table.columns) {
+                    if (col.defaultValue && col.defaultValue.includes("nextval(")) {
+                        // Extract 'windows_store_apps_id_seq' from nextval('windows_store_apps_id_seq'::regclass)
+                        const seqMatch = col.defaultValue.match(/nextval\('([^']+)'/i) || col.defaultValue.match(/nextval\("([^"]+)"/i);
+                        if (seqMatch && seqMatch[1]) {
+                            const seqName = seqMatch[1];
+                            const isSchemaQualified = seqName.includes(".");
+                            const seqRef = isSchemaQualified ? seqName : `${quoteIdent(schema.name, dbType)}.${quoteIdent(seqName, dbType)}`;
+                            upSQL += `CREATE SEQUENCE IF NOT EXISTS ${seqRef};\n`;
+                        }
+                    }
+                }
+            }
+
             const columnDefs = table.columns.map(col => {
                 let def = `  ${quoteIdent(col.name, dbType)} ${col.type}`;
                 if (!col.nullable) def += " NOT NULL";

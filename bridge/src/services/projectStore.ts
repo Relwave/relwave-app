@@ -77,7 +77,7 @@ export type SchemaFile = {
     version: number; // bumped to 2
     projectId: string;
     databaseId: string;
-    dialect: "postgresql" | "mysql" | "sqlite";
+    dialect: "postgresql" | "mysql" | "sqlite" | "unknown";
     schemas: SchemaSnapshot[];
     cachedAt: string;
     relwaveVersion: string;
@@ -391,7 +391,7 @@ export class ProjectStore {
         // Resolve engine from the linked database
         let engine: string | undefined;
         try {
-            const db: DBMeta | null = await dbStoreInstance.getDB(params.databaseId);
+            const db: DBMeta | undefined = await dbStoreInstance.getDB(params.databaseId);
             engine = db?.type;
         } catch {
             // db may not exist yet — that's OK
@@ -564,7 +564,7 @@ export class ProjectStore {
         // Resolve engine from the linked database
         let engine: string | undefined;
         try {
-            const db: DBMeta | null = await dbStoreInstance.getDB(databaseId);
+            const db: DBMeta | undefined = await dbStoreInstance.getDB(databaseId);
             engine = db?.type;
         } catch {
             // db may not exist yet
@@ -1384,7 +1384,7 @@ export class ProjectStore {
         // ---- 3. Resolve engine from the linked database ----
         let engine: string | undefined;
         try {
-            const db: DBMeta | null = await dbStoreInstance.getDB(databaseId);
+            const db: DBMeta | undefined = await dbStoreInstance.getDB(databaseId);
             engine = db?.type;
         } catch {
             // db may not exist yet

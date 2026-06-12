@@ -217,7 +217,7 @@ export class ProjectHandlers {
             await projectStoreInstance.saveSchema(projectId, liveSchemas, newHash, dbType);
 
             if (newHash !== oldHash) {
-                this.rpc.sendNotification("project.schema_changed", { projectId, newHash });
+                this.rpc?.sendNotification?.("project.schema_changed", { projectId, newHash });
 
                 // Commit to Git if tracking
                 try {
@@ -431,7 +431,10 @@ export class ProjectHandlers {
                 pendingMigrations.push({ file, version, isDestructive, destructiveOps });
             }
 
-            // 6. Compute drift status
+            // 6. Detect if all migration files are baseline-only (no real user migrations)
+            const isBaselineOnly = hasMigrations && migrationFiles.every(f => f.includes("baseline"));
+
+            // 7. Compute drift status
             let driftStatus: "synced" | "drifted" | "unknown" = "unknown";
             if (pendingMigrations.length === 0 && hasMigrations) {
                 // All migrations applied
@@ -449,10 +452,18 @@ export class ProjectHandlers {
                 driftStatus = "synced";
             }
 
-            // 7. Compute available modes
+            // 8. Compute available modes
             const availableModes: Array<"run_migrations" | "apply_snapshot" | "skip"> = ["skip"];
             let recommendedMode: "run_migrations" | "apply_snapshot" | "skip" = "skip";
-            if (hasMigrations && pendingMigrations.length > 0) {
+
+            if (isBaselineOnly && hasSchemaSnapshot && targetDatabaseEmpty) {
+                // Baseline-only + empty DB + schema.json exists:
+                // The baseline file has no real DDL — use schema.json to reconstruct the DB
+                availableModes.unshift("apply_snapshot");
+                recommendedMode = "apply_snapshot";
+                // Override: treat as "no real migrations" for the dialog
+                driftStatus = "drifted";
+            } else if (hasMigrations && pendingMigrations.length > 0 && !isBaselineOnly) {
                 availableModes.unshift("run_migrations");
                 recommendedMode = "run_migrations";
             }
@@ -461,9 +472,15 @@ export class ProjectHandlers {
                 recommendedMode = "apply_snapshot";
             }
 
+            // For the dialog: if baseline-only + empty DB, report as "no real migrations"
+            // so the frontend shows "Apply Schema Snapshot" (STATE 3) instead of
+            // "Pending Migrations" (STATE 2) which would try to run the empty baseline
+            const reportHasMigrations = isBaselineOnly && targetDatabaseEmpty ? false : hasMigrations;
+            const reportPendingMigrations = isBaselineOnly && targetDatabaseEmpty ? [] : pendingMigrations;
+
             const result = {
-                hasMigrations,
-                migrationCount: pendingMigrations.length,
+                hasMigrations: reportHasMigrations,
+                migrationCount: reportPendingMigrations.length,
                 hasSchemaSnapshot,
                 lockFileStatus,
                 tamperedFiles,
@@ -471,7 +488,7 @@ export class ProjectHandlers {
                 targetTableCount,
                 driftStatus,
                 driftDetails: undefined,
-                pendingMigrations,
+                pendingMigrations: reportPendingMigrations,
                 availableModes,
                 recommendedMode,
             };
