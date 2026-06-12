@@ -7,7 +7,8 @@ import mysql, {
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
 import crypto from "crypto";
 import fs from "fs";
-import { ensureDir, getMigrationsDir } from "../utils/config";
+import { ensureDir } from "../utils/config";
+import { projectStoreInstance } from "../services/projectStore";
 import {
     CacheEntry,
     CACHE_TTL,
@@ -1438,7 +1439,7 @@ export async function connectToDatabase(
     options?: { readOnly?: boolean }
 ) {
     let baselineResult = { baselined: false };
-    const migrationsDir = getMigrationsDir(connectionId);
+    const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
     ensureDir(migrationsDir);
     // 1️⃣ Baseline (ONLY if not read-only)
     if (!options?.readOnly) {

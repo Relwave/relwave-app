@@ -22,10 +22,6 @@ export function getConnectionDir(connectionId: string) {
   return path.join(CONFIG_FOLDER, "connections", connectionId);
 }
 
-export function getMigrationsDir(connectionId: string) {
-  return path.join(CONFIG_FOLDER, "migrations", connectionId);
-}
-
 export function getProjectDir(projectId: string) {
   return path.join(PROJECTS_FOLDER, projectId);
 }

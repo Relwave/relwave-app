@@ -17,8 +17,8 @@ export function readMigrationFile(filepath: string): ParsedMigration {
     const content = fs.readFileSync(filepath, "utf8");
     const filename = path.basename(filepath);
 
-    // Extract version and name from filename: 20260104160000_create_users.sql
-    const match = filename.match(/^(\d{14})_(.+)\.sql$/);
+    // Accept both 14-digit (YYYYMMDDHHmmss) and 13-digit (Date.now() ms) version formats
+    const match = filename.match(/^(\d{13,14})_(.+)\.sql$/);
     if (!match) {
         throw new Error(`Invalid migration filename format: ${filename}`);
     }

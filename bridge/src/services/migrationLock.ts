@@ -1,7 +1,7 @@
-import fs from "fs";
+import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
-import { getMigrationsDir } from "../utils/config";
+import fsSync from "fs";
+import { projectStoreInstance } from "./projectStore";
 
 export interface MigrationLock {
     version: string;
@@ -10,28 +10,29 @@ export interface MigrationLock {
     updatedAt: string;
 }
 
-export function getLockFilePath(dbId: string): string {
-    return path.join(getMigrationsDir(dbId), "migration.lock.json");
+export async function getLockFilePath(dbId: string): Promise<string> {
+    const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
+    return path.join(migrationsDir, "migration.lock.json");
 }
 
-export function readMigrationLock(dbId: string): MigrationLock | null {
-    const lockPath = getLockFilePath(dbId);
-    if (!fs.existsSync(lockPath)) return null;
+export async function readMigrationLock(dbId: string): Promise<MigrationLock | null> {
+    const lockPath = await getLockFilePath(dbId);
+    if (!fsSync.existsSync(lockPath)) return null;
     
     try {
-        const raw = fs.readFileSync(lockPath, "utf8");
+        const raw = await fs.readFile(lockPath, "utf8");
         return JSON.parse(raw) as MigrationLock;
     } catch (err) {
         return null;
     }
 }
 
-export function writeMigrationLock(
+export async function writeMigrationLock(
     dbId: string,
     schemaHash: string,
     appliedMigrations: string[]
-): void {
-    const lockPath = getLockFilePath(dbId);
+): Promise<void> {
+    const lockPath = await getLockFilePath(dbId);
     const lockData: MigrationLock = {
         version: "1",
         schemaHash,
@@ -39,12 +40,12 @@ export function writeMigrationLock(
         updatedAt: new Date().toISOString()
     };
     
-    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-    fs.writeFileSync(lockPath, JSON.stringify(lockData, null, 2), "utf8");
+    await fs.mkdir(path.dirname(lockPath), { recursive: true }).catch(() => {});
+    await fs.writeFile(lockPath, JSON.stringify(lockData, null, 2), "utf8");
 }
 
-export function verifyMigrationLock(dbId: string, targetHash: string): boolean {
-    const lock = readMigrationLock(dbId);
+export async function verifyMigrationLock(dbId: string, targetHash: string): Promise<boolean> {
+    const lock = await readMigrationLock(dbId);
     if (!lock) return false;
     return lock.schemaHash === targetHash;
 }

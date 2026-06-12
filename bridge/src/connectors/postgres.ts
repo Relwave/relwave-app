@@ -5,7 +5,8 @@ import { Readable } from "stream";
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
 import crypto from "crypto";
 import fs from "fs";
-import { ensureDir, getMigrationsDir } from "../utils/config";
+import { ensureDir } from "../utils/config";
+import { projectStoreInstance } from "../services/projectStore";
 import {
   CacheEntry,
   CACHE_TTL,
@@ -1503,7 +1504,7 @@ export async function connectToDatabase(
 ) {
   // 1️⃣ Baseline (only if allowed)
   let baselineResult = { baselined: false };
-  const migrationsDir = getMigrationsDir(connectionId);
+  const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
   ensureDir(migrationsDir);
 
   if (!options?.readOnly) {

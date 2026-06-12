@@ -4,6 +4,7 @@ import { projectStoreInstance } from "../services/projectStore";
 import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
 import { gitServiceInstance } from "../services/gitService";
+import path from "path";
 
 /**
  * RPC handlers for project CRUD and sub-resource operations.
@@ -316,7 +317,165 @@ export class ProjectHandlers {
             if (!projectId) {
                 return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing projectId" });
             }
-            const result = await projectStoreInstance.analyzeImportedProject(projectId);
+
+            const project = await projectStoreInstance.getProject(projectId);
+            if (!project) {
+                return this.rpc.sendError(id, { code: "NOT_FOUND", message: "Project not found" });
+            }
+
+            // 1. Read schema snapshot
+            const schemaFile = await projectStoreInstance.getSchema(projectId);
+            const hasSchemaSnapshot = !!schemaFile && !!(schemaFile as any)?.schemas?.length;
+            const schemaHash = (schemaFile as any)?.schemaHash || "";
+
+            // 2. Read migration files from project-local dir
+            const { listMigrationFiles, readMigrationFile } = await import("../utils/migrationFileReader");
+            let migrationFiles: string[] = [];
+            let migrationsDir = "";
+            if (project.databaseId) {
+                migrationsDir = await projectStoreInstance.resolveMigrationsDir(project.databaseId);
+                migrationFiles = listMigrationFiles(migrationsDir);
+            }
+            const hasMigrations = migrationFiles.length > 0;
+
+            // 3. Read lock file
+            let lockFileStatus: "valid" | "tampered" | "missing" = "missing";
+            let tamperedFiles: string[] = [];
+            let appliedVersions: string[] = [];
+            if (project.databaseId) {
+                const { readMigrationLock } = await import("../services/migrationLock");
+                const lock = await readMigrationLock(project.databaseId);
+                if (lock) {
+                    lockFileStatus = lock.schemaHash === schemaHash ? "valid" : "tampered";
+                    appliedVersions = lock.appliedMigrations || [];
+                }
+            }
+
+            // 4. Query live database for table count
+            let targetDatabaseEmpty = true;
+            let targetTableCount = 0;
+            let dbAppliedVersions: string[] = [];
+            if (project.databaseId) {
+                try {
+                    const { conn, dbType } = await this.dbService.getDatabaseConnection(project.databaseId);
+                    let connector: any;
+                    if (dbType === "mysql") connector = require("../connectors/mysql");
+                    else if (dbType === "postgres") connector = require("../connectors/postgres");
+                    else if (dbType === "mariadb") connector = require("../connectors/mariadb");
+                    else if (dbType === "sqlite") connector = require("../connectors/sqlite");
+
+                    if (connector) {
+                        try {
+                            const tables = await connector.listTables(conn);
+                            // Filter out internal migration tracking tables
+                            const userTables = (tables || []).filter((t: any) => {
+                                const name = typeof t === "string" ? t : t?.name || "";
+                                return name !== "__relwave_migrations" && name !== "relwave_migrations";
+                            });
+                            targetTableCount = userTables.length;
+                            targetDatabaseEmpty = targetTableCount === 0;
+                        } catch {
+                            // Can't list tables — assume non-empty for safety
+                            targetDatabaseEmpty = false;
+                        }
+
+                        try {
+                            const applied = await connector.listAppliedMigrations(conn);
+                            dbAppliedVersions = (applied || []).map((m: any) => m.version);
+                        } catch {
+                            // Migration tracking table may not exist yet
+                        }
+                    }
+                } catch {
+                    // Database connection may not be available
+                }
+            }
+
+            // 5. Compute pending migrations
+            const appliedSet = new Set(dbAppliedVersions);
+            const pendingMigrations: Array<{
+                file: string;
+                version: string;
+                isDestructive: boolean;
+                destructiveOps: string[];
+            }> = [];
+
+            for (const file of migrationFiles) {
+                const versionMatch = file.match(/^(\d{13,14})/);
+                if (!versionMatch) continue;
+                const version = versionMatch[1];
+                if (appliedSet.has(version)) continue;
+
+                // Parse for destructive operations
+                let isDestructive = false;
+                const destructiveOps: string[] = [];
+                try {
+                    const parsed = readMigrationFile(path.join(migrationsDir, file));
+                    const upSQL = parsed.upSQL.toUpperCase();
+                    if (upSQL.includes("DROP TABLE")) {
+                        isDestructive = true;
+                        destructiveOps.push("DROP TABLE");
+                    }
+                    if (upSQL.includes("DROP COLUMN")) {
+                        isDestructive = true;
+                        destructiveOps.push("DROP COLUMN");
+                    }
+                    if (upSQL.includes("TRUNCATE")) {
+                        isDestructive = true;
+                        destructiveOps.push("TRUNCATE");
+                    }
+                } catch {
+                    // Skip parse errors
+                }
+
+                pendingMigrations.push({ file, version, isDestructive, destructiveOps });
+            }
+
+            // 6. Compute drift status
+            let driftStatus: "synced" | "drifted" | "unknown" = "unknown";
+            if (pendingMigrations.length === 0 && hasMigrations) {
+                // All migrations applied
+                driftStatus = "synced";
+            } else if (pendingMigrations.length === 0 && !hasMigrations && !hasSchemaSnapshot) {
+                // No migrations or schema — fresh project
+                driftStatus = "synced";
+            } else if (pendingMigrations.length > 0) {
+                driftStatus = "drifted";
+            } else if (!hasMigrations && hasSchemaSnapshot && targetDatabaseEmpty) {
+                // Schema exists but database is empty — need to apply snapshot
+                driftStatus = "drifted";
+            } else if (!hasMigrations && hasSchemaSnapshot && !targetDatabaseEmpty) {
+                // Schema exists and database has tables — assume synced (user just hasn't made migrations yet)
+                driftStatus = "synced";
+            }
+
+            // 7. Compute available modes
+            const availableModes: Array<"run_migrations" | "apply_snapshot" | "skip"> = ["skip"];
+            let recommendedMode: "run_migrations" | "apply_snapshot" | "skip" = "skip";
+            if (hasMigrations && pendingMigrations.length > 0) {
+                availableModes.unshift("run_migrations");
+                recommendedMode = "run_migrations";
+            }
+            if (hasSchemaSnapshot && targetDatabaseEmpty && !hasMigrations) {
+                availableModes.unshift("apply_snapshot");
+                recommendedMode = "apply_snapshot";
+            }
+
+            const result = {
+                hasMigrations,
+                migrationCount: pendingMigrations.length,
+                hasSchemaSnapshot,
+                lockFileStatus,
+                tamperedFiles,
+                targetDatabaseEmpty,
+                targetTableCount,
+                driftStatus,
+                driftDetails: undefined,
+                pendingMigrations,
+                availableModes,
+                recommendedMode,
+            };
+
             this.rpc.sendResponse(id, { ok: true, data: result });
         } catch (e: any) {
             this.logger?.error({ e }, "project.analyzeImport failed");
@@ -338,7 +497,7 @@ export class ProjectHandlers {
             const schemaFile = await projectStoreInstance.getSchema(projectId);
             const schemaHash = (schemaFile as any)?.schemaHash || "";
 
-            const isValid = verifyMigrationLock(project.databaseId, schemaHash);
+            const isValid = await verifyMigrationLock(project.databaseId, schemaHash);
             this.rpc.sendResponse(id, { ok: true, isValid });
         } catch (e: any) {
             this.logger?.error({ e }, "project.verifyLock failed");

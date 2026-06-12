@@ -5,7 +5,8 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { ensureDir, getMigrationsDir } from "../utils/config";
+import { ensureDir } from "../utils/config";
+import { projectStoreInstance } from "../services/projectStore";
 import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
 import {
   CacheEntry,
@@ -1167,7 +1168,7 @@ export async function connectToDatabase(
   options?: { readOnly?: boolean }
 ) {
   let baselineResult = { baselined: false };
-  const migrationsDir = getMigrationsDir(connectionId);
+  const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
   ensureDir(migrationsDir);
 
   if (!options?.readOnly) {

@@ -627,6 +627,39 @@ export class ProjectStore {
      * For imported projects the source directory is NOT deleted
      * (the user owns it) — only the index entry is removed.
      */
+    /**
+     * Resolve the migrations directory for a database.
+     * Moves legacy migrations from AppData to the project directory if they exist.
+     */
+    async resolveMigrationsDir(dbId: string): Promise<string> {
+        const { CONFIG_FOLDER } = await import("../utils/config");
+        const fallbackDir = path.join(CONFIG_FOLDER, "migrations", dbId);
+        let targetDir = fallbackDir;
+
+        const project = await this.getProjectByDatabaseId(dbId);
+        if (project) {
+            targetDir = path.join(this.projectDir(project.id), "migrations");
+        }
+
+        // Migrate existing directory
+        if (targetDir !== fallbackDir && fsSync.existsSync(fallbackDir)) {
+            if (!fsSync.existsSync(targetDir)) {
+                await fs.mkdir(path.dirname(targetDir), { recursive: true }).catch(() => {});
+                try {
+                    await fs.rename(fallbackDir, targetDir);
+                } catch (e) {
+                    console.error("Failed to migrate existing migrations dir:", e);
+                }
+            }
+        }
+
+        if (!fsSync.existsSync(targetDir)) {
+            await fs.mkdir(targetDir, { recursive: true }).catch(() => {});
+        }
+
+        return targetDir;
+    }
+
     async analyzeImportedProject(projectId: string): Promise<{ hasLock: boolean; hashMatch: boolean; migrationsCount: number }> {
         const schemaFile = await this.getSchema(projectId);
         const schemaHash = (schemaFile as any)?.schemaHash || "";
@@ -640,7 +673,7 @@ export class ProjectStore {
             const project = await this.getProject(projectId);
             if (project?.databaseId) {
                 const { readMigrationLock } = await import("./migrationLock");
-                const lock = readMigrationLock(project.databaseId);
+                const lock = await readMigrationLock(project.databaseId);
                 if (lock) {
                     hasLock = true;
                     hashMatch = lock.schemaHash === schemaHash;
