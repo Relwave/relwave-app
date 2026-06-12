@@ -1,8 +1,9 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useProjectByDatabaseId } from "@/features/project/hooks/useProjectQueries";
 import { schemaGroupsToSnapshots } from "@/lib/schemaConverters";
 import type { DatabaseSchemaDetails } from "@/features/database/types";
 import type { ERNode } from "@/features/project/types";
+import type { ImportAnalysis } from "@/features/project/types";
 import { projectService } from "@/services/bridge/project";
 
 // ==========================================
@@ -23,6 +24,12 @@ interface UseProjectSyncReturn {
     isLoading: boolean;
     /** Save ER diagram node positions (debounced externally by caller) */
     saveERDiagram: (nodes: ERNode[], zoom?: number, panX?: number, panY?: number) => void;
+    /** Import analysis result — null while loading or if no project */
+    importAnalysis: ImportAnalysis | null;
+    /** Whether the import analysis is still loading */
+    importAnalysisLoading: boolean;
+    /** Re-fetch import analysis (e.g. after applying migrations) */
+    refetchImportAnalysis: () => void;
 }
 
 export function useProjectSync(
@@ -36,10 +43,52 @@ export function useProjectSync(
     const lastSyncedSchemaRef = useRef<string | null>(null);
 
     // -----------------------------------------
+    // Import analysis — check if project has pending migrations
+    // -----------------------------------------
+    const [importAnalysis, setImportAnalysis] = useState<ImportAnalysis | null>(null);
+    const [importAnalysisLoading, setImportAnalysisLoading] = useState(false);
+    const analysisCheckedRef = useRef<string | null>(null);
+
+    const fetchImportAnalysis = useCallback(async () => {
+        if (!projectId) return;
+        setImportAnalysisLoading(true);
+        try {
+            const data = await projectService.analyzeImport(projectId);
+            setImportAnalysis(data);
+        } catch (err: any) {
+            console.warn("[ProjectSync] Import analysis failed:", err.message);
+            // On failure, allow schema sync to proceed (fail-open)
+            setImportAnalysis(null);
+        } finally {
+            setImportAnalysisLoading(false);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        if (projectId && projectId !== analysisCheckedRef.current) {
+            analysisCheckedRef.current = projectId;
+            fetchImportAnalysis();
+        }
+    }, [projectId, fetchImportAnalysis]);
+
+    // -----------------------------------------
     // Auto-sync schema when fresh data arrives
     // -----------------------------------------
     useEffect(() => {
         if (!projectId || !schemaData?.schemas?.length) return;
+
+        // Don't overwrite the imported schema if there are pending migrations
+        // or a schema snapshot waiting to be applied to an empty database.
+        // Only auto-sync when analysis confirms the project is "synced"
+        // (i.e., the live DB matches the project state).
+        if (importAnalysisLoading) return; // wait until analysis finishes
+        if (importAnalysis && importAnalysis.driftStatus !== "synced") {
+            console.debug(
+                "[ProjectSync] Skipping schema auto-save — project has pending drift:",
+                importAnalysis.driftStatus
+            );
+            return;
+        }
 
         // Build a lightweight fingerprint to avoid re-saving identical data.
         // We use schema/table count as a quick check (cheap to compute).
@@ -61,7 +110,7 @@ export function useProjectSync(
             .catch((err) => {
                 console.warn("[ProjectSync] Schema sync failed:", err.message);
             });
-    }, [projectId, schemaData]);
+    }, [projectId, schemaData, importAnalysis, importAnalysisLoading]);
 
     // -----------------------------------------
     // ER Diagram save helper
@@ -81,5 +130,5 @@ export function useProjectSync(
         [projectId]
     );
 
-    return { projectId, isLoading, saveERDiagram };
+    return { projectId, isLoading, saveERDiagram, importAnalysis, importAnalysisLoading, refetchImportAnalysis: fetchImportAnalysis };
 }

@@ -344,6 +344,131 @@ class ProjectService {
             throw new Error(`Failed to link database: ${error.message}`);
         }
     }
+    /**
+     * Analyze a project import to see if there are pending migrations or schema drift
+     */
+    async analyzeImport(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.analyzeImport", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to analyze import:", error);
+            throw new Error(`Failed to analyze import: ${error.message}`);
+        }
+    }
+
+    /**
+     * Apply all pending migrations for a project
+     */
+    async applyMigrations(projectId: string, options?: { skipDestructive?: boolean }): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("migration.applyMigrations", { projectId, ...options });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to apply migrations:", error);
+            throw new Error(`Failed to apply migrations: ${error.message}`);
+        }
+    }
+
+    /**
+     * Apply schema snapshot baseline
+     */
+    async applySnapshot(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("migration.applySnapshot", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to apply snapshot:", error);
+            throw new Error(`Failed to apply snapshot: ${error.message}`);
+        }
+    }
+
+    /**
+     * Re-capture live database schema and update schema.json
+     */
+    async refreshSchemaCache(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.refreshSchemaCache", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to refresh schema cache:", error);
+            throw new Error(`Failed to refresh schema cache: ${error.message}`);
+        }
+    }
+
+    /**
+     * Verify migration lock file
+     */
+    async verifyLock(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.verifyLock", { projectId });
+            return result?.isValid;
+        } catch (error: any) {
+            console.error("Failed to verify lock:", error);
+            throw new Error(`Failed to verify lock: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get drift detection between schema.json and live DB
+     */
+    async getDrift(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.getDrift", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to get drift:", error);
+            throw new Error(`Failed to get drift: ${error.message}`);
+        }
+    }
+
+    /**
+     * Push migrations manually
+     */
+    async pushMigrations(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.pushMigrations", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to push migrations:", error);
+            throw new Error(`Failed to push migrations: ${error.message}`);
+        }
+    }
+
+    /**
+     * Sync migrations (stage, commit, push)
+     */
+    async syncMigrations(projectId: string): Promise<any> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.syncMigrations", { projectId });
+            return result?.data;
+        } catch (error: any) {
+            console.error("Failed to sync migrations:", error);
+            throw new Error(`Failed to sync migrations: ${error.message}`);
+        }
+    }
+
+    /**
+     * Generate SQL string from schema snapshot
+     */
+    async generateSQL(projectId: string): Promise<string> {
+        try {
+            if (!projectId) throw new Error("projectId is required");
+            const result = await bridgeRequest("project.generateSQL", { projectId });
+            return result?.data?.sql || "";
+        } catch (error: any) {
+            console.error("Failed to generate SQL:", error);
+            throw new Error(`Failed to generate SQL: ${error.message}`);
+        }
+    }
 }
 
 export const projectService = new ProjectService();

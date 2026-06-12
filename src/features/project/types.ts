@@ -144,3 +144,50 @@ export interface ImportProjectParams {
   sourcePath: string;
   databaseId: string;
 }
+
+// ==========================================
+// Sync and Migration Types
+// ==========================================
+
+export interface SchemaDiff {
+  tablesAdded: string[];
+  tablesRemoved: string[];
+  tablesModified: Array<{
+    tableName: string;
+    columnsAdded: string[];
+    columnsRemoved: string[];
+    columnsChanged: string[];
+    constraintsChanged: string[];
+  }>;
+}
+
+export interface ImportAnalysis {
+  hasMigrations: boolean;
+  migrationCount: number;
+  hasSchemaSnapshot: boolean;
+  lockFileStatus: "valid" | "tampered" | "missing";
+  tamperedFiles: string[];
+
+  targetDatabaseEmpty: boolean;
+  targetTableCount: number;
+
+  driftStatus: "synced" | "drifted" | "unknown";
+  driftDetails?: SchemaDiff;
+
+  pendingMigrations: Array<{
+    file: string;
+    version: string;
+    isDestructive: boolean;
+    destructiveOps: string[];
+  }>;
+
+  availableModes: Array<"run_migrations" | "apply_snapshot" | "skip">;
+  recommendedMode: "run_migrations" | "apply_snapshot" | "skip";
+}
+
+export interface MigrationLockVerifyResult {
+  valid: boolean;
+  tamperedFiles: string[];
+  missingFiles: string[];
+  unknownFiles: string[];
+}
