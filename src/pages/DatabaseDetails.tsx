@@ -29,6 +29,7 @@ import GitStatusBar from "@/features/git/components/GitStatusBar";
 import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel";
 import { ShortcutsHelp } from "@/components/shared/ShortcutsHelp";
 import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
+import { MigrationSyncDialog } from "@/features/project/components/MigrationSyncDialog";
 import { useState } from "react";
 
 const DatabaseDetail = () => {
@@ -94,9 +95,10 @@ const DatabaseDetail = () => {
   const baselined = migrationsResponse?.baselined || false;
 
   // Project sync
-  const { data: schemaData } = useFullSchema(dbId);
-  const { projectId } = useProjectSync(dbId, schemaData ?? undefined);
+  const { data: schemaData, refetch: refetchSchema } = useFullSchema(dbId);
+  const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } = useProjectSync(dbId, schemaData ?? undefined);
   const { data: projectDir } = useProjectDir(projectId);
+  const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
   // ---- Guards ----
   if (bridgeLoading || bridgeReady === undefined) return <BridgeLoader />;
@@ -110,7 +112,8 @@ const DatabaseDetail = () => {
       case "schema-explorer": return <SchemaExplorerPanel dbId={dbId || ""} projectId={projectId} />;
       case "er-diagram": return <ERDiagramPanel projectId={projectId} />;
       case "monitoring": return <MonitoringPanel dbId={dbId || ""} databaseName={databaseName} databaseType={databaseType} />;
-      case "git-status": return <GitStatusPanel projectDir={projectDir} />;
+      case "git-status": return <GitStatusPanel projectDir={projectDir} projectId={projectId ?? ''} />;
+      case "migrations": return <div className="p-6 h-full"><MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} /></div>;
       default:
         return (
           <DataViewPanel
@@ -130,7 +133,7 @@ const DatabaseDetail = () => {
             sidebarOpen={sidebarOpen}
             onToggleSidebar={toggleSidebar}
             onRefresh={fetchTables}
-            onMigrationsOpen={() => setMigrationsOpen(true)}
+            onMigrationsOpen={() => setActivePanel("migrations")}
             onExport={exportAllTables}
             isExporting={isExporting}
             onChart={() => setChartOpen(true)}
@@ -183,10 +186,20 @@ const DatabaseDetail = () => {
 
       <ShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-      {/* Migrations */}
-      <SlideOutPanel isOpen={migrationsOpen} onClose={() => setMigrationsOpen(false)} title="Migrations" disableScroll>
-        <MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} />
-      </SlideOutPanel>
+      {/* Migration Sync Dialog — prompts user when imported project has pending migrations */}
+      {projectId && !migrationSyncDismissed && !importAnalysisLoading && (
+        <MigrationSyncDialog
+          projectId={projectId}
+          analysis={importAnalysis}
+          onClose={() => setMigrationSyncDismissed(true)}
+          onApplied={() => {
+            setMigrationSyncDismissed(true);
+            refetchImportAnalysis();
+            fetchTables();
+            refetchSchema();
+          }}
+        />
+      )}
 
       {/* Chart */}
       <SlideOutPanel isOpen={chartOpen} onClose={() => setChartOpen(false)} title={`Chart: ${selectedTable?.name || "Table"}`} width="60%">

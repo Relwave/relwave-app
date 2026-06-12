@@ -175,6 +175,7 @@ export function DatabaseDetail({
             <div>
                 <DatabaseOverviewPanel
                     database={database}
+                    projectId={project?.id}
                     size={size}
                     tables={tables}
                     schemaCount={schemaData?.schemas?.length}

@@ -31,7 +31,7 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
     const [dropTableOpen, setDropTableOpen] = useState(false);
     const [alterTableOpen, setAlterTableOpen] = useState(false);
 
-    const defaultSchema = 'public';
+    const defaultSchema = selectedTable?.schema || database.schemas?.[0]?.name || 'public';
 
     return (
         <div>
