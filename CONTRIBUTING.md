@@ -35,6 +35,9 @@ If you are working on bridge-related code, you can run bridge tests directly:
 
 ```bash
 cd bridge
+
+docker compose -f docker-compose.test.yml up -d
+
 pnpm test
 ```
 

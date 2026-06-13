@@ -184,7 +184,6 @@ function MigrationItem({ migration, onApply, onRollback, onDelete, onViewSQL }: 
                             {migration.name}
                         </p>
                         {migration.appliedAt && (
-                            console.log(formatTimestamp(migration.appliedAt)),
                             <p className="text-xs text-muted-foreground/70 mt-1">
                                 Applied: {formatTimestamp(migration.appliedAt)}
                             </p>
