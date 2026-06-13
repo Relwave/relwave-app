@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useImportAnalysis } from "@/features/project/hooks/useImportAnalysis";
-import { projectService } from "@/services/bridge/project";
 import { AlertTriangle, Database, RefreshCw, CheckCircle2 } from "lucide-react";
 import { SchemaDriftSheet } from "@/features/project/components/SchemaDriftSheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface MigrationStatusCardProps {
   projectId: string;
@@ -17,10 +17,6 @@ interface MigrationStatusCardProps {
 export function MigrationStatusCard({ projectId, databaseId, connectionName }: MigrationStatusCardProps) {
   const { analysis, loading, refetch } = useImportAnalysis(projectId, databaseId);
   const [driftSheetOpen, setDriftSheetOpen] = useState(false);
-
-  useEffect(() => {
-    // Optionally poll or just rely on manual refresh
-  }, [projectId]);
 
   if (loading && !analysis) {
     return <Skeleton className="h-[200px] w-full rounded-xl" />;
@@ -66,17 +62,29 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
               <span className="text-muted-foreground">Pending Migrations</span>
               <span className="font-medium">{analysis.migrationCount}</span>
             </div>
-            
+
             {isDrifted && analysis.driftDetails && (
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                 Schema drift detected. The live database has modifications not tracked in the schema snapshot.
               </div>
             )}
 
+            {isDrifted && !analysis.driftDetails && (
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                Drift detected — pending migrations have not been applied to the live database.
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={refetch} className="flex-1">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refetch}
+                disabled={loading}
+                className="flex-1"
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                {loading ? "Refreshing..." : "Refresh"}
               </Button>
               {isDrifted && (
                 <Button size="sm" onClick={() => setDriftSheetOpen(true)} className="flex-1">
@@ -88,16 +96,15 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
         </CardContent>
       </Card>
 
-      {analysis.driftDetails && (
-        <SchemaDriftSheet
-          open={driftSheetOpen}
-          onOpenChange={setDriftSheetOpen}
-          projectId={projectId}
-          connectionName={connectionName}
-          driftDetails={analysis.driftDetails}
-          onRefresh={refetch}
-        />
-      )}
+      {/* Always render the sheet — it manages its own empty-state guard */}
+      <SchemaDriftSheet
+        open={driftSheetOpen}
+        onOpenChange={setDriftSheetOpen}
+        projectId={projectId}
+        connectionName={connectionName}
+        driftDetails={analysis.driftDetails}
+        onRefresh={refetch}
+      />
     </>
   );
 }

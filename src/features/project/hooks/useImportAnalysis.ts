@@ -9,7 +9,6 @@ export function useImportAnalysis(projectId?: string, targetDatabaseId?: string)
 
     const fetchAnalysis = useCallback(async () => {
         if (!projectId) return;
-        
         setLoading(true);
         setError(null);
         try {
