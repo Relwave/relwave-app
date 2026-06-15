@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus, Shield, FolderInput } from "lucide-react";
+import { Plus, Database, Search, Trash2, Zap, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, FolderPlus, GripVertical, FolderMinus, Shield, FolderInput, X, Settings as SettingsIcon, CircleDot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +48,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { DatabaseConnection } from "@/features/database/types";
 import { InputDialog } from "@/components/shared/InputDialog";
+import { SettingsDialog } from "@/features/settings/components";
+import { UnlinkedProjectItem } from "@/features/project/components/UnlinkedProjectItem";
 
 // --- Components ---
 
@@ -134,7 +136,7 @@ function DraggableConnectionItem({
                     <div
                     className={cn(
                         "h-2 w-2 rounded-full shrink-0 ring-4",
-                        isConnected ? "bg-emerald-500 ring-emerald-500/10" : "bg-muted-foreground/30 ring-muted/40"
+                        isConnected ? "bg-emerald-500 ring-emerald-500/10 motion-safe:animate-pulse" : "bg-muted-foreground/30 ring-muted/40"
                     )}
                     />
                     <div className="flex-1 min-w-0 pr-6 ml-1">
@@ -286,23 +288,26 @@ function DroppableGroup({
 
 // --- Main Component ---
 
-export function ConnectionList({
-  databases,
-  filteredDatabases,
-  loading,
-  searchQuery,
-  setSearchQuery,
-  selectedDb,
-  setSelectedDb,
-  status,
-  connectedCount,
-  totalTables,
+export function ConnectionList({ 
+  databases, 
+  filteredDatabases, 
+  unlinkedProjects = [],
+  loading, 
+  searchQuery, 
+  setSearchQuery, 
+  onlineFilter, 
+  setOnlineFilter, 
+  selectedDb, 
+  setSelectedDb, 
+  status, 
+  connectedCount, 
+  totalTables, 
   statsLoading,
   onAddClick,
   onDatabaseHover,
   onDelete,
   onTest,
-  onImportClick,
+  onImportClick
 }: ConnectionListProps) {
   const { 
     groups, 
@@ -321,6 +326,7 @@ export function ConnectionList({
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [renameGroupOpen, setRenameGroupOpen] = useState(false);
   const [groupToRename, setGroupToRename] = useState<ConnectionGroup | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -403,13 +409,29 @@ export function ConnectionList({
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
           <Input
+            id="connection-search"
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs bg-background/65 border-border/60 shadow-inner"
+            className="h-8 pl-8 text-xs bg-background/65 border-border/60 shadow-inner focus-visible:ring-1 focus-visible:ring-primary/50"
           />
         </div>
       </div>
+      
+      {onlineFilter && (
+        <div className="px-4 pb-3 pt-3 bg-background/35 border-b border-border/50">
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-medium border border-emerald-500/20">
+            <CircleDot className="h-3 w-3" />
+            Filtered: Online only
+            <button 
+              onClick={() => setOnlineFilter(false)}
+              className="ml-1 hover:text-emerald-700 transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Database List */}
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
@@ -459,11 +481,13 @@ export function ConnectionList({
                     "mt-2 pt-2 border-t border-border/20 rounded-lg transition-colors border border-transparent min-h-20 pb-4",
                     isOverUngrouped ? "bg-primary/5 border-primary/20 shadow-inner" : ""
                 )}>
-                    <div className="px-2 mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40">
-                            Ungrouped
-                        </span>
-                    </div>
+                    {groups.length > 0 && (
+                        <div className="px-2 mb-2">
+                            <span className="text-xs text-muted-foreground/50 lowercase">
+                                ungrouped
+                            </span>
+                        </div>
+                    )}
                     <div className="space-y-0.5">
                         <SortableContext items={ungroupedConnections.map(c => c.id)} strategy={verticalListSortingStrategy}>
                             {ungroupedConnections.map(db => (
@@ -483,6 +507,25 @@ export function ConnectionList({
                     </div>
                 </div>
 
+                {/* Unlinked Projects Section */}
+                {unlinkedProjects && unlinkedProjects.length > 0 && (
+                    <div className="mt-4 pt-2 border-t border-border/20 rounded-lg">
+                        <div className="px-2 mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
+                                unlinked projects
+                            </span>
+                        </div>
+                        <div className="space-y-0.5">
+                            {unlinkedProjects.map((project) => (
+                                <UnlinkedProjectItem 
+                                    key={project.id} 
+                                    project={project}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <DragOverlay dropAnimation={{
                     sideEffects: defaultDropAnimationSideEffects({
                         styles: {
@@ -498,7 +541,7 @@ export function ConnectionList({
                                 <GripVertical className="h-3 w-3 text-primary/50" />
                                 <div className={cn(
                                     "h-2 w-2 rounded-full ring-2",
-                                    status.get(activeId) === "connected" ? "bg-emerald-500 ring-emerald-500/20" : "bg-muted-foreground/30 ring-muted/20"
+                                    status.get(activeId) === "connected" ? "bg-emerald-500 ring-emerald-500/20 motion-safe:animate-pulse" : "bg-muted-foreground/30 ring-muted/20"
                                 )} />
                                 <span className="text-sm font-semibold truncate text-foreground">{filteredDatabasesById.get(activeId)?.name}</span>
                              </div>
@@ -512,7 +555,7 @@ export function ConnectionList({
 
       {/* Quick Stats Footer */}
       <div className="p-3 border-t border-border/50 bg-background/55">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 mb-2">
           <Card className="text-center p-2 rounded-md premium-card shadow-sm">
             <CardContent className="px-2 pb-0">
               <CardTitle className="text-lg font-bold tabular-nums font-mono leading-none mb-1">
@@ -529,6 +572,11 @@ export function ConnectionList({
               <CardDescription className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight text-center">Tables</CardDescription>
             </CardContent>
           </Card>
+        </div>
+        <div className="flex justify-start">
+            <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                <SettingsIcon className="h-4 w-4" />
+            </Button>
         </div>
       </div>
 
@@ -553,6 +601,8 @@ export function ConnectionList({
             onConfirm={(name) => renameGroup(groupToRename.id, name)}
         />
       )}
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

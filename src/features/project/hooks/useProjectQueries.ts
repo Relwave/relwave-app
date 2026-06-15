@@ -148,6 +148,29 @@ export function useDeleteProject() {
   });
 }
 
+export function useDeleteProjectWithConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (projectId: string) => projectService.deleteWithConnection(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+export function useRelinkProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ projectId, databaseId }: { projectId: string; databaseId: string }) => 
+        projectService.relinkToConnection(projectId, databaseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
 // ============================================
 // Project Schema (cached offline data)
 // ============================================

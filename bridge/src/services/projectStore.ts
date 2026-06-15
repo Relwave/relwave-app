@@ -21,7 +21,8 @@ import { dbStoreInstance, DBMeta } from "./dbStore";
 export type ProjectMetadata = {
     version: number;
     id: string;
-    databaseId: string;
+    databaseId: string | null;
+    status?: "active" | "unlinked";
     name: string;
     description?: string;
     engine?: string;
@@ -156,7 +157,7 @@ export type ViewSnapshot = {
 
 export type ProjectSummary = Pick<
     ProjectMetadata,
-    "id" | "name" | "description" | "engine" | "databaseId" | "sourcePath" | "createdAt" | "updatedAt"
+    "id" | "name" | "description" | "engine" | "databaseId" | "sourcePath" | "createdAt" | "updatedAt" | "status"
 >;
 
 /**
@@ -408,6 +409,7 @@ export class ProjectStore {
             description: params.description,
             engine,
             defaultSchema: params.defaultSchema,
+            status: "active",
             createdAt: now,
             updatedAt: now,
         };
@@ -471,6 +473,7 @@ export class ProjectStore {
             description: meta.description,
             engine,
             databaseId: meta.databaseId,
+            status: "active",
             createdAt: now,
             updatedAt: now,
         });
@@ -622,6 +625,95 @@ export class ProjectStore {
     }
 
     /**
+     * Unlink a database connection from a project (leaving the project orphaned but intact)
+     */
+    async unlinkDatabase(databaseId: string): Promise<void> {
+        const meta = await this.getProjectByDatabaseId(databaseId);
+        if (!meta) return;
+
+        const now = new Date().toISOString();
+
+        await this.ensureSourcePathCache();
+        const isImported = this.sourcePathCache.has(meta.id);
+
+        if (isImported) {
+            // ---- Imported project: write to local config only ----
+            const local = (await this.getLocalConfig(meta.id)) ?? {};
+            local.databaseId = undefined;
+            await this.saveLocalConfig(meta.id, local);
+        } else {
+            // ---- Regular project: update relwave.json ----
+            const updated: ProjectMetadata = {
+                ...meta,
+                databaseId: null,
+                status: "unlinked",
+                updatedAt: now,
+            };
+            await this.writeJSON(
+                this.projectFile(meta.id, PROJECT_FILES.metadata),
+                updated
+            );
+        }
+
+        // Sync the index entry
+        const index = await this.loadIndex();
+        const entry = index.projects.find((p) => p.id === meta.id);
+        if (entry) {
+            entry.databaseId = null;
+            entry.status = "unlinked";
+            entry.updatedAt = now;
+            await this.saveIndex(index);
+        }
+    }
+
+    /**
+     * Relink an unlinked project to a new connection.
+     * Throws an error if the new connection is already linked to another project.
+     */
+    async relinkDatabase(projectId: string, databaseId: string): Promise<ProjectMetadata> {
+        // 1. Verify connection is not already linked to another project
+        const existingLinkedProject = await this.getProjectByDatabaseId(databaseId);
+        if (existingLinkedProject && existingLinkedProject.id !== projectId) {
+            throw new Error(`DATABASE_ALREADY_HAS_PROJECT: This connection is already linked to project "${existingLinkedProject.name}"`);
+        }
+
+        // 2. Link database
+        const updated = await this.linkDatabase(projectId, databaseId);
+        if (!updated) {
+            throw new Error(`Project ${projectId} not found`);
+        }
+
+        const now = new Date().toISOString();
+
+        // 3. Mark project as active again
+        await this.ensureSourcePathCache();
+        const isImported = this.sourcePathCache.has(projectId);
+
+        if (!isImported) {
+            const finalUpdated: ProjectMetadata = {
+                ...updated,
+                status: "active",
+                updatedAt: now,
+            };
+            await this.writeJSON(
+                this.projectFile(projectId, PROJECT_FILES.metadata),
+                finalUpdated
+            );
+        }
+
+        // Sync the index entry
+        const index = await this.loadIndex();
+        const entry = index.projects.find((p) => p.id === projectId);
+        if (entry) {
+            entry.status = "active";
+            entry.updatedAt = now;
+            await this.saveIndex(index);
+        }
+
+        return { ...updated, status: "active", updatedAt: now };
+    }
+
+    /**
      * Delete a project.
      * For regular projects the internal directory is removed.
      * For imported projects the source directory is NOT deleted
@@ -703,6 +795,32 @@ export class ProjectStore {
         this.sourcePathCache.delete(projectId);
         const index = await this.loadIndex();
         index.projects = index.projects.filter((p) => p.id !== projectId);
+        await this.saveIndex(index);
+    }
+
+    /**
+     * Used by the connection deletion flow when user opts to "Delete project as well".
+     * Finds the project linked to the databaseId, deletes its folder, and removes from the store.
+     */
+    async deleteProjectByDatabaseId(databaseId: string): Promise<void> {
+        const project = await this.getProjectByDatabaseId(databaseId);
+        if (!project) throw new Error("No linked project found");
+
+        await this.ensureSourcePathCache();
+        const isImported = this.sourcePathCache.has(project.id);
+
+        if (!isImported) {
+            // Transaction-like filesystem deletion first
+            const dir = this.projectDir(project.id);
+            if (fsSync.existsSync(dir)) {
+                await fs.rm(dir, { recursive: true, force: true });
+            }
+        }
+
+        // Remove from index + cache
+        this.sourcePathCache.delete(project.id);
+        const index = await this.loadIndex();
+        index.projects = index.projects.filter((p) => p.id !== project.id);
         await this.saveIndex(index);
     }
 

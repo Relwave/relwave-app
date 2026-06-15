@@ -50,9 +50,12 @@ The main landing page for managing database connections. Features a clean, IDE-i
 **Connection Management**
 
 - Add new database connections with detailed configuration (name, type, host, port, user, password, SSL options)
+- **SSH Tunneling** — connect securely to remote databases via SSH tunnels using private keys and passphrases
 - **SQLite support** — connect to local `.db`, `.sqlite`, `.sqlite3`, `.s3db` files via native file picker
 - Connect via URL — paste connection strings like `postgres://user:pass@host:port/db`
 - Auto-parse URLs to populate connection form fields (including `sqlite://` protocol)
+- **Safe connection deletion** — intercepts deletion to prevent accidental loss of associated project data (schemas, queries, diagrams)
+- **Unlinked project management** — view, delete, or relink orphaned projects to new connections directly from the sidebar
 - Delete existing database connections
 - Test connections with real-time feedback
 - Connection status indicators for all databases
@@ -666,6 +669,6 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ---
 
-**Last Updated:** May 2026
+**Last Updated:** June 2026
 
 This document is maintained alongside the application and updated with each release.

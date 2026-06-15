@@ -109,6 +109,34 @@ class ProjectService {
     }
 
     /**
+     * Delete a project while cleaning up the filesystem and connection
+     */
+    async deleteWithConnection(projectId: string): Promise<void> {
+        try {
+            if (!projectId) throw new Error("Project ID is required");
+            await bridgeRequest("project.deleteWithConnection", { projectId });
+        } catch (error: any) {
+            console.error("Failed to delete project with connection:", error);
+            throw new Error(`Failed to delete project: ${error.message}`);
+        }
+    }
+
+    /**
+     * Relink an unlinked project to an existing database connection
+     */
+    async relinkToConnection(projectId: string, databaseId: string): Promise<ProjectMetadata> {
+        try {
+            if (!projectId || !databaseId) throw new Error("Project ID and Database ID are required");
+            const result = await bridgeRequest("project.relinkToConnection", { projectId, databaseId });
+            if (!result?.data) throw new Error("Failed to relink project");
+            return result.data;
+        } catch (error: any) {
+            console.error("Failed to relink project:", error);
+            throw new Error(`Failed to relink project: ${error.message}`);
+        }
+    }
+
+    /**
      * Get cached schema for a project
      */
     async getProjectSchema(projectId: string): Promise<SchemaFile | null> {

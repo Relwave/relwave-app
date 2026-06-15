@@ -827,6 +827,89 @@ export class ProjectHandlers {
             this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
         }
     }
+
+    async handleUnlinkFromConnection(params: any, id: number | string) {
+        try {
+            const { databaseId } = params || {};
+            if (!databaseId) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing databaseId",
+                });
+            }
+
+            await projectStoreInstance.unlinkDatabase(databaseId);
+            this.rpc.sendResponse(id, { ok: true });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.unlinkFromConnection failed");
+            this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+        }
+    }
+
+    async handleDeleteWithConnection(params: any, id: number | string) {
+        try {
+            const { databaseId } = params || {};
+            if (!databaseId) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing databaseId",
+                });
+            }
+
+            await projectStoreInstance.deleteProjectByDatabaseId(databaseId);
+            this.rpc.sendResponse(id, { ok: true });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.deleteWithConnection failed");
+            this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+        }
+    }
+
+    async handleGetGitRemote(params: any, id: number | string) {
+        try {
+            const { projectPath } = params || {};
+            if (!projectPath) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing projectPath",
+                });
+            }
+
+            // Using gitServiceInstance since it handles standard git operations
+            const remotes = await gitServiceInstance.remoteList(projectPath);
+            const remoteUrl = remotes.length > 0 ? remotes[0].fetchUrl : null;
+            
+            this.rpc.sendResponse(id, { ok: true, data: { remoteUrl } });
+        } catch (e: any) {
+            // If it's not a git repo or fails, just return null
+            this.logger?.error({ e }, "project.getGitRemote failed (might not be a git repo)");
+            this.rpc.sendResponse(id, { ok: true, data: { remoteUrl: null } });
+        }
+    }
+
+    async handleRelinkToConnection(params: any, id: number | string) {
+        try {
+            const { projectId, databaseId } = params || {};
+            if (!projectId || !databaseId) {
+                return this.rpc.sendError(id, {
+                    code: "BAD_REQUEST",
+                    message: "Missing projectId or databaseId",
+                });
+            }
+
+            const project = await projectStoreInstance.relinkDatabase(projectId, databaseId);
+            
+            this.rpc.sendResponse(id, { ok: true, data: project });
+        } catch (e: any) {
+            this.logger?.error({ e }, "project.relinkToConnection failed");
+            // Check if it's the specific error we throw
+            if (e.message?.includes("DATABASE_ALREADY_HAS_PROJECT")) {
+                this.rpc.sendError(id, { code: "DATABASE_ALREADY_HAS_PROJECT", message: e.message });
+            } else {
+                this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+            }
+        }
+    }
+
     async handleGenerateSQL(params: any, id: number | string) {
         try {
             const { projectId } = params || {};

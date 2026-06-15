@@ -302,6 +302,18 @@ export function registerDbHandlers(
   rpcRegister(rpc, "project.linkDatabase", (p, id) =>
     projectHandlers.handleLinkDatabase(p, id)
   );
+  rpcRegister(rpc, "project.unlinkFromConnection", (p, id) =>
+    projectHandlers.handleUnlinkFromConnection(p, id)
+  );
+  rpcRegister(rpc, "project.deleteWithConnection", (p, id) =>
+    projectHandlers.handleDeleteWithConnection(p, id)
+  );
+  rpcRegister(rpc, "project.getGitRemote", (p, id) =>
+    projectHandlers.handleGetGitRemote(p, id)
+  );
+  rpcRegister(rpc, "project.relinkToConnection", (p, id) =>
+    projectHandlers.handleRelinkToConnection(p, id)
+  );
 
   // ==========================================
   // GIT HANDLERS

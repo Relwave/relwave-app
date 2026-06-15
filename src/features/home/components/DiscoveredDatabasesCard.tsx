@@ -3,11 +3,12 @@ import { Radar, Plus, Container, Monitor, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useDiscoveredDatabases } from "@/features/database/hooks/useDiscoveredDatabases";
-import { DiscoveredDatabase } from "@/features/database/types";
+import { DatabaseConnection, DiscoveredDatabase } from "@/features/database/types";
 import { Card, CardAction, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 
 interface DiscoveredDatabasesCardProps {
     onAddDatabase: (db: DiscoveredDatabase) => void;
+    existingConnections: DatabaseConnection[];
 }
 
 const DB_TYPE_COLORS = {
@@ -35,6 +36,7 @@ const DB_TYPE_COLORS = {
 
 export function DiscoveredDatabasesCard({
     onAddDatabase,
+    existingConnections,
 }: DiscoveredDatabasesCardProps) {
     const { databases, isScanning, scan, lastScanned } = useDiscoveredDatabases();
 
@@ -86,8 +88,9 @@ export function DiscoveredDatabasesCard({
                         return (
                             <Card
                                 key={`${db.host}:${db.port}-${index}`}
+                                style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
                                 className={cn(
-                                    "group relative rounded-lg border bg-card/85 p-4 premium-card",
+                                    "animate-in fade-in zoom-in-95 duration-300 group relative rounded-lg border bg-card/85 p-3 premium-card",
                                     colors.border
                                 )}
                             >
@@ -107,7 +110,7 @@ export function DiscoveredDatabasesCard({
                                     </CardAction>
 
                                     {/* Details */}
-                                    <CardContent className="flex-1 min-w-0">
+                                    <CardContent className="flex-1 min-w-0 pb-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <CardTitle
                                                 className={cn(
@@ -134,26 +137,30 @@ export function DiscoveredDatabasesCard({
                                         </CardDescription>
 
                                         {db.containerName && (
-                                            <CardDescription className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
+                                            <CardDescription className="text-[10px] text-muted-foreground/70 truncate mt-0.5 mb-1">
                                                 Container: {db.containerName}
                                             </CardDescription>
                                         )}
-
-                                        <CardDescription className="text-xs text-muted-foreground mt-1">
-                                            Suggested: <span className="font-medium">{db.suggestedName}</span>
-                                        </CardDescription>
+                                        
+                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
+                                            <CardDescription className="text-xs text-muted-foreground truncate pr-2">
+                                                Suggested: <span className="font-medium text-foreground">{db.suggestedName}</span>
+                                            </CardDescription>
+                                            
+                                            {existingConnections.some(c => c.host === db.host && String(c.port) === String(db.port)) ? (
+                                                <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded">Already added</span>
+                                            ) : (
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="h-6 text-[10px] px-2"
+                                                    onClick={() => onAddDatabase(db)}
+                                                >
+                                                    <Plus className="h-3 w-3 mr-1" /> Add
+                                                </Button>
+                                            )}
+                                        </div>
                                     </CardContent>
-
-                                    {/* Add Button */}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => onAddDatabase(db)}
-                                        title="Add this connection"
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
                                 </div>
                             </Card>
                         );

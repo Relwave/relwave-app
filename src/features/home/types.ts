@@ -3,9 +3,12 @@ import { DatabaseConnection, DiscoveredDatabase } from "@/features/database/type
 export interface ConnectionListProps {
     databases: DatabaseConnection[];
     filteredDatabases: DatabaseConnection[];
+    unlinkedProjects?: any[];
     loading: boolean;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
+    onlineFilter: boolean;
+    setOnlineFilter: (filter: boolean) => void;
     selectedDb: string | null;
     setSelectedDb: (id: string | null) => void;
     status: Map<string, string>;
@@ -17,6 +20,8 @@ export interface ConnectionListProps {
     onDelete: (dbId: string, dbName: string) => void;
     onTest: (dbId: string, dbName: string) => void;
     onImportClick?: () => void;
+    onRelinkProject?: (projectId: string, newDatabaseId: string) => void;
+    onDeleteProject?: (projectId: string) => void;
 }
 
 export interface DatabaseDetailProps {
@@ -38,11 +43,11 @@ export interface WelcomeViewProps {
     totalTables: number | string;
     totalSize: string;
     statsLoading: boolean;
-    welcomeMessage: string;
     onAddClick: () => void;
     onSelectDb: (id: string) => void;
     onDatabaseHover: (dbId: string) => void;
     onDiscoveredDatabaseAdd?: (db: DiscoveredDatabase) => void;
+    onOnlineFilterClick: () => void;
 }
 
 export interface AddConnectionDialogProps {

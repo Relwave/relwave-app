@@ -48,7 +48,7 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                {analysis.migrationCount} Pending
+                {Math.max(0, analysis.migrationCount)} Pending
               </Badge>
             )}
           </CardTitle>
@@ -60,7 +60,7 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Pending Migrations</span>
-              <span className="font-medium">{analysis.migrationCount}</span>
+              <span className="font-medium">{Math.max(0, analysis.migrationCount)}</span>
             </div>
 
             {isDrifted && analysis.driftDetails && (

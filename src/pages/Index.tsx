@@ -6,7 +6,7 @@ import {
     DatabaseDetail,
     WelcomeView,
     AddConnectionDialog,
-    DeleteDialog,
+    DeleteConnectionDialog,
 } from "@/features/home/components";
 import { ImportProjectDialog } from "@/features/project/components";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
@@ -35,14 +35,13 @@ const Index = () => {
 // Separated so hooks only run after bridge is ready
 const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean, onShortcutsClick: () => void }) => {
     const {
-        // Data
         databases,
         filteredDatabases,
         recentDatabases,
+        unlinkedProjects,
         selectedDatabase,
         selectedDbStats,
         loading,
-        welcomeMessage,
 
         // Status + stats
         status,
@@ -58,17 +57,18 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
         // UI state
         searchQuery,
         setSearchQuery,
+        onlineFilter,
+        setOnlineFilter,
         selectedDb,
         setSelectedDb,
         isDialogOpen,
         deleteDialogOpen,
         setDeleteDialogOpen,
-        dbToDelete,
+        deleteConnectionDialogProps,
         prefilledConnectionData,
 
         // Handlers
         handleAddDatabase,
-        handleDeleteDatabase,
         handleTestConnection,
         handleDatabaseClick,
         handleDatabaseHover,
@@ -90,9 +90,12 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                     <ConnectionList
                         databases={databases}
                         filteredDatabases={filteredDatabases}
+                        unlinkedProjects={unlinkedProjects}
                         loading={loading}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}
+                        onlineFilter={onlineFilter}
+                        setOnlineFilter={setOnlineFilter}
                         selectedDb={selectedDb}
                         setSelectedDb={setSelectedDb}
                         status={status}
@@ -127,12 +130,12 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                                 connectedCount={connectedCount}
                                 totalTables={totalTables}
                                 totalSize={totalSize}
-                                welcomeMessage={welcomeMessage}
                                 statsLoading={showStatsLoading}
                                 onAddClick={() => handleDialogClose(true)}
                                 onSelectDb={setSelectedDb}
                                 onDatabaseHover={handleDatabaseHover}
                                 onDiscoveredDatabaseAdd={handleDiscoveredDatabaseAdd}
+                                onOnlineFilterClick={() => setOnlineFilter(true)}
                             />
                         )}
                     </div>
@@ -157,12 +160,13 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                 initialData={prefilledConnectionData}
             />
 
-            <DeleteDialog
-                open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
-                databaseName={dbToDelete?.name}
-                onConfirm={handleDeleteDatabase}
-            />
+            {deleteConnectionDialogProps && (
+                <DeleteConnectionDialog
+                    open={deleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                    {...deleteConnectionDialogProps}
+                />
+            )}
 
             <ImportProjectDialog
                 open={isImportOpen}
