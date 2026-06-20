@@ -20,6 +20,12 @@ export interface AISettings {
   mistralApiKey?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  // Per-provider selected model
+  anthropicModel?: string;
+  openaiModel?: string;
+  geminiModel?: string;
+  groqModel?: string;
+  mistralModel?: string;
 }
 
 export interface SchemaAnalysisInput {
