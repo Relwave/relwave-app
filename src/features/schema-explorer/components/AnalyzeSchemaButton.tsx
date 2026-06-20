@@ -26,7 +26,7 @@ interface AnalyzeSchemaButtonProps {
 }
 
 export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaButtonProps) {
-  const settings = useAISettings();
+  const { settings } = useAISettings();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [markdown, setMarkdown] = useState<string | undefined>();

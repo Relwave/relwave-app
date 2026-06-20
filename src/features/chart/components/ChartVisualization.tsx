@@ -34,7 +34,7 @@ export const ChartVisualization = ({
   selectedTable,
   dbId,
 }: ChartVisualizationProps) => {
-  const aiSettings = useAISettings();
+  const { settings: aiSettings } = useAISettings();
   const [aiLoading, setAiLoading] = useState(false);
 
   const {

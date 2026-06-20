@@ -389,6 +389,12 @@ export function registerDbHandlers(
   rpcRegister(rpc, "ai.clearHistory", (p, id) =>
     aiHandlers.handleClearHistory(p, id)
   );
+  rpcRegister(rpc, "ai.loadSettings", (p, id) =>
+    aiHandlers.handleLoadSettings(p, id)
+  );
+  rpcRegister(rpc, "ai.saveSettings", (p, id) =>
+    aiHandlers.handleSaveSettings(p, id)
+  );
 
   logger?.info("All RPC handlers registered successfully");
 }

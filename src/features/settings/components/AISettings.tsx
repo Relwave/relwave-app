@@ -325,13 +325,18 @@ function SecretInput({
 // ── Main component ────────────────────────────────────────────────────────
 
 export default function AISettings() {
-  const [settings, setSettings] = useState<AISettingsData>(loadAISettings);
+  const [settings, setSettings] = useState<AISettingsData>({ defaultProvider: "ollama" });
+  const [isLoading, setIsLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string | undefined>();
 
+  // Load from bridge (ai-settings.json) on mount
   useEffect(() => {
-    setSettings(loadAISettings());
+    loadAISettings().then((loaded) => {
+      setSettings(loaded);
+      setIsLoading(false);
+    });
   }, []);
 
   const activeProvider = PROVIDERS.find((p) => p.name === settings.defaultProvider) ?? PROVIDERS[0];
@@ -342,14 +347,14 @@ export default function AISettings() {
     setStatus("idle");
   };
 
-  const handleSave = () => {
-    saveAISettings(settings);
+  const handleSave = async () => {
+    await saveAISettings(settings);
     setDirty(false);
     setStatus("idle");
   };
 
   const handleTest = async () => {
-    saveAISettings(settings);
+    await saveAISettings(settings);
     setDirty(false);
     setStatus("testing");
     setStatusMessage(undefined);
@@ -374,6 +379,21 @@ export default function AISettings() {
     return !!((settings[p.keyField] as string | undefined)?.trim());
   });
   const configuredCount = configuredProviders.length;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-muted/50" />
+          <div className="space-y-1.5">
+            <div className="h-3 w-24 bg-muted/50 rounded" />
+            <div className="h-2.5 w-40 bg-muted/30 rounded" />
+          </div>
+        </div>
+        <div className="rounded-lg border border-border/30 bg-card/30 h-36" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
