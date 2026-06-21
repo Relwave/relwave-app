@@ -41,3 +41,22 @@ export function formatRelativeTime(dateString?: string | null): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return formatTimestamp(dateString);
 }
+
+export function formatDbType(databaseType?: string) {
+    if (!databaseType) return "Database";
+    if (databaseType === "postgres" || databaseType === "postgresql") return "PostgreSQL";
+    if (databaseType === "mysql") return "MySQL";
+    if (databaseType === "mariadb") return "MariaDB";
+    return databaseType;
+}
+export function formatDuration(seconds: number) {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remaining = Math.round(seconds % 60);
+    return `${minutes}m ${remaining}s`;
+}
+
+export function formatNumber(value: number) {
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+}
+

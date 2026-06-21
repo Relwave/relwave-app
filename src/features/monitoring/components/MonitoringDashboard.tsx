@@ -29,8 +29,8 @@ import {
 } from "@/components/ui/table";
 import { MonitoringSnapshot } from "@/features/database/types";
 import { MetricCard } from "./MetricCard";
-import { formatNumber } from "@/lib/formatNumber";
-import { formatDuration } from "@/lib/formatDuration";
+import { formatNumber } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 
 
 type ThroughputPoint = {

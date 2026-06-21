@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useMonitoringStream } from "@/features/monitoring/hooks/useMonitoringStream";
-import { formatDbType } from "@/lib/formatDbType";
+import { formatDbType } from "@/lib/utils";
 import { MonitoringDashboard } from "./MonitoringDashboard";
 import { MonitoringLoadingState } from "./MonitoringLoadingState";
 
