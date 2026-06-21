@@ -6,7 +6,7 @@ import SchemaExplorerHeader from "./SchemaExplorerHeader";
 import MetaDataPanel from "./MetaDataPanel";
 import { useSchemaExplorerPanel } from "../hooks/useSchemaExplorerPanel";
 import { TreeViewPanel } from "@/features/tree";
-
+import { SchemaExplorerPanelLoadingState } from "./SchemaExplorerPanelLoadingState";
 
 interface Column extends ColumnDetails {
     foreignKeyRef?: string;
@@ -53,11 +53,10 @@ export default function SchemaExplorerPanel({ dbId, projectId }: SchemaExplorerP
     // --- Conditional rendering ---
     if (isLoading) {
         return (
-            <div className="h-full flex items-center justify-center bg-background">
-                <Spinner className="size-16" />
-            </div>
+            <SchemaExplorerPanelLoadingState />
         );
     }
+
 
     if (error || !schemaData) {
         return (

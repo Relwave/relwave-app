@@ -9,6 +9,7 @@ import { ResultsPanel } from "./ResultsPanel";
 import { StatusBar } from "./StatusBar";
 import { QueryTab, QueryHistoryItem } from "../types";
 import { SqlEditor } from "./SqlEditor";
+import { SQLWorkspacePanelLoadingState } from "@/features/workspace/components/SQLWorkspacePanelLoadingState";
 
 interface SQLWorkspacePanelProps {
     dbId: string;
@@ -154,9 +155,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
     if (!bridgeReady) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <Spinner className="h-8 w-8" />
-            </div>
+            <SQLWorkspacePanelLoadingState />
         );
     }
 

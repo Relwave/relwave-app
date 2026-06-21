@@ -7,6 +7,7 @@ import { MigrationsData } from "@/features/database/types";
 import { useMigrationsPanel } from "../hooks/useMigrationsPanel";
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from "@/lib/utils";
+import { MigrationsPanelLoadingState } from "@/features/database/components/MigrationsPanelLoadingState";
 
 interface MigrationsPanelProps {
     migrations: MigrationsData;
@@ -31,6 +32,12 @@ export default function MigrationsPanel({ migrations, baselined, dbId }: Migrati
         handleViewSQL,
         setShowSQLDialog,
     } = useMigrationsPanel({ migrations, baselined, dbId })
+
+    if (isRefreshing) {
+        return (
+            <MigrationsPanelLoadingState />
+        );
+    }
 
     return (
         <>

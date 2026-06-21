@@ -45,6 +45,7 @@ import type { GitFileChange, GitLogEntry } from "@/features/git/types";
 import { gitService } from "@/services/bridge/git";
 import { projectService } from "@/services/bridge/project";
 import { GitHistoryGraph } from "./GitHistoryGraph";
+import { GitStatusPanelLoadingState } from "./GitStatusPanelLoadingState";
 
 // ─── Helpers ──────────────────────────────────────────
 
@@ -136,12 +137,9 @@ export default function GitStatusPanel({ projectDir, projectId }: GitStatusPanel
         );
     }
 
-    if (statusLoading) {
+    if (statusLoading && projectDir) {
         return (
-            <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                <Spinner className="h-4 w-4" />
-                Loading git status…
-            </div>
+            <GitStatusPanelLoadingState/>
         );
     }
 

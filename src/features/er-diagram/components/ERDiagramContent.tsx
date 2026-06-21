@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { projectService } from "@/services/bridge/project";
+import { ERDiagramLoadingState } from "@/features/er-diagram/components/ERDiagramLoadingState";
 
 const AnnotationLayer = lazy(() => import("@/features/er-diagram/components/AnnotationLayer"));
 
@@ -367,9 +368,7 @@ const ERDiagramContent: React.FC<ERDiagramContentProps> = ({ nodeTypes, projectI
     // --- Conditional rendering ---
     if (isLoading) {
         return (
-            <div className="h-screen flex items-center justify-center bg-background">
-                <Spinner className="h-8 w-8 text-primary" />
-            </div>
+            <ERDiagramLoadingState />
         );
     }
 
