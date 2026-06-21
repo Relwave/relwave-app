@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 
 export function SQLWorkspacePanelLoadingState() {
     return (
@@ -17,7 +18,7 @@ export function SQLWorkspacePanelLoadingState() {
             {/* Body */}
             <div className="flex-1 flex overflow-hidden p-3 gap-3">
                 {/* Sidebar skeleton */}
-                <div className="w-52 shrink-0 rounded-lg border border-border/40 bg-card/50 p-3 space-y-3">
+                <Card className="w-52 shrink-0 bg-card/50 p-3 space-y-3">
                     <Skeleton className="h-3 w-16 rounded-full" />
                     {Array.from({ length: 7 }).map((_, i) => (
                         <div key={i} className="flex items-center gap-2">
@@ -25,9 +26,9 @@ export function SQLWorkspacePanelLoadingState() {
                             <Skeleton className="h-2.5 rounded-full" style={{ width: `${50 + (i * 13) % 40}%` }} />
                         </div>
                     ))}
-                </div>
+                </Card>
                 {/* Editor area skeleton */}
-                <div className="flex-1 flex flex-col rounded-lg border border-border/40 bg-card/50 overflow-hidden">
+                <Card className="flex-1 flex flex-col bg-card/50 overflow-hidden">
                     {/* Tab bar */}
                     <div className="h-9 border-b border-border/30 bg-background/60 flex items-center gap-1 px-2">
                         <Skeleton className="h-6 w-24" />
@@ -47,7 +48,7 @@ export function SQLWorkspacePanelLoadingState() {
                             <Skeleton key={i} className="h-6 w-full" />
                         ))}
                     </div>
-                </div>
+                </Card>
             </div>
             {/* Status bar */}
             <div className="h-7 border-t border-border/30 bg-background/70 px-4 flex items-center gap-4">

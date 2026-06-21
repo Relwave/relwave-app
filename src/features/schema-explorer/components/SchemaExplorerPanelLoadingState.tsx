@@ -1,16 +1,18 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
 export function SchemaExplorerPanelLoadingState() {
     return (
         <div className="h-full flex flex-col bg-background text-foreground overflow-hidden animate-pulse">
             {/* ── Header (breadcrumb + actions) ── */}
             <div className="shrink-0 border-b border-border/40 bg-background/90 px-4 py-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-20 rounded-full bg-muted/60" />
-                    <div className="h-3 w-1 rounded-full bg-muted/40" />
-                    <div className="h-3.5 w-28 rounded-full bg-muted/70" />
+                    <Skeleton className="h-3.5 w-20 rounded-full bg-muted/60" />
+                    <Skeleton className="h-3 w-1 rounded-full bg-muted/40" />
+                    <Skeleton className="h-3.5 w-28 rounded-full bg-muted/70" />
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="h-7 w-32 rounded-md bg-muted/50" />
-                    <div className="h-7 w-28 rounded-md bg-primary/20" />
+                    <Skeleton className="h-7 w-32 rounded-md bg-muted/50" />
+                    <Skeleton className="h-7 w-28 rounded-md bg-primary/20" />
                 </div>
             </div>
 
@@ -22,17 +24,17 @@ export function SchemaExplorerPanelLoadingState() {
 
                     {/* Database root node */}
                     <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md">
-                        <div className="h-3 w-3 rounded bg-primary/40" />
-                        <div className="h-3 w-24 rounded-full bg-muted/70" />
-                        <div className="ml-auto h-4 w-16 rounded-full bg-muted/40" />
+                        <Skeleton className="h-3 w-3 rounded bg-primary/40" />
+                        <Skeleton className="h-3 w-24 rounded-full bg-muted/70" />
+                        <Skeleton className="ml-auto h-4 w-16 rounded-full bg-muted/40" />
                     </div>
 
                     {/* Schema node (expanded) */}
                     <div className="flex items-center gap-1.5 px-2 py-1.5 pl-4 rounded-md">
-                        <div className="h-2.5 w-2.5 rounded bg-muted/50" />
-                        <div className="h-3 w-3 rounded bg-primary/30" />
-                        <div className="h-3 w-20 rounded-full bg-muted/65" />
-                        <div className="ml-auto h-4 w-6 rounded-full bg-muted/40" />
+                        <Skeleton className="h-2.5 w-2.5 rounded bg-muted/50" />
+                        <Skeleton className="h-3 w-3 rounded bg-primary/30" />
+                        <Skeleton className="h-3 w-20 rounded-full bg-muted/65" />
+                        <Skeleton className="ml-auto h-4 w-6 rounded-full bg-muted/40" />
                     </div>
 
                     {/* Table rows under schema */}
@@ -42,12 +44,12 @@ export function SchemaExplorerPanelLoadingState() {
                         "w-22", "w-26", "w-32", "w-18", "w-16",
                     ].map((w, i) => (
                         <div key={i} className="flex items-center gap-1.5 px-2 py-1 pl-8 rounded-md">
-                            <div className="h-2.5 w-2.5 rounded bg-muted/40 shrink-0" />
-                            <div className="h-2.5 w-3.5 rounded bg-primary/25 shrink-0" />
-                            <div className={`h-2.5 ${w} rounded-full bg-muted/55`} />
+                            <Skeleton className="h-2.5 w-2.5 rounded bg-muted/40 shrink-0" />
+                            <Skeleton className="h-2.5 w-3.5 rounded bg-primary/25 shrink-0" />
+                            <Skeleton className={`h-2.5 ${w} rounded-full bg-muted/55`} />
                             {/* Occasional FK badge */}
                             {i === 7 && (
-                                <div className="ml-auto h-3.5 w-7 rounded-full bg-primary/20 text-[9px]" />
+                                <Skeleton className="ml-auto h-3.5 w-7 rounded-full bg-primary/20 text-[9px]" />
                             )}
                         </div>
                     ))}
@@ -58,13 +60,12 @@ export function SchemaExplorerPanelLoadingState() {
 
                     {/* DB title row */}
                     <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-primary/20 shrink-0" />
+                        <Skeleton className="h-8 w-8 rounded-full bg-primary/20 shrink-0" />
                         <div className="space-y-1.5">
-                            <div className="h-5 w-32 rounded-full bg-muted/70" />
-                            <div className="h-3 w-16 rounded-full bg-muted/40" />
+                            <Skeleton className="h-5 w-32 rounded-full bg-muted/70" />
+                            <Skeleton className="h-3 w-16 rounded-full bg-muted/40" />
                         </div>
                     </div>
-
                     {/* 2 × 3 stat cards grid */}
                     <div className="grid grid-cols-3 gap-3">
                         {[
@@ -80,9 +81,9 @@ export function SchemaExplorerPanelLoadingState() {
                                 className="rounded-lg border border-border/30 bg-card/50 p-4 space-y-2"
                             >
                                 {/* Big number */}
-                                <div className={`h-7 ${card.w} rounded-md bg-muted/70`} />
+                                <Skeleton className={`h-7 ${card.w} rounded-md bg-muted/70`} />
                                 {/* Label */}
-                                <div className={`h-2.5 ${card.label} rounded-full bg-muted/40`} />
+                                <Skeleton className={`h-2.5 ${card.label} rounded-full bg-muted/40`} />
                             </div>
                         ))}
                     </div>
@@ -92,10 +93,10 @@ export function SchemaExplorerPanelLoadingState() {
             {/* ── Footer ── */}
             <div className="shrink-0 border-t border-border/40 bg-card/50 px-4 py-1.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-3 w-36 rounded-full bg-muted/50" />
+                    <Skeleton className="h-3 w-36 rounded-full bg-muted/50" />
                     <div className="h-4 w-10 rounded-full bg-emerald-500/25" />
                 </div>
-                <div className="h-3 w-64 rounded-full bg-muted/30" />
+                <Skeleton className="h-3 w-64 rounded-full bg-muted/30" />
             </div>
         </div>
     )

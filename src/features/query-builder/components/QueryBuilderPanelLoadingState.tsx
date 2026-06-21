@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 
 export function QueryBuilderPanelLoadingState() {
     return (
@@ -17,7 +18,7 @@ export function QueryBuilderPanelLoadingState() {
             {/* Body */}
             <div className="flex-1 flex overflow-hidden p-3 gap-3">
                 {/* Sidebar skeleton */}
-                <div className="w-56 shrink-0 rounded-lg border border-border/40 bg-card/50 p-3 space-y-4">
+                <Card className="w-56 shrink-0 bg-card/50 p-3 space-y-4">
                     <div className="space-y-2">
                         <Skeleton className="h-3 w-14 rounded-full" />
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -33,16 +34,16 @@ export function QueryBuilderPanelLoadingState() {
                             <Skeleton key={i} className="h-6 w-full" />
                         ))}
                     </div>
-                </div>
+                </Card>
                 {/* Main canvas + results */}
-                <div className="flex-1 flex flex-col rounded-lg border border-border/40 bg-card/50 overflow-hidden">
+                <Card className="flex-1 flex flex-col bg-card/50 overflow-hidden">
                     {/* Canvas area (diagram) */}
                     <div className="flex-1 relative p-4">
                         {/* Fake node cards */}
                         {[{ top: "20%", left: "15%" }, { top: "25%", left: "55%" }, { top: "60%", left: "35%" }].map((pos, i) => (
-                            <div
+                            <Card
                                 key={i}
-                                className="absolute w-44 rounded-lg border border-border/40 bg-background/70 overflow-hidden"
+                                className="absolute w-44 bg-background/70 overflow-hidden"
                                 style={pos}
                             >
                                 <div className="h-7 border-b border-border/30 bg-muted/40 px-3 flex items-center gap-2">
@@ -56,7 +57,7 @@ export function QueryBuilderPanelLoadingState() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </Card>
                         ))}
                     </div>
                     {/* SQL results pane */}
@@ -66,7 +67,7 @@ export function QueryBuilderPanelLoadingState() {
                             <Skeleton key={i} className="h-5 w-full" />
                         ))}
                     </div>
-                </div>
+                </Card>
             </div>
             {/* Status bar */}
             <div className="h-7 border-t border-border/30 bg-background/70 px-4 flex items-center gap-4">

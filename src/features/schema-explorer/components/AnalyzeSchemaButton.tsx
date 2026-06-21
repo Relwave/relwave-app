@@ -23,9 +23,10 @@ interface AnalyzeSchemaButtonProps {
     }>;
   };
   databaseType?: string;
+  dbId?: string;
 }
 
-export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaButtonProps) {
+export function AnalyzeSchemaButton({ schemaData, databaseType, dbId }: AnalyzeSchemaButtonProps) {
   const { settings } = useAISettings();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,15 +42,15 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
 
   // Reset all local state when the user switches to a different database
   useEffect(() => {
-    const name = schemaData.name;
-    if (cachedForRef.current !== undefined && cachedForRef.current !== name) {
+    const identifier = dbId ?? schemaData.name;
+    if (cachedForRef.current !== undefined && cachedForRef.current !== identifier) {
       setMarkdown(undefined);
       setError(null);
       setCached(undefined);
       setCreatedAt(undefined);
       cachedForRef.current = undefined;
     }
-  }, [schemaData.name]);
+  }, [schemaData.name, dbId]);
 
   const buildInput = (): SchemaAnalysisInput => ({
     databaseType,
@@ -70,8 +71,9 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
 
   const handleAnalyze = async (skipCache = false) => {
     setOpen(true);
+    const identifier = dbId ?? schemaData.name;
     // Only reuse cached markdown if it's for THIS database
-    if (markdown && !skipCache && cachedForRef.current === schemaData.name) return;
+    if (markdown && !skipCache && cachedForRef.current === identifier) return;
     setLoading(true);
     setError(null);
 
@@ -79,12 +81,12 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
       const input = buildInput();
       const result = await aiService.analyzeSchema(settings, input, {
         skipCache,
-        datasourceName: schemaData.name,
+        datasourceName: identifier,
       });
       setMarkdown(result.markdown);
       setCached(result.cached);
       setCreatedAt(result.createdAt);
-      cachedForRef.current = schemaData.name; // mark which DB this result belongs to
+      cachedForRef.current = identifier; // mark which DB this result belongs to
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
