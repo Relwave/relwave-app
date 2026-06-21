@@ -9,6 +9,7 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Database, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatTimestamp } from "@/lib/utils";
 
 interface DataTableProps {
   data: Array<Record<string, any>>;
@@ -173,7 +174,7 @@ function formatCellValue(value: any): React.ReactNode {
   if (value instanceof Date) {
     return (
       <span className="text-violet-600 dark:text-violet-400">
-        {value.toLocaleString()}
+        {formatTimestamp(value.toISOString())}
       </span>
     );
   }
@@ -196,7 +197,7 @@ function formatCellValue(value: any): React.ReactNode {
 
   // Check if it looks like a date string
   if (/^\d{4}-\d{2}-\d{2}/.test(strValue)) {
-    return <span className="text-violet-600 dark:text-violet-400">{strValue}</span>;
+    return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(strValue)}</span>;
   }
 
   // Check if it looks like an ID or UUID
