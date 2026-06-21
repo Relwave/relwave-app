@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bot, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AIResultDialog } from "@/features/ai/components/AIResultDialog";
@@ -34,7 +34,22 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
   const [cached, setCached] = useState<boolean | undefined>();
   const [createdAt, setCreatedAt] = useState<string | undefined>();
 
+  // Track which datasource the cached markdown belongs to
+  const cachedForRef = useRef<string | undefined>(undefined);
+
   const tableCount = schemaData.schemas?.flatMap((s) => s.tables).length ?? 0;
+
+  // Reset all local state when the user switches to a different database
+  useEffect(() => {
+    const name = schemaData.name;
+    if (cachedForRef.current !== undefined && cachedForRef.current !== name) {
+      setMarkdown(undefined);
+      setError(null);
+      setCached(undefined);
+      setCreatedAt(undefined);
+      cachedForRef.current = undefined;
+    }
+  }, [schemaData.name]);
 
   const buildInput = (): SchemaAnalysisInput => ({
     databaseType,
@@ -55,7 +70,8 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
 
   const handleAnalyze = async (skipCache = false) => {
     setOpen(true);
-    if (markdown && !skipCache) return; // Already analyzed — reuse result
+    // Only reuse cached markdown if it's for THIS database
+    if (markdown && !skipCache && cachedForRef.current === schemaData.name) return;
     setLoading(true);
     setError(null);
 
@@ -68,6 +84,7 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
       setMarkdown(result.markdown);
       setCached(result.cached);
       setCreatedAt(result.createdAt);
+      cachedForRef.current = schemaData.name; // mark which DB this result belongs to
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
@@ -79,6 +96,7 @@ export function AnalyzeSchemaButton({ schemaData, databaseType }: AnalyzeSchemaB
     setMarkdown(undefined);
     setCached(undefined);
     setCreatedAt(undefined);
+    cachedForRef.current = undefined;
     handleAnalyze(true);
   };
 
