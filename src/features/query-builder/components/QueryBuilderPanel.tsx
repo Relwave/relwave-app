@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { useFullSchema } from "@/features/project/hooks/useDbQueries";
 import { useQueryHistory } from "@/features/query-builder/hooks/useQueryHistory";
 import { useDatabase } from "@/features/project/hooks/useDbQueries";
-import { Spinner } from "@/components/ui/spinner";
 import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { TableRow } from "@/features/database/types";
 import { BuilderHeader } from "./BuilderHeader";
@@ -22,6 +21,7 @@ import { BuilderStatusBar } from "./BuilderStatusBar";
 import { QueryFilter, ColumnOption } from "../types";
 import { sessionService } from "@/services/bridge/session";
 import { queryService } from "@/services/bridge/query";
+import { QueryBuilderPanelLoadingState } from "./QueryBuilderPanelLoadingState";
 
 interface QueryBuilderPanelProps {
     dbId: string;
@@ -349,9 +349,7 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
 
     if (bridgeLoading || bridgeReady === undefined || loading) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <Spinner className="h-8 w-8" />
-            </div>
+            <QueryBuilderPanelLoadingState />
         );
     }
 

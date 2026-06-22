@@ -12,7 +12,7 @@ interface ExplainQueryButtonProps {
 }
 
 export function ExplainQueryButton({ sql, disabled, databaseName }: ExplainQueryButtonProps) {
-  const settings = useAISettings();
+  const { settings } = useAISettings();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [markdown, setMarkdown] = useState<string | undefined>();

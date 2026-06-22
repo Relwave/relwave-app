@@ -212,7 +212,7 @@ export const transformSchemaToER = (
               },
               labelBgPadding: [4, 4] as [number, number],
               labelBgBorderRadius: 4,
-              type: "smoothstep",
+              type: "default",
               data: {
                 constraintName: fk.constraint_name,
                 updateRule: fk.update_rule,

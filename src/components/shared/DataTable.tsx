@@ -9,6 +9,7 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Database, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatTimestamp } from "@/lib/utils";
 
 interface DataTableProps {
   data: Array<Record<string, any>>;
@@ -84,7 +85,7 @@ export const DataTable = ({
                 title={row[column]?.toString() || 'NULL'}
               >
                 {row[column] !== null && row[column] !== undefined ? (
-                  formatCellValue(row[column])
+                  formatCellValue(row[column], column)
                 ) : (
                   <span className="text-muted-foreground/40 italic text-xs font-sans">null</span>
                 )}
@@ -146,7 +147,7 @@ export const DataTable = ({
 };
 
 // Helper function to format cell values with improved styling
-function formatCellValue(value: any): React.ReactNode {
+function formatCellValue(value: any, columnName?: string): React.ReactNode {
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground/40 italic text-xs font-sans">null</span>;
   }
@@ -163,6 +164,14 @@ function formatCellValue(value: any): React.ReactNode {
   }
 
   if (typeof value === 'number') {
+    const isLikelyTimestampCol = columnName?.toLowerCase().match(/time|date|created|updated|deleted/);
+    if (isLikelyTimestampCol) {
+      if (value > 1e9 && value < 1e10) { // Seconds
+        return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(value * 1000).toISOString())}</span>;
+      } else if (value > 1e12 && value < 1e13) { // Milliseconds
+        return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(value).toISOString())}</span>;
+      }
+    }
     return (
       <span className="text-indigo-600 dark:text-indigo-400 tabular-nums">
         {value.toLocaleString()}
@@ -173,7 +182,7 @@ function formatCellValue(value: any): React.ReactNode {
   if (value instanceof Date) {
     return (
       <span className="text-violet-600 dark:text-violet-400">
-        {value.toLocaleString()}
+        {formatTimestamp(value.toISOString())}
       </span>
     );
   }
@@ -195,8 +204,20 @@ function formatCellValue(value: any): React.ReactNode {
   const strValue = String(value);
 
   // Check if it looks like a date string
-  if (/^\d{4}-\d{2}-\d{2}/.test(strValue)) {
-    return <span className="text-violet-600 dark:text-violet-400">{strValue}</span>;
+  if (typeof strValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(strValue)) {
+    return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(strValue)}</span>;
+  }
+
+  // Check if it's a UNIX timestamp (seconds or ms) based on column name heuristic
+  const isLikelyTimestampCol = columnName?.toLowerCase().match(/time|date|created|updated|deleted/);
+  if (isLikelyTimestampCol) {
+    // 10 digits (seconds) or 13 digits (ms)
+    if (/^\d{10}$/.test(strValue)) {
+      return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(Number(strValue) * 1000).toISOString())}</span>;
+    }
+    if (/^\d{13}$/.test(strValue)) {
+      return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(Number(strValue)).toISOString())}</span>;
+    }
   }
 
   // Check if it looks like an ID or UUID

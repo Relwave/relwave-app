@@ -21,6 +21,12 @@ export interface AISettings {
   mistralApiKey?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  // Per-provider selected model (overrides provider default)
+  anthropicModel?: string;
+  openaiModel?: string;
+  geminiModel?: string;
+  groqModel?: string;
+  mistralModel?: string;
 }
 
 // ── Feature input/output types ────────────────────────────────────────────

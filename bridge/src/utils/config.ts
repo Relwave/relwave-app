@@ -13,6 +13,7 @@ export const CONFIG_FOLDER =
 
 export const CONFIG_FILE = path.join(CONFIG_FOLDER, "databases.json");
 export const CREDENTIALS_FILE = path.join(CONFIG_FOLDER, ".credentials");
+export const AI_SETTINGS_FILE = path.join(CONFIG_FOLDER, "ai-settings.json");
 
 
 export const PROJECTS_FOLDER = path.join(CONFIG_FOLDER, "projects");

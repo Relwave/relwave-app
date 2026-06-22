@@ -14,15 +14,17 @@ const DEFAULT_MODEL = "gemini-1.5-flash";
 
 export class GeminiProvider implements AIProvider {
   private genAI: GoogleGenerativeAI;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = model?.trim() || DEFAULT_MODEL;
   }
 
   private async complete(system: string, user: string): Promise<string> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: DEFAULT_MODEL,
+        model: this.model,
         systemInstruction: system,
         generationConfig: { maxOutputTokens: 4096 },
       });
@@ -51,7 +53,7 @@ export class GeminiProvider implements AIProvider {
 
   async testConnection(): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+      const model = this.genAI.getGenerativeModel({ model: this.model });
       await model.generateContent("ping");
       return "";
     } catch (err) {

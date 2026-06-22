@@ -98,15 +98,23 @@ export function hashChartRecommendation(input: ChartRecommendationInput, datasou
 
 /**
  * Resolve the model name from the settings based on provider.
- * This is best-effort — some providers don't expose the model in settings.
  */
 function resolveModelName(settings: AISettings): string {
-  const provider = settings.defaultProvider;
-  switch (provider) {
+  switch (settings.defaultProvider) {
+    case "anthropic":
+      return settings.anthropicModel ?? "claude-3-5-haiku-20241022";
+    case "openai":
+      return settings.openaiModel ?? "gpt-4o-mini";
+    case "gemini":
+      return settings.geminiModel ?? "gemini-1.5-flash";
+    case "groq":
+      return settings.groqModel ?? "llama-3.3-70b-versatile";
+    case "mistral":
+      return settings.mistralModel ?? "mistral-small-latest";
     case "ollama":
-      return settings.ollamaModel ?? "ollama-default";
+      return settings.ollamaModel ?? "llama3.2";
     default:
-      return provider; // For API-key providers, the model is selected by the SDK
+      return settings.defaultProvider;
   }
 }
 

@@ -20,6 +20,12 @@ export interface AISettings {
   mistralApiKey?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  // Per-provider selected model
+  anthropicModel?: string;
+  openaiModel?: string;
+  geminiModel?: string;
+  groqModel?: string;
+  mistralModel?: string;
 }
 
 export interface SchemaAnalysisInput {
@@ -109,20 +115,70 @@ export interface AIHistoryListResult {
   total: number;
 }
 
-// ── AI Settings storage ───────────────────────────────────────────────────
+// ── AI Settings storage (persisted to ~/.relwave/ai-settings.json via bridge) ──
 
-const AI_SETTINGS_KEY = "relwave:ai-settings";
+const LS_MIGRATION_KEY = "relwave:ai-settings-migrated-v2";
+const LS_LEGACY_KEY = "relwave:ai-settings";
 
-export function loadAISettings(): AISettings {
+const DEFAULT_SETTINGS: AISettings = { defaultProvider: "ollama" };
+
+/**
+ * Load AI settings from the bridge (reads ai-settings.json on disk).
+ * Falls back to empty defaults if the file doesn't exist yet.
+ * Also performs a one-time migration of any settings previously saved in localStorage.
+ */
+export async function loadAISettings(): Promise<AISettings> {
   try {
-    const raw = localStorage.getItem(AI_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw) as AISettings;
-  } catch { /* ignore */ }
-  return { defaultProvider: "ollama" };
+    const result = await bridgeRequest("ai.loadSettings", {});
+    const fromFile = (result?.data ?? {}) as Partial<AISettings>;
+
+    // If nothing is on disk yet, check localStorage for a legacy migration
+    if (!fromFile.defaultProvider) {
+      const migrated = migrateFromLocalStorage();
+      if (migrated) {
+        // Persist the migrated settings to disk right away
+        await saveAISettings(migrated);
+        return migrated;
+      }
+      return { ...DEFAULT_SETTINGS };
+    }
+
+    return { ...DEFAULT_SETTINGS, ...fromFile };
+  } catch {
+    // Bridge unavailable (e.g. during Vite standalone dev) — degrade gracefully
+    return migrateFromLocalStorage() ?? { ...DEFAULT_SETTINGS };
+  }
 }
 
-export function saveAISettings(settings: AISettings): void {
-  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
+/**
+ * Save AI settings to disk via the bridge (writes ai-settings.json).
+ */
+export async function saveAISettings(settings: AISettings): Promise<void> {
+  try {
+    await bridgeRequest("ai.saveSettings", { settings });
+  } catch {
+    // Fallback: keep a copy in localStorage so settings aren’t totally lost
+    localStorage.setItem(LS_LEGACY_KEY, JSON.stringify(settings));
+  }
+}
+
+/**
+ * One-time migration: if the user had settings saved in the old localStorage
+ * key, return them and mark migration as done so we don’t do it again.
+ */
+function migrateFromLocalStorage(): AISettings | null {
+  if (localStorage.getItem(LS_MIGRATION_KEY)) return null; // already done
+  try {
+    const raw = localStorage.getItem(LS_LEGACY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AISettings;
+    // Mark done so this code only runs once
+    localStorage.setItem(LS_MIGRATION_KEY, "1");
+    localStorage.removeItem(LS_LEGACY_KEY);
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 // ── Bridge service class ──────────────────────────────────────────────────
