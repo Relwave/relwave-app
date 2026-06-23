@@ -20,7 +20,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { DatabaseDetailProps } from "../types";
+import { DatabasePreviewProps } from "../types";
 import { DatabaseOverviewPanel } from "./DatabaseOverviewPanel";
 import { useProjectByDatabaseId, useProjectSchema, useProjectERDiagram, useProjectQueries } from "@/features/project/hooks/useProjectQueries";
 import { projectService } from "@/services/bridge/project";
@@ -37,7 +37,7 @@ function getDbColors(type: string) {
     return DB_COLORS[type] || { bg: "bg-primary/10", text: "text-primary" };
 }
 
-export function DatabaseDetail({
+export function DatabasePreview({
     database,
     isConnected,
     onTest,
@@ -46,7 +46,7 @@ export function DatabaseDetail({
     onBack,
     size,
     tables
-}: DatabaseDetailProps) {
+}: DatabasePreviewProps) {
     // Fetch linked project and its sub-resources
     const { data: project } = useProjectByDatabaseId(database.id);
     const { data: schemaData } = useProjectSchema(project?.id);

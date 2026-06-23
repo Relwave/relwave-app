@@ -21,7 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDbStats, useTables } from "@/features/project/hooks/useDbQueries";
 import { bytesToMBString } from "@/lib/bytesToMB";
 import { DatabaseConnection } from "@/features/database/types";
-import { useCountUp } from "@/hooks/useCountUp";
+import { useCountUp } from "../hooks/useCountUp";
 
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
