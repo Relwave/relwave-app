@@ -1,5 +1,5 @@
 // bridge/src/connectors/postgres.ts
-import { Client } from "pg";
+import { Pool, PoolClient } from "pg";
 import QueryStream from "pg-query-stream";
 import { Readable } from "stream";
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
@@ -13,6 +13,7 @@ import {
   STATS_CACHE_TTL,
   SCHEMA_CACHE_TTL
 } from "../types/cache";
+import { LRUCache } from "../utils/lruCache";
 import {
   TableInfo,
   DBStats,
@@ -82,17 +83,17 @@ import { pgQuoteIdentifier } from "../queries/postgres/crud";
 export class PostgresCacheManager {
 
   // Cache stores for different data types
-  private tableListCache = new Map<string, CacheEntry<TableInfo[]>>();
-  private primaryKeysCache = new Map<string, CacheEntry<PrimaryKeyInfo[]>>();
-  private dbStatsCache = new Map<string, CacheEntry<DBStats>>();
-  private schemasCache = new Map<string, CacheEntry<SchemaInfo[]>>();
-  private tableDetailsCache = new Map<string, CacheEntry<ColumnDetail[]>>();
-  private foreignKeysCache = new Map<string, CacheEntry<ForeignKeyInfo[]>>();
-  private indexesCache = new Map<string, CacheEntry<IndexInfo[]>>();
-  private uniqueCache = new Map<string, CacheEntry<UniqueConstraintInfo[]>>();
-  private checksCache = new Map<string, CacheEntry<CheckConstraintInfo[]>>();
-  private enumsCache = new Map<string, CacheEntry<EnumInfo[]>>();
-  private sequencesCache = new Map<string, CacheEntry<SequenceInfo[]>>();
+  private tableListCache = new LRUCache<string, TableInfo[]>(100);
+  private primaryKeysCache = new LRUCache<string, PrimaryKeyInfo[]>(1000);
+  private dbStatsCache = new LRUCache<string, DBStats>(50);
+  private schemasCache = new LRUCache<string, SchemaInfo[]>(50);
+  private tableDetailsCache = new LRUCache<string, ColumnDetail[]>(1000);
+  private foreignKeysCache = new LRUCache<string, ForeignKeyInfo[]>(1000);
+  private indexesCache = new LRUCache<string, IndexInfo[]>(1000);
+  private uniqueCache = new LRUCache<string, UniqueConstraintInfo[]>(1000);
+  private checksCache = new LRUCache<string, CheckConstraintInfo[]>(1000);
+  private enumsCache = new LRUCache<string, EnumInfo[]>(1000);
+  private sequencesCache = new LRUCache<string, SequenceInfo[]>(1000);
 
   /**
    * Generate cache key from config
@@ -398,34 +399,39 @@ export const postgresCache = new PostgresCacheManager();
  * Creates a new Client instance from the config.
  * Encapsulates the configuration mapping logic.
  */
-function createClient(cfg: PGConfig): Client {
-  // Build SSL configuration
-  let sslConfig: boolean | { rejectUnauthorized: boolean } | undefined;
+const connectionPools = new Map<string, Pool>();
 
-  if (cfg.ssl) {
-    // For cloud databases (Supabase, Railway, etc.), we need to allow self-signed certs
-    // sslmode=require or sslmode=prefer should use rejectUnauthorized: false
-    sslConfig = {
-      rejectUnauthorized: cfg.sslmode === 'verify-full' || cfg.sslmode === 'verify-ca'
-    };
+export function getPool(cfg: PGConfig): Pool {
+  const key = `${cfg.host}:${cfg.port || 5432}:${cfg.database || ""}:${cfg.user}`;
+  let pool = connectionPools.get(key);
+  if (!pool) {
+    let sslConfig;
+    if (cfg.ssl) {
+      sslConfig = { rejectUnauthorized: cfg.sslmode === 'verify-full' || cfg.sslmode === 'verify-ca' };
+    }
+    pool = new Pool({
+      host: cfg.host,
+      port: cfg.port,
+      user: cfg.user,
+      ssl: sslConfig,
+      password: cfg.password || undefined,
+      database: cfg.database || undefined,
+      max: 10,
+      idleTimeoutMillis: 30000,
+    });
+    connectionPools.set(key, pool);
   }
-
-  return new Client({
-    host: cfg.host,
-    port: cfg.port,
-    user: cfg.user,
-    ssl: sslConfig,
-    password: cfg.password || undefined,
-    database: cfg.database || undefined,
-  });
+  return pool;
 }
+
+
 
 /** test connection quickly */
 export async function testConnection(cfg: PGConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
   try {
-    await client.connect();
-    await client.end();
+    const client = await pool.connect();
+    await client.release();
     return { ok: true, status: 'connected', message: "Connection successful" };
   } catch (err: any) {
     return { ok: false, message: err.message || String(err), status: 'disconnected' };
@@ -437,15 +443,15 @@ export async function testConnection(cfg: PGConfig): Promise<{ ok: boolean; mess
  * Returns true if successful (pg_cancel_backend returns boolean).
  */
 export async function pgCancel(cfg: PGConfig, targetPid: number) {
-  const c = createClient(cfg);
+  const pool = getPool(cfg);
+  const c = await pool.connect();
   try {
-    await c.connect();
     const res = await c.query(PG_CANCEL_QUERY, [targetPid]);
-    await c.end();
+    await c.release();
     return res.rows?.[0]?.cancelled === true;
   } catch (err) {
     try {
-      await c.end();
+      await c.release();
     } catch (e) { }
     throw err;
   }
@@ -466,10 +472,10 @@ export async function fetchTableData(
   page: number
 ): Promise<{ rows: any[]; total: number }> {
 
-  const client = createClient(config);
+  const pool = getPool(config);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
     const safeTable = `"${tableName.replace(/"/g, '""')}"`;
@@ -522,7 +528,7 @@ export async function fetchTableData(
     );
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (_) { }
   }
 }
@@ -539,7 +545,8 @@ export async function listTables(connection: PGConfig, schemaName?: string) {
     return cached;
   }
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   let query = PG_LIST_TABLES;
   let queryParams: string[] = [];
@@ -551,12 +558,11 @@ export async function listTables(connection: PGConfig, schemaName?: string) {
   }
 
   try {
-    await client.connect();
 
     // Execute the dynamically constructed query
     const res = await client.query(query, queryParams);
 
-    await client.end();
+    await client.release();
 
     const result = res.rows;
 
@@ -566,7 +572,7 @@ export async function listTables(connection: PGConfig, schemaName?: string) {
     return result; // [{schema, name, type}, ...]
   } catch (err) {
     try {
-      await client.end();
+      await client.release();
     } catch (e) { }
     throw err;
   }
@@ -579,10 +585,10 @@ export async function listPrimaryKeys(connection: PGConfig, schemaName: string =
     return cached;
   }
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_GET_PRIMARY_KEYS, [tableName]);
 
     const result = res.rows;
@@ -593,7 +599,7 @@ export async function listPrimaryKeys(connection: PGConfig, schemaName: string =
     return result;
   } catch (err) {
     try {
-      await client.end();
+      await client.release();
     } catch (e) { }
     throw err;
   }
@@ -608,10 +614,10 @@ export async function listForeignKeys(
   const cached = postgresCache.getForeignKeys(connection, schemaName, tableName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_GET_FOREIGN_KEYS, [tableName, schemaName]);
     const result = res.rows;
 
@@ -622,7 +628,7 @@ export async function listForeignKeys(
     throw err;
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch { }
   }
 }
@@ -633,15 +639,15 @@ export async function listIndexes(connection: PGConfig, schemaName = "public", t
   const cached = postgresCache.getIndexes(connection, schemaName, tableName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_GET_INDEXES, [tableName, schemaName]);
     postgresCache.setIndexes(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -649,15 +655,15 @@ export async function listUniqueConstraints(connection: PGConfig, schemaName = "
   const cached = postgresCache.getUnique(connection, schemaName, tableName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_GET_UNIQUE_CONSTRAINTS, [tableName, schemaName]);
     postgresCache.setUnique(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -665,15 +671,15 @@ export async function listCheckConstraints(connection: PGConfig, schemaName = "p
   const cached = postgresCache.getChecks(connection, schemaName, tableName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_GET_CHECK_CONSTRAINTS, [tableName, schemaName]);
     postgresCache.setChecks(connection, schemaName, tableName, res.rows);
     return res.rows;
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -682,15 +688,15 @@ export async function listEnumTypes(connection: PGConfig, schemaName = "public")
   const cached = postgresCache.getEnums(connection, schemaName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_LIST_ENUMS, [schemaName]);
     postgresCache.setEnums(connection, schemaName, res.rows);
     return res.rows;
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -698,15 +704,15 @@ export async function listSequences(connection: PGConfig, schemaName = "public")
   const cached = postgresCache.getSequences(connection, schemaName);
   if (cached !== null) return cached;
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_LIST_SEQUENCES, [schemaName]);
     postgresCache.setSequences(connection, schemaName, res.rows);
     return res.rows;
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -734,10 +740,10 @@ export async function getSchemaMetadataBatch(
   enumTypes: EnumInfo[];
   sequences: SequenceInfo[];
 }> {
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     // Execute all queries in parallel using imported batch queries
     const [
@@ -855,7 +861,7 @@ export async function getSchemaMetadataBatch(
       sequences: sequencesResult.rows
     };
   } finally {
-    try { await client.end(); } catch { }
+    try { await client.release(); } catch { }
   }
 }
 
@@ -873,14 +879,15 @@ export function streamQueryCancelable(
   onBatch: (rows: any[], columns: { name: string }[]) => Promise<void> | void,
   onDone?: () => void
 ): { promise: Promise<void>; cancel: () => Promise<void> } {
-  const client = createClient(cfg);
+  let client: PoolClient | null = null;
   let stream: Readable | null = null;
   let finished = false;
   let cancelled = false;
   let backendPid: number | null = null;
 
   const promise = (async () => {
-    await client.connect();
+    const pool = getPool(cfg);
+    client = await pool.connect();
 
     // capture backend pid (node-postgres exposes processID)
     // @ts-ignore
@@ -941,7 +948,7 @@ export function streamQueryCancelable(
         }
       } finally {
         try {
-          await client.end();
+          await client.release();
         } catch (e) { }
       }
     }
@@ -973,7 +980,7 @@ export function streamQueryCancelable(
 
     // 3) Close client connection
     try {
-      await client.end();
+      await client.release();
     } catch (e) {
       /* ignore */
     }
@@ -993,13 +1000,13 @@ export async function getDBStats(connection: PGConfig): Promise<{
     return cached;
   }
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
   try {
-    await client.connect();
     const res = await client.query(PG_GET_DB_STATS);
 
     // CRITICAL: Ensure the pg client is closed after a successful query
-    await client.end();
+    await client.release();
 
     // CRITICAL: Update the return type structure
     const result = res.rows?.[0] as {
@@ -1017,7 +1024,7 @@ export async function getDBStats(connection: PGConfig): Promise<{
     console.error("Error fetching database stats:", error);
     // Attempt to close the client even if an error occurred during connection/query
     try {
-      await client.end();
+      await client.release();
     } catch (endError) {
       console.error("Error closing client after failure:", endError);
     }
@@ -1035,11 +1042,11 @@ export async function listSchemas(connection: PGConfig) {
     return cached;
   }
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
   try {
-    await client.connect();
     const res = await client.query(PG_LIST_SCHEMAS);
-    await client.end();
+    await client.release();
 
     const result = res.rows;
 
@@ -1049,7 +1056,7 @@ export async function listSchemas(connection: PGConfig) {
     return result; // [{ name: 'public' }, { name: 'analytics' }, ...]
   } catch (err) {
     try {
-      await client.end();
+      await client.release();
     } catch (e) { }
     throw err;
   }
@@ -1067,11 +1074,11 @@ export async function getTableDetails(
     return cached;
   }
 
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
   try {
-    await client.connect();
     const res = await client.query(PG_GET_TABLE_DETAILS, [`${schemaName}.${tableName}`]);
-    await client.end();
+    await client.release();
 
     const result = res.rows;
 
@@ -1104,7 +1111,8 @@ export async function createTable(
   columns: ColumnDetail[],
   foreignKeys: ForeignKeyInfo[] = []
 ) {
-  const client = createClient(conn);
+  const pool = getPool(conn);
+  const client = await pool.connect();
 
   const primaryKeys = columns
     .filter(c => c.is_primary_key)
@@ -1136,7 +1144,6 @@ export async function createTable(
   `;
 
   try {
-    await client.connect();
     await client.query("BEGIN");
 
     await client.query(createTableQuery);
@@ -1161,7 +1168,7 @@ export async function createTable(
     await client.query("ROLLBACK");
     throw err;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1185,10 +1192,10 @@ export async function createIndexes(
   schemaName: string,
   indexes: IndexInfo[]
 ): Promise<Boolean> {
-  const client = createClient(conn);
+  const pool = getPool(conn);
+  const client = await pool.connect();
   const grouped = groupIndexes(indexes);
   try {
-    await client.connect();
 
     for (const group of grouped) {
       const first = group[0];
@@ -1214,7 +1221,7 @@ export async function createIndexes(
   } catch (error) {
     throw error;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1225,10 +1232,10 @@ export async function alterTable(
   tableName: string,
   operations: PGAlterTableOperation[]
 ): Promise<boolean> {
-  const client = createClient(conn);
+  const pool = getPool(conn);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     await client.query("BEGIN");
 
     for (const op of operations) {
@@ -1306,7 +1313,7 @@ export async function alterTable(
     await client.query("ROLLBACK");
     throw err;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1317,10 +1324,10 @@ export async function dropTable(
   tableName: string,
   mode: PGDropMode = "RESTRICT"
 ): Promise<boolean> {
-  const client = createClient(conn);
+  const pool = getPool(conn);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     await client.query("BEGIN");
 
     if (mode !== "CASCADE") {
@@ -1368,33 +1375,34 @@ export async function dropTable(
     await client.query("ROLLBACK");
     throw err;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
 export async function ensureMigrationTable(client: PGConfig) {
-  const connection = createClient(client)
+  const pool = getPool(client);
+  const connection = await pool.connect();
   try {
     await connection.connect()
     await connection.query(PG_CREATE_MIGRATION_TABLE);
   } catch (error) {
     throw error;
   } finally {
-    await connection.end();
+    await connection.release();
   }
 }
 
 export async function hasAnyMigrations(connection: PGConfig): Promise<boolean> {
-  const client = createClient(connection)
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const { rows } = await client.query(PG_CHECK_MIGRATIONS_EXIST);
     return rows.length > 0;
   } catch (error) {
     throw error;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1404,15 +1412,15 @@ export async function insertBaseline(
   name: string,
   checksum: string
 ): Promise<boolean> {
-  const client = createClient(conn)
+  const pool = getPool(conn);
+  const client = await pool.connect();
   try {
-    await client.connect();
     await client.query(PG_INSERT_MIGRATION, [version, name, checksum]);
     return true;
   } catch (error) {
     throw error;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1421,13 +1429,13 @@ export async function baselineIfNeeded(
   migrationsDir: string,
   snapshot?: SchemaFile
 ) {
-  const client = createClient(conn);
+  const pool = getPool(conn);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
-    await ensureMigrationTable(client);
+    await ensureMigrationTable(conn);
 
-    const hasMigrations = await hasAnyMigrations(client);
+    const hasMigrations = await hasAnyMigrations(conn);
     if (hasMigrations) return { baselined: false };
 
     const version = Date.now().toString();
@@ -1456,11 +1464,11 @@ export async function baselineIfNeeded(
       .update(fs.readFileSync(filePath))
       .digest("hex");
 
-    await insertBaseline(client, version, name, checksum);
+    await insertBaseline(conn, version, name, checksum);
 
     return { baselined: true, version };
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1469,10 +1477,10 @@ export async function baselineIfNeeded(
 export async function listAppliedMigrations(
   cfg: PGConfig,
 ): Promise<AppliedMigration[]> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     // Important: table may not exist yet
     const tableExists = await client.query(`
@@ -1491,7 +1499,7 @@ export async function listAppliedMigrations(
 
     return res.rows as AppliedMigration[];
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1545,10 +1553,10 @@ export async function applyMigration(
   cfg: PGConfig,
   migrationFilePath: string
 ): Promise<boolean> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     // Read and parse migration file
     const { readMigrationFile } = await import('../utils/migrationFileReader');
@@ -1578,7 +1586,7 @@ export async function applyMigration(
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1590,10 +1598,10 @@ export async function rollbackMigration(
   version: string,
   migrationFilePath: string
 ): Promise<boolean> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     // Read and parse migration file
     const { readMigrationFile } = await import('../utils/migrationFileReader');
@@ -1619,7 +1627,7 @@ export async function rollbackMigration(
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    await client.end();
+    await client.release();
   }
 }
 
@@ -1637,10 +1645,10 @@ export async function insertRow(
   tableName: string,
   rowData: Record<string, any>
 ): Promise<any> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     const columns = Object.keys(rowData);
     const values = Object.values(rowData);
@@ -1671,7 +1679,7 @@ export async function insertRow(
     throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (_) { }
   }
 }
@@ -1694,10 +1702,10 @@ export async function updateRow(
   primaryKeyValue: any,
   rowData: Record<string, any>
 ): Promise<any> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     const columns = Object.keys(rowData);
     const values = Object.values(rowData);
@@ -1744,7 +1752,7 @@ export async function updateRow(
     throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (_) { }
   }
 }
@@ -1765,10 +1773,10 @@ export async function deleteRow(
   primaryKeyColumn: string,
   primaryKeyValue: any
 ): Promise<boolean> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
     const safeTable = `"${tableName.replace(/"/g, '""')}"`;
@@ -1807,7 +1815,7 @@ export async function deleteRow(
     throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (_) { }
   }
 }
@@ -1831,10 +1839,10 @@ export async function searchTable(
   page: number = 1,
   pageSize: number = 50
 ): Promise<{ rows: any[]; total: number }> {
-  const client = createClient(cfg);
+  const pool = getPool(cfg);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
 
     const safeSchema = `"${schemaName.replace(/"/g, '""')}"`;
     const safeTable = `"${tableName.replace(/"/g, '""')}"`;
@@ -1892,7 +1900,7 @@ export async function searchTable(
     throw new Error(`Failed to search table ${schemaName}.${tableName}: ${error}`);
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (_) { }
   }
 }
@@ -1904,15 +1912,15 @@ export async function searchTable(
 export async function listSchemaNames(connection: PGConfig): Promise<string[]> {
   // Check cache first (re-use schemas cache if available, or a new cache if needed)
   // For now, simpler to just query as it's very fast
-  const client = createClient(connection);
+  const pool = getPool(connection);
+  const client = await pool.connect();
 
   try {
-    await client.connect();
     const res = await client.query(PG_LIST_SCHEMAS);
     return res.rows.map((r: any) => r.name);
   } finally {
     try {
-      await client.end();
+      await client.release();
     } catch (e) { }
   }
 }

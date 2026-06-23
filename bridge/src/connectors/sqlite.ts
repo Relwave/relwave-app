@@ -62,16 +62,18 @@ import { SchemaFile } from "../services/projectStore";
 // CACHING SYSTEM FOR SQLITE CONNECTOR
 // ============================================
 
+import { LRUCache } from "../utils/lruCache";
+
 export class SQLiteCacheManager {
-  private tableListCache = new Map<string, CacheEntry<TableInfo[]>>();
-  private primaryKeysCache = new Map<string, CacheEntry<PrimaryKeyInfo[]>>();
-  private dbStatsCache = new Map<string, CacheEntry<DBStats>>();
-  private schemasCache = new Map<string, CacheEntry<SchemaInfo[]>>();
-  private tableDetailsCache = new Map<string, CacheEntry<ColumnDetail[]>>();
-  private foreignKeysCache = new Map<string, CacheEntry<ForeignKeyInfo[]>>();
-  private indexesCache = new Map<string, CacheEntry<IndexInfo[]>>();
-  private uniqueCache = new Map<string, CacheEntry<UniqueConstraintInfo[]>>();
-  private checksCache = new Map<string, CacheEntry<CheckConstraintInfo[]>>();
+  private tableListCache = new LRUCache<string, TableInfo[]>(100);
+  private primaryKeysCache = new LRUCache<string, PrimaryKeyInfo[]>(1000);
+  private dbStatsCache = new LRUCache<string, DBStats>(50);
+  private schemasCache = new LRUCache<string, SchemaInfo[]>(50);
+  private tableDetailsCache = new LRUCache<string, ColumnDetail[]>(1000);
+  private foreignKeysCache = new LRUCache<string, ForeignKeyInfo[]>(1000);
+  private indexesCache = new LRUCache<string, IndexInfo[]>(1000);
+  private uniqueCache = new LRUCache<string, UniqueConstraintInfo[]>(1000);
+  private checksCache = new LRUCache<string, CheckConstraintInfo[]>(1000);
 
   private getConfigKey(cfg: SQLiteConfig): string {
     return cfg.path;
@@ -273,6 +275,15 @@ function validateSQLitePath(
   if (isWindowsDriveRootPath(dbPath)) {
     throw new Error(
       `Invalid SQLite path "${dbPath}" - it points to a Windows drive root, not a database file.`
+    );
+  }
+
+  const validExtensions = ['.db', '.sqlite', '.sqlite3', '.db3', '.s3db', '.sl3'];
+  const ext = dbPath.substring(dbPath.lastIndexOf('.')).toLowerCase();
+  
+  if (dbPath !== ':memory:' && !validExtensions.includes(ext)) {
+    throw new Error(
+      `Invalid SQLite path "${dbPath}" - must have a valid SQLite extension (.db, .sqlite, etc.) to prevent arbitrary file access.`
     );
   }
 
@@ -623,27 +634,9 @@ export async function getDBStats(cfg: SQLiteConfig): Promise<DBStats> {
     // Get DB file size
     const pageCount = db.pragma("page_count", { simple: true }) as number;
     const pageSize = db.pragma("page_size", { simple: true }) as number;
-    const totalSizeMB = (pageCount * pageSize) / (1024 * 1024);
-
-    // Count total rows across all tables.
-    // On large databases this can be very expensive and will block the event loop
-    // because better-sqlite3 is synchronous. To keep stats fetching responsive,
-    // only compute total_rows for databases up to a certain size.
-    const MAX_DB_SIZE_MB_FOR_ROWCOUNT = 50;
-    let totalRows = 0;
-    if (totalSizeMB <= MAX_DB_SIZE_MB_FOR_ROWCOUNT) {
-      const tables = db.prepare(SQLITE_LIST_TABLES).all() as any[];
-      for (const t of tables) {
-        try {
-          const countRow = db
-            .prepare(`SELECT COUNT(*) AS cnt FROM ${quoteIdent(t.name)}`)
-            .get() as any;
-          totalRows += Number(countRow?.cnt) || 0;
-        } catch {
-          // Skip tables that can't be counted
-        }
-      }
-    }
+    const totalSizeMB = (pageCount * pageSize) / (1024 * 1024);    // Count total rows across all tables.
+    // Removed because better-sqlite3 is synchronous and SELECT COUNT(*) blocks the Node event loop.
+    let totalRows = -1;
 
     const result: DBStats = {
       total_tables: totalTables,
@@ -991,16 +984,19 @@ export async function createIndexes(
       grouped.get(idx.index_name)!.push(idx);
     }
 
-    for (const [, group] of grouped) {
-      const sorted = group.sort((a, b) => (a.ordinal_position || 0) - (b.ordinal_position || 0));
-      const first = sorted[0];
-      if (first.is_primary) continue;
+    const transaction = db.transaction(() => {
+      for (const [, group] of grouped) {
+        const sorted = group.sort((a, b) => (a.ordinal_position || 0) - (b.ordinal_position || 0));
+        const first = sorted[0];
+        if (first.is_primary) continue;
 
-      const cols = sorted.map(i => quoteIdent(i.column_name)).join(", ");
-      const sql = `CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX IF NOT EXISTS ${quoteIdent(first.index_name)} ON ${quoteIdent(first.table_name)} (${cols});`;
-      db.exec(sql);
-    }
+        const cols = sorted.map(i => quoteIdent(i.column_name)).join(", ");
+        const sql = `CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX IF NOT EXISTS ${quoteIdent(first.index_name)} ON ${quoteIdent(first.table_name)} (${cols});`;
+        db.exec(sql);
+      }
+    });
 
+    transaction();
     return true;
   } finally {
     db.close();
