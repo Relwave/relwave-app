@@ -496,7 +496,31 @@ export class GitService {
         const args = ["diff"];
         if (staged) args.push("--staged");
         if (file) args.push("--", file);
-        return this.git(dir, ...args);
+        const output = await this.git(dir, ...args);
+
+        // If git diff returns nothing for a specific file, it might be an untracked file.
+        if (!output && file && !staged) {
+            try {
+                // git ls-files --error-unmatch throws if the file is untracked
+                await this.git(dir, "ls-files", "--error-unmatch", file);
+            } catch {
+                try {
+                    const filePath = path.join(dir, file);
+                    const stat = fsSync.statSync(filePath);
+                    if (stat.isFile() && stat.size <= 2097152) { // Max 2MB diff
+                        const content = fsSync.readFileSync(filePath, "utf-8");
+                        const lines = content.split(/\r?\n/);
+                        let diffStr = `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,${lines.length} @@\n`;
+                        for (const line of lines) diffStr += `+${line}\n`;
+                        return diffStr.trimEnd();
+                    }
+                } catch {
+                    // Ignore fs errors
+                }
+            }
+        }
+
+        return output;
     }
 
     /**
