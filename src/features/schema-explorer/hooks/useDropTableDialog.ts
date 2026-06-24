@@ -1,6 +1,6 @@
 import { DropMode } from "@/features/database/types";
 import { migrationService } from "@/services/bridge/migration";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface DropTableDialogProps {
@@ -13,7 +13,7 @@ interface DropTableDialogProps {
 }
 
 
-export default function useDropTableDialog({ onOpenChange, dbId, schemaName, tableName, onSuccess }: DropTableDialogProps) {
+export default function useDropTableDialog({ open, onOpenChange, dbId, schemaName, tableName, onSuccess }: DropTableDialogProps) {
     const [mode, setMode] = useState<DropMode>("RESTRICT");
     const [confirmText, setConfirmText] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +22,12 @@ export default function useDropTableDialog({ onOpenChange, dbId, schemaName, tab
         setMode("RESTRICT");
         setConfirmText("");
     };
+
+    useEffect(() => {
+        if (open) {
+            resetForm();
+        }
+    }, [open]);
 
     const handleClose = () => {
         if (!isSubmitting) {

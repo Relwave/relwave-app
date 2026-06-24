@@ -28,6 +28,7 @@ export function useCreateTableDialog({ onOpenChange, dbId, schemaName, onSuccess
     useEffect(() => {
         if (open && dbId) {
             fetchAvailableTables();
+            resetForm();
         }
     }, [open, dbId]);
 

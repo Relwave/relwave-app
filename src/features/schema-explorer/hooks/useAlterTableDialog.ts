@@ -1,6 +1,6 @@
 import { AlterTableOperation } from "@/features/database/types";
 import { migrationService } from "@/services/bridge/migration";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 
@@ -17,13 +17,19 @@ interface AlterTableDialogProps {
 
 
 
-export function useAlterTableDialog({ onOpenChange, dbId, schemaName, tableName, onSuccess }: AlterTableDialogProps) {
+export function useAlterTableDialog({ open, onOpenChange, dbId, schemaName, tableName, onSuccess }: AlterTableDialogProps) {
     const [operations, setOperations] = useState<AlterTableOperation[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const resetForm = () => {
         setOperations([]);
     };
+
+    useEffect(() => {
+        if (open) {
+            resetForm();
+        }
+    }, [open]);
 
     const handleClose = () => {
         if (!isSubmitting) {
