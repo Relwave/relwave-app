@@ -19,6 +19,8 @@ interface UseDatabaseDetailsReturn {
     rowCount: number;
     totalRows: number;
     query: string;
+    queryResults: TableRow[];
+    hasExecutedQuery: boolean;
     queryProgress: QueryProgress | null;
     queryError: string | null;
     isExecuting: boolean;
@@ -313,6 +315,8 @@ export function useDatabaseDetails({
         tables,
         selectedTable,
         tableData: showQueryResults ? queryResults : tableData,
+        queryResults,
+        hasExecutedQuery,
         rowCount: showQueryResults ? queryRowCount : rowCount,
         totalRows,
         query,

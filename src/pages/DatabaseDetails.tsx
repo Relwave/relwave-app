@@ -107,16 +107,17 @@ const DatabaseDetail = () => {
   // ---- Panel router ----
   const renderPanel = () => {
     switch (activePanel) {
-      case "sql-workspace": return <SQLWorkspacePanel dbId={dbId || ""} />;
-      case "query-builder": return <QueryBuilderPanel dbId={dbId || ""} />;
-      case "schema-explorer": return <SchemaExplorerPanel dbId={dbId || ""} projectId={projectId} />;
-      case "er-diagram": return <ERDiagramPanel projectId={projectId} />;
-      case "monitoring": return <MonitoringPanel dbId={dbId || ""} databaseName={databaseName} databaseType={databaseType} />;
-      case "git-status": return <GitStatusPanel projectDir={projectDir} projectId={projectId ?? ''} />;
-      case "migrations": return <div className="p-6 h-full"><MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} /></div>;
+      case "sql-workspace": return <SQLWorkspacePanel key={`sql-${dbId}`} dbId={dbId || ""} />;
+      case "query-builder": return <QueryBuilderPanel key={`qb-${dbId}`} dbId={dbId || ""} />;
+      case "schema-explorer": return <SchemaExplorerPanel key={`schema-${dbId}`} dbId={dbId || ""} projectId={projectId} />;
+      case "er-diagram": return <ERDiagramPanel key={`er-${dbId}`} projectId={projectId} />;
+      case "monitoring": return <MonitoringPanel key={`mon-${dbId}`} dbId={dbId || ""} databaseName={databaseName} databaseType={databaseType} />;
+      case "git-status": return <GitStatusPanel key={`git-${dbId}`} projectDir={projectDir} projectId={projectId ?? ''} />;
+      case "migrations": return <div className="p-6 h-full" key={`mig-${dbId}`}><MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} /></div>;
       default:
         return (
           <DataViewPanel
+            key={`data-${dbId}`}
             dbId={dbId || ""}
             databaseName={databaseName}
             tables={tables}
