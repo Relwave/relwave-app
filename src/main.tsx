@@ -69,7 +69,8 @@ function AnimatedRoutes() {
 
 function AppRoot() {
   useEffect(() => {
-    const handleSelectAll = (e: KeyboardEvent) => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Block Ctrl+A outside editable fields (prevents full-page select)
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         const tag = (e.target as HTMLElement)?.tagName;
         const isEditable = (e.target as HTMLElement)?.isContentEditable;
@@ -77,9 +78,14 @@ function AppRoot() {
         if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
         e.preventDefault();
       }
+
+      // Block Ctrl+F to suppress WebView's built-in Find-in-Page bar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+      }
     };
-    document.addEventListener('keydown', handleSelectAll);
-    return () => document.removeEventListener('keydown', handleSelectAll);
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
   }, []);
 
   return (
