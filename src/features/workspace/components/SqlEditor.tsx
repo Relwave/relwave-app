@@ -17,27 +17,27 @@ interface SqlEditorProps {
 // Light theme customization
 const lightTheme = EditorView.theme({
   "&": {
-    backgroundColor: "hsl(var(--muted) / 0.3)",
+    backgroundColor: "color-mix(in oklch, var(--muted) 30%, transparent)",
     borderRadius: "0.5rem",
   },
   ".cm-gutters": {
-    backgroundColor: "hsl(var(--muted) / 0.5)",
-    borderRight: "1px solid hsl(var(--border))",
+    backgroundColor: "color-mix(in oklch, var(--muted) 50%, transparent)",
+    borderRight: "1px solid var(--border)",
   },
   ".cm-activeLineGutter": {
-    backgroundColor: "hsl(var(--muted))",
+    backgroundColor: "var(--muted)",
   },
   ".cm-activeLine": {
-    backgroundColor: "hsl(var(--muted) / 0.5)",
+    backgroundColor: "color-mix(in oklch, var(--muted) 50%, transparent)",
   },
   ".cm-cursor": {
-    borderLeftColor: "hsl(var(--foreground))",
+    borderLeftColor: "var(--foreground)",
   },
-  ".cm-selectionBackground": {
-    backgroundColor: "hsl(var(--primary) / 0.2) !important",
+  ".cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: "color-mix(in oklch, var(--primary) 30%, transparent) !important",
   },
-  "&.cm-focused .cm-selectionBackground": {
-    backgroundColor: "hsl(var(--primary) / 0.3) !important",
+  "&.cm-focused .cm-selectionBackground, &.cm-focused .cm-content ::selection": {
+    backgroundColor: "color-mix(in oklch, var(--primary) 40%, transparent) !important",
   },
 });
 

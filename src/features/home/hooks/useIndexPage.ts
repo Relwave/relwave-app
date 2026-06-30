@@ -55,6 +55,7 @@ export const useIndexPage = (bridgeReady: boolean) => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [prefilledConnectionData, setPrefilledConnectionData] = useState<Partial<ConnectionFormData> | undefined>(undefined);
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [isDiscoveredMode, setIsDiscoveredMode] = useState(false);
 
     // Selected db derived state
     const selectedDatabase = useMemo(
@@ -231,6 +232,7 @@ export const useIndexPage = (bridgeReady: boolean) => {
                 ssl: false,
                 sslmode: "",
             });
+            setIsDiscoveredMode(true);
             setIsDialogOpen(true);
         },
         []
@@ -238,7 +240,10 @@ export const useIndexPage = (bridgeReady: boolean) => {
 
     const handleDialogClose = (open: boolean) => {
         setIsDialogOpen(open);
-        if (!open) setPrefilledConnectionData(undefined);
+        if (!open) {
+            setPrefilledConnectionData(undefined);
+            setIsDiscoveredMode(false);
+        }
     };
 
     // ---- Delete Hook ----
@@ -298,6 +303,7 @@ export const useIndexPage = (bridgeReady: boolean) => {
         deleteConnectionDialogProps,
         isDeleting,
         prefilledConnectionData,
+        isDiscoveredMode,
 
         // Handlers
         handleAddDatabase,

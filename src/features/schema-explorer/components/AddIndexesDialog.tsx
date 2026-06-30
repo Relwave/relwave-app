@@ -41,6 +41,7 @@ export default function AddIndexesDialog({
         indexes,
         isSubmitting }
         = useAddIndexDialog({
+            open,
             onOpenChange,
             dbId,
             schemaName,

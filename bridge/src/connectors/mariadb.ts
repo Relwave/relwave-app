@@ -1331,7 +1331,12 @@ export async function ensureMigrationTable(conn: MariaDBConfig) {
     const pool = mysql.createPool(createPoolConfig(conn));
     const connection = await pool.getConnection();
 
-    await connection.query(CREATE_MIGRATION_TABLE);
+    try {
+        await connection.query(CREATE_MIGRATION_TABLE);
+    } finally {
+        connection.release();
+        await pool.end();
+    }
 }
 
 
@@ -1339,8 +1344,13 @@ export async function hasAnyMigrations(conn: MariaDBConfig): Promise<boolean> {
     const pool = mysql.createPool(createPoolConfig(conn));
     const connection = await pool.getConnection();
 
-    const [rows] = await connection.query<any[]>(CHECK_MIGRATIONS_EXIST);
-    return rows.length > 0;
+    try {
+        const [rows] = await connection.query<any[]>(CHECK_MIGRATIONS_EXIST);
+        return rows.length > 0;
+    } finally {
+        connection.release();
+        await pool.end();
+    }
 }
 
 
@@ -1353,7 +1363,12 @@ export async function insertBaseline(
     const pool = mysql.createPool(createPoolConfig(conn));
     const connection = await pool.getConnection();
 
-    await connection.query(INSERT_MIGRATION, [version, name, checksum]);
+    try {
+        await connection.query(INSERT_MIGRATION, [version, name, checksum]);
+    } finally {
+        connection.release();
+        await pool.end();
+    }
 }
 
 export async function baselineIfNeeded(

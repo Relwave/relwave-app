@@ -24,7 +24,7 @@ export interface ConnectionListProps {
     onDeleteProject?: (projectId: string) => void;
 }
 
-export interface DatabaseDetailProps {
+export interface DatabasePreviewProps {
     database: DatabaseConnection;
     isConnected: boolean;
     tables: number | string | undefined;
@@ -56,6 +56,7 @@ export interface AddConnectionDialogProps {
     onSubmit: (data: ConnectionFormData, useUrl: boolean, connectionUrl: string) => void;
     isLoading?: boolean;
     initialData?: Partial<ConnectionFormData>;
+    isDiscoveredMode?: boolean;
 }
 
 export interface DeleteDialogProps {

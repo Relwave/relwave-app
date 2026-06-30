@@ -3,6 +3,7 @@ import { databaseService } from "@/services/bridge/database";
 import { migrationService } from "@/services/bridge/migration";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useInvalidateCache } from "@/features/project/hooks/useDbQueries";
 
 interface CreateTableDialogProps {
     open: boolean;
@@ -23,11 +24,13 @@ export function useCreateTableDialog({ onOpenChange, dbId, schemaName, onSuccess
     // State for indexes dialog
     const [showIndexesDialog, setShowIndexesDialog] = useState(false);
     const [createdTableName, setCreatedTableName] = useState("");
+    const { invalidateDatabase } = useInvalidateCache();
 
     // Fetch available tables when dialog opens
     useEffect(() => {
         if (open && dbId) {
             fetchAvailableTables();
+            resetForm();
         }
     }, [open, dbId]);
 
@@ -144,6 +147,8 @@ export function useCreateTableDialog({ onOpenChange, dbId, schemaName, onSuccess
 
             // Auto-apply the migration immediately
             await migrationService.applyMigration(dbId, result.version);
+
+            invalidateDatabase(dbId);
 
             toast.success("Table created successfully!", {
                 description: `Migration ${result.filename} was generated and applied. You can rollback from the Migrations panel if needed.`,

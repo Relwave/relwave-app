@@ -30,6 +30,7 @@ export function AddConnectionDialog({
   onSubmit,
   isLoading,
   initialData,
+  isDiscoveredMode,
 }: AddConnectionDialogProps) {
   const [useUrl, setUseUrl] = useState(true);
   const [connectionUrl, setConnectionUrl] = useState("");
@@ -40,6 +41,9 @@ export function AddConnectionDialog({
     if (open) {
       if (initialData) {
         setFormData(prev => ({ ...prev, ...INITIAL_FORM_DATA, ...initialData }));
+        if (isDiscoveredMode) {
+          setUseUrl(false);
+        }
       } else {
         // Reset to empty form when opening without initial data
         setFormData(INITIAL_FORM_DATA);
@@ -112,7 +116,7 @@ export function AddConnectionDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {!isSQLite && (
+          {!isSQLite && !isDiscoveredMode && (
             <Tabs value={useUrl ? "url" : "params"} onValueChange={(v) => setUseUrl(v === "url")}>
               <TabsList className="grid w-full grid-cols-2 h-9">
                 <TabsTrigger value="url" className="text-xs">
@@ -152,7 +156,7 @@ export function AddConnectionDialog({
           {!useUrl && (
             <div className="space-y-1.5">
               <Label className="text-xs">Type</Label>
-              <Select value={formData.type} onValueChange={(val) => {
+              <Select disabled={isDiscoveredMode} value={formData.type} onValueChange={(val) => {
                 handleInputChange("type", val);
                 if (val === "sqlite") {
                   // Clear network-related fields when switching to SQLite
@@ -200,13 +204,15 @@ export function AddConnectionDialog({
                     placeholder="/path/to/database.db"
                     value={formData.database}
                     onChange={(e) => handleInputChange("database", e.target.value)}
-                    className="h-9 text-sm font-mono flex-1"
+                    readOnly={isDiscoveredMode}
+                    className={`h-9 text-sm font-mono flex-1 ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-9 px-3"
+                    disabled={isDiscoveredMode}
                     onClick={async () => {
                       const selected = await openDialog({
                         title: "Select SQLite Database",
@@ -228,7 +234,8 @@ export function AddConnectionDialog({
                       placeholder="localhost"
                       value={formData.host}
                       onChange={(e) => handleInputChange("host", e.target.value)}
-                      className="h-9 text-sm font-mono"
+                      readOnly={isDiscoveredMode}
+                      className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -237,7 +244,8 @@ export function AddConnectionDialog({
                       placeholder={formData.type === "mysql" || formData.type === "mariadb" ? "3306" : "5432"}
                       value={formData.port}
                       onChange={(e) => handleInputChange("port", e.target.value)}
-                      className="h-9 text-sm font-mono"
+                      readOnly={isDiscoveredMode}
+                      className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                     />
                   </div>
                 </div>
@@ -249,7 +257,8 @@ export function AddConnectionDialog({
                       placeholder={formData.type === "postgresql" ? "postgres" : "root"}
                       value={formData.user}
                       onChange={(e) => handleInputChange("user", e.target.value)}
-                      className="h-9 text-sm font-mono"
+                      readOnly={isDiscoveredMode}
+                      className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -259,7 +268,8 @@ export function AddConnectionDialog({
                       placeholder="••••••••"
                       value={formData.password}
                       onChange={(e) => handleInputChange("password", e.target.value)}
-                      className="h-9 text-sm"
+                      readOnly={isDiscoveredMode}
+                      className={`h-9 text-sm ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                     />
                   </div>
                 </div>
@@ -270,11 +280,12 @@ export function AddConnectionDialog({
                     placeholder="myapp"
                     value={formData.database}
                     onChange={(e) => handleInputChange("database", e.target.value)}
-                    className="h-9 text-sm font-mono"
+                    readOnly={isDiscoveredMode}
+                    className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
                   />
                 </div>
 
-                {showSslOption && (
+                {showSslOption && !isDiscoveredMode && (
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border/50">
                     <Checkbox
                       id="ssl"
@@ -290,8 +301,9 @@ export function AddConnectionDialog({
                 )}
 
                 {/* SSH Tunnel Section */}
-                <div className="space-y-4 pt-2 border-t border-border/50 mt-4">
-                  <div className="flex items-center justify-between">
+                {!isDiscoveredMode && (
+                  <div className="space-y-4 pt-2 border-t border-border/50 mt-4">
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-blue-500" />
                       <Label htmlFor="useSsh" className="text-sm font-medium">SSH Tunnel</Label>
@@ -415,6 +427,7 @@ export function AddConnectionDialog({
                     </div>
                   )}
                 </div>
+                )}
               </>
             )
           )}

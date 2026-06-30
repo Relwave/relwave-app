@@ -339,7 +339,7 @@ describe("DiscoveryService", () => {
             // Actual discovery depends on system state
             const result = await service.discoverLocalDatabases();
             expect(Array.isArray(result)).toBe(true);
-        });
+        }, 30000); // Increased timeout for docker commands
 
         test("each discovered database should have required fields", async () => {
             const result = await service.discoverLocalDatabases();
@@ -355,6 +355,6 @@ describe("DiscoveryService", () => {
                 expect(db.defaultUser).toBeDefined();
                 expect(db.defaultDatabase).toBeDefined();
             }
-        });
+        }, 30000); // Increased timeout for docker commands
     });
 });

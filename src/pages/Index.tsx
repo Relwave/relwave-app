@@ -3,7 +3,7 @@
 import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import {
     ConnectionList,
-    DatabaseDetail,
+    DatabasePreview,
     WelcomeView,
     AddConnectionDialog,
     DeleteConnectionDialog,
@@ -66,6 +66,7 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
         setDeleteDialogOpen,
         deleteConnectionDialogProps,
         prefilledConnectionData,
+        isDiscoveredMode,
 
         // Handlers
         handleAddDatabase,
@@ -112,7 +113,7 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                     {/* Right Panel */}
                     <div className="flex-1 overflow-y-auto">
                         {selectedDatabase ? (
-                            <DatabaseDetail
+                            <DatabasePreview
                                 database={selectedDatabase}
                                 isConnected={isSelectedConnected}
                                 tables={selectedDbStats.tables}
@@ -158,6 +159,7 @@ const IndexContent = ({ bridgeReady, onShortcutsClick }: { bridgeReady: boolean,
                 onSubmit={handleAddDatabase}
                 isLoading={isAdding}
                 initialData={prefilledConnectionData}
+                isDiscoveredMode={isDiscoveredMode}
             />
 
             {deleteConnectionDialogProps && (
