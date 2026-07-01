@@ -14,15 +14,17 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 
 export class AnthropicProvider implements AIProvider {
   private client: Anthropic;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
+    this.model = model?.trim() || DEFAULT_MODEL;
   }
 
   private async complete(system: string, user: string): Promise<string> {
     try {
       const msg = await this.client.messages.create({
-        model: DEFAULT_MODEL,
+        model: this.model,
         max_tokens: 4096,
         system,
         messages: [{ role: "user", content: user }],
@@ -53,7 +55,7 @@ export class AnthropicProvider implements AIProvider {
   async testConnection(): Promise<string> {
     try {
       await this.client.messages.create({
-        model: DEFAULT_MODEL,
+        model: this.model,
         max_tokens: 10,
         messages: [{ role: "user", content: "ping" }],
       });

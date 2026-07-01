@@ -72,28 +72,32 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
 
     return (
         <TooltipProvider delayDuration={200}>
-            <div className={`min-w-55 shadow-md border border-border rounded-md bg-card relative border-l-4 ${schemaColorClass} ${highlightClass} transition-all duration-200`}>
+            <div className={`min-w-56 shadow-md border border-border rounded-lg bg-card relative ${highlightClass} transition-all duration-200 overflow-hidden`}>
                 {/* Header */}
-                <div className="bg-muted px-3 py-2 font-mono text-sm font-medium flex items-center gap-2 rounded-tr-md border-b border-border">
-                    <button
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="p-0.5 hover:bg-background/50 rounded transition-colors"
-                    >
-                        {isCollapsed ? (
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                        ) : (
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                    </button>
-                    <Table2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-foreground font-semibold">{data.label}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto px-1.5 py-0.5 bg-background/50 rounded">
-                        {data.schema}
-                    </span>
+                <div className="px-3 py-2 bg-muted/50 border-b border-border/50 flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-xs font-bold font-mono">
+                        <button
+                            onClick={() => setIsCollapsed(!isCollapsed)}
+                            className="p-0.5 hover:bg-background/50 rounded transition-colors mr-0.5"
+                        >
+                            {isCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                        </button>
+                        <Table2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        <span className="text-foreground">{data.label}</span>
+                    </div>
+                    {data.schema !== 'public' && (
+                        <span className="text-[9px] text-muted-foreground ml-2 px-1.5 py-0.5 bg-background/50 rounded uppercase tracking-wider">
+                            {data.schema}
+                        </span>
+                    )}
                 </div>
 
                 {/* Columns */}
-                <div className="divide-y divide-border">
+                <div className="p-2 space-y-1 bg-background/95">
                     {visibleColumns.map((col) => {
                         const isUnique = uniqueColumns.has(col.name);
                         const isIndexed = indexedColumns.has(col.name);
@@ -132,7 +136,7 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                                 <TooltipTrigger asChild>
                                     <div
                                         id={handleId}
-                                        className="px-3 py-1.5 text-xs font-mono flex items-center justify-between gap-2 relative hover:bg-muted/50 transition-colors cursor-default"
+                                        className={`flex justify-between items-center text-[11px] px-1.5 py-0.5 font-mono relative cursor-default ${isFkSource ? 'bg-cyan-500/10 rounded' : 'hover:bg-muted/50 rounded transition-colors'}`}
                                     >
                                         {/* Left handle for incoming connections (target) - for PK/unique columns */}
                                         {(isPkTarget || isUnique) && (
@@ -140,8 +144,8 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                                                 type="target"
                                                 position={Position.Left}
                                                 id={handleId}
-                                                className="w-2! h-2! bg-amber-500! border-amber-600!"
-                                                style={{ top: '50%' }}
+                                                className="w-1! h-1! opacity-0 pointer-events-none"
+                                                style={{ left: '-8px' }}
                                             />
                                         )}
 
@@ -151,42 +155,30 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                                                 type="source"
                                                 position={Position.Right}
                                                 id={handleId}
-                                                className="w-2! h-2! bg-cyan-500! border-cyan-600!"
-                                                style={{ top: '50%' }}
+                                                className="w-1! h-1! opacity-0 pointer-events-none"
+                                                style={{ right: '-8px' }}
                                             />
                                         )}
 
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            {col.isPrimaryKey && (
-                                                <Key className="h-3 w-3 text-amber-500 shrink-0" />
+                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                            {col.isPrimaryKey ? (
+                                                <span className="w-2.5 h-2.5 bg-amber-500 rounded-full shrink-0" />
+                                            ) : col.isForeignKey ? (
+                                                <span className="w-2.5 h-2.5 bg-cyan-500 rounded-full shrink-0" />
+                                            ) : (
+                                                <span className="w-2.5 h-2.5 shrink-0" />
                                             )}
-                                            <span className={`truncate ${col.isPrimaryKey
-                                                ? "text-amber-600 dark:text-amber-400 font-medium"
-                                                : col.isForeignKey
-                                                    ? "text-cyan-600 dark:text-cyan-400"
-                                                    : "text-foreground"
-                                                }`}>
+                                            
+                                            <span className={`truncate ${col.isPrimaryKey ? "font-medium" : col.isForeignKey ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-foreground"}`}>
                                                 {col.name}
                                             </span>
-                                            {isUnique && (
-                                                <span className="text-[9px] px-1 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded shrink-0">
-                                                    UQ
-                                                </span>
-                                            )}
-                                            {isIndexed && (
-                                                <span className="text-[9px] px-1 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded shrink-0">
-                                                    IDX
-                                                </span>
+                                            
+                                            {!col.nullable && (
+                                                <span className="text-[10px] text-red-500 font-bold shrink-0">*</span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-muted-foreground text-[10px]">{col.type}</span>
-                                            {col.isForeignKey && (
-                                                <span className="text-cyan-500">→</span>
-                                            )}
-                                            {!col.nullable && (
-                                                <span className="text-[10px] text-red-500 font-bold">*</span>
-                                            )}
+                                        <div className="flex items-center gap-1 shrink-0 ml-4">
+                                            <span className="text-muted-foreground">{col.type}</span>
                                         </div>
                                     </div>
                                 </TooltipTrigger>
@@ -196,79 +188,14 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                             </Tooltip>
                         );
                     })}
+
+                    {/* Collapsed indicator */}
+                    {isCollapsed && data.columns.length > visibleColumns.length && (
+                        <div className="px-3 py-1 text-[10px] text-muted-foreground text-center bg-muted/30 rounded-md mt-1">
+                            +{data.columns.length - visibleColumns.length} more columns
+                        </div>
+                    )}
                 </div>
-
-                {/* Collapsed indicator */}
-                {isCollapsed && data.columns.length > visibleColumns.length && (
-                    <div className="px-3 py-1 text-[10px] text-muted-foreground text-center bg-muted/30">
-                        +{data.columns.length - visibleColumns.length} more columns
-                    </div>
-                )}
-
-                {/* Footer with constraint counts */}
-                {(data.foreignKeys?.length || data.indexes?.length || data.checkConstraints?.length) ? (
-                    <div className="px-3 py-1.5 bg-muted/50 text-[10px] text-muted-foreground flex gap-3 rounded-br-md border-t border-border">
-                        {data.foreignKeys && data.foreignKeys.length > 0 && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="cursor-help hover:text-foreground transition-colors">
-                                        {data.foreignKeys.length} FK
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-popover border shadow-lg text-white">
-                                    <div className="text-xs space-y-1">
-                                        <div className="font-semibold border-b pb-1">Foreign Keys</div>
-                                        {data.foreignKeys.map(fk => (
-                                            <div key={fk.constraint_name}>
-                                                {fk.source_column} → {fk.target_table}.{fk.target_column}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {data.indexes && data.indexes.length > 0 && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="cursor-help hover:text-foreground transition-colors">
-                                        {data.indexes.length} IDX
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-popover border shadow-lg text-white">
-                                    <div className="text-xs space-y-1">
-                                        <div className="font-semibold border-b pb-1">Indexes</div>
-                                        {data.indexes.map(idx => (
-                                            <div key={idx.index_name}>
-                                                {idx.index_name} ({idx.column_name})
-                                                {idx.is_unique && " • Unique"}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {data.checkConstraints && data.checkConstraints.length > 0 && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="cursor-help hover:text-foreground transition-colors">
-                                        {data.checkConstraints.length} CHK
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-popover border shadow-lg">
-                                    <div className="text-xs space-y-1">
-                                        <div className="font-semibold border-b pb-1">Check Constraints</div>
-                                        {data.checkConstraints.map(chk => (
-                                            <div key={chk.constraint_name} className="max-w-50 truncate">
-                                                {chk.constraint_name}: {chk.definition}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        <span className="ml-auto">{data.columns.length} cols</span>
-                    </div>
-                ) : null}
             </div>
         </TooltipProvider>
     );

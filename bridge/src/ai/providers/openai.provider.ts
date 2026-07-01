@@ -14,15 +14,17 @@ const DEFAULT_MODEL = "gpt-4o-mini";
 
 export class OpenAIProvider implements AIProvider {
   private client: OpenAI;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.client = new OpenAI({ apiKey });
+    this.model = model?.trim() || DEFAULT_MODEL;
   }
 
   private async complete(system: string, user: string): Promise<string> {
     try {
       const res = await this.client.chat.completions.create({
-        model: DEFAULT_MODEL,
+        model: this.model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -54,7 +56,7 @@ export class OpenAIProvider implements AIProvider {
   async testConnection(): Promise<string> {
     try {
       await this.client.chat.completions.create({
-        model: DEFAULT_MODEL,
+        model: this.model,
         messages: [{ role: "user", content: "ping" }],
         max_tokens: 5,
       });

@@ -77,3 +77,13 @@ function shutdown(signal: string) {
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+rpc.on("end", () => {
+  logger.info("JSON-RPC stream ended — shutting down");
+  shutdown("RPC_END");
+});
+
+rpc.on("error", (err: any) => {
+  logger.error({ err }, "JSON-RPC stream error — shutting down");
+  shutdown("RPC_ERROR");
+});

@@ -45,6 +45,7 @@ import type { GitFileChange, GitLogEntry } from "@/features/git/types";
 import { gitService } from "@/services/bridge/git";
 import { projectService } from "@/services/bridge/project";
 import { GitHistoryGraph } from "./GitHistoryGraph";
+import { GitStatusPanelLoadingState } from "./GitStatusPanelLoadingState";
 
 // ─── Helpers ──────────────────────────────────────────
 
@@ -136,12 +137,9 @@ export default function GitStatusPanel({ projectDir, projectId }: GitStatusPanel
         );
     }
 
-    if (statusLoading) {
+    if (statusLoading && projectDir) {
         return (
-            <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                <Spinner className="h-4 w-4" />
-                Loading git status…
-            </div>
+            <GitStatusPanelLoadingState/>
         );
     }
 
@@ -198,19 +196,13 @@ export default function GitStatusPanel({ projectDir, projectId }: GitStatusPanel
         }
     };
 
-    const handlePush = async () => {
-        if (!projectId) return;
-        setPushing(true);
-        try {
-            await projectService.pushMigrations(projectId);
-            toast.success("Migrations pushed to remote");
-            refetchStatus();
-            refetchChanges();
-        } catch (err: any) {
-            toast.error(`Failed to push migrations: ${err.message}`);
-        } finally {
-            setPushing(false);
+    const handleRevertLatest = () => {
+        if (!logGraph || logGraph.length === 0) {
+            toast.error("No commit to revert");
+            return;
         }
+        const latest = logGraph[0];
+        handleRevert(latest.fullHash ?? latest.hash, latest.subject);
     };
 
     return (
@@ -258,9 +250,9 @@ export default function GitStatusPanel({ projectDir, projectId }: GitStatusPanel
                                 {syncing ? <Spinner className="h-3 w-3 mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
                                 Sync to Git
                             </Button>
-                            <Button size="sm" onClick={handlePush} disabled={pushing} className="h-7 text-xs">
-                                {pushing ? <Spinner className="h-3 w-3 mr-1" /> : <UploadCloud className="h-3 w-3 mr-1" />}
-                                Push
+                            <Button size="sm" onClick={handleRevertLatest} disabled={revertMutation.isPending} variant="destructive" className="h-7 text-xs">
+                                {revertMutation.isPending ? <Spinner className="h-3 w-3 mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+                                Revert Last
                             </Button>
                         </div>
                     </div>
@@ -364,7 +356,7 @@ export default function GitStatusPanel({ projectDir, projectId }: GitStatusPanel
                             <span>No commits yet</span>
                         </div>
                     ) : (
-                        <GitHistoryGraph log={logGraph} className="border-t border-border/5" />
+                        <GitHistoryGraph log={logGraph} className="border-t border-border/5" onRevert={handleRevert} reverting={revertMutation.isPending} />
                     )}
                 </TabsContent>
 

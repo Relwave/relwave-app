@@ -14,15 +14,17 @@ const DEFAULT_MODEL = "mistral-small-latest";
 
 export class MistralProvider implements AIProvider {
   private client: Mistral;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.client = new Mistral({ apiKey });
+    this.model = model?.trim() || DEFAULT_MODEL;
   }
 
   private async complete(system: string, user: string): Promise<string> {
     try {
       const res = await this.client.chat.complete({
-        model: DEFAULT_MODEL,
+        model: this.model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -60,7 +62,7 @@ export class MistralProvider implements AIProvider {
   async testConnection(): Promise<string> {
     try {
       await this.client.chat.complete({
-        model: DEFAULT_MODEL,
+        model: this.model,
         messages: [{ role: "user", content: "ping" }],
         maxTokens: 5,
       });

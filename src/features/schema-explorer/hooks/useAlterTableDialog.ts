@@ -1,7 +1,8 @@
 import { AlterTableOperation } from "@/features/database/types";
 import { migrationService } from "@/services/bridge/migration";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useInvalidateCache } from "@/features/project/hooks/useDbQueries";
 
 
 
@@ -17,13 +18,20 @@ interface AlterTableDialogProps {
 
 
 
-export function useAlterTableDialog({ onOpenChange, dbId, schemaName, tableName, onSuccess }: AlterTableDialogProps) {
+export function useAlterTableDialog({ open, onOpenChange, dbId, schemaName, tableName, onSuccess }: AlterTableDialogProps) {
     const [operations, setOperations] = useState<AlterTableOperation[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { invalidateDatabase } = useInvalidateCache();
 
     const resetForm = () => {
         setOperations([]);
     };
+
+    useEffect(() => {
+        if (open) {
+            resetForm();
+        }
+    }, [open]);
 
     const handleClose = () => {
         if (!isSubmitting) {
@@ -105,6 +113,8 @@ export function useAlterTableDialog({ onOpenChange, dbId, schemaName, tableName,
 
             // Auto-apply the migration immediately
             await migrationService.applyMigration(dbId, result.version);
+
+            invalidateDatabase(dbId);
 
             toast.success("Table altered successfully!", {
                 description: `Migration ${result.filename} was generated and applied. You can rollback from the Migrations panel if needed.`,

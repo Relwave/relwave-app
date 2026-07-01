@@ -51,6 +51,7 @@ const SchemaExplorerHeader = ({ dbId, database, onTableCreated, selectedTable }:
                             {database.schemas && database.schemas.length > 0 && (
                                 <AnalyzeSchemaButton
                                     schemaData={database as any}
+                                    dbId={dbId}
                                 />
                             )}
 

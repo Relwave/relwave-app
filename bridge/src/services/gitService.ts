@@ -104,6 +104,13 @@ export class GitError extends Error {
   }
 }
 
+
+function assertSafeGitRef(name: string) {
+    if (name.startsWith("-")) {
+        throw new Error("Invalid git reference name: cannot start with a hyphen");
+    }
+}
+
 export class GitService {
     /**
      * Run a git command in a specific directory.
@@ -446,6 +453,7 @@ export class GitService {
      * Create and checkout a new branch
      */
     async createBranch(dir: string, name: string): Promise<void> {
+        assertSafeGitRef(name);
         await this.git(dir, "checkout", "-b", name);
     }
 
@@ -453,6 +461,7 @@ export class GitService {
      * Checkout an existing branch
      */
     async checkoutBranch(dir: string, name: string): Promise<void> {
+        assertSafeGitRef(name);
         await this.git(dir, "checkout", name);
     }
 
@@ -487,7 +496,31 @@ export class GitService {
         const args = ["diff"];
         if (staged) args.push("--staged");
         if (file) args.push("--", file);
-        return this.git(dir, ...args);
+        const output = await this.git(dir, ...args);
+
+        // If git diff returns nothing for a specific file, it might be an untracked file.
+        if (!output && file && !staged) {
+            try {
+                // git ls-files --error-unmatch throws if the file is untracked
+                await this.git(dir, "ls-files", "--error-unmatch", file);
+            } catch {
+                try {
+                    const filePath = path.join(dir, file);
+                    const stat = fsSync.statSync(filePath);
+                    if (stat.isFile() && stat.size <= 2097152) { // Max 2MB diff
+                        const content = fsSync.readFileSync(filePath, "utf-8");
+                        const lines = content.split(/\r?\n/);
+                        let diffStr = `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,${lines.length} @@\n`;
+                        for (const line of lines) diffStr += `+${line}\n`;
+                        return diffStr.trimEnd();
+                    }
+                } catch {
+                    // Ignore fs errors
+                }
+            }
+        }
+
+        return output;
     }
 
     /**
@@ -589,6 +622,7 @@ export class GitService {
      * Create an annotated tag at the current HEAD (or a given ref)
      */
     async createTag(dir: string, tagName: string, message?: string, ref?: string): Promise<void> {
+        assertSafeGitRef(tagName);
         const args = ["tag"];
         if (message) {
             args.push("-a", tagName, "-m", message);
@@ -603,6 +637,7 @@ export class GitService {
      * Delete a tag
      */
     async deleteTag(dir: string, tagName: string): Promise<void> {
+        assertSafeGitRef(tagName);
         await this.git(dir, "tag", "-d", tagName);
     }
 
@@ -626,6 +661,7 @@ export class GitService {
      * Get the message of an annotated tag
      */
     async getTagMessage(dir: string, tagName: string): Promise<string | null> {
+        assertSafeGitRef(tagName);
         try {
             return await this.git(dir, "tag", "-l", "-n99", tagName);
         } catch {
@@ -642,6 +678,8 @@ export class GitService {
      * Returns full hash, or null if no common ancestor.
      */
     async mergeBase(dir: string, refA: string, refB: string): Promise<string | null> {
+        assertSafeGitRef(refA);
+        assertSafeGitRef(refB);
         try {
             const output = await this.git(dir, "merge-base", refA, refB);
             return output || null;
@@ -717,6 +755,7 @@ export class GitService {
      * Add a named remote
      */
     async remoteAdd(dir: string, name: string, url: string): Promise<void> {
+        assertSafeGitRef(name);
         await this.git(dir, "remote", "add", name, url);
     }
 
@@ -724,6 +763,7 @@ export class GitService {
      * Remove a named remote
      */
     async remoteRemove(dir: string, name: string): Promise<void> {
+        assertSafeGitRef(name);
         await this.git(dir, "remote", "remove", name);
     }
 
@@ -742,6 +782,7 @@ export class GitService {
      * Change the URL of an existing remote
      */
     async remoteSetUrl(dir: string, name: string, url: string): Promise<void> {
+        assertSafeGitRef(name);
         await this.git(dir, "remote", "set-url", name, url);
     }
 
@@ -759,6 +800,8 @@ export class GitService {
         branch?: string,
         options?: { force?: boolean; setUpstream?: boolean }
     ): Promise<string> {
+        if (remote) assertSafeGitRef(remote);
+        if (branch) assertSafeGitRef(branch);
         const args = ["push"];
         if (options?.force) args.push("--force-with-lease");
         if (options?.setUpstream) args.push("--set-upstream");
@@ -777,6 +820,8 @@ export class GitService {
         branch?: string,
         options?: { rebase?: boolean }
     ): Promise<string> {
+        if (remote) assertSafeGitRef(remote);
+        if (branch) assertSafeGitRef(branch);
         const args = ["pull"];
         if (options?.rebase) args.push("--rebase");
         args.push(remote);
@@ -792,6 +837,7 @@ export class GitService {
         remote?: string,
         options?: { prune?: boolean; all?: boolean }
     ): Promise<string> {
+        if (remote) assertSafeGitRef(remote);
         const args = ["fetch"];
         if (options?.prune) args.push("--prune");
         if (options?.all || !remote) {

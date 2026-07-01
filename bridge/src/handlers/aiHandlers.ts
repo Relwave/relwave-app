@@ -7,6 +7,7 @@ import {
   AIExplainQueryParams,
   AIRecommendChartParams,
   AITestConnectionParams,
+  AISettings,
 } from "../types/ai";
 import {
   getOrCall,
@@ -19,6 +20,9 @@ import { buildSchemaAnalysisPrompt } from "../ai/prompts/schema-analysis";
 import { buildQueryExplanationPrompt } from "../ai/prompts/query-explanation";
 import { buildChartRecommendationPrompt } from "../ai/prompts/chart-recommendation";
 import { parseChartRecommendation } from "../ai/prompts/chart-recommendation";
+import fs from "fs/promises";
+import fsSync from "fs";
+import { AI_SETTINGS_FILE, CONFIG_FOLDER, ensureDir } from "../utils/config";
 
 export class AIHandlers {
   private aiService: AIService;
@@ -217,6 +221,45 @@ export class AIHandlers {
     } catch (err: any) {
       this.logger?.error({ err }, "ai.clearHistory failed");
       this.rpc.sendError(id, { code: "HISTORY_ERROR", message: err?.message ?? String(err) });
+    }
+  }
+
+  // ── Settings persistence (reads/writes ai-settings.json) ──────────────
+
+  async handleLoadSettings(_params: unknown, id: number | string) {
+    try {
+      ensureDir(CONFIG_FOLDER);
+      if (!fsSync.existsSync(AI_SETTINGS_FILE)) {
+        // Return empty object — frontend will fall back to defaults
+        this.rpc.sendResponse(id, { ok: true, data: {} });
+        return;
+      }
+      const raw = await fs.readFile(AI_SETTINGS_FILE, "utf-8");
+      const settings = JSON.parse(raw) as AISettings;
+      this.rpc.sendResponse(id, { ok: true, data: settings });
+    } catch (err: any) {
+      this.logger?.warn({ err }, "ai.loadSettings failed — returning empty");
+      // Non-fatal: return empty so the app still starts
+      this.rpc.sendResponse(id, { ok: true, data: {} });
+    }
+  }
+
+  async handleSaveSettings(params: { settings: AISettings }, id: number | string) {
+    try {
+      ensureDir(CONFIG_FOLDER);
+      await fs.writeFile(
+        AI_SETTINGS_FILE,
+        JSON.stringify(params.settings, null, 2),
+        "utf-8"
+      );
+      // On non-Windows platforms, restrict file permissions (contains API keys)
+      if (process.platform !== "win32") {
+        await fs.chmod(AI_SETTINGS_FILE, 0o600);
+      }
+      this.rpc.sendResponse(id, { ok: true, data: { saved: true } });
+    } catch (err: any) {
+      this.logger?.error({ err }, "ai.saveSettings failed");
+      this.rpc.sendError(id, { code: "SAVE_ERROR", message: err?.message ?? String(err) });
     }
   }
 }

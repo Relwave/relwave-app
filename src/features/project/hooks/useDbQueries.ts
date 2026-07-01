@@ -353,12 +353,12 @@ export function useInvalidateCache() {
   const queryClient = useQueryClient();
 
   return {
-    /** Invalidate all caches for a database */
     invalidateDatabase: (dbId: string) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tables(dbId) });
+      queryClient.invalidateQueries({ queryKey: ["tables", dbId] });
       queryClient.invalidateQueries({ queryKey: queryKeys.stats(dbId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.schemas(dbId) });
       queryClient.invalidateQueries({ queryKey: ["fullSchema", dbId] }); // Also invalidate fullSchema
+      queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }); // Also invalidate migrations
     },
 
     /** Invalidate table-specific caches */

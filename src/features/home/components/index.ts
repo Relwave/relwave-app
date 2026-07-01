@@ -1,5 +1,5 @@
 export { ConnectionList } from "./ConnectionList";
-export { DatabaseDetail } from "./DatabaseDetail";
+export { DatabasePreview } from "./DatabasePreview";
 export { WelcomeView } from "../components/WelcomeView";
 export { AddConnectionDialog } from "./AddConnectionDialog";
 export { DeleteDialog } from "./DeleteDialog";

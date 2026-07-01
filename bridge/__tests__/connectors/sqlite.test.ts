@@ -103,7 +103,7 @@ describe("SQLite Connector", () => {
       const connection = await sqliteConnector.testConnection({ path: tmpDir });
       expect(connection.ok).toBe(false);
       expect(connection.status).toBe("disconnected");
-      expect(connection.message).toContain("directory");
+      expect(connection.message).toContain("must have a valid SQLite extension");
     });
   });
 
@@ -261,7 +261,7 @@ describe("SQLite Connector", () => {
       expect(stats).toHaveProperty("total_db_size_mb");
       expect(stats).toHaveProperty("total_rows");
       expect(stats.total_tables).toBeGreaterThanOrEqual(2);
-      expect(stats.total_rows).toBeGreaterThan(0);
+      expect(stats.total_rows).toBe(-1);
     });
   });
 

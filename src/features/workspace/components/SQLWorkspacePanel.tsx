@@ -9,6 +9,7 @@ import { ResultsPanel } from "./ResultsPanel";
 import { StatusBar } from "./StatusBar";
 import { QueryTab, QueryHistoryItem } from "../types";
 import { SqlEditor } from "./SqlEditor";
+import { SQLWorkspacePanelLoadingState } from "@/features/workspace/components/SQLWorkspacePanelLoadingState";
 
 interface SQLWorkspacePanelProps {
     dbId: string;
@@ -48,7 +49,8 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
         setQuery,
         handleExecuteQuery,
         handleCancelQuery,
-        tableData,
+        queryResults,
+        hasExecutedQuery,
         rowCount,
     } = useDatabaseDetails({
         dbId,
@@ -74,11 +76,11 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
     // Update tab results when query completes
     useEffect(() => {
-        if (!isExecuting && tableData.length > 0) {
+        if (hasExecutedQuery && !isExecuting && (queryResults.length > 0 || queryError)) {
             setTabs(prev => prev.map(tab =>
                 tab.id === activeTabId ? {
                     ...tab,
-                    results: tableData,
+                    results: queryResults,
                     rowCount: rowCount,
                     error: queryError,
                     status: queryError ? 'error' : 'success',
@@ -87,16 +89,22 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
             ));
 
             // Add to history
-            if (activeTab?.query.trim()) {
-                setQueryHistory(prev => [{
-                    query: activeTab.query,
-                    timestamp: new Date(),
-                    rowCount: rowCount,
-                    success: !queryError,
-                }, ...prev.slice(0, 49)]);
+            if (activeTab?.query.trim() && !queryError) {
+                setQueryHistory(prev => {
+                    // Avoid duplicating the exact same query consecutively
+                    if (prev.length > 0 && prev[0].query === activeTab.query) {
+                        return prev;
+                    }
+                    return [{
+                        query: activeTab.query,
+                        timestamp: new Date(),
+                        rowCount: rowCount,
+                        success: true,
+                    }, ...prev.slice(0, 49)];
+                });
             }
         }
-    }, [isExecuting, tableData, rowCount, queryError]);
+    }, [isExecuting, hasExecutedQuery, queryResults, rowCount, queryError]);
 
     // Update tab status when executing
     useEffect(() => {
@@ -154,9 +162,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
     if (!bridgeReady) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <Spinner className="h-8 w-8" />
-            </div>
+            <SQLWorkspacePanelLoadingState />
         );
     }
 
@@ -198,7 +204,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                     {/* Split View: Editor + Results */}
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Editor */}
-                        <div className="h-[45%] min-h-50 border-b border-border/40 bg-background/70">
+                        <div className="h-[45%] min-h-[200px] border-b border-border/40 bg-background/70 overflow-y-auto">
                             <SqlEditor
                                 value={activeTab?.query || ''}
                                 onChange={updateActiveTabQuery}
