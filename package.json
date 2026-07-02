@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "bridge:copy-native": "npm --prefix bridge run copy:native",
-    "bridge:package": "cd bridge && pnpm build"
+    "bridge:package": "node scripts/package-bridge.mjs"
   },
   "dependencies": {
     "@codemirror/lang-sql": "^6.10.0",
