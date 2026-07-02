@@ -1,7 +1,7 @@
 {
   "name": "relwave",
   "private": true,
-  "version": "0.9.0-rc-5",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "bridge:copy-native": "npm --prefix bridge run copy:native",
-    "bridge:package": "node scripts/package-bridge.mjs"
+    "bridge:package": "cd bridge && pnpm build"
   },
   "dependencies": {
     "@codemirror/lang-sql": "^6.10.0",
