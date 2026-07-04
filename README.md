@@ -13,6 +13,12 @@ _RelWave brings the power of native Git versioning, visual ER diagrams, and seam
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-1f2937?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
 
+<br/>
+
+<a href="https://www.producthunt.com/products/relwave?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-relwave" target="_blank" rel="noopener noreferrer"><img alt="RelWave - A local-first database client with Git-powered workflows | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1187949&amp;theme=light&amp;t=1783184136158"></a>
+
+<br/>
+
 [**🚀 Quick Start**](INSTALLATION.md) &nbsp;•&nbsp; [**📥 Download Now**](https://github.com/Relwave/relwave-app/releases) &nbsp;•&nbsp; [**📖 Documentation**](https://github.com/Relwave/relwave-app/wiki)
 
 </div>
