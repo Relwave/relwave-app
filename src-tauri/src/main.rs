@@ -28,7 +28,7 @@ async fn main() {
         if !app_key.is_empty() {
             println!("Aptabase enabled with key: {}", app_key);
             builder = builder.plugin(
-                tauri_plugin_aptabase::Builder::new(app_key)
+                tauri_plugin_aptabase::Builder::new(&app_key)
                     .with_options(tauri_plugin_aptabase::InitOptions {
                         flush_interval: Some(std::time::Duration::from_secs(1)),
                         ..Default::default()
