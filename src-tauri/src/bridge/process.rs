@@ -81,6 +81,15 @@ fn find_sqlite_native_binding(app_handle: &AppHandle, base_dir: &Path) -> Option
         }
     }
 
+    if let Ok(resolved) = app_handle
+        .path()
+        .resolve("resources/better_sqlite3.node", BaseDirectory::Resource)
+    {
+        if resolved.exists() {
+            return Some(resolved);
+        }
+    }
+
     let mut candidates = vec![
         base_dir.join("better_sqlite3.node"),
         base_dir.join("bridge").join("better_sqlite3.node"),
