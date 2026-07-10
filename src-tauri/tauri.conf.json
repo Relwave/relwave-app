@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "vite",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build:tauri-assets",
+    "beforeBuildCommand": "pnpm run build:tauri-assets",
     "frontendDist": "../dist"
   },
   "app": {
