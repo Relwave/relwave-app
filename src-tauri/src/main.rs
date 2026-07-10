@@ -13,6 +13,7 @@ use tauri_plugin_aptabase::EventTracker;
 #[tokio::main]
 async fn main() {
     let _ = dotenvy::dotenv();
+    let _ = dotenvy::from_path("../.env");
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
