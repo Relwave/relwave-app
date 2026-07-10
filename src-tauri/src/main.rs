@@ -20,7 +20,11 @@ async fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init());
 
-    if let Some(app_key) = option_env!("APTABASE_APP_KEY") {
+    let aptabase_key = option_env!("APTABASE_APP_KEY")
+        .map(String::from)
+        .or_else(|| std::env::var("APTABASE_APP_KEY").ok());
+
+    if let Some(app_key) = aptabase_key.clone() {
         if !app_key.is_empty() {
             println!("Aptabase enabled with key: {}", app_key);
             builder = builder.plugin(
@@ -38,7 +42,12 @@ async fn main() {
 
     builder
         .setup(|app| {
-            if option_env!("APTABASE_APP_KEY").is_some() {
+            let has_aptabase = option_env!("APTABASE_APP_KEY")
+                .map(String::from)
+                .or_else(|| std::env::var("APTABASE_APP_KEY").ok())
+                .is_some();
+                
+            if has_aptabase {
                 let _ = app.track_event("app_started", None);
             }
 
