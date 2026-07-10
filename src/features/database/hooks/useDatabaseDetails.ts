@@ -4,6 +4,7 @@ import { useDatabase, useTables, useTableData, usePrefetch, useInvalidateCache, 
 import { QueryProgress, SelectedTable, TableInfo, TableRow } from "@/features/database/types";
 import { sessionService } from "@/services/bridge/session";
 import { queryService } from "@/services/bridge/query";
+import { analyticsService } from "@/services/analytics";
 
 interface UseDatabaseDetailsOptions {
     dbId: string | undefined;
@@ -101,7 +102,7 @@ export function useDatabaseDetails({
     const { prefetchNextPage } = usePrefetch();
 
     // Cache invalidation
-    const { invalidateTable } = useInvalidateCache();
+    const { invalidateTable, invalidateDatabase } = useInvalidateCache();
 
     // Derived state from table data query
     const tableData = tableDataResult?.rows || [];
@@ -204,6 +205,7 @@ export function useDatabaseDetails({
             setQueryError(null);
             setHasExecutedQuery(true);
             setIsExecuting(true);
+            analyticsService.trackQueryExecuted();
 
             const sessionId = await sessionService.createSession();
             setQuerySessionId(sessionId);
@@ -247,6 +249,11 @@ export function useDatabaseDetails({
             setIsExecuting(false);
             setQuerySessionId(null);
             setQueryProgress(null);
+
+            const isDDL = query.trim().toUpperCase().match(/^(CREATE|DROP|ALTER|TRUNCATE)/);
+            if (isDDL && dbId && event.detail.status === "success") {
+                invalidateDatabase(dbId);
+            }
 
             const { rows, timeMs, status } = event.detail;
             const statusType = status === "success" ? "success" : "warning";

@@ -1,5 +1,6 @@
 import { GitBranchInfo, GitFileChange, GitLogEntry, GitPushPullResult, GitRemoteInfo, GitStatus } from "@/features/git/types";
 import { bridgeRequest } from "./bridgeClient";
+import { analyticsService } from "../analytics";
 
 class GitService {
     /**
@@ -15,6 +16,7 @@ class GitService {
      */
     async gitInit(dir: string, defaultBranch = "main"): Promise<GitStatus> {
         const result = await bridgeRequest("git.init", { dir, defaultBranch });
+        analyticsService.trackGitInitialized();
         return result?.data;
     }
 
@@ -52,6 +54,7 @@ class GitService {
      */
     async gitCommit(dir: string, message: string): Promise<{ hash: string }> {
         const result = await bridgeRequest("git.commit", { dir, message });
+        analyticsService.trackGitCommit();
         return result?.data;
     }
 

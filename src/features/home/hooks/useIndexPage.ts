@@ -11,6 +11,7 @@ import { useDatabaseStats } from "../../database/hooks/useDatabaseStats";
 import { useSelectedDbStats } from "../../database/hooks/useSelectedDbStats";
 import { databaseService } from "@/services/bridge/database";
 import { projectService } from "@/services/bridge/project";
+import { analyticsService } from "@/services/analytics";
 import { useDeleteConnection } from "./useDeleteConnection";
 import { DatabaseConnection } from "@/features/database/types";
 import { useWelcomeMessage } from "@/features/database/hooks/useWelcomeMessage";
@@ -176,6 +177,11 @@ export const useIndexPage = (bridgeReady: boolean) => {
             }
 
             toast.success("Database connection added");
+            analyticsService.trackDatabaseAdded(payload.type);
+            console.log("Analytics: Database added", payload.type)
+            if (payload.ssh) {
+                analyticsService.trackSshConnectionSuccess();
+            }
             setIsDialogOpen(false);
             await Promise.all([refetchDatabases(), refetchStatus()]);
         } catch (err: any) {
