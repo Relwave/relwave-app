@@ -27,7 +27,7 @@ async fn main() {
 
     if let Some(app_key) = aptabase_key.clone() {
         if !app_key.is_empty() {
-            println!("Aptabase enabled with key: {}", app_key);
+            println!("Aptabase analytics enabled");
             builder = builder.plugin(
                 tauri_plugin_aptabase::Builder::new(&app_key)
                     .with_options(tauri_plugin_aptabase::InitOptions {
