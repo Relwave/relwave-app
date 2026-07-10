@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { databaseService } from "@/services/bridge/database";
 import { bridgeRequest } from "@/services/bridge/bridgeClient";
 import { projectKeys } from "@/features/project/hooks/useProjectQueries";
+import { analyticsService } from "@/services/analytics";
 
 type DeleteConnectionDialogProps = {
     open: boolean;
@@ -45,6 +46,7 @@ export function useDeleteConnection(onSuccess?: () => void) {
             if (!linkedProject) {
                 // 2. No project -> call existing delete directly
                 await deleteDatabaseMutation.mutateAsync(databaseId);
+                analyticsService.trackDatabaseRemoved();
                 toast.success("Database removed");
             } else {
                 // 3. Project exists -> fetch git remote, open dialog
@@ -72,6 +74,7 @@ export function useDeleteConnection(onSuccess?: () => void) {
                             
                             // Delete the DB connection itself
                             await deleteDatabaseMutation.mutateAsync(databaseId);
+                            analyticsService.trackDatabaseRemoved();
                             toast.success("Database removed");
                             setDialogOpen(false);
                         } catch (err: any) {

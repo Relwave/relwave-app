@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { AISettings, AIHistoryPanel, CheckForUpdates, ColorVariant, DeveloperMode, ThemeMode, Version } from "@/features/settings/components";
+import { AISettings, AIHistoryPanel, CheckForUpdates, ColorVariant, DeveloperMode, ThemeMode, Version, AnalyticsSettings } from "@/features/settings/components";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
-type TabId = "general" | "ai" | "shortcuts" | "about";
+type TabId = "general" | "ai" | "analytics" | "shortcuts" | "about";
 
 interface Tab {
   id: TabId;
@@ -14,6 +14,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: "general", label: "General" },
   { id: "ai", label: "AI Providers" },
+  { id: "analytics", label: "Analytics" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "about", label: "About" },
 ];
@@ -65,12 +66,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </div>
               )}
 
-
-
               {activeTab === "ai" && (
                 <div className="space-y-8">
                   <AISettings />
                   <AIHistoryPanel />
+                </div>
+              )}
+
+              {activeTab === "analytics" && (
+                <div className="space-y-8">
+                  <AnalyticsSettings />
                 </div>
               )}
 

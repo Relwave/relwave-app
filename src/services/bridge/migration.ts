@@ -1,4 +1,5 @@
 import { bridgeRequest } from "./bridgeClient";
+import { analyticsService } from "../analytics";
 
 class MigrationService {
     /**
@@ -13,6 +14,7 @@ class MigrationService {
     }): Promise<{ version: string; filename: string; filepath: string }> {
         try {
             const result = await bridgeRequest("migration.generateCreate", params);
+            analyticsService.trackMigrationCreated();
             return result?.data;
         } catch (error: any) {
             console.error("Failed to generate create migration:", error);
@@ -31,6 +33,7 @@ class MigrationService {
     }): Promise<{ version: string; filename: string; filepath: string }> {
         try {
             const result = await bridgeRequest("migration.generateAlter", params);
+            analyticsService.trackMigrationCreated();
             return result?.data;
         } catch (error: any) {
             console.error("Failed to generate alter migration:", error);
@@ -49,6 +52,7 @@ class MigrationService {
     }): Promise<{ version: string; filename: string; filepath: string }> {
         try {
             const result = await bridgeRequest("migration.generateDrop", params);
+            analyticsService.trackMigrationCreated();
             return result?.data;
         } catch (error: any) {
             console.error("Failed to generate drop migration:", error);
@@ -62,6 +66,9 @@ class MigrationService {
     async applyMigration(dbId: string, version: string): Promise<boolean> {
         try {
             const result = await bridgeRequest("migration.apply", { dbId, version });
+            if (result?.ok) {
+                analyticsService.trackMigrationApplied();
+            }
             return result?.ok === true;
         } catch (error: any) {
             console.error("Failed to apply migration:", error);
