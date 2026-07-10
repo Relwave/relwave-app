@@ -38,7 +38,9 @@ async fn main() {
 
     builder
         .setup(|app| {
-            let _ = app.track_event("app_started", None);
+            if option_env!("APTABASE_APP_KEY").is_some() {
+                let _ = app.track_event("app_started", None);
+            }
 
             let analytics = AnalyticsService::new(app.handle());
             app.manage(analytics);
