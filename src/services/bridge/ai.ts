@@ -1,4 +1,5 @@
 import { bridgeRequest } from "./bridgeClient";
+import { analyticsService } from "../analytics";
 
 // ── Re-export the types that the frontend needs ───────────────────────────
 // (These mirror the bridge types but kept local to avoid importing from bridge)
@@ -204,6 +205,7 @@ class AIService {
     input: SchemaAnalysisInput,
     opts?: { skipCache?: boolean; datasourceName?: string }
   ): Promise<AIAnalysisResult> {
+    analyticsService.trackAiChatOpened();
     const result = await bridgeRequest("ai.analyzeSchema", {
       settings,
       input,
@@ -225,6 +227,7 @@ class AIService {
     input: QueryExplanationInput,
     opts?: { skipCache?: boolean; datasourceName?: string }
   ): Promise<AIAnalysisResult> {
+    analyticsService.trackAiChatOpened();
     const result = await bridgeRequest("ai.explainQuery", {
       settings,
       input,

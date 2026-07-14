@@ -4,6 +4,7 @@ import { queryService } from "@/services/bridge/query";
 import { toPng, toSvg } from "html-to-image";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { analyticsService } from "@/services/analytics";
 
 
 interface QueryResultRow {
@@ -140,6 +141,9 @@ export const useChartVisualization = (selectedTable: SelectedTable, dbId?: strin
             // Replace data instead of appending to prevent accumulation
             setRowData(event.detail.rows);
             setIsExecuting(false);
+            if (event.detail.rows.length > 0) {
+                analyticsService.trackChartCreated();
+            }
         };
 
         const handleError = (event: CustomEvent) => {
