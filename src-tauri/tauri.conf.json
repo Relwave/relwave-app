@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "RelWave",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "tech.relwave.app",
   "build": {
     "beforeDevCommand": "vite",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm run build:tauri-assets",
+    "beforeBuildCommand": "npm run build:tauri-assets",
     "frontendDist": "../dist"
   },
   "app": {
