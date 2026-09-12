@@ -12,7 +12,7 @@ const PARALLEL_LIMIT = 5;
 async function parallelMap<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
-  limit: number = PARALLEL_LIMIT
+  limit: number = PARALLEL_LIMIT,
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let nextIndex = 0;
@@ -61,7 +61,7 @@ export class QueryExecutor {
     conn: unknown,
     dbType: DBType,
     rpc: Rpc,
-    onCancel: (cancelFn: () => Promise<void>) => void
+    onCancel: (cancelFn: () => Promise<void>) => void,
   ) {
     const { sessionId, sql, batchSize = 200 } = params;
     const connector = getConnector(dbType);

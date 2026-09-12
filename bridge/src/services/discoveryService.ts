@@ -20,17 +20,73 @@ const DATABASE_PORTS: Record<string, number[]> = {
 
 // Fun adjectives and nouns for generating database names
 const ADJECTIVES = [
-  "swift", "cosmic", "stellar", "nimble", "turbo", "quantum", "neon", "cyber",
-  "atomic", "hyper", "mega", "ultra", "blazing", "electric", "dynamic", "rapid",
-  "mighty", "brave", "clever", "noble", "fierce", "silent", "golden", "crystal",
-  "shadow", "frost", "thunder", "ember", "azure", "crimson", "violet", "lunar",
+  "swift",
+  "cosmic",
+  "stellar",
+  "nimble",
+  "turbo",
+  "quantum",
+  "neon",
+  "cyber",
+  "atomic",
+  "hyper",
+  "mega",
+  "ultra",
+  "blazing",
+  "electric",
+  "dynamic",
+  "rapid",
+  "mighty",
+  "brave",
+  "clever",
+  "noble",
+  "fierce",
+  "silent",
+  "golden",
+  "crystal",
+  "shadow",
+  "frost",
+  "thunder",
+  "ember",
+  "azure",
+  "crimson",
+  "violet",
+  "lunar",
 ];
 
 const NOUNS = [
-  "phoenix", "dragon", "falcon", "panther", "tiger", "wolf", "hawk", "eagle",
-  "lion", "bear", "shark", "cobra", "viper", "raven", "storm", "blaze",
-  "nova", "comet", "nebula", "galaxy", "cosmos", "orbit", "pulse", "flux",
-  "spark", "bolt", "wave", "surge", "core", "nexus", "vertex", "matrix",
+  "phoenix",
+  "dragon",
+  "falcon",
+  "panther",
+  "tiger",
+  "wolf",
+  "hawk",
+  "eagle",
+  "lion",
+  "bear",
+  "shark",
+  "cobra",
+  "viper",
+  "raven",
+  "storm",
+  "blaze",
+  "nova",
+  "comet",
+  "nebula",
+  "galaxy",
+  "cosmos",
+  "orbit",
+  "pulse",
+  "flux",
+  "spark",
+  "bolt",
+  "wave",
+  "surge",
+  "core",
+  "nexus",
+  "vertex",
+  "matrix",
 ];
 
 export interface DiscoveredDatabase {
@@ -184,7 +240,7 @@ export class DiscoveryService {
     try {
       const { stdout } = await execAsync(
         `docker inspect --format "{{range .Config.Env}}{{println .}}{{end}}" "${containerName}"`,
-        { timeout: 3000 }
+        { timeout: 3000 },
       );
 
       const lines = stdout.trim().split("\n").filter(Boolean);
@@ -208,7 +264,7 @@ export class DiscoveryService {
    */
   private extractCredentialsFromEnv(
     dbType: "postgresql" | "mysql" | "mariadb",
-    envVars: Map<string, string>
+    envVars: Map<string, string>,
   ): { user: string; password: string; database: string } {
     if (dbType === "postgresql") {
       return {
@@ -219,9 +275,10 @@ export class DiscoveryService {
     } else if (dbType === "mysql") {
       // MySQL can use MYSQL_USER or root with MYSQL_ROOT_PASSWORD
       const user = envVars.get("MYSQL_USER") || "root";
-      const password = user === "root"
-        ? (envVars.get("MYSQL_ROOT_PASSWORD") || "")
-        : (envVars.get("MYSQL_PASSWORD") || "");
+      const password =
+        user === "root"
+          ? envVars.get("MYSQL_ROOT_PASSWORD") || ""
+          : envVars.get("MYSQL_PASSWORD") || "";
       return {
         user,
         password,
@@ -230,9 +287,10 @@ export class DiscoveryService {
     } else {
       // MariaDB - similar to MySQL
       const user = envVars.get("MARIADB_USER") || envVars.get("MYSQL_USER") || "root";
-      const password = user === "root"
-        ? (envVars.get("MARIADB_ROOT_PASSWORD") || envVars.get("MYSQL_ROOT_PASSWORD") || "")
-        : (envVars.get("MARIADB_PASSWORD") || envVars.get("MYSQL_PASSWORD") || "");
+      const password =
+        user === "root"
+          ? envVars.get("MARIADB_ROOT_PASSWORD") || envVars.get("MYSQL_ROOT_PASSWORD") || ""
+          : envVars.get("MARIADB_PASSWORD") || envVars.get("MYSQL_PASSWORD") || "";
       return {
         user,
         password,
@@ -249,10 +307,9 @@ export class DiscoveryService {
 
     try {
       // Check if Docker is available
-      const { stdout } = await execAsync(
-        'docker ps --format "{{.Names}}|{{.Image}}|{{.Ports}}"',
-        { timeout: 5000 }
-      );
+      const { stdout } = await execAsync('docker ps --format "{{.Names}}|{{.Image}}|{{.Ports}}"', {
+        timeout: 5000,
+      });
 
       const lines = stdout.trim().split("\n").filter(Boolean);
 
@@ -261,11 +318,7 @@ export class DiscoveryService {
 
         // Determine database type from image name
         let dbType: "postgresql" | "mysql" | "mariadb" | null = null;
-        if (
-          image.includes("postgres") ||
-          image.includes("pg") ||
-          image.includes("postgresql")
-        ) {
+        if (image.includes("postgres") || image.includes("pg") || image.includes("postgresql")) {
           dbType = "postgresql";
         } else if (image.includes("mariadb")) {
           dbType = "mariadb";

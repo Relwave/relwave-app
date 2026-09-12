@@ -1,4 +1,4 @@
-import { describe, it, expect, test } from "@jest/globals";
+import { describe, expect, test } from "@jest/globals";
 import * as mysqlConnector from "../../src/connectors/mysql";
 
 const invalidConfig: mysqlConnector.MySQLConfig = {
@@ -46,7 +46,7 @@ describe("MySQL Connector", () => {
       },
       () => {
         doneCalled = true;
-      }
+      },
     );
 
     await promise;
@@ -61,7 +61,7 @@ describe("MySQL Connector", () => {
       process.env.REAL_MYSQL_DATABASE!,
       "TestTable",
       100,
-      10
+      10,
     );
     expect(Array.isArray(result.rows)).toBe(true);
     expect(result.rows.length).toBeGreaterThanOrEqual(0);
@@ -78,7 +78,7 @@ describe("MySQL Connector", () => {
     const result = await mysqlConnector.getTableDetails(
       validConfig,
       process.env.REAL_MYSQL_DATABASE!,
-      "TestTable"
+      "TestTable",
     );
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);

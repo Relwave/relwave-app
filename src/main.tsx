@@ -1,19 +1,19 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot } from "react-dom/client";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
-import DatabaseDetail from './pages/DatabaseDetails';
-import NotFound from './pages/NotFound';
-import { ThemeProvider } from './components/providers/ThemeProvider';
+import DatabaseDetail from "./pages/DatabaseDetails";
+import NotFound from "./pages/NotFound";
+import { ThemeProvider } from "./components/providers/ThemeProvider";
 import { useBridgeInit } from "@/services/bridge/useBridgeInit";
-import { useEffect, useState } from 'react';
-import { DeveloperContextMenu } from './components/dev/DeveloperContextMenu';
-import { UpdateNotification } from './components/shared/UpdateNotification';
-import { WhatsNewDialog } from './components/shared/WhatsNewDialog';
-import TitleBar from './components/layout/TitleBar';
-import { CommandPalette } from './components/layout/CommandPalette';
+import { useEffect, useState } from "react";
+import { DeveloperContextMenu } from "./components/dev/DeveloperContextMenu";
+import { UpdateNotification } from "./components/shared/UpdateNotification";
+import { WhatsNewDialog } from "./components/shared/WhatsNewDialog";
+import TitleBar from "./components/layout/TitleBar";
+import { CommandPalette } from "./components/layout/CommandPalette";
 
 const queryClient = new QueryClient();
 
@@ -25,32 +25,30 @@ function BridgeInitializer() {
 function ThemeVariantInitializer() {
   useEffect(() => {
     // Initialize theme variant from localStorage on mount
-    const savedVariant = localStorage.getItem('relwave-theme-variant');
+    const savedVariant = localStorage.getItem("relwave-theme-variant");
     if (savedVariant) {
-      document.documentElement.setAttribute('data-theme-variant', savedVariant);
+      document.documentElement.setAttribute("data-theme-variant", savedVariant);
     } else {
-      document.documentElement.setAttribute('data-theme-variant', 'blue');
+      document.documentElement.setAttribute("data-theme-variant", "blue");
     }
   }, []);
   return null;
 }
 
-
-
 function AnimatedRoutes() {
   const location = useLocation();
   const [displayLocation, setDisplayLocation] = useState(location);
-  const [transitionStage, setTransitionStage] = useState<'in' | 'out'>('in');
+  const [transitionStage, setTransitionStage] = useState<"in" | "out">("in");
 
   useEffect(() => {
     if (location.pathname === displayLocation.pathname) {
       return;
     }
 
-    setTransitionStage('out');
+    setTransitionStage("out");
     const timer = window.setTimeout(() => {
       setDisplayLocation(location);
-      setTransitionStage('in');
+      setTransitionStage("in");
     }, 130);
 
     return () => window.clearTimeout(timer);
@@ -71,21 +69,21 @@ function AppRoot() {
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       // Block Ctrl+A outside editable fields (prevents full-page select)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         const tag = (e.target as HTMLElement)?.tagName;
         const isEditable = (e.target as HTMLElement)?.isContentEditable;
         // Allow Ctrl+A inside inputs, textareas, and contenteditable
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+        if (tag === "INPUT" || tag === "TEXTAREA" || isEditable) return;
         e.preventDefault();
       }
 
       // Block Ctrl+F to suppress WebView's built-in Find-in-Page bar
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
         e.preventDefault();
       }
     };
-    document.addEventListener('keydown', handleKeydown);
-    return () => document.removeEventListener('keydown', handleKeydown);
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
   }, []);
 
   return (
@@ -112,4 +110,4 @@ function AppRoot() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<AppRoot />);
+createRoot(document.getElementById("root")!).render(<AppRoot />);

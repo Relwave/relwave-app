@@ -1,8 +1,8 @@
 /**
  * SQLite Table-related Queries (PRAGMA-based)
- * 
+ *
  * Note: SQLite uses PRAGMA table_info() and PRAGMA table_xinfo()
- * for column introspection. These are executed programmatically 
+ * for column introspection. These are executed programmatically
  * in the connector since they require table name interpolation.
  */
 

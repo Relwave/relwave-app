@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
-import { Database, Link as LinkIcon, FolderOpen, Shield, Server, User, Lock, Key, FileKey, Settings } from "lucide-react";
+import {
+  Database,
+  Link as LinkIcon,
+  FolderOpen,
+  Shield,
+  Server,
+  User,
+  Lock,
+  Key,
+  FileKey,
+  Settings,
+} from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +51,7 @@ export function AddConnectionDialog({
   useEffect(() => {
     if (open) {
       if (initialData) {
-        setFormData(prev => ({ ...prev, ...INITIAL_FORM_DATA, ...initialData }));
+        setFormData((prev) => ({ ...prev, ...INITIAL_FORM_DATA, ...initialData }));
         if (isDiscoveredMode) {
           setUseUrl(false);
         }
@@ -54,14 +65,14 @@ export function AddConnectionDialog({
   }, [open, initialData]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleUrlChange = (url: string) => {
     setConnectionUrl(url);
     const parsed = parseConnectionUrl(url);
     if (parsed) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         type: parsed.type,
         host: parsed.host,
@@ -93,7 +104,7 @@ export function AddConnectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-110 max-h-[90vh] overflow-y-auto"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -156,32 +167,36 @@ export function AddConnectionDialog({
           {!useUrl && (
             <div className="space-y-1.5">
               <Label className="text-xs">Type</Label>
-              <Select disabled={isDiscoveredMode} value={formData.type} onValueChange={(val) => {
-                handleInputChange("type", val);
-                if (val === "sqlite") {
-                  // Clear network-related fields when switching to SQLite
-                  setUseUrl(false);
-                  setConnectionUrl("");
-                  setFormData(prev => ({
-                    ...prev,
-                    type: val,
-                    host: "",
-                    port: "",
-                    user: "",
-                    password: "",
-                    ssl: false,
-                    sslmode: "",
-                    // Clear all SSH fields so stale credentials don't pollute the SQLite payload
-                    useSsh: false,
-                    sshHost: "",
-                    sshPort: "22",
-                    sshUser: "",
-                    sshPassword: "",
-                    sshPrivateKeyPath: "",
-                    sshPassphrase: "",
-                  }));
-                }
-              }}>
+              <Select
+                disabled={isDiscoveredMode}
+                value={formData.type}
+                onValueChange={(val) => {
+                  handleInputChange("type", val);
+                  if (val === "sqlite") {
+                    // Clear network-related fields when switching to SQLite
+                    setUseUrl(false);
+                    setConnectionUrl("");
+                    setFormData((prev) => ({
+                      ...prev,
+                      type: val,
+                      host: "",
+                      port: "",
+                      user: "",
+                      password: "",
+                      ssl: false,
+                      sslmode: "",
+                      // Clear all SSH fields so stale credentials don't pollute the SQLite payload
+                      useSsh: false,
+                      sshHost: "",
+                      sshPort: "22",
+                      sshUser: "",
+                      sshPassword: "",
+                      sshPrivateKeyPath: "",
+                      sshPassphrase: "",
+                    }));
+                  }
+                }}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -195,8 +210,8 @@ export function AddConnectionDialog({
             </div>
           )}
 
-          {!useUrl && (
-            isSQLite ? (
+          {!useUrl &&
+            (isSQLite ? (
               <div className="space-y-1.5">
                 <Label className="text-xs">Database File</Label>
                 <div className="flex gap-2">
@@ -216,7 +231,9 @@ export function AddConnectionDialog({
                     onClick={async () => {
                       const selected = await openDialog({
                         title: "Select SQLite Database",
-                        filters: [{ name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] }],
+                        filters: [
+                          { name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] },
+                        ],
                       });
                       if (selected) handleInputChange("database", selected as string);
                     }}
@@ -241,7 +258,9 @@ export function AddConnectionDialog({
                   <div className="space-y-1.5">
                     <Label className="text-xs">Port</Label>
                     <Input
-                      placeholder={formData.type === "mysql" || formData.type === "mariadb" ? "3306" : "5432"}
+                      placeholder={
+                        formData.type === "mysql" || formData.type === "mariadb" ? "3306" : "5432"
+                      }
                       value={formData.port}
                       onChange={(e) => handleInputChange("port", e.target.value)}
                       readOnly={isDiscoveredMode}
@@ -304,141 +323,152 @@ export function AddConnectionDialog({
                 {!isDiscoveredMode && (
                   <div className="space-y-4 pt-2 border-t border-border/50 mt-4">
                     <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-blue-500" />
-                      <Label htmlFor="useSsh" className="text-sm font-medium">SSH Tunnel</Label>
-                    </div>
-                    <Switch
-                      id="useSsh"
-                      checked={formData.useSsh}
-                      onCheckedChange={(checked) => handleInputChange("useSsh", checked)}
-                    />
-                  </div>
-
-                  {formData.useSsh && (
-                    <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2 space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
-                            <Server className="h-3 w-3" /> SSH Host
-                          </Label>
-                          <Input
-                            placeholder="ssh.example.com"
-                            value={formData.sshHost}
-                            onChange={(e) => handleInputChange("sshHost", e.target.value)}
-                            className="h-8 text-xs font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">SSH Port</Label>
-                          <Input
-                            placeholder="22"
-                            value={formData.sshPort}
-                            onChange={(e) => handleInputChange("sshPort", e.target.value)}
-                            className="h-8 text-xs font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs flex items-center gap-1.5">
-                          <User className="h-3 w-3" /> SSH Username
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-blue-500" />
+                        <Label htmlFor="useSsh" className="text-sm font-medium">
+                          SSH Tunnel
                         </Label>
-                        <Input
-                          placeholder="ubuntu"
-                          value={formData.sshUser}
-                          onChange={(e) => handleInputChange("sshUser", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
                       </div>
+                      <Switch
+                        id="useSsh"
+                        checked={formData.useSsh}
+                        onCheckedChange={(checked) => handleInputChange("useSsh", checked)}
+                      />
+                    </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Auth Method</Label>
-                        <Select
-                          value={formData.sshAuthMethod}
-                          onValueChange={(val: "password" | "privateKey") => handleInputChange("sshAuthMethod", val)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="password">Password</SelectItem>
-                            <SelectItem value="privateKey">Private Key</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {formData.sshAuthMethod === "password" ? (
-                        <div className="space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
-                            <Lock className="h-3 w-3" /> SSH Password
-                          </Label>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            value={formData.sshPassword}
-                            onChange={(e) => handleInputChange("sshPassword", e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
+                    {formData.useSsh && (
+                      <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="col-span-2 space-y-1.5">
                             <Label className="text-xs flex items-center gap-1.5">
-                              <Key className="h-3 w-3" /> Private Key Path
+                              <Server className="h-3 w-3" /> SSH Host
                             </Label>
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="/home/user/.ssh/id_rsa"
-                                value={formData.sshPrivateKeyPath}
-                                onChange={(e) => handleInputChange("sshPrivateKeyPath", e.target.value)}
-                                className="h-8 text-xs font-mono flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-8 px-2"
-                                onClick={async () => {
-                                  const selected = await openDialog({
-                                    title: "Select Private Key",
-                                  });
-                                  if (selected) handleInputChange("sshPrivateKeyPath", selected as string);
-                                }}
-                              >
-                                <FileKey className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                            <Input
+                              placeholder="ssh.example.com"
+                              value={formData.sshHost}
+                              onChange={(e) => handleInputChange("sshHost", e.target.value)}
+                              className="h-8 text-xs font-mono"
+                            />
                           </div>
                           <div className="space-y-1.5">
+                            <Label className="text-xs">SSH Port</Label>
+                            <Input
+                              placeholder="22"
+                              value={formData.sshPort}
+                              onChange={(e) => handleInputChange("sshPort", e.target.value)}
+                              className="h-8 text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs flex items-center gap-1.5">
+                            <User className="h-3 w-3" /> SSH Username
+                          </Label>
+                          <Input
+                            placeholder="ubuntu"
+                            value={formData.sshUser}
+                            onChange={(e) => handleInputChange("sshUser", e.target.value)}
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Auth Method</Label>
+                          <Select
+                            value={formData.sshAuthMethod}
+                            onValueChange={(val: "password" | "privateKey") =>
+                              handleInputChange("sshAuthMethod", val)
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Select method" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="password">Password</SelectItem>
+                              <SelectItem value="privateKey">Private Key</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {formData.sshAuthMethod === "password" ? (
+                          <div className="space-y-1.5">
                             <Label className="text-xs flex items-center gap-1.5">
-                              <Lock className="h-3 w-3" /> Passphrase (Optional)
+                              <Lock className="h-3 w-3" /> SSH Password
                             </Label>
                             <Input
                               type="password"
                               placeholder="••••••••"
-                              value={formData.sshPassphrase}
-                              onChange={(e) => handleInputChange("sshPassphrase", e.target.value)}
+                              value={formData.sshPassword}
+                              onChange={(e) => handleInputChange("sshPassword", e.target.value)}
                               className="h-8 text-xs"
                             />
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1.5">
+                                <Key className="h-3 w-3" /> Private Key Path
+                              </Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="/home/user/.ssh/id_rsa"
+                                  value={formData.sshPrivateKeyPath}
+                                  onChange={(e) =>
+                                    handleInputChange("sshPrivateKeyPath", e.target.value)
+                                  }
+                                  className="h-8 text-xs font-mono flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2"
+                                  onClick={async () => {
+                                    const selected = await openDialog({
+                                      title: "Select Private Key",
+                                    });
+                                    if (selected)
+                                      handleInputChange("sshPrivateKeyPath", selected as string);
+                                  }}
+                                >
+                                  <FileKey className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1.5">
+                                <Lock className="h-3 w-3" /> Passphrase (Optional)
+                              </Label>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                value={formData.sshPassphrase}
+                                onChange={(e) => handleInputChange("sshPassphrase", e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
-            )
-          )}
+            ))}
         </div>
 
         <div className="flex justify-end gap-2 mt-2">
-          <Button variant="outline" onClick={() => handleOpenChange(false)} size="sm" disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            size="sm"
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button onClick={handleSubmit} size="sm" disabled={isLoading}>
-            {isLoading ? "Connecting..." : (initialData ? "Save Changes" : "Connect")}
+            {isLoading ? "Connecting..." : initialData ? "Save Changes" : "Connect"}
           </Button>
         </div>
       </DialogContent>

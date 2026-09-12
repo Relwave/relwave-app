@@ -65,7 +65,11 @@ describe("SSHTunnelService", () => {
     const tunnelInfo = await tunnelPromise;
 
     expect(tunnelInfo.localPort).toBe(12345);
-    expect(mockServer.listen).toHaveBeenCalledWith(expect.any(Number), "127.0.0.1", expect.any(Function));
+    expect(mockServer.listen).toHaveBeenCalledWith(
+      expect.any(Number),
+      "127.0.0.1",
+      expect.any(Function),
+    );
     expect(mockSshClient.connect).toHaveBeenCalled();
   });
 
@@ -92,7 +96,7 @@ describe("SSHTunnelService", () => {
 
   it("resolvePrivateKey returns buffer directly for raw PEM string without calling fs", () => {
     const pemString = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...";
-    
+
     const result = (service as any).resolvePrivateKey(pemString);
 
     expect(fs.readFileSync).not.toHaveBeenCalled();

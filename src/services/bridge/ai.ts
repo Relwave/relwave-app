@@ -4,13 +4,7 @@ import { analyticsService } from "../analytics";
 // ── Re-export the types that the frontend needs ───────────────────────────
 // (These mirror the bridge types but kept local to avoid importing from bridge)
 
-export type AIProviderName =
-  | "anthropic"
-  | "openai"
-  | "gemini"
-  | "groq"
-  | "mistral"
-  | "ollama";
+export type AIProviderName = "anthropic" | "openai" | "gemini" | "groq" | "mistral" | "ollama";
 
 export interface AISettings {
   defaultProvider: AIProviderName;
@@ -203,7 +197,7 @@ class AIService {
   async analyzeSchema(
     settings: AISettings,
     input: SchemaAnalysisInput,
-    opts?: { skipCache?: boolean; datasourceName?: string }
+    opts?: { skipCache?: boolean; datasourceName?: string },
   ): Promise<AIAnalysisResult> {
     analyticsService.trackAiChatOpened();
     const result = await bridgeRequest("ai.analyzeSchema", {
@@ -225,7 +219,7 @@ class AIService {
   async explainQuery(
     settings: AISettings,
     input: QueryExplanationInput,
-    opts?: { skipCache?: boolean; datasourceName?: string }
+    opts?: { skipCache?: boolean; datasourceName?: string },
   ): Promise<AIAnalysisResult> {
     analyticsService.trackAiChatOpened();
     const result = await bridgeRequest("ai.explainQuery", {
@@ -247,7 +241,7 @@ class AIService {
   async recommendChart(
     settings: AISettings,
     input: ChartRecommendationInput,
-    opts?: { skipCache?: boolean; datasourceName?: string }
+    opts?: { skipCache?: boolean; datasourceName?: string },
   ): Promise<AIChartResult> {
     const result = await bridgeRequest("ai.recommendChart", {
       settings,
@@ -320,7 +314,7 @@ class AIService {
     const result = await bridgeRequest("ai.naturalLanguageQuery", params);
     // Since bridgeRequest returns the entire response in some handlers or wraps it in `data`,
     // our aiHandlers.ts `this.rpc.sendResponse(id, response)` means it might not have `.data`.
-    // Wait, typically `sendResponse` wraps the whole thing in the RPC response `result`. 
+    // Wait, typically `sendResponse` wraps the whole thing in the RPC response `result`.
     // `bridgeRequest` returns `result`. If the handler sends `response`, it is `result`.
     return result as NLSQLResponse;
   }

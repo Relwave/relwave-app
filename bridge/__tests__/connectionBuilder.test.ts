@@ -1,6 +1,6 @@
 // __tests__/ConnectionBuilder.test.ts
-import { describe, it, expect, test } from "@jest/globals";
-import { ConnectionBuilder, BuildResult } from "../src/services/connectionBuilder"; // Adjust path as needed
+import { describe, expect, test } from "@jest/globals";
+import { ConnectionBuilder } from "../src/services/connectionBuilder"; // Adjust path as needed
 import { DatabaseConfig, DBType } from "../src/types";
 import { SQLiteConfig } from "../src/types/sqlite";
 
@@ -34,7 +34,7 @@ describe("ConnectionBuilder", () => {
       const { config } = await ConnectionBuilder.buildConnection(
         dbInput,
         password,
-        DBType.POSTGRES
+        DBType.POSTGRES,
       );
 
       // Assert
@@ -56,11 +56,7 @@ describe("ConnectionBuilder", () => {
       };
 
       // Act
-      const { config } = await ConnectionBuilder.buildConnection(
-        dbInput,
-        password,
-        DBType.MYSQL
-      );
+      const { config } = await ConnectionBuilder.buildConnection(dbInput, password, DBType.MYSQL);
 
       // Assert
       expect(config).toEqual(expected);
@@ -84,7 +80,7 @@ describe("ConnectionBuilder", () => {
       const { config } = await ConnectionBuilder.buildConnection(
         dbInput,
         password,
-        DBType.POSTGRES
+        DBType.POSTGRES,
       );
 
       // Assert
@@ -98,11 +94,7 @@ describe("ConnectionBuilder", () => {
       const password = "any_pwd";
 
       // Act
-      const { config } = await ConnectionBuilder.buildConnection(
-        dbInput,
-        password,
-        DBType.MYSQL
-      );
+      const { config } = await ConnectionBuilder.buildConnection(dbInput, password, DBType.MYSQL);
 
       // Assert
       expect((config as DatabaseConfig).port).toBe(3306);
@@ -115,10 +107,7 @@ describe("ConnectionBuilder", () => {
     // Test Case 5: Ensure buildPostgresConnection calls buildConnection correctly
     test("should delegate to buildConnection with DBType.POSTGRES and use default port", async () => {
       // Act
-      const { config } = await ConnectionBuilder.buildPostgresConnection(
-        mockDbInput,
-        "test"
-      );
+      const { config } = await ConnectionBuilder.buildPostgresConnection(mockDbInput, "test");
 
       // Assert
       expect((config as DatabaseConfig).port).toBe(5432);
@@ -130,10 +119,7 @@ describe("ConnectionBuilder", () => {
     // Test Case 6: Ensure buildMySQLConnection calls buildConnection correctly
     test("should delegate to buildConnection with DBType.MYSQL and use default port", async () => {
       // Act
-      const { config } = await ConnectionBuilder.buildMySQLConnection(
-        mockDbInput,
-        "test"
-      );
+      const { config } = await ConnectionBuilder.buildMySQLConnection(mockDbInput, "test");
 
       // Assert
       expect((config as DatabaseConfig).port).toBe(3306);
@@ -183,7 +169,7 @@ describe("ConnectionBuilder", () => {
     test("should reject Windows drive roots for SQLite", async () => {
       const dbInput = { database: "D:/" };
       await expect(ConnectionBuilder.buildSQLiteConnection(dbInput)).rejects.toThrow(
-        'Invalid SQLite path "D:/"'
+        'Invalid SQLite path "D:/"',
       );
     });
 

@@ -1,7 +1,7 @@
 import { ConnectionBuilder } from "./connectionBuilder";
 import { DBTypeDetector } from "../utils/dbTypeDetector";
 import { DBType } from "../types";
-import { dbStoreInstance } from "./dbStore";   // always use the singleton
+import { dbStoreInstance } from "./dbStore"; // always use the singleton
 import { connectionPool } from "./connectionPool";
 import { keyringServiceInstance } from "./keyringService";
 
@@ -39,9 +39,11 @@ export class DatabaseService {
     // If SSH is present, retrieve credentials from keyring
     if (db.ssh) {
       if (db.ssh.authMethod === "password") {
-        db.ssh.password = await keyringServiceInstance.getCredential(`${dbId}_ssh_pwd`) || undefined;
+        db.ssh.password =
+          (await keyringServiceInstance.getCredential(`${dbId}_ssh_pwd`)) || undefined;
       } else if (db.ssh.authMethod === "privateKey") {
-        db.ssh.passphrase = await keyringServiceInstance.getCredential(`${dbId}_ssh_pass`) || undefined;
+        db.ssh.passphrase =
+          (await keyringServiceInstance.getCredential(`${dbId}_ssh_pass`)) || undefined;
       }
     }
 
@@ -108,7 +110,9 @@ export class DatabaseService {
 
     if (isSQLite || typeof payload.database === "string") {
       const current = await dbStoreInstance.getDB(id);
-      const currentIsSQLite = (current?.type as string | undefined)?.toLowerCase().includes("sqlite");
+      const currentIsSQLite = (current?.type as string | undefined)
+        ?.toLowerCase()
+        .includes("sqlite");
       if (currentIsSQLite || isSQLite) {
         const { config } = await ConnectionBuilder.buildSQLiteConnection({
           ...current,
@@ -122,7 +126,10 @@ export class DatabaseService {
     }
 
     connectionPool.invalidate(id); // evict stale cached config
-    const res = await dbStoreInstance.updateDB(id, payload as Parameters<typeof dbStoreInstance.updateDB>[1]);
+    const res = await dbStoreInstance.updateDB(
+      id,
+      payload as Parameters<typeof dbStoreInstance.updateDB>[1],
+    );
 
     // Update SSH credentials in keyring
     if (sshPwd !== undefined) {

@@ -11,7 +11,7 @@ export class QueryHandlers {
     private logger: Logger,
     private sessions: SessionManager,
     private dbService: DatabaseService,
-    private queryExecutor: QueryExecutor
+    private queryExecutor: QueryExecutor,
   ) {}
 
   async handleQueryRun(params: any, id: number | string) {
@@ -40,7 +40,9 @@ export class QueryHandlers {
         conn,
         dbType,
         this.rpc,
-        (cancelFn) => { cancelState.fn = cancelFn; }
+        (cancelFn) => {
+          cancelState.fn = cancelFn;
+        },
       );
 
       this.sessions.registerCancel(sessionId, async () => {
@@ -85,10 +87,19 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, limit, page } = params || {};
       if (!dbId || !tableName || !schemaName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await (getConnector(dbType) as any).fetchTableData(conn, schemaName, tableName, limit, page);
+      const data = await (getConnector(dbType) as any).fetchTableData(
+        conn,
+        schemaName,
+        tableName,
+        limit,
+        page,
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e: any) {
       this.logger.error({ e }, "fetchTableData failed");
@@ -100,10 +111,17 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName } = params || {};
       if (!dbId || !tableName || !schemaName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const primaryKeys = await (getConnector(dbType) as any).listPrimaryKeys(conn, schemaName, tableName);
+      const primaryKeys = await (getConnector(dbType) as any).listPrimaryKeys(
+        conn,
+        schemaName,
+        tableName,
+      );
       this.rpc.sendResponse(id, { ok: true, primaryKeys });
     } catch (e: any) {
       this.logger.error({ e }, "fetchPrimaryKeys failed");
@@ -115,7 +133,10 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, columns, foreignKeys = [] } = params || {};
       if (!dbId || !tableName || !schemaName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
@@ -132,7 +153,10 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, indexes } = params || {};
       if (!dbId || !schemaName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId or schemaName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId or schemaName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
@@ -149,7 +173,10 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, operations } = params || {};
       if (!dbId || !schemaName || !tableName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
@@ -166,7 +193,10 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName } = params || {};
       if (!dbId || !schemaName || !tableName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
@@ -198,7 +228,10 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, rowData } = params || {};
       if (!dbId || !schemaName || !tableName || !rowData) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, tableName, or rowData" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, tableName, or rowData",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
@@ -213,13 +246,31 @@ export class QueryHandlers {
 
   async handleUpdateRow(params: any, id: number | string) {
     try {
-      const { dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue, rowData } = params || {};
-      if (!dbId || !schemaName || !tableName || !primaryKeyColumn || primaryKeyValue === undefined || !rowData) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing required update fields" });
+      const { dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue, rowData } =
+        params || {};
+      if (
+        !dbId ||
+        !schemaName ||
+        !tableName ||
+        !primaryKeyColumn ||
+        primaryKeyValue === undefined ||
+        !rowData
+      ) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing required update fields",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
-      const result = await connector.updateRow(conn, schemaName, tableName, primaryKeyColumn, primaryKeyValue, rowData);
+      const result = await connector.updateRow(
+        conn,
+        schemaName,
+        tableName,
+        primaryKeyColumn,
+        primaryKeyValue,
+        rowData,
+      );
       connector[`${dbType}Cache`]?.clearForConnection(conn);
       this.rpc.sendResponse(id, { ok: true, result });
     } catch (e: any) {
@@ -232,14 +283,26 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, primaryKeyColumn, primaryKeyValue } = params || {};
       if (!dbId || !schemaName || !tableName) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, or tableName" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, or tableName",
+        });
       }
       if (!primaryKeyColumn && (typeof primaryKeyValue !== "object" || primaryKeyValue === null)) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Either primaryKeyColumn or composite key object is required" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Either primaryKeyColumn or composite key object is required",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const connector = getConnector(dbType) as any;
-      const result = await connector.deleteRow(conn, schemaName, tableName, primaryKeyColumn, primaryKeyValue);
+      const result = await connector.deleteRow(
+        conn,
+        schemaName,
+        tableName,
+        primaryKeyColumn,
+        primaryKeyValue,
+      );
       connector[`${dbType}Cache`]?.clearForConnection(conn);
       this.rpc.sendResponse(id, { ok: true, deleted: result });
     } catch (e: any) {
@@ -252,11 +315,20 @@ export class QueryHandlers {
     try {
       const { dbId, schemaName, tableName, searchTerm, column, page, pageSize } = params || {};
       if (!dbId || !schemaName || !tableName || !searchTerm) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing dbId, schemaName, tableName, or searchTerm" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId, schemaName, tableName, or searchTerm",
+        });
       }
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const result = await (getConnector(dbType) as any).searchTable(
-        conn, schemaName, tableName, searchTerm, column, page || 1, pageSize || 50
+        conn,
+        schemaName,
+        tableName,
+        searchTerm,
+        column,
+        page || 1,
+        pageSize || 50,
       );
       this.rpc.sendResponse(id, { ok: true, ...result });
     } catch (e: any) {

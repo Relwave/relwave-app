@@ -6,15 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Download, RefreshCw, CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 export function UpdateNotification() {
-  const {
-    status,
-    updateInfo,
-    downloadProgress,
-    error,
-    checkForUpdates,
-    downloadAndInstall,
-    relaunchApp,
-  } = useUpdater();
+  const { status, updateInfo, error, downloadAndInstall, relaunchApp } = useUpdater();
 
   // Show toast notifications based on status
   useEffect(() => {
@@ -61,14 +53,8 @@ export function UpdateNotification() {
 
 // Standalone update checker button for settings
 export function UpdateCheckerButton() {
-  const {
-    status,
-    updateInfo,
-    downloadProgress,
-    checkForUpdates,
-    downloadAndInstall,
-    relaunchApp,
-  } = useUpdater();
+  const { status, updateInfo, downloadProgress, checkForUpdates, downloadAndInstall, relaunchApp } =
+    useUpdater();
 
   const getButtonContent = () => {
     switch (status) {

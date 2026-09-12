@@ -137,7 +137,7 @@ export interface ScanImportResult {
     type?: string;
     ssl?: boolean;
     name?: string;
-    url?:string
+    url?: string;
   } | null;
 }
 

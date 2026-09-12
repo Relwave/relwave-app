@@ -11,7 +11,7 @@ export class LRUCache<K, V> {
   get(key: K): CacheEntry<V> | undefined {
     const entry = this.map.get(key);
     if (!entry) return undefined;
-    
+
     // Check TTL on read to lazily evict
     if (Date.now() - entry.timestamp > entry.ttl) {
       this.map.delete(key);

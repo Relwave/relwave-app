@@ -6,29 +6,33 @@ import { bytesToMBString } from "@/lib/bytesToMB";
 import { databaseService } from "@/services/bridge/database";
 
 export const useSelectedDbStats = (
-    bridgeReady: boolean,
-    selectedDb: string | null,
-    isConnected: boolean
+  bridgeReady: boolean,
+  selectedDb: string | null,
+  isConnected: boolean,
 ) => {
-    const { getStats: getCachedDbStats, updateCache: updateDbStatsCache } = useCachedDbStats();
+  const { getStats: getCachedDbStats, updateCache: updateDbStatsCache } = useCachedDbStats();
 
-    const { data: selectedDbStats, isLoading: selectedDbStatsLoading } = useQuery({
-        queryKey: ["dbStats", selectedDb],
-        queryFn: async () => {
-            const result = await databaseService.getDataBaseStats(selectedDb!);
-            if (result && selectedDb) updateDbStatsCache(selectedDb, result);
-            return result;
-        },
-        enabled: !!bridgeReady && !!selectedDb && isConnected,
-        staleTime: 30 * 1000,
-    });
+  const { data: selectedDbStats, isLoading: selectedDbStatsLoading } = useQuery({
+    queryKey: ["dbStats", selectedDb],
+    queryFn: async () => {
+      const result = await databaseService.getDataBaseStats(selectedDb!);
+      if (result && selectedDb) updateDbStatsCache(selectedDb, result);
+      return result;
+    },
+    enabled: !!bridgeReady && !!selectedDb && isConnected,
+    staleTime: 30 * 1000,
+  });
 
-    const cachedSelectedDbStats = selectedDb ? getCachedDbStats(selectedDb) : undefined;
-    const effectiveStats = selectedDbStats || cachedSelectedDbStats;
-    const isLoadingWithNoCache = selectedDbStatsLoading && !cachedSelectedDbStats;
+  const cachedSelectedDbStats = selectedDb ? getCachedDbStats(selectedDb) : undefined;
+  const effectiveStats = selectedDbStats || cachedSelectedDbStats;
+  const isLoadingWithNoCache = selectedDbStatsLoading && !cachedSelectedDbStats;
 
-    return {
-        tables: isLoadingWithNoCache ? "—" : (effectiveStats?.tables ?? "—"),
-        size: isLoadingWithNoCache ? "—" : (effectiveStats?.sizeBytes ? bytesToMBString(effectiveStats.sizeBytes) : "—"),
-    };
+  return {
+    tables: isLoadingWithNoCache ? "—" : (effectiveStats?.tables ?? "—"),
+    size: isLoadingWithNoCache
+      ? "—"
+      : effectiveStats?.sizeBytes
+        ? bytesToMBString(effectiveStats.sizeBytes)
+        : "—",
+  };
 };

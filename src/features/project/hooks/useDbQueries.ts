@@ -30,12 +30,12 @@ export const queryKeys = {
 // Stale Time Configuration (client-side cache TTL)
 // ============================================
 const STALE_TIMES = {
-  databases: 5 * 60 * 1000,      // 5 minutes - connection list rarely changes
-  tables: 60 * 1000,             // 1 minute - table list
-  tableData: 30 * 1000,          // 30 seconds - actual data
-  stats: 30 * 1000,              // 30 seconds - database stats
-  schemas: 5 * 60 * 1000,        // 5 minutes - schemas rarely change
-  tableDetails: 60 * 1000,       // 1 minute - column info
+  databases: 5 * 60 * 1000, // 5 minutes - connection list rarely changes
+  tables: 60 * 1000, // 1 minute - table list
+  tableData: 30 * 1000, // 30 seconds - actual data
+  stats: 30 * 1000, // 30 seconds - database stats
+  schemas: 5 * 60 * 1000, // 5 minutes - schemas rarely change
+  tableDetails: 60 * 1000, // 1 minute - column info
 };
 
 // ============================================
@@ -133,7 +133,7 @@ export function useTableData(
   schema: string | undefined,
   table: string | undefined,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
 ) {
   return useQuery({
     queryKey: queryKeys.tableData(dbId!, schema!, table!, page, pageSize),
@@ -202,7 +202,7 @@ export function useFullSchema(dbId: string | undefined) {
 export function usePrimaryKeys(
   dbId: string | undefined,
   schema: string | undefined,
-  table: string | undefined
+  table: string | undefined,
 ) {
   return useQuery({
     queryKey: queryKeys.primaryKeys(dbId!, schema!, table!),
@@ -309,7 +309,7 @@ export function usePrefetch() {
       schema: string,
       table: string,
       currentPage: number,
-      pageSize: number
+      pageSize: number,
     ) => {
       queryClient.prefetchQuery({
         queryKey: queryKeys.tableData(dbId, schema, table, currentPage + 1, pageSize),

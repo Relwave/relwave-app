@@ -51,7 +51,11 @@ export function parseChartRecommendation(raw: string): ChartRecommendation {
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new AIError("PARSE_ERROR", "chart-recommendation", `Failed to parse chart recommendation JSON: ${raw.slice(0, 200)}`);
+    throw new AIError(
+      "PARSE_ERROR",
+      "chart-recommendation",
+      `Failed to parse chart recommendation JSON: ${raw.slice(0, 200)}`,
+    );
   }
 
   const validTypes = ["bar", "line", "area", "pie"];

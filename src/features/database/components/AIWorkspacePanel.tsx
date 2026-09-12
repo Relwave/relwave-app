@@ -1,4 +1,4 @@
-import { Sparkles, Terminal, FileJson, Search, Database } from "lucide-react";
+import { Sparkles, Terminal, Search, Database } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AIHistoryPanel from "@/features/ai/components/AIHistoryPanel";
@@ -18,7 +18,8 @@ export default function AIWorkspacePanel({ dbId, onNavigate }: AIWorkspacePanelP
           AI Workspace
         </h1>
         <p className="text-muted-foreground text-sm">
-          Central hub for AI-powered features for this database. Use the tools below to analyze data, build queries, and explore your schema using natural language.
+          Central hub for AI-powered features for this database. Use the tools below to analyze
+          data, build queries, and explore your schema using natural language.
         </p>
         <p className="text-xs text-muted-foreground/60 mt-1">
           Note: AI can make mistakes. Please verify responses and generated queries.
@@ -37,7 +38,12 @@ export default function AIWorkspacePanel({ dbId, onNavigate }: AIWorkspacePanelP
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => onNavigate("sql-workspace")}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full text-xs"
+              onClick={() => onNavigate("sql-workspace")}
+            >
               Launch NL Query
             </Button>
           </CardContent>
@@ -54,7 +60,12 @@ export default function AIWorkspacePanel({ dbId, onNavigate }: AIWorkspacePanelP
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => onNavigate("schema-explorer")}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full text-xs"
+              onClick={() => onNavigate("schema-explorer")}
+            >
               Go to Schema Explorer
             </Button>
           </CardContent>
@@ -67,11 +78,17 @@ export default function AIWorkspacePanel({ dbId, onNavigate }: AIWorkspacePanelP
               Query Explanation
             </CardTitle>
             <CardDescription className="text-xs">
-              Highlight any complex SQL query in the workspace and let AI explain what it does step-by-step.
+              Highlight any complex SQL query in the workspace and let AI explain what it does
+              step-by-step.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => onNavigate("sql-workspace")}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full text-xs"
+              onClick={() => onNavigate("sql-workspace")}
+            >
               Open SQL Workspace
             </Button>
           </CardContent>

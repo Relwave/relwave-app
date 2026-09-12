@@ -63,11 +63,7 @@ export function InputDialog({
             className="bg-background/50 border-sidebar-border"
           />
           <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={!value.trim()}>

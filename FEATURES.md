@@ -23,12 +23,12 @@ This document provides a comprehensive breakdown of all features and capabilitie
 
 ## Supported Databases
 
-| Database | Connection Type | Schema Explorer | ER Diagram | Query Builder | Migrations | CRUD |
-| -------- | --------------- | --------------- | ---------- | ------------- | ---------- | ---- |
-| PostgreSQL | Host/port + SSL | ✅ | ✅ | ✅ | ✅ | ✅ |
-| MySQL | Host/port + SSL | ✅ | ✅ | ✅ | ✅ | ✅ |
-| MariaDB | Host/port + SSL | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SQLite | Local file path | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Database   | Connection Type | Schema Explorer | ER Diagram | Query Builder | Migrations | CRUD |
+| ---------- | --------------- | --------------- | ---------- | ------------- | ---------- | ---- |
+| PostgreSQL | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
+| MySQL      | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
+| MariaDB    | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
+| SQLite     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
 
 ### SQLite-Specific Features
 
@@ -99,6 +99,7 @@ The main landing page for managing database connections. Features a clean, IDE-i
 Detailed view for individual database operations with a split-panel layout.
 
 **Layout:**
+
 - Left panel — Tables Explorer with collapsible table list
 - Right panel — Content Viewer with data table, pagination, and actions
 - Slide-out panels — Chart visualization and migrations
@@ -171,6 +172,7 @@ Detailed view for individual database operations with a split-panel layout.
 A full IDE-style SQL editor for writing and executing queries.
 
 **Layout:**
+
 - Top bar — database breadcrumb, execution status, Run/Stop buttons
 - Left sidebar — collapsible with Tables and History sections
 - Main area — split between editor (top) and results (bottom)
@@ -214,6 +216,7 @@ A full IDE-style SQL editor for writing and executing queries.
 Visual SQL query builder with drag-and-drop canvas.
 
 **Layout:**
+
 - Top bar — database breadcrumb, Generate and Execute buttons, progress indicator
 - Left sidebar — collapsible Explorer with Tables, Configuration, and History
 - Main canvas — ReactFlow diagram for visual table relationships
@@ -303,11 +306,11 @@ Interactive entity-relationship diagram visualization.
 - Automatic table node generation with column and type information
 - Minimap for large diagrams
 - Pan, zoom, and fit-to-screen controls
+
 ### 7. Settings
 
-
 - Light, dark, and system-preference (auto) modes
-**Accent Colors**
+  **Accent Colors**
 - Multiple color variants: Blue (default), Purple, Green, Pink, Orange, and more
 - Visual color preview with live UI element updates
 - Persistent preferences
@@ -324,52 +327,52 @@ RelWave includes native Git integration powered by `simple-git`, providing a ful
 
 ### Core Operations
 
-| Operation | Description |
-| --------- | ----------- |
-| `git.status` | Repository status including branch, dirty state, ahead/behind counts |
-| `git.init` | Initialize a new repository with configurable default branch |
-| `git.changes` | List all changed files with status indicators |
-| `git.stage` | Stage specific files for commit |
-| `git.stageAll` | Stage all changed files |
-| `git.unstage` | Unstage files from the index |
-| `git.commit` | Commit staged changes with a message |
-| `git.log` | View recent commit history |
-| `git.diff` | View file-level diff output |
-| `git.discard` | Discard changes to specific files |
+| Operation      | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `git.status`   | Repository status including branch, dirty state, ahead/behind counts |
+| `git.init`     | Initialize a new repository with configurable default branch         |
+| `git.changes`  | List all changed files with status indicators                        |
+| `git.stage`    | Stage specific files for commit                                      |
+| `git.stageAll` | Stage all changed files                                              |
+| `git.unstage`  | Unstage files from the index                                         |
+| `git.commit`   | Commit staged changes with a message                                 |
+| `git.log`      | View recent commit history                                           |
+| `git.diff`     | View file-level diff output                                          |
+| `git.discard`  | Discard changes to specific files                                    |
 
 ### Branch Management
 
-| Operation | Description |
-| --------- | ----------- |
-| `git.branches` | List all local branches |
+| Operation          | Description                      |
+| ------------------ | -------------------------------- |
+| `git.branches`     | List all local branches          |
 | `git.createBranch` | Create and checkout a new branch |
-| `git.checkout` | Switch to an existing branch |
+| `git.checkout`     | Switch to an existing branch     |
 
 ### Stash Operations
 
-| Operation | Description |
-| --------- | ----------- |
-| `git.stash` | Stash current work-in-progress changes |
-| `git.stashPop` | Restore the most recent stash |
+| Operation      | Description                            |
+| -------------- | -------------------------------------- |
+| `git.stash`    | Stash current work-in-progress changes |
+| `git.stashPop` | Restore the most recent stash          |
 
 ### Remote Management
 
-| Operation | Description |
-| --------- | ----------- |
-| `git.remoteList` | List all configured remotes |
-| `git.remoteAdd` | Add a new remote with name and URL |
-| `git.remoteRemove` | Remove an existing remote |
-| `git.remoteGetUrl` | Get the URL of a remote |
-| `git.remoteSetUrl` | Update the URL of a remote |
+| Operation          | Description                        |
+| ------------------ | ---------------------------------- |
+| `git.remoteList`   | List all configured remotes        |
+| `git.remoteAdd`    | Add a new remote with name and URL |
+| `git.remoteRemove` | Remove an existing remote          |
+| `git.remoteGetUrl` | Get the URL of a remote            |
+| `git.remoteSetUrl` | Update the URL of a remote         |
 
 ### Sync Operations
 
-| Operation | Description |
-| --------- | ----------- |
-| `git.push` | Push commits to a remote repository |
-| `git.pull` | Pull changes from a remote repository |
-| `git.fetch` | Fetch updates from a remote without merging |
-| `git.revert` | Revert a specific commit |
+| Operation    | Description                                 |
+| ------------ | ------------------------------------------- |
+| `git.push`   | Push commits to a remote repository         |
+| `git.pull`   | Pull changes from a remote repository       |
+| `git.fetch`  | Fetch updates from a remote without merging |
+| `git.revert` | Revert a specific commit                    |
 
 ### Additional Features
 
@@ -384,7 +387,9 @@ RelWave includes native Git integration powered by `simple-git`, providing a ful
 RelWave integrates deeply with multiple Large Language Models (LLMs) to provide intelligent database assistance, schema analysis, and query explanations.
 
 ### Supported Providers
+
 The application supports a flexible, multi-provider AI architecture:
+
 - **OpenAI** (GPT-4o, GPT-4 Turbo, etc.)
 - **Anthropic** (Claude 3.5 Sonnet, Opus, etc.)
 - **Mistral** (Mistral Large, Mistral Small, etc.)
@@ -393,13 +398,14 @@ The application supports a flexible, multi-provider AI architecture:
 - **Google Gemini** (Gemini 1.5 Pro, Flash)
 
 ### AI Capabilities
-| Feature | Description |
-| ------- | ----------- |
-| **Schema Analysis** | Analyzes the structure of your database, identifying relationships, potential optimizations, and providing a human-readable summary of complex schemas. Uses a highly optimized, token-efficient dense schema representation. |
-| **Query Explanation** | Breaks down complex SQL queries into plain English, explaining joins, filters, performance implications, and the overall intent of the query. |
-| **Local AI Support** | Full privacy and zero-cost inference available through local Ollama integration, ensuring sensitive database schemas never leave your machine. |
-| **Context Aware** | The AI system automatically receives the dialect (PostgreSQL, MySQL, SQLite) and the relevant database schema context to provide accurate, dialect-specific responses. |
-| **High Token Capacity** | Configured with large output windows (up to 4096 tokens) to handle extensive schema analyses and complex query breakdowns without truncation. |
+
+| Feature                 | Description                                                                                                                                                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Schema Analysis**     | Analyzes the structure of your database, identifying relationships, potential optimizations, and providing a human-readable summary of complex schemas. Uses a highly optimized, token-efficient dense schema representation. |
+| **Query Explanation**   | Breaks down complex SQL queries into plain English, explaining joins, filters, performance implications, and the overall intent of the query.                                                                                 |
+| **Local AI Support**    | Full privacy and zero-cost inference available through local Ollama integration, ensuring sensitive database schemas never leave your machine.                                                                                |
+| **Context Aware**       | The AI system automatically receives the dialect (PostgreSQL, MySQL, SQLite) and the relevant database schema context to provide accurate, dialect-specific responses.                                                        |
+| **High Token Capacity** | Configured with large output windows (up to 4096 tokens) to handle extensive schema analyses and complex query breakdowns without truncation.                                                                                 |
 
 ---
 
@@ -472,6 +478,7 @@ SELECT 1;
 - PostgreSQL exposes statistics via `pg_stat_database` and `pg_stat_activity` for live query and transaction counts.
 
 Postgres example — total transactions:
+
 ```sql
 SELECT xact_commit + xact_rollback AS total_transactions
 FROM pg_stat_database
@@ -479,6 +486,7 @@ WHERE datname = 'your_db_name';
 ```
 
 MySQL/MariaDB example — queries counter:
+
 ```sql
 SHOW GLOBAL STATUS LIKE 'Queries';
 ```
@@ -486,6 +494,7 @@ SHOW GLOBAL STATUS LIKE 'Queries';
 ### 3. Active Connections (Gauge)
 
 Postgres:
+
 ```sql
 SELECT
   (SELECT count(*) FROM pg_stat_activity) AS active_connections,
@@ -493,6 +502,7 @@ SELECT
 ```
 
 MySQL/MariaDB:
+
 ```sql
 SHOW GLOBAL STATUS LIKE 'Threads_connected';
 SHOW VARIABLES LIKE 'max_connections';
@@ -510,6 +520,7 @@ For Postgres the cache hit ratio is:
 $$\text{Cache Hit Ratio} = \left( \frac{\text{blks\_hit}}{\text{blks\_read} + \text{blks\_hit}} \right) \times 100$$
 
 SQL example:
+
 ```sql
 SELECT
   datname,
@@ -535,32 +546,36 @@ $$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_re
 ### Layout Components
 
 **Title Bar (Tauri)**
+
 - 32px fixed height, draggable area for window movement
 - Native minimize, maximize, and close buttons
 - Proper z-index layering
 
 -**Vertical Icon Bar**
+
 - Fixed 60px left sidebar with navigation icons
 - Pages: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram, Monitoring
 - Active state indicators and tooltip labels
 
 **Slide-Out Panels**
+
 - Right-side panels for charts and migrations
 - Backdrop overlay with click-to-close
 - Smooth slide animation
 
 **Collapsible Sidebars**
+
 - Toggle to collapse/expand with smooth width transition
 - Persistent state across sessions
 
 ### Database Engine Colors
 
-| Engine | Color |
-| ------ | ----- |
-| PostgreSQL | Blue |
-| MySQL | Orange |
-| MariaDB | Purple |
-| SQLite | Cyan |
+| Engine     | Color  |
+| ---------- | ------ |
+| PostgreSQL | Blue   |
+| MySQL      | Orange |
+| MariaDB    | Purple |
+| SQLite     | Cyan   |
 
 ### Theming
 
@@ -628,12 +643,12 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ### Caching Strategy
 
-| Layer | Purpose |
-| ----- | ------- |
-| React Query | API response caching |
-| localStorage | User preferences and theme settings |
-| Session storage | Temporary data and session state |
-| Query history | Persistent query log |
+| Layer           | Purpose                             |
+| --------------- | ----------------------------------- |
+| React Query     | API response caching                |
+| localStorage    | User preferences and theme settings |
+| Session storage | Temporary data and session state    |
+| Query history   | Persistent query log                |
 
 ---
 

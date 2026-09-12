@@ -78,29 +78,30 @@ export class MonitoringService {
       await client.query("SELECT 1;");
       const latencyMs = Date.now() - startedAt;
 
-      const [connectionsResult, transactionResult, cacheResult, activeQueriesResult] = await Promise.all([
-        client.query(`
+      const [connectionsResult, transactionResult, cacheResult, activeQueriesResult] =
+        await Promise.all([
+          client.query(`
           SELECT
             (SELECT count(*) FROM pg_stat_activity) AS active_connections,
             (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_connections;
         `),
-        client.query(
-          `
+          client.query(
+            `
           SELECT COALESCE(xact_commit + xact_rollback, 0) AS total_transactions
           FROM pg_stat_database
           WHERE datname = $1;
         `,
-          [cfg.database]
-        ),
-        client.query(
-          `
+            [cfg.database],
+          ),
+          client.query(
+            `
           SELECT round(100 * blks_hit / (blks_read + blks_hit + 1), 2) AS cache_hit_ratio
           FROM pg_stat_database
           WHERE datname = $1;
         `,
-          [cfg.database]
-        ),
-        client.query(`
+            [cfg.database],
+          ),
+          client.query(`
           SELECT
             pid,
             EXTRACT(EPOCH FROM (clock_timestamp() - query_start)) AS duration_seconds,
@@ -112,7 +113,7 @@ export class MonitoringService {
           ORDER BY query_start NULLS LAST
           LIMIT 25;
         `),
-      ]);
+        ]);
 
       const active = Number(connectionsResult.rows[0]?.active_connections ?? 0);
       const max = Number(connectionsResult.rows[0]?.max_connections ?? 0);
@@ -147,7 +148,7 @@ export class MonitoringService {
   private async getMySQLLikeSnapshot(
     dbId: string,
     cfg: MySQLConfig,
-    dbType: DBType.MYSQL | DBType.MARIADB
+    dbType: DBType.MYSQL | DBType.MARIADB,
   ): Promise<MonitoringSnapshot> {
     const poolConfig =
       dbType === DBType.MARIADB
@@ -173,7 +174,9 @@ export class MonitoringService {
         connection.query<RowDataPacket[]>("SHOW GLOBAL STATUS LIKE 'Threads_connected';"),
         connection.query<RowDataPacket[]>("SHOW VARIABLES LIKE 'max_connections';"),
         connection.query<RowDataPacket[]>("SHOW GLOBAL STATUS LIKE 'Queries';"),
-        connection.query<RowDataPacket[]>("SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool_read_requests';"),
+        connection.query<RowDataPacket[]>(
+          "SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool_read_requests';",
+        ),
         connection.query<RowDataPacket[]>("SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool_reads';"),
         connection.query<RowDataPacket[]>(`
           SELECT id, time, user, info AS query, state

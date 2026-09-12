@@ -1,16 +1,20 @@
-import { SYSTEM_CONTEXT } from "./shared";
-
-export function buildNLSQLPrompt(schemaContext: string, dialect: string): {
+export function buildNLSQLPrompt(
+  schemaContext: string,
+  dialect: string,
+): {
   system: string;
   user: (question: string) => string;
 } {
   let quoteRule = "";
   if (dialect === "postgresql") {
-    quoteRule = 'Use double quotes (") for identifiers if needed. If qualifying with a schema, quote them separately like "schema"."table".';
+    quoteRule =
+      'Use double quotes (") for identifiers if needed. If qualifying with a schema, quote them separately like "schema"."table".';
   } else if (dialect === "mysql" || dialect === "mariadb") {
-    quoteRule = "Use backticks (`) for identifiers if needed. If qualifying with a schema, quote them separately like `schema`.`table`.";
+    quoteRule =
+      "Use backticks (`) for identifiers if needed. If qualifying with a schema, quote them separately like `schema`.`table`.";
   } else if (dialect === "sqlite") {
-    quoteRule = "Do not use quotes for identifiers unless necessary. If qualifying with a schema, quote them separately.";
+    quoteRule =
+      "Do not use quotes for identifiers unless necessary. If qualifying with a schema, quote them separately.";
   }
 
   const system = `You are RelWave AI, an expert SQL developer for ${dialect}.
@@ -49,6 +53,6 @@ If the question is unclear or unrelated to the schema, return:
 
   return {
     system,
-    user: (question: string) => `Question: ${question}`
+    user: (question: string) => `Question: ${question}`,
   };
 }

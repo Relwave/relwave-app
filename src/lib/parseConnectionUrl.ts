@@ -7,134 +7,134 @@
  */
 
 export interface ParsedConnectionUrl {
-    type: string;
-    host: string;
-    port: string;
-    user: string;
-    password: string;
-    database: string;
-    ssl: boolean;
-    sslmode: string;
+  type: string;
+  host: string;
+  port: string;
+  user: string;
+  password: string;
+  database: string;
+  ssl: boolean;
+  sslmode: string;
 }
 
 function normalizeSqlitePathFromUrl(parsed: URL): string {
-    const hostname = parsed.hostname || "";
-    const pathname = parsed.pathname || "";
+  const hostname = parsed.hostname || "";
+  const pathname = parsed.pathname || "";
 
-    if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
-        return decodeURIComponent(`${hostname}:${pathname}`);
-    }
+  if (hostname && /^[A-Za-z]$/.test(hostname) && pathname.startsWith("/")) {
+    return decodeURIComponent(`${hostname}:${pathname}`);
+  }
 
-    if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
-        return decodeURIComponent(pathname.slice(1));
-    }
+  if (!hostname && /^\/[A-Za-z]:\//.test(pathname)) {
+    return decodeURIComponent(pathname.slice(1));
+  }
 
-    return decodeURIComponent(`${hostname}${pathname}`);
+  return decodeURIComponent(`${hostname}${pathname}`);
 }
 
 function encodeSqlitePathSegments(database: string): string {
-    return database
-        .replace(/\\/g, "/")
-        .replace(/^\/+/, "")
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
+  return database
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
 }
 
 export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
-    try {
-        // Trim whitespace
-        url = url.trim();
+  try {
+    // Trim whitespace
+    url = url.trim();
 
-        // Handle empty string
-        if (!url) return null;
+    // Handle empty string
+    if (!url) return null;
 
-        // Parse the URL
-        const parsed = new URL(url);
+    // Parse the URL
+    const parsed = new URL(url);
 
-        // Determine database type from protocol
-        let type = "";
-        const protocol = parsed.protocol.replace(":", "").toLowerCase();
+    // Determine database type from protocol
+    let type = "";
+    const protocol = parsed.protocol.replace(":", "").toLowerCase();
 
-        if (protocol === "postgres" || protocol === "postgresql") {
-            type = "postgresql";
-        } else if (protocol === "mysql") {
-            type = "mysql";
-        } else if (protocol === "sqlite") {
-            type = "sqlite";
-        } else {
-            return null; // Unsupported protocol
-        }
-
-        // SQLite uses path only, no host/port/auth
-        if (type === "sqlite") {
-            const dbPath = normalizeSqlitePathFromUrl(parsed);
-            return {
-                type,
-                host: "",
-                port: "",
-                user: "",
-                password: "",
-                database: dbPath,
-                ssl: false,
-                sslmode: "",
-            };
-        }
-
-        // Extract components
-        const host = parsed.hostname || "localhost";
-        const port = parsed.port || (type === "postgresql" ? "5432" : "3306");
-        const user = decodeURIComponent(parsed.username || "");
-        const password = decodeURIComponent(parsed.password || "");
-
-        // Database name is the pathname without leading slash
-        const database = decodeURIComponent(parsed.pathname.replace(/^\//, "") || "");
-
-        // Parse SSL parameters from query string
-        const sslmode = parsed.searchParams.get("sslmode") || "";
-        const ssl = sslmode !== "" && sslmode !== "disable";
-
-        return {
-            type,
-            host,
-            port,
-            user,
-            password,
-            database,
-            ssl,
-            sslmode,
-        };
-    } catch (error) {
-        // Invalid URL format
-        return null;
+    if (protocol === "postgres" || protocol === "postgresql") {
+      type = "postgresql";
+    } else if (protocol === "mysql") {
+      type = "mysql";
+    } else if (protocol === "sqlite") {
+      type = "sqlite";
+    } else {
+      return null; // Unsupported protocol
     }
+
+    // SQLite uses path only, no host/port/auth
+    if (type === "sqlite") {
+      const dbPath = normalizeSqlitePathFromUrl(parsed);
+      return {
+        type,
+        host: "",
+        port: "",
+        user: "",
+        password: "",
+        database: dbPath,
+        ssl: false,
+        sslmode: "",
+      };
+    }
+
+    // Extract components
+    const host = parsed.hostname || "localhost";
+    const port = parsed.port || (type === "postgresql" ? "5432" : "3306");
+    const user = decodeURIComponent(parsed.username || "");
+    const password = decodeURIComponent(parsed.password || "");
+
+    // Database name is the pathname without leading slash
+    const database = decodeURIComponent(parsed.pathname.replace(/^\//, "") || "");
+
+    // Parse SSL parameters from query string
+    const sslmode = parsed.searchParams.get("sslmode") || "";
+    const ssl = sslmode !== "" && sslmode !== "disable";
+
+    return {
+      type,
+      host,
+      port,
+      user,
+      password,
+      database,
+      ssl,
+      sslmode,
+    };
+  } catch {
+    // Invalid URL format
+    return null;
+  }
 }
 
 /**
  * Build a connection URL from components
  */
 export function buildConnectionUrl(params: {
-    type: string;
-    host: string;
-    port: string;
-    user: string;
-    password: string;
-    database: string;
-    sslmode?: string;
+  type: string;
+  host: string;
+  port: string;
+  user: string;
+  password: string;
+  database: string;
+  sslmode?: string;
 }): string {
-    if (params.type === "sqlite") {
-        return `sqlite:///${encodeSqlitePathSegments(params.database)}`;
-    }
-    const protocol = params.type === "mysql" ? "mysql" : "postgres";
-    const auth = params.password
-        ? `${encodeURIComponent(params.user)}:${encodeURIComponent(params.password)}`
-        : encodeURIComponent(params.user);
+  if (params.type === "sqlite") {
+    return `sqlite:///${encodeSqlitePathSegments(params.database)}`;
+  }
+  const protocol = params.type === "mysql" ? "mysql" : "postgres";
+  const auth = params.password
+    ? `${encodeURIComponent(params.user)}:${encodeURIComponent(params.password)}`
+    : encodeURIComponent(params.user);
 
-    let url = `${protocol}://${auth}@${params.host}:${params.port}/${encodeURIComponent(params.database)}`;
+  let url = `${protocol}://${auth}@${params.host}:${params.port}/${encodeURIComponent(params.database)}`;
 
-    if (params.sslmode && params.sslmode !== "disable") {
-        url += `?sslmode=${params.sslmode}`;
-    }
+  if (params.sslmode && params.sslmode !== "disable") {
+    url += `?sslmode=${params.sslmode}`;
+  }
 
-    return url;
+  return url;
 }

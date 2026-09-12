@@ -59,14 +59,14 @@ const FEATURE_LABELS: Record<string, string> = {
   "schema-analysis": "Schema Analysis",
   "query-explanation": "Query Explanation",
   "chart-recommendation": "Chart Recommendation",
-  "nl_to_sql": "NL to SQL",
+  nl_to_sql: "NL to SQL",
 };
 
 const FEATURE_COLORS: Record<string, string> = {
   "schema-analysis": "border-violet-500/30 text-violet-600 bg-violet-500/8",
   "query-explanation": "border-blue-500/30 text-blue-600 bg-blue-500/8",
   "chart-recommendation": "border-amber-500/30 text-amber-600 bg-amber-500/8",
-  "nl_to_sql": "border-emerald-500/30 text-emerald-600 bg-emerald-500/8",
+  nl_to_sql: "border-emerald-500/30 text-emerald-600 bg-emerald-500/8",
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -202,8 +202,9 @@ export default function AIHistoryPanel({ dbId }: { dbId?: string }) {
                   <AlertDialogHeader>
                     <AlertDialogTitle className="text-sm">Clear all AI history?</AlertDialogTitle>
                     <AlertDialogDescription className="text-xs">
-                      This will permanently delete all {total} AI analysis entries from your local history.
-                      Cached results will no longer be available. This action cannot be undone.
+                      This will permanently delete all {total} AI analysis entries from your local
+                      history. Cached results will no longer be available. This action cannot be
+                      undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -268,11 +269,23 @@ export default function AIHistoryPanel({ dbId }: { dbId?: string }) {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-[10px] uppercase tracking-wider h-8">Feature</TableHead>
-                      {!dbId && <TableHead className="text-[10px] uppercase tracking-wider h-8">Database</TableHead>}
-                      <TableHead className="text-[10px] uppercase tracking-wider h-8">Provider</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-8 text-right">Tokens</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-8 text-right">Created</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-8">
+                        Feature
+                      </TableHead>
+                      {!dbId && (
+                        <TableHead className="text-[10px] uppercase tracking-wider h-8">
+                          Database
+                        </TableHead>
+                      )}
+                      <TableHead className="text-[10px] uppercase tracking-wider h-8">
+                        Provider
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-8 text-right">
+                        Tokens
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-8 text-right">
+                        Created
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -287,7 +300,7 @@ export default function AIHistoryPanel({ dbId }: { dbId?: string }) {
                             variant="outline"
                             className={cn(
                               "text-[10px] font-medium px-1.5 py-0",
-                              FEATURE_COLORS[item.feature] ?? "border-border/40"
+                              FEATURE_COLORS[item.feature] ?? "border-border/40",
                             )}
                           >
                             {FEATURE_LABELS[item.feature] ?? item.feature}
@@ -297,7 +310,8 @@ export default function AIHistoryPanel({ dbId }: { dbId?: string }) {
                           <TableCell className="py-2 text-xs text-foreground/70 max-w-[140px] truncate">
                             {item.datasource_id ? (
                               <span title={item.datasource_id}>
-                                {databases?.find(d => d.id === item.datasource_id)?.name || `${item.datasource_id.slice(0, 8)}...`}
+                                {databases?.find((d) => d.id === item.datasource_id)?.name ||
+                                  `${item.datasource_id.slice(0, 8)}...`}
                               </span>
                             ) : (
                               <span className="text-muted-foreground/40 italic">Global</span>
@@ -309,7 +323,9 @@ export default function AIHistoryPanel({ dbId }: { dbId?: string }) {
                         </TableCell>
                         <TableCell className="py-2 text-xs text-muted-foreground text-right font-mono text-[11px] whitespace-nowrap">
                           {item.tokens_used != null ? (
-                            <span title="Estimated tokens">~{item.tokens_used.toLocaleString()}</span>
+                            <span title="Estimated tokens">
+                              ~{item.tokens_used.toLocaleString()}
+                            </span>
                           ) : (
                             <span className="text-muted-foreground/40">—</span>
                           )}

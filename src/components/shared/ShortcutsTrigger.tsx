@@ -1,10 +1,6 @@
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShortcutsTriggerProps {
   onClick: () => void;
@@ -25,7 +21,9 @@ export function ShortcutsTrigger({ onClick }: ShortcutsTriggerProps) {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="top" className="text-[10px] px-2 py-1">
-        <p>Shortcuts <kbd className="font-mono opacity-60">?</kbd></p>
+        <p>
+          Shortcuts <kbd className="font-mono opacity-60">?</kbd>
+        </p>
       </TooltipContent>
     </Tooltip>
   );

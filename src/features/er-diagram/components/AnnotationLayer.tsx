@@ -6,90 +6,90 @@ import { projectService } from "@/services/bridge/project";
 const ANNOTATION_SAVE_DEBOUNCE_MS = 2000;
 
 interface AnnotationLayerProps {
-    projectId: string;
-    active: boolean;
+  projectId: string;
+  active: boolean;
 }
 
 export default function AnnotationLayer({ projectId, active }: AnnotationLayerProps) {
-    const editorRef = useRef<Editor | null>(null);
-    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const loadedRef = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
 
-    // Save current snapshot to backend (debounced)
-    const scheduleSave = useCallback(() => {
-        if (!projectId || !editorRef.current) return;
+  // Save current snapshot to backend (debounced)
+  const scheduleSave = useCallback(() => {
+    if (!projectId || !editorRef.current) return;
 
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
-        saveTimerRef.current = setTimeout(() => {
-            const editor = editorRef.current;
-            if (!editor) return;
+    saveTimerRef.current = setTimeout(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
 
-            const snapshot = editor.getSnapshot();
-            projectService
-                .saveProjectAnnotations(projectId, snapshot)
-                .then(() => console.debug("[Annotations] Saved"))
-                .catch((err) => console.warn("[Annotations] Save failed:", err.message));
-        }, ANNOTATION_SAVE_DEBOUNCE_MS);
-    }, [projectId]);
+      const snapshot = editor.getSnapshot();
+      projectService
+        .saveProjectAnnotations(projectId, snapshot)
+        .then(() => console.debug("[Annotations] Saved"))
+        .catch((err) => console.warn("[Annotations] Save failed:", err.message));
+    }, ANNOTATION_SAVE_DEBOUNCE_MS);
+  }, [projectId]);
 
-    // Handle tldraw mount
-    const handleMount = useCallback(
-        (editor: Editor) => {
-            editorRef.current = editor;
+  // Handle tldraw mount
+  const handleMount = useCallback(
+    (editor: Editor) => {
+      editorRef.current = editor;
 
-            // Load saved annotations
-            if (projectId) {
-                projectService
-                    .getProjectAnnotations(projectId)
-                    .then((file) => {
-                        if (file?.snapshot && Object.keys(file.snapshot).length > 0) {
-                            editor.loadSnapshot(file.snapshot);
-                        }
-                        loadedRef.current = true;
-                    })
-                    .catch((err) => {
-                        console.warn("[Annotations] Load failed:", err.message);
-                        loadedRef.current = true;
-                    });
-            } else {
-                loadedRef.current = true;
+      // Load saved annotations
+      if (projectId) {
+        projectService
+          .getProjectAnnotations(projectId)
+          .then((file) => {
+            if (file?.snapshot && Object.keys(file.snapshot).length > 0) {
+              editor.loadSnapshot(file.snapshot);
             }
+            loadedRef.current = true;
+          })
+          .catch((err) => {
+            console.warn("[Annotations] Load failed:", err.message);
+            loadedRef.current = true;
+          });
+      } else {
+        loadedRef.current = true;
+      }
 
-            // Listen for all store changes and schedule save
-            const unsubscribe = editor.store.listen(
-                () => {
-                    if (loadedRef.current) {
-                        scheduleSave();
-                    }
-                },
-                { source: "user", scope: "document" }
-            );
-
-            return () => {
-                unsubscribe();
-                if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-            };
+      // Listen for all store changes and schedule save
+      const unsubscribe = editor.store.listen(
+        () => {
+          if (loadedRef.current) {
+            scheduleSave();
+          }
         },
-        [projectId, scheduleSave]
-    );
+        { source: "user", scope: "document" },
+      );
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-        };
-    }, []);
+      return () => {
+        unsubscribe();
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      };
+    },
+    [projectId, scheduleSave],
+  );
 
-    return (
-        <div
-            className="absolute inset-0 z-20 tldraw-annotation-layer"
-            style={{
-                pointerEvents: active ? "auto" : "none",
-                visibility: active ? "visible" : "hidden",
-            }}
-        >
-            <style>{`
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      className="absolute inset-0 z-20 tldraw-annotation-layer"
+      style={{
+        pointerEvents: active ? "auto" : "none",
+        visibility: active ? "visible" : "hidden",
+      }}
+    >
+      <style>{`
                 .tldraw-annotation-layer .tl-background {
                     background: rgba(255, 255, 255, 0.85) !important;
                 }
@@ -100,12 +100,12 @@ export default function AnnotationLayer({ projectId, active }: AnnotationLayerPr
                     background: transparent !important;
                 }
             `}</style>
-            <Tldraw
-                licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
-                onMount={handleMount}
-                hideUi={!active}
-                options={{ maxPages: 1 }}
-            />
-        </div>
-    );
+      <Tldraw
+        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
+        onMount={handleMount}
+        hideUi={!active}
+        options={{ maxPages: 1 }}
+      />
+    </div>
+  );
 }

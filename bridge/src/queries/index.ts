@@ -1,6 +1,6 @@
 /**
  * Centralized SQL Queries Module
- * 
+ *
  * This module exports all SQL queries used throughout the application.
  * Organizing queries in a central location provides:
  * - Better maintainability
@@ -9,6 +9,6 @@
  * - Clearer separation of concerns
  */
 
-export * from './mysql';
-export * from './postgres';
-export * from './sqlite';
+export * from "./mysql";
+export * from "./postgres";
+export * from "./sqlite";

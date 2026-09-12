@@ -13,11 +13,8 @@
 
 /* Font Family Configuration */
 @theme inline {
-  --font-sans:
-    "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  --font-mono:
-    "Geist Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
 @theme inline {
@@ -93,8 +90,7 @@
   --sidebar-ring: var(--ring);
 
   /* New Design System Tokens */
-  --card-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 32px rgba(15, 23, 42, 0.05);
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 32px rgba(15, 23, 42, 0.05);
   --card-shadow-hover: 0 12px 36px rgba(15, 23, 42, 0.1);
   --glass-bg: rgba(255, 255, 255, 0.78);
   --glass-blur: 12px;
@@ -150,10 +146,8 @@ body,
   --sidebar-accent-foreground: oklch(0.94 0.006 255);
   --sidebar-border: oklch(1 0 0 / 9%);
   --sidebar-ring: var(--ring);
-  --card-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 52px rgba(0, 0, 0, 0.34);
-  --card-shadow-hover:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 22px 64px rgba(0, 0, 0, 0.42);
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 52px rgba(0, 0, 0, 0.34);
+  --card-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 22px 64px rgba(0, 0, 0, 0.42);
   --glass-bg: rgba(23, 29, 39, 0.76);
   --surface: oklch(0.16 0.014 250);
   --surface-elevated: oklch(0.19 0.016 250);
@@ -243,10 +237,8 @@ body,
   --sidebar-accent-foreground: #00f5ff;
   --sidebar-border: rgba(0, 245, 255, 0.08);
   --sidebar-ring: #00f5ff;
-  --card-shadow:
-    0 0 0 1px rgba(0, 245, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.6);
-  --card-shadow-hover:
-    0 0 0 1px rgba(0, 245, 255, 0.14), 0 12px 44px rgba(0, 0, 0, 0.7);
+  --card-shadow: 0 0 0 1px rgba(0, 245, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.6);
+  --card-shadow-hover: 0 0 0 1px rgba(0, 245, 255, 0.14), 0 12px 44px rgba(0, 0, 0, 0.7);
   --glass-bg: rgba(7, 11, 20, 0.85);
   --surface: #0a1220;
   --surface-elevated: #0d1526;
@@ -294,10 +286,8 @@ body,
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #3e3e42;
   --sidebar-ring: #569cd6;
-  --card-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
-  --card-shadow-hover:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 32px rgba(0, 0, 0, 0.5);
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
+  --card-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 32px rgba(0, 0, 0, 0.5);
   --glass-bg: rgba(37, 37, 38, 0.92);
   --surface: #252526;
   --surface-elevated: #2d2d30;
@@ -334,8 +324,7 @@ body,
   --sidebar-border: oklch(0.91 0.05 11.4);
   --sidebar-ring: oklch(0.92 0.04 12.39);
   --card-shadow:
-    0px 0px 3px 0px oklch(0.3 0.0891 19.6 / 0.08),
-    0px 2px 4px -1px oklch(0.3 0.0891 19.6 / 0.08);
+    0px 0px 3px 0px oklch(0.3 0.0891 19.6 / 0.08), 0px 2px 4px -1px oklch(0.3 0.0891 19.6 / 0.08);
   --glass-bg: rgba(253, 248, 247, 0.82);
   --surface: oklch(0.97 0.02 12.78);
   --surface-elevated: oklch(0.98 0.01 17.28);
@@ -370,8 +359,7 @@ body,
   --sidebar-accent-foreground: oklch(0.99 0 359.99);
   --sidebar-border: oklch(0.39 0.12 20.37);
   --sidebar-ring: oklch(0.5 0.16 20.89);
-  --card-shadow:
-    0 1px 3px 0px oklch(0 0 0 / 0.1), 0 2px 4px -1px oklch(0 0 0 / 0.1);
+  --card-shadow: 0 1px 3px 0px oklch(0 0 0 / 0.1), 0 2px 4px -1px oklch(0 0 0 / 0.1);
   --glass-bg: rgba(33, 14, 12, 0.82);
   --surface: oklch(0.21 0.05 19.26);
   --surface-elevated: oklch(0.26 0.07 19);
@@ -407,8 +395,7 @@ body,
   --sidebar-accent-foreground: oklch(0.26 0.02 358.42);
   --sidebar-border: oklch(0.91 0 0.43);
   --sidebar-ring: oklch(0.71 0 0.37);
-  --card-shadow:
-    0 1px 3px 0px oklch(0 0 0 / 0.08), 0 2px 4px -1px oklch(0 0 0 / 0.08);
+  --card-shadow: 0 1px 3px 0px oklch(0 0 0 / 0.08), 0 2px 4px -1px oklch(0 0 0 / 0.08);
   --glass-bg: rgba(244, 237, 216, 0.8);
   --surface: oklch(0.91 0.05 82.69);
   --surface-elevated: oklch(0.92 0.04 83.86);
@@ -443,8 +430,7 @@ body,
   --sidebar-accent-foreground: oklch(0.86 0.05 84.5);
   --sidebar-border: oklch(0.33 0.02 60.7);
   --sidebar-ring: oklch(0.64 0.05 115.39);
-  --card-shadow:
-    0 1px 3px 0px oklch(0 0 0 / 0.2), 0 2px 4px -1px oklch(0 0 0 / 0.2);
+  --card-shadow: 0 1px 3px 0px oklch(0 0 0 / 0.2), 0 2px 4px -1px oklch(0 0 0 / 0.2);
   --glass-bg: rgba(33, 25, 14, 0.82);
   --surface: oklch(0.25 0.01 56.14);
   --surface-elevated: oklch(0.27 0.01 39.35);
@@ -467,11 +453,7 @@ body,
         color-mix(in oklch, var(--primary) 14%, transparent) 0,
         transparent 32rem
       ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--background) 96%, white),
-        var(--background)
-      );
+      linear-gradient(180deg, color-mix(in oklch, var(--background) 96%, white), var(--background));
   }
 
   /* Apply monospace font to technical elements */
@@ -497,8 +479,6 @@ body {
   -webkit-user-select: none;
   user-select: none;
 }
-
-
 
 @layer utilities {
   /* Webkit browsers (Chrome, Safari, Edge) - Applied globally */
@@ -577,10 +557,7 @@ body {
 
   .hairline-grid {
     background-image:
-      linear-gradient(
-        color-mix(in oklch, var(--border) 38%, transparent) 1px,
-        transparent 1px
-      ),
+      linear-gradient(color-mix(in oklch, var(--border) 38%, transparent) 1px, transparent 1px),
       linear-gradient(
         90deg,
         color-mix(in oklch, var(--border) 38%, transparent) 1px,
@@ -641,8 +618,7 @@ body {
   .theme-transitioning [data-slot="dialog-content"] *,
   .theme-transitioning [data-slot="dialog-content"] *::before,
   .theme-transitioning [data-slot="dialog-content"] *::after {
-    transition-property:
-      color, background-color, border-color, box-shadow, opacity !important;
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
     transition-duration: 260ms !important;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
   }

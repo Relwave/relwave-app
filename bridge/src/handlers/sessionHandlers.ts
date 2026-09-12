@@ -1,17 +1,16 @@
-
 // ----------------------------
 // handlers/sessionHandlers.ts
 // ----------------------------
 
-import { Rpc } from '../types';
-import { SessionManager } from '../sessionManager';
-import { randomUUID } from 'node:crypto';
+import { Rpc } from "../types";
+import { SessionManager } from "../sessionManager";
+import { randomUUID } from "node:crypto";
 
 export class SessionHandlers {
   constructor(
     private rpc: Rpc,
     private logger: any,
-    private sessions: SessionManager
+    private sessions: SessionManager,
   ) {}
 
   /**
@@ -27,23 +26,23 @@ export class SessionHandlers {
       // Create session with optional metadata
       const session = this.sessions.create(sessionId, {
         connectionId,
-        ...meta
+        ...meta,
       });
 
-      this.logger?.info({ sessionId, connectionId, meta }, 'Session created');
+      this.logger?.info({ sessionId, connectionId, meta }, "Session created");
 
       this.rpc.sendResponse(id, {
         ok: true,
-        data: { 
+        data: {
           sessionId,
-          createdAt: session.createdAt
-        }
+          createdAt: session.createdAt,
+        },
       });
     } catch (e: any) {
-      this.logger?.error({ e, params }, 'query.createSession failed');
+      this.logger?.error({ e, params }, "query.createSession failed");
       this.rpc.sendError(id, {
-        code: 'INTERNAL_ERROR',
-        message: String(e)
+        code: "INTERNAL_ERROR",
+        message: String(e),
       });
     }
   }
@@ -57,26 +56,26 @@ export class SessionHandlers {
       const { sessionId } = params || {};
 
       if (!sessionId) {
-        this.logger?.warn({ params }, 'query.cancel called without sessionId');
+        this.logger?.warn({ params }, "query.cancel called without sessionId");
         return this.rpc.sendError(id, {
-          code: 'BAD_REQUEST',
-          message: 'Missing sessionId'
+          code: "BAD_REQUEST",
+          message: "Missing sessionId",
         });
       }
 
       const cancelled = await this.sessions.cancel(sessionId);
 
-      this.logger?.info({ sessionId, cancelled }, 'Session cancel requested');
+      this.logger?.info({ sessionId, cancelled }, "Session cancel requested");
 
       this.rpc.sendResponse(id, {
         ok: true,
-        data: { cancelled }
+        data: { cancelled },
       });
     } catch (e: any) {
-      this.logger?.error({ e, params }, 'query.cancel failed');
+      this.logger?.error({ e, params }, "query.cancel failed");
       this.rpc.sendError(id, {
-        code: 'INTERNAL_ERROR',
-        message: String(e)
+        code: "INTERNAL_ERROR",
+        message: String(e),
       });
     }
   }
@@ -91,8 +90,8 @@ export class SessionHandlers {
 
       if (!sessionId) {
         return this.rpc.sendError(id, {
-          code: 'BAD_REQUEST',
-          message: 'Missing sessionId'
+          code: "BAD_REQUEST",
+          message: "Missing sessionId",
         });
       }
 
@@ -100,8 +99,8 @@ export class SessionHandlers {
 
       if (!session) {
         return this.rpc.sendError(id, {
-          code: 'NOT_FOUND',
-          message: 'Session not found'
+          code: "NOT_FOUND",
+          message: "Session not found",
         });
       }
 
@@ -112,14 +111,14 @@ export class SessionHandlers {
           sessionId: session.id,
           connectionId: session.connectionId,
           createdAt: session.createdAt,
-          hasCancel: !!session.cancel
-        }
+          hasCancel: !!session.cancel,
+        },
       });
     } catch (e: any) {
-      this.logger?.error({ e, params }, 'query.getSession failed');
+      this.logger?.error({ e, params }, "query.getSession failed");
       this.rpc.sendError(id, {
-        code: 'INTERNAL_ERROR',
-        message: String(e)
+        code: "INTERNAL_ERROR",
+        message: String(e),
       });
     }
   }
@@ -135,20 +134,20 @@ export class SessionHandlers {
       this.rpc.sendResponse(id, {
         ok: true,
         data: {
-          sessions: activeSessions.map(s => ({
+          sessions: activeSessions.map((s) => ({
             sessionId: s.id,
             connectionId: s.connectionId,
             createdAt: s.createdAt,
-            hasCancel: !!s.cancel
+            hasCancel: !!s.cancel,
           })),
-          count: activeSessions.length
-        }
+          count: activeSessions.length,
+        },
       });
     } catch (e: any) {
-      this.logger?.error({ e }, 'query.listSessions failed');
+      this.logger?.error({ e }, "query.listSessions failed");
       this.rpc.sendError(id, {
-        code: 'INTERNAL_ERROR',
-        message: String(e)
+        code: "INTERNAL_ERROR",
+        message: String(e),
       });
     }
   }
@@ -163,24 +162,24 @@ export class SessionHandlers {
 
       if (!sessionId) {
         return this.rpc.sendError(id, {
-          code: 'BAD_REQUEST',
-          message: 'Missing sessionId'
+          code: "BAD_REQUEST",
+          message: "Missing sessionId",
         });
       }
 
       const removed = this.sessions.remove(sessionId);
 
-      this.logger?.info({ sessionId, removed }, 'Session destroyed');
+      this.logger?.info({ sessionId, removed }, "Session destroyed");
 
       this.rpc.sendResponse(id, {
         ok: true,
-        data: { removed }
+        data: { removed },
       });
     } catch (e: any) {
-      this.logger?.error({ e, params }, 'query.destroySession failed');
+      this.logger?.error({ e, params }, "query.destroySession failed");
       this.rpc.sendError(id, {
-        code: 'INTERNAL_ERROR',
-        message: String(e)
+        code: "INTERNAL_ERROR",
+        message: String(e),
       });
     }
   }

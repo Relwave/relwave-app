@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Database, Check, AlertCircle, Loader2, FileSearch, LinkIcon, Settings } from "lucide-react";
+import {
+  FolderOpen,
+  Database,
+  Check,
+  AlertCircle,
+  Loader2,
+  FileSearch,
+  LinkIcon,
+  Settings,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -146,7 +155,7 @@ export function ImportProjectDialog({
         setUseUrl(true);
         const parsed = parseConnectionUrl(env.url);
         if (parsed) {
-          setDbForm(prev => ({
+          setDbForm((prev) => ({
             ...prev,
             type: parsed.type,
             host: parsed.host,
@@ -276,12 +285,7 @@ export function ImportProjectDialog({
                   readOnly
                   className="h-9 text-xs font-mono flex-1"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePickFolder}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="sm" onClick={handlePickFolder} className="shrink-0">
                   <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
                   Browse
                 </Button>
@@ -318,12 +322,16 @@ export function ImportProjectDialog({
           <div className="space-y-4 py-2">
             {/* Project info */}
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
-              <p><strong>Project:</strong> {scanResult.metadata.name}</p>
+              <p>
+                <strong>Project:</strong> {scanResult.metadata.name}
+              </p>
               {scanResult.metadata.description && (
                 <p className="text-muted-foreground">{scanResult.metadata.description}</p>
               )}
               {scanResult.metadata.engine && (
-                <p><strong>Engine:</strong> {scanResult.metadata.engine}</p>
+                <p>
+                  <strong>Engine:</strong> {scanResult.metadata.engine}
+                </p>
               )}
             </div>
 
@@ -346,7 +354,10 @@ export function ImportProjectDialog({
             {/* Connection Form */}
             <div className="space-y-3">
               {dbForm.type !== "sqlite" && (
-                <Tabs value={useUrl ? "url" : "params"} onValueChange={(v) => setUseUrl(v === "url")}>
+                <Tabs
+                  value={useUrl ? "url" : "params"}
+                  onValueChange={(v) => setUseUrl(v === "url")}
+                >
                   <TabsList className="grid w-full grid-cols-2 h-9">
                     <TabsTrigger value="url" className="text-xs">
                       <LinkIcon className="h-3 w-3 mr-1" />
@@ -371,7 +382,7 @@ export function ImportProjectDialog({
                       setConnectionUrl(url);
                       const parsed = parseConnectionUrl(url);
                       if (parsed) {
-                        setDbForm(prev => ({
+                        setDbForm((prev) => ({
                           ...prev,
                           type: parsed.type,
                           host: parsed.host,
@@ -418,8 +429,8 @@ export function ImportProjectDialog({
                 </div>
               )}
 
-              {!useUrl && (
-                dbForm.type === "sqlite" ? (
+              {!useUrl &&
+                (dbForm.type === "sqlite" ? (
                   <div className="space-y-1.5">
                     <Label className="text-xs">Database File</Label>
                     <div className="flex gap-2">
@@ -437,7 +448,9 @@ export function ImportProjectDialog({
                         onClick={async () => {
                           const selected = await open({
                             title: "Select SQLite Database",
-                            filters: [{ name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] }],
+                            filters: [
+                              { name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] },
+                            ],
                           });
                           if (selected) handleDbInputChange("database", selected as string);
                         }}
@@ -505,22 +518,26 @@ export function ImportProjectDialog({
                       <Checkbox
                         id="import-ssl"
                         checked={dbForm.ssl}
-                        onCheckedChange={(checked) => handleDbInputChange("ssl", checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleDbInputChange("ssl", checked as boolean)
+                        }
                       />
                       <Label htmlFor="import-ssl" className="cursor-pointer text-xs">
                         Enable SSL
                       </Label>
                     </div>
                   </>
-                )
-              )}
+                ))}
             </div>
 
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setStep("pick-folder"); setError(null); }}
+                onClick={() => {
+                  setStep("pick-folder");
+                  setError(null);
+                }}
               >
                 Back
               </Button>
@@ -535,7 +552,9 @@ export function ImportProjectDialog({
         {step === "importing" && (
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
-            <p className="text-sm text-muted-foreground">Creating connection and importing project...</p>
+            <p className="text-sm text-muted-foreground">
+              Creating connection and importing project...
+            </p>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 /**
  * SQLite Constraint-related Queries
- * 
+ *
  * SQLite uses PRAGMA commands for constraint introspection.
  * Most constraint info is retrieved via:
  * - PRAGMA table_xinfo() for primary keys and column constraints

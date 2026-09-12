@@ -5,4 +5,4 @@ export const bytesToMBString = (bytes: number): string => {
 
 export const formatMB = (mb: string): string => {
   return `${parseFloat(mb).toFixed(2)} MB`;
-}
+};

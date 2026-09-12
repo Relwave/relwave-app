@@ -1,4 +1,10 @@
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { SchemaDiff } from "../types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -78,7 +84,10 @@ export function SchemaDriftSheet({
                   <CollapsibleTrigger className="flex items-center justify-between w-full p-4 font-medium hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-green-600">Tables Added</span>
-                      <Badge variant="outline" className="bg-green-600/10 text-green-600 border-green-600/20">
+                      <Badge
+                        variant="outline"
+                        className="bg-green-600/10 text-green-600 border-green-600/20"
+                      >
                         {driftDetails!.tablesAdded.length}
                       </Badge>
                     </div>
@@ -86,7 +95,9 @@ export function SchemaDriftSheet({
                   </CollapsibleTrigger>
                   <CollapsibleContent className="p-4 pt-0 border-t bg-muted/20">
                     <ul className="list-disc pl-4 mt-2 text-sm text-green-600">
-                      {driftDetails!.tablesAdded.map((t) => <li key={t}>{t}</li>)}
+                      {driftDetails!.tablesAdded.map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
                     </ul>
                   </CollapsibleContent>
                 </Collapsible>
@@ -97,7 +108,10 @@ export function SchemaDriftSheet({
                   <CollapsibleTrigger className="flex items-center justify-between w-full p-4 font-medium hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-destructive">Tables Removed</span>
-                      <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20">
+                      <Badge
+                        variant="destructive"
+                        className="bg-destructive/10 text-destructive border-destructive/20"
+                      >
                         {driftDetails!.tablesRemoved.length}
                       </Badge>
                     </div>
@@ -105,7 +119,9 @@ export function SchemaDriftSheet({
                   </CollapsibleTrigger>
                   <CollapsibleContent className="p-4 pt-0 border-t bg-muted/20">
                     <ul className="list-disc pl-4 mt-2 text-sm text-destructive">
-                      {driftDetails!.tablesRemoved.map((t) => <li key={t}>{t}</li>)}
+                      {driftDetails!.tablesRemoved.map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
                     </ul>
                   </CollapsibleContent>
                 </Collapsible>
@@ -116,7 +132,10 @@ export function SchemaDriftSheet({
                   <CollapsibleTrigger className="flex items-center justify-between w-full p-4 font-medium hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-orange-600">Tables Modified</span>
-                      <Badge variant="outline" className="bg-orange-600/10 text-orange-600 border-orange-600/20">
+                      <Badge
+                        variant="outline"
+                        className="bg-orange-600/10 text-orange-600 border-orange-600/20"
+                      >
                         {driftDetails!.tablesModified.length}
                       </Badge>
                     </div>
@@ -131,13 +150,19 @@ export function SchemaDriftSheet({
                             <div className="text-green-600 ml-2">+ {m.columnsAdded.join(", ")}</div>
                           )}
                           {m.columnsRemoved.length > 0 && (
-                            <div className="text-destructive ml-2">- {m.columnsRemoved.join(", ")}</div>
+                            <div className="text-destructive ml-2">
+                              - {m.columnsRemoved.join(", ")}
+                            </div>
                           )}
                           {m.columnsChanged.length > 0 && (
-                            <div className="text-orange-600 ml-2">~ {m.columnsChanged.join(", ")}</div>
+                            <div className="text-orange-600 ml-2">
+                              ~ {m.columnsChanged.join(", ")}
+                            </div>
                           )}
                           {m.constraintsChanged.length > 0 && (
-                            <div className="text-blue-600 ml-2">~ {m.constraintsChanged.join(", ")}</div>
+                            <div className="text-blue-600 ml-2">
+                              ~ {m.constraintsChanged.join(", ")}
+                            </div>
                           )}
                         </div>
                       ))}
@@ -150,7 +175,9 @@ export function SchemaDriftSheet({
         )}
 
         <div className="flex justify-end gap-2 pt-4 border-t mt-auto">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
           <Button onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
             Refresh Cache

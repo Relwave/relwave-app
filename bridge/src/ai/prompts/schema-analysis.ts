@@ -25,7 +25,7 @@ export function buildSchemaAnalysisPrompt(input: SchemaAnalysisInput): {
 
       const tableName = `${t.schema ? `${t.schema}.` : ""}${t.name}`;
       const extrasStr = extras.length ? ` | ${extras.join(" | ")}` : "";
-      
+
       return `[${tableName}] cols: ${columns}${extrasStr}`;
     })
     .join("\n");

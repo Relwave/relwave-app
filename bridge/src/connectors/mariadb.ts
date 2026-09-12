@@ -1,77 +1,78 @@
-import mysql, {
-    FieldPacket,
-    PoolOptions,
-    RowDataPacket,
-    PoolConnection,
-} from "mysql2/promise";
+import mysql, { FieldPacket, PoolOptions, RowDataPacket, PoolConnection } from "mysql2/promise";
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
 import crypto from "crypto";
 import fs from "fs";
 import { ensureDir } from "../utils/config";
 import { projectStoreInstance } from "../services/projectStore";
+import { CacheEntry, CACHE_TTL, STATS_CACHE_TTL, SCHEMA_CACHE_TTL } from "../types/cache";
 import {
-    CacheEntry,
-    CACHE_TTL,
-    STATS_CACHE_TTL,
-    SCHEMA_CACHE_TTL
-} from "../types/cache";
-import {
-    TableInfo,
-    DBStats,
-    SchemaInfo,
-    ColumnDetail,
-    PrimaryKeyInfo,
-    ForeignKeyInfo,
-    IndexInfo,
-    UniqueConstraintInfo,
-    CheckConstraintInfo,
-    AppliedMigration,
+  TableInfo,
+  DBStats,
+  ColumnDetail,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  AppliedMigration,
 } from "../types/common";
 import {
-    MySQLConfig,
-    EnumColumnInfo as MariaDBEnumColumnInfo,
-    AutoIncrementInfo as MariaDBAutoIncrementInfo,
-    SchemaMetadataBatch as MariaDBSchemaMetadataBatch,
-    MySQLAlterTableOperation as MariaDBAlterTableOperation,
-    MySQLDropMode as MariaDBDropMode,
+  MySQLConfig,
+  EnumColumnInfo as MariaDBEnumColumnInfo,
+  AutoIncrementInfo as MariaDBAutoIncrementInfo,
+  SchemaMetadataBatch as MariaDBSchemaMetadataBatch,
+  MySQLAlterTableOperation as MariaDBAlterTableOperation,
+  MySQLDropMode as MariaDBDropMode,
 } from "../types/mysql";
 import { SchemaFile } from "../services/projectStore";
 
 export type {
-    ColumnDetail,
-    TableInfo,
-    PrimaryKeyInfo,
-    ForeignKeyInfo,
-    IndexInfo,
-    UniqueConstraintInfo,
-    CheckConstraintInfo,
-    MariaDBEnumColumnInfo,
-    MariaDBAutoIncrementInfo,
+  ColumnDetail,
+  TableInfo,
+  PrimaryKeyInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  UniqueConstraintInfo,
+  CheckConstraintInfo,
+  MariaDBEnumColumnInfo,
+  MariaDBAutoIncrementInfo,
 };
 export type { AppliedMigration } from "../types/common";
 
 // Import MySQL queries (MariaDB uses same SQL syntax)
-import { LIST_SCHEMAS, LIST_TABLES_BY_SCHEMA, LIST_TABLES_CURRENT_DB } from "../queries/mysql/schema";
-import { GET_TABLE_DETAILS, LIST_COLUMNS, KILL_QUERY, GET_CONNECTION_ID } from "../queries/mysql/tables";
-import { BATCH_GET_ALL_COLUMNS, BATCH_GET_ENUM_COLUMNS, BATCH_GET_AUTO_INCREMENTS } from "../queries/mysql/columns";
 import {
-    GET_PRIMARY_KEYS,
-    BATCH_GET_PRIMARY_KEYS,
-    BATCH_GET_FOREIGN_KEYS,
-    BATCH_GET_INDEXES,
-    BATCH_GET_UNIQUE_CONSTRAINTS,
-    BATCH_GET_CHECK_CONSTRAINTS
+  LIST_SCHEMAS,
+  LIST_TABLES_BY_SCHEMA,
+  LIST_TABLES_CURRENT_DB,
+} from "../queries/mysql/schema";
+import {
+  GET_TABLE_DETAILS,
+  LIST_COLUMNS,
+  KILL_QUERY,
+  GET_CONNECTION_ID,
+} from "../queries/mysql/tables";
+import {
+  BATCH_GET_ALL_COLUMNS,
+  BATCH_GET_ENUM_COLUMNS,
+  BATCH_GET_AUTO_INCREMENTS,
+} from "../queries/mysql/columns";
+import {
+  GET_PRIMARY_KEYS,
+  BATCH_GET_PRIMARY_KEYS,
+  BATCH_GET_FOREIGN_KEYS,
+  BATCH_GET_INDEXES,
+  BATCH_GET_UNIQUE_CONSTRAINTS,
+  BATCH_GET_CHECK_CONSTRAINTS,
 } from "../queries/mysql/constraints";
 import { GET_DB_STATS } from "../queries/mysql/stats";
 import {
-    CREATE_MIGRATION_TABLE,
-    CHECK_MIGRATIONS_EXIST,
-    INSERT_MIGRATION,
-    LIST_APPLIED_MIGRATIONS,
-    DELETE_MIGRATION
+  CREATE_MIGRATION_TABLE,
+  CHECK_MIGRATIONS_EXIST,
+  INSERT_MIGRATION,
+  LIST_APPLIED_MIGRATIONS,
+  DELETE_MIGRATION,
 } from "../queries/mysql/migrations";
 import logger from "../services/logger";
-
 
 // ============================================
 // CACHING SYSTEM FOR MARIADB CONNECTOR
@@ -81,344 +82,337 @@ import logger from "../services/logger";
  * MariaDB Cache Manager - handles all caching for MariaDB connector
  */
 
-
 export type MariaDBConfig = MySQLConfig & {
-    ssl?: boolean | {
+  ssl?:
+    | boolean
+    | {
         rejectUnauthorized: boolean;
-    };
-}
+      };
+};
 
 class MariaDBCacheManager {
-    // Cache stores for different data types
-    private tableListCache = new Map<string, CacheEntry<TableInfo[]>>();
-    private columnsCache = new Map<string, CacheEntry<RowDataPacket[]>>();
-    private primaryKeysCache = new Map<string, CacheEntry<string[]>>();
-    private dbStatsCache = new Map<string, CacheEntry<DBStats>>();
-    private schemasCache = new Map<string, CacheEntry<{ name: string }[]>>();
-    private tableDetailsCache = new Map<string, CacheEntry<ColumnDetail[]>>();
-    private schemaMetadataBatchCache = new Map<string, CacheEntry<MariaDBSchemaMetadataBatch>>();
+  // Cache stores for different data types
+  private tableListCache = new Map<string, CacheEntry<TableInfo[]>>();
+  private columnsCache = new Map<string, CacheEntry<RowDataPacket[]>>();
+  private primaryKeysCache = new Map<string, CacheEntry<string[]>>();
+  private dbStatsCache = new Map<string, CacheEntry<DBStats>>();
+  private schemasCache = new Map<string, CacheEntry<{ name: string }[]>>();
+  private tableDetailsCache = new Map<string, CacheEntry<ColumnDetail[]>>();
+  private schemaMetadataBatchCache = new Map<string, CacheEntry<MariaDBSchemaMetadataBatch>>();
 
-    /**
-     * Generate cache key from config
-     */
-    private getConfigKey(cfg: MariaDBConfig): string {
-        return `${cfg.host}:${cfg.port || 3306}:${cfg.database || ""}`;
+  /**
+   * Generate cache key from config
+   */
+  private getConfigKey(cfg: MariaDBConfig): string {
+    return `${cfg.host}:${cfg.port || 3306}:${cfg.database || ""}`;
+  }
+
+  /**
+   * Generate cache key for table-specific data
+   */
+  private getTableKey(cfg: MariaDBConfig, schema: string, table: string): string {
+    return `${this.getConfigKey(cfg)}:${schema}:${table}`;
+  }
+
+  /**
+   * Generate cache key for schema-specific data
+   */
+  private getSchemaKey(cfg: MariaDBConfig, schema: string): string {
+    return `${this.getConfigKey(cfg)}:${schema}`;
+  }
+
+  /**
+   * Check if cache entry is valid
+   */
+  private isValid<T>(entry: CacheEntry<T> | undefined): boolean {
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < entry.ttl;
+  }
+
+  // ============ TABLE LIST CACHE ============
+  getTableList(cfg: MariaDBConfig, schema?: string): TableInfo[] | null {
+    const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
+    const entry = this.tableListCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setTableList(cfg: MariaDBConfig, data: TableInfo[], schema?: string): void {
+    const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
+    this.tableListCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
+  }
+
+  // ============ COLUMNS CACHE ============
+  getColumns(cfg: MariaDBConfig, schema: string, table: string): RowDataPacket[] | null {
+    const key = this.getTableKey(cfg, schema, table);
+    const entry = this.columnsCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setColumns(cfg: MariaDBConfig, schema: string, table: string, data: RowDataPacket[]): void {
+    const key = this.getTableKey(cfg, schema, table);
+    this.columnsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
+  }
+
+  // ============ PRIMARY KEYS CACHE ============
+  getPrimaryKeys(cfg: MariaDBConfig, schema: string, table: string): string[] | null {
+    const key = this.getTableKey(cfg, schema, table);
+    const entry = this.primaryKeysCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setPrimaryKeys(cfg: MariaDBConfig, schema: string, table: string, data: string[]): void {
+    const key = this.getTableKey(cfg, schema, table);
+    this.primaryKeysCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
+  }
+
+  // ============ DB STATS CACHE ============
+  getDBStats(cfg: MariaDBConfig): DBStats | null {
+    const key = this.getConfigKey(cfg);
+    const entry = this.dbStatsCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setDBStats(cfg: MariaDBConfig, data: DBStats): void {
+    const key = this.getConfigKey(cfg);
+    this.dbStatsCache.set(key, { data, timestamp: Date.now(), ttl: STATS_CACHE_TTL });
+  }
+
+  // ============ SCHEMAS CACHE ============
+  getSchemas(cfg: MariaDBConfig): { name: string }[] | null {
+    const key = this.getConfigKey(cfg);
+    const entry = this.schemasCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setSchemas(cfg: MariaDBConfig, data: { name: string }[]): void {
+    const key = this.getConfigKey(cfg);
+    this.schemasCache.set(key, { data, timestamp: Date.now(), ttl: SCHEMA_CACHE_TTL });
+  }
+
+  // ============ TABLE DETAILS CACHE ============
+  getTableDetails(cfg: MariaDBConfig, schema: string, table: string): ColumnDetail[] | null {
+    const key = this.getTableKey(cfg, schema, table);
+    const entry = this.tableDetailsCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setTableDetails(cfg: MariaDBConfig, schema: string, table: string, data: ColumnDetail[]): void {
+    const key = this.getTableKey(cfg, schema, table);
+    this.tableDetailsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
+  }
+
+  // ============ SCHEMA METADATA BATCH CACHE ============
+  getSchemaMetadataBatch(cfg: MariaDBConfig, schema: string): MariaDBSchemaMetadataBatch | null {
+    const key = this.getSchemaKey(cfg, schema);
+    const entry = this.schemaMetadataBatchCache.get(key);
+    if (this.isValid(entry)) {
+      return entry!.data;
+    }
+    return null;
+  }
+
+  setSchemaMetadataBatch(
+    cfg: MariaDBConfig,
+    schema: string,
+    data: MariaDBSchemaMetadataBatch,
+  ): void {
+    const key = this.getSchemaKey(cfg, schema);
+    this.schemaMetadataBatchCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
+  }
+
+  // ============ CACHE MANAGEMENT ============
+
+  /**
+   * Clear all caches for a specific database connection
+   */
+  clearForConnection(cfg: MariaDBConfig): void {
+    const configKey = this.getConfigKey(cfg);
+
+    // Clear all entries that start with this config key
+    for (const [key] of this.tableListCache) {
+      if (key.startsWith(configKey)) this.tableListCache.delete(key);
+    }
+    for (const [key] of this.columnsCache) {
+      if (key.startsWith(configKey)) this.columnsCache.delete(key);
+    }
+    for (const [key] of this.primaryKeysCache) {
+      if (key.startsWith(configKey)) this.primaryKeysCache.delete(key);
+    }
+    for (const [key] of this.tableDetailsCache) {
+      if (key.startsWith(configKey)) this.tableDetailsCache.delete(key);
+    }
+    for (const [key] of this.schemaMetadataBatchCache) {
+      if (key.startsWith(configKey)) this.schemaMetadataBatchCache.delete(key);
     }
 
-    /**
-     * Generate cache key for table-specific data
-     */
-    private getTableKey(cfg: MariaDBConfig, schema: string, table: string): string {
-        return `${this.getConfigKey(cfg)}:${schema}:${table}`;
-    }
+    this.dbStatsCache.delete(configKey);
+    this.schemasCache.delete(configKey);
+  }
 
-    /**
-     * Generate cache key for schema-specific data
-     */
-    private getSchemaKey(cfg: MariaDBConfig, schema: string): string {
-        return `${this.getConfigKey(cfg)}:${schema}`;
-    }
+  /**
+   * Clear table-specific cache (useful after DDL operations)
+   */
+  clearTableCache(cfg: MariaDBConfig, schema: string, table: string): void {
+    const key = this.getTableKey(cfg, schema, table);
+    this.columnsCache.delete(key);
+    this.primaryKeysCache.delete(key);
+    this.tableDetailsCache.delete(key);
+  }
 
-    /**
-     * Check if cache entry is valid
-     */
-    private isValid<T>(entry: CacheEntry<T> | undefined): boolean {
-        if (!entry) return false;
-        return Date.now() - entry.timestamp < entry.ttl;
-    }
+  /**
+   * Clear all caches
+   */
+  clearAll(): void {
+    this.tableListCache.clear();
+    this.columnsCache.clear();
+    this.primaryKeysCache.clear();
+    this.dbStatsCache.clear();
+    this.schemasCache.clear();
+    this.tableDetailsCache.clear();
+    this.schemaMetadataBatchCache.clear();
+  }
 
-    // ============ TABLE LIST CACHE ============
-    getTableList(cfg: MariaDBConfig, schema?: string): TableInfo[] | null {
-        const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
-        const entry = this.tableListCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setTableList(cfg: MariaDBConfig, data: TableInfo[], schema?: string): void {
-        const key = schema ? this.getSchemaKey(cfg, schema) : this.getConfigKey(cfg);
-        this.tableListCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    }
-
-    // ============ COLUMNS CACHE ============
-    getColumns(cfg: MariaDBConfig, schema: string, table: string): RowDataPacket[] | null {
-        const key = this.getTableKey(cfg, schema, table);
-        const entry = this.columnsCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setColumns(cfg: MariaDBConfig, schema: string, table: string, data: RowDataPacket[]): void {
-        const key = this.getTableKey(cfg, schema, table);
-        this.columnsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    }
-
-    // ============ PRIMARY KEYS CACHE ============
-    getPrimaryKeys(cfg: MariaDBConfig, schema: string, table: string): string[] | null {
-        const key = this.getTableKey(cfg, schema, table);
-        const entry = this.primaryKeysCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setPrimaryKeys(cfg: MariaDBConfig, schema: string, table: string, data: string[]): void {
-        const key = this.getTableKey(cfg, schema, table);
-        this.primaryKeysCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    }
-
-    // ============ DB STATS CACHE ============
-    getDBStats(cfg: MariaDBConfig): DBStats | null {
-        const key = this.getConfigKey(cfg);
-        const entry = this.dbStatsCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setDBStats(cfg: MariaDBConfig, data: DBStats): void {
-        const key = this.getConfigKey(cfg);
-        this.dbStatsCache.set(key, { data, timestamp: Date.now(), ttl: STATS_CACHE_TTL });
-    }
-
-    // ============ SCHEMAS CACHE ============
-    getSchemas(cfg: MariaDBConfig): { name: string }[] | null {
-        const key = this.getConfigKey(cfg);
-        const entry = this.schemasCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setSchemas(cfg: MariaDBConfig, data: { name: string }[]): void {
-        const key = this.getConfigKey(cfg);
-        this.schemasCache.set(key, { data, timestamp: Date.now(), ttl: SCHEMA_CACHE_TTL });
-    }
-
-    // ============ TABLE DETAILS CACHE ============
-    getTableDetails(cfg: MariaDBConfig, schema: string, table: string): ColumnDetail[] | null {
-        const key = this.getTableKey(cfg, schema, table);
-        const entry = this.tableDetailsCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setTableDetails(cfg: MariaDBConfig, schema: string, table: string, data: ColumnDetail[]): void {
-        const key = this.getTableKey(cfg, schema, table);
-        this.tableDetailsCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    }
-
-    // ============ SCHEMA METADATA BATCH CACHE ============
-    getSchemaMetadataBatch(cfg: MariaDBConfig, schema: string): MariaDBSchemaMetadataBatch | null {
-        const key = this.getSchemaKey(cfg, schema);
-        const entry = this.schemaMetadataBatchCache.get(key);
-        if (this.isValid(entry)) {
-            return entry!.data;
-        }
-        return null;
-    }
-
-    setSchemaMetadataBatch(cfg: MariaDBConfig, schema: string, data: MariaDBSchemaMetadataBatch): void {
-        const key = this.getSchemaKey(cfg, schema);
-        this.schemaMetadataBatchCache.set(key, { data, timestamp: Date.now(), ttl: CACHE_TTL });
-    }
-
-    // ============ CACHE MANAGEMENT ============
-
-    /**
-     * Clear all caches for a specific database connection
-     */
-    clearForConnection(cfg: MariaDBConfig): void {
-        const configKey = this.getConfigKey(cfg);
-
-        // Clear all entries that start with this config key
-        for (const [key] of this.tableListCache) {
-            if (key.startsWith(configKey)) this.tableListCache.delete(key);
-        }
-        for (const [key] of this.columnsCache) {
-            if (key.startsWith(configKey)) this.columnsCache.delete(key);
-        }
-        for (const [key] of this.primaryKeysCache) {
-            if (key.startsWith(configKey)) this.primaryKeysCache.delete(key);
-        }
-        for (const [key] of this.tableDetailsCache) {
-            if (key.startsWith(configKey)) this.tableDetailsCache.delete(key);
-        }
-        for (const [key] of this.schemaMetadataBatchCache) {
-            if (key.startsWith(configKey)) this.schemaMetadataBatchCache.delete(key);
-        }
-
-        this.dbStatsCache.delete(configKey);
-        this.schemasCache.delete(configKey);
-    }
-
-    /**
-     * Clear table-specific cache (useful after DDL operations)
-     */
-    clearTableCache(cfg: MariaDBConfig, schema: string, table: string): void {
-        const key = this.getTableKey(cfg, schema, table);
-        this.columnsCache.delete(key);
-        this.primaryKeysCache.delete(key);
-        this.tableDetailsCache.delete(key);
-    }
-
-    /**
-     * Clear all caches
-     */
-    clearAll(): void {
-        this.tableListCache.clear();
-        this.columnsCache.clear();
-        this.primaryKeysCache.clear();
-        this.dbStatsCache.clear();
-        this.schemasCache.clear();
-        this.tableDetailsCache.clear();
-        this.schemaMetadataBatchCache.clear();
-    }
-
-    /**
-     * Get cache statistics
-     */
-    getStats(): {
-        tableLists: number;
-        columns: number;
-        primaryKeys: number;
-        dbStats: number;
-        schemas: number;
-        tableDetails: number;
-        schemaMetadataBatch: number;
-    } {
-        return {
-            tableLists: this.tableListCache.size,
-            columns: this.columnsCache.size,
-            primaryKeys: this.primaryKeysCache.size,
-            dbStats: this.dbStatsCache.size,
-            schemas: this.schemasCache.size,
-            tableDetails: this.tableDetailsCache.size,
-            schemaMetadataBatch: this.schemaMetadataBatchCache.size,
-        };
-    }
+  /**
+   * Get cache statistics
+   */
+  getStats(): {
+    tableLists: number;
+    columns: number;
+    primaryKeys: number;
+    dbStats: number;
+    schemas: number;
+    tableDetails: number;
+    schemaMetadataBatch: number;
+  } {
+    return {
+      tableLists: this.tableListCache.size,
+      columns: this.columnsCache.size,
+      primaryKeys: this.primaryKeysCache.size,
+      dbStats: this.dbStatsCache.size,
+      schemas: this.schemasCache.size,
+      tableDetails: this.tableDetailsCache.size,
+      schemaMetadataBatch: this.schemaMetadataBatchCache.size,
+    };
+  }
 }
 
 // Singleton cache manager instance
 export const mariadbCache = new MariaDBCacheManager();
 
 // Legacy cache support (for backward compatibility)
-const tableListCache = new Map<
-    string,
-    { data: TableInfo[]; timestamp: number }
->();
-
-function getCacheKey(cfg: MariaDBConfig): string {
-    return `${cfg.host}:${cfg.port}:${cfg.database}`;
-}
-
-
 export function createPoolConfig(cfg: MariaDBConfig): PoolOptions {
-
-    if (cfg.ssl === true) {
-        const config = {
-            host: cfg.host,
-            port: cfg.port ?? 3306,
-            user: cfg.user,
-            password: cfg.password,
-            database: cfg.database,
-            ssl: {
-                rejectUnauthorized: false,
-                minVersion: 'TLSv1.2'
-            }
-        };
-        return config;
-    }
-    return {
-        host: cfg.host,
-        port: cfg.port ?? 3306,
-        user: cfg.user,
-        password: cfg.password,
-        database: cfg.database,
+  if (cfg.ssl === true) {
+    const config = {
+      host: cfg.host,
+      port: cfg.port ?? 3306,
+      user: cfg.user,
+      password: cfg.password,
+      database: cfg.database,
+      ssl: {
+        rejectUnauthorized: false,
+        minVersion: "TLSv1.2",
+      },
     };
-
+    return config;
+  }
+  return {
+    host: cfg.host,
+    port: cfg.port ?? 3306,
+    user: cfg.user,
+    password: cfg.password,
+    database: cfg.database,
+  };
 }
 
 export async function testConnection(
-    cfg: MariaDBConfig
-): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
-    let connection;
-    try {
-        const poolConfig = createPoolConfig(cfg);
-        connection = await mysql.createConnection(poolConfig);
-        return { ok: true, status: 'connected', message: "Connection successful" };
-    } catch (err) {
-        logger.error({ error: (err as Error).message }, '[MariaDB] Connection error');
-        return { ok: false, message: (err as Error).message, status: 'disconnected' };
-    } finally {
-        if (connection) {
-            try {
-                await connection.end();
-            } catch (e) {
-                // Ignore
-            }
-        }
+  cfg: MariaDBConfig,
+): Promise<{ ok: boolean; message?: string; status: "connected" | "disconnected" }> {
+  let connection;
+  try {
+    const poolConfig = createPoolConfig(cfg);
+    connection = await mysql.createConnection(poolConfig);
+    return { ok: true, status: "connected", message: "Connection successful" };
+  } catch (err) {
+    logger.error({ error: (err as Error).message }, "[MariaDB] Connection error");
+    return { ok: false, message: (err as Error).message, status: "disconnected" };
+  } finally {
+    if (connection) {
+      try {
+        await connection.end();
+      } catch {
+        // Ignore
+      }
     }
+  }
 }
 
 export async function fetchTableData(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    limit: number,
-    page: number
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  limit: number,
+  page: number,
 ): Promise<{ rows: RowDataPacket[]; total: number }> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
 
-    try {
-        connection = await pool.getConnection();
+  try {
+    connection = await pool.getConnection();
 
-        const safeSchema = `\`${schemaName.replace(/`/g, "``")}\``;
-        const safeTable = `\`${tableName.replace(/`/g, "``")}\``;
-        const offset = (page - 1) * limit;
+    const safeSchema = `\`${schemaName.replace(/`/g, "``")}\``;
+    const safeTable = `\`${tableName.replace(/`/g, "``")}\``;
+    const offset = (page - 1) * limit;
 
-        // Get primary keys
-        const pkColumns = await listPrimaryKeys(cfg, schemaName, tableName);
+    // Get primary keys
+    const pkColumns = await listPrimaryKeys(cfg, schemaName, tableName);
 
-        let orderBy = "";
-        if (pkColumns.length > 0) {
-            const safePks = pkColumns.map(col => `\`${col.replace(/`/g, "``")}\``);
-            orderBy = `ORDER BY ${safePks.join(", ")}`;
-        } else {
-            const colQuery = `
+    let orderBy = "";
+    if (pkColumns.length > 0) {
+      const safePks = pkColumns.map((col) => `\`${col.replace(/`/g, "``")}\``);
+      orderBy = `ORDER BY ${safePks.join(", ")}`;
+    } else {
+      const colQuery = `
         SELECT COLUMN_NAME
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = ?
         AND TABLE_NAME = ?
         ORDER BY ORDINAL_POSITION;
       `;
-            const [colRows] = await connection.execute<RowDataPacket[]>(colQuery, [
-                schemaName,
-                tableName,
-            ]);
-            const safeCols = colRows.map(r => `\`${r.COLUMN_NAME}\``);
-            orderBy = safeCols.length ? `ORDER BY ${safeCols.join(", ")}` : "";
-        }
+      const [colRows] = await connection.execute<RowDataPacket[]>(colQuery, [
+        schemaName,
+        tableName,
+      ]);
+      const safeCols = colRows.map((r) => `\`${r.COLUMN_NAME}\``);
+      orderBy = safeCols.length ? `ORDER BY ${safeCols.join(", ")}` : "";
+    }
 
-        // Count query
-        const countQuery = `
+    // Count query
+    const countQuery = `
       SELECT COUNT(*) AS total
       FROM ${safeSchema}.${safeTable};
     `;
-        const [countRows] = await connection.execute<RowDataPacket[]>(countQuery);
-        const total = Number(countRows[0].total);
+    const [countRows] = await connection.execute<RowDataPacket[]>(countQuery);
+    const total = Number(countRows[0].total);
 
-        const dataQuery = `
+    const dataQuery = `
       SELECT *
       FROM ${safeSchema}.${safeTable}
       ${orderBy}
@@ -426,395 +420,374 @@ export async function fetchTableData(
       OFFSET ${Number(offset)};
     `;
 
-        const [rows] = await connection.execute<RowDataPacket[]>(dataQuery);
+    const [rows] = await connection.execute<RowDataPacket[]>(dataQuery);
 
-        return { rows, total };
-    } catch (error) {
-        throw new Error(`Failed to fetch data: ${(error as Error).message}`);
-    } finally {
-        if (connection) connection.release();
-        await pool.end();
-    }
+    return { rows, total };
+  } catch (error) {
+    throw new Error(`Failed to fetch data: ${(error as Error).message}`);
+  } finally {
+    if (connection) connection.release();
+    await pool.end();
+  }
 }
 
-
 export async function listColumns(
-    cfg: MariaDBConfig,
-    tableName: string,
-    schemaName?: string
+  cfg: MariaDBConfig,
+  tableName: string,
+  schemaName?: string,
 ): Promise<RowDataPacket[]> {
-    // Check cache first
+  // Check cache first
+  if (schemaName) {
+    const cached = mariadbCache.getColumns(cfg, schemaName, tableName);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await pool.getConnection();
+
+    const [rows] = await connection.execute<RowDataPacket[]>(LIST_COLUMNS, [schemaName, tableName]);
+
+    // Cache the result
     if (schemaName) {
-        const cached = mariadbCache.getColumns(cfg, schemaName, tableName);
-        if (cached !== null) {
-            return cached;
-        }
+      mariadbCache.setColumns(cfg, schemaName, tableName, rows);
     }
 
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
-
-    try {
-        connection = await pool.getConnection();
-
-        const [rows] = await connection.execute<RowDataPacket[]>(LIST_COLUMNS, [
-            schemaName,
-            tableName,
-        ]);
-
-        // Cache the result
-        if (schemaName) {
-            mariadbCache.setColumns(cfg, schemaName, tableName, rows);
-        }
-
-        return rows;
-    } catch (error) {
-        throw new Error(`Failed to list columns: ${(error as Error).message}`);
-    } finally {
-        if (connection) connection.release();
-        await pool.end();
-    }
+    return rows;
+  } catch (error) {
+    throw new Error(`Failed to list columns: ${(error as Error).message}`);
+  } finally {
+    if (connection) connection.release();
+    await pool.end();
+  }
 }
 
 export async function mariadbKillQuery(cfg: MariaDBConfig, targetPid: number) {
-    const conn = await mysql.createConnection(createPoolConfig(cfg));
+  const conn = await mysql.createConnection(createPoolConfig(cfg));
+  try {
+    await conn.execute(KILL_QUERY, [targetPid]);
+    return true;
+  } catch {
+    return false;
+  } finally {
     try {
-        await conn.execute(KILL_QUERY, [targetPid]);
-        return true;
-    } catch (error) {
-        return false;
-    } finally {
-        try {
-            await conn.end();
-        } catch (e) {
-            // Ignore
-        }
+      await conn.end();
+    } catch {
+      // Ignore
     }
+  }
 }
 
 export async function listPrimaryKeys(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
 ): Promise<string[]> {
-    // Check cache first
-    const cached = mariadbCache.getPrimaryKeys(cfg, schemaName, tableName);
-    if (cached !== null) {
-        return cached;
-    }
+  // Check cache first
+  const cached = mariadbCache.getPrimaryKeys(cfg, schemaName, tableName);
+  if (cached !== null) {
+    return cached;
+  }
 
-    const connection = await mysql.createConnection(createPoolConfig(cfg));
+  const connection = await mysql.createConnection(createPoolConfig(cfg));
 
-    try {
-        const [rows] = await connection.execute<RowDataPacket[]>(GET_PRIMARY_KEYS, [
-            schemaName,
-            tableName,
-        ]);
+  try {
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_PRIMARY_KEYS, [
+      schemaName,
+      tableName,
+    ]);
 
-        const result = rows.map((row) => row.COLUMN_NAME as string);
+    const result = rows.map((row) => row.COLUMN_NAME as string);
 
-        // Cache the result
-        mariadbCache.setPrimaryKeys(cfg, schemaName, tableName, result);
+    // Cache the result
+    mariadbCache.setPrimaryKeys(cfg, schemaName, tableName, result);
 
-        return result;
-    } catch (error) {
-        throw new Error(`Failed to list primary keys: ${(error as Error).message}`);
-    } finally {
-        await connection.end();
-    }
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to list primary keys: ${(error as Error).message}`);
+  } finally {
+    await connection.end();
+  }
 }
 
-
-
 export function streamQueryCancelable(
-    cfg: MariaDBConfig,
-    sql: string,
-    batchSize: number,
-    onBatch: (
-        rows: RowDataPacket[],
-        columns: FieldPacket[]
-    ) => Promise<void> | void,
-    onDone?: () => void
+  cfg: MariaDBConfig,
+  sql: string,
+  batchSize: number,
+  onBatch: (rows: RowDataPacket[], columns: FieldPacket[]) => Promise<void> | void,
+  onDone?: () => void,
 ) {
-    let query: any = null;
-    let finished = false;
-    let cancelled = false;
-    let backendPid: number | null = null;
+  let query: any = null;
+  let finished = false;
+  let cancelled = false;
+  let backendPid: number | null = null;
 
-    const pool = mysql.createPool(createPoolConfig(cfg));
+  const pool = mysql.createPool(createPoolConfig(cfg));
 
-    const promise = (async () => {
-        let conn: PoolConnection | null = null;
+  const promise = (async () => {
+    let conn: PoolConnection | null = null;
 
-        try {
-            conn = await pool.getConnection();
+    try {
+      conn = await pool.getConnection();
 
-            const [pidRows] = await conn.execute(GET_CONNECTION_ID);
-            backendPid = (pidRows as any[])[0].pid;
+      const [pidRows] = await conn.execute(GET_CONNECTION_ID);
+      backendPid = (pidRows as any[])[0].pid;
 
-            const raw = (conn as any).connection;
-            query = raw.query(sql);
+      const raw = (conn as any).connection;
+      query = raw.query(sql);
 
-            let columns: FieldPacket[] | null = null;
-            let buffer: RowDataPacket[] = [];
+      let columns: FieldPacket[] | null = null;
+      const buffer: RowDataPacket[] = [];
 
-            const flush = async () => {
-                if (buffer.length === 0) return;
-                const batch = buffer.splice(0, buffer.length);
-                await onBatch(batch, columns || []);
-            };
+      const flush = async () => {
+        if (buffer.length === 0) return;
+        const batch = buffer.splice(0, buffer.length);
+        await onBatch(batch, columns || []);
+      };
 
-            await new Promise<void>((resolve, reject) => {
-                query.on("fields", (flds: FieldPacket[]) => {
-                    columns = flds;
-                });
+      await new Promise<void>((resolve, reject) => {
+        query.on("fields", (flds: FieldPacket[]) => {
+          columns = flds;
+        });
 
-                query.on("result", async (row: RowDataPacket) => {
-                    if (cancelled) {
-                        reject(new Error("Query cancelled"));
-                        return;
-                    }
+        query.on("result", async (row: RowDataPacket) => {
+          if (cancelled) {
+            reject(new Error("Query cancelled"));
+            return;
+          }
 
-                    buffer.push(row);
+          buffer.push(row);
 
-                    if (buffer.length >= batchSize) {
-                        query.pause();
-                        await flush();
-                        query.resume();
-                    }
-                });
+          if (buffer.length >= batchSize) {
+            query.pause();
+            await flush();
+            query.resume();
+          }
+        });
 
-                query.on("end", async () => {
-                    await flush();
-                    finished = true;
-                    onDone?.();
-                    resolve();
-                });
+        query.on("end", async () => {
+          await flush();
+          finished = true;
+          onDone?.();
+          resolve();
+        });
 
-                query.on("error", (err: Error) => {
-                    reject(err);
-                });
-            });
-        } finally {
-            conn?.release();
-            await pool.end();
-        }
-    })();
+        query.on("error", (err: Error) => {
+          reject(err);
+        });
+      });
+    } finally {
+      conn?.release();
+      await pool.end();
+    }
+  })();
 
-    async function cancel() {
-        if (finished || cancelled) return;
-        cancelled = true;
+  async function cancel() {
+    if (finished || cancelled) return;
+    cancelled = true;
 
-        if (backendPid) {
-            await mariadbKillQuery(cfg, backendPid).catch(() => { });
-        }
-
-        query?.emit("error", new Error("Cancelled"));
+    if (backendPid) {
+      await mariadbKillQuery(cfg, backendPid).catch(() => {});
     }
 
-    return { promise, cancel };
+    query?.emit("error", new Error("Cancelled"));
+  }
+
+  return { promise, cancel };
 }
 
 export async function getDBStats(cfg: MariaDBConfig): Promise<{
-    total_tables: number;
-    total_db_size_mb: number;
-    total_rows: number;
+  total_tables: number;
+  total_db_size_mb: number;
+  total_rows: number;
 }> {
-    // Check cache first - this is called frequently!
-    const cached = mariadbCache.getDBStats(cfg);
-    if (cached !== null) {
-        return cached;
+  // Check cache first - this is called frequently!
+  const cached = mariadbCache.getDBStats(cfg);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await pool.getConnection();
+
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_DB_STATS);
+
+    const result = rows[0] as {
+      total_tables: number;
+      total_db_size_mb: number;
+      total_rows: number;
+    };
+
+    // Cache the result (shorter TTL since stats change)
+    mariadbCache.setDBStats(cfg, result);
+
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to fetch MariaDB database stats: ${(error as Error).message}`);
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch {
+        // Ignore
+      }
     }
-
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
-
     try {
-        connection = await pool.getConnection();
-
-        const [rows] = await connection.execute<RowDataPacket[]>(GET_DB_STATS);
-
-        const result = rows[0] as {
-            total_tables: number;
-            total_db_size_mb: number;
-            total_rows: number;
-        };
-
-        // Cache the result (shorter TTL since stats change)
-        mariadbCache.setDBStats(cfg, result);
-
-        return result;
-    } catch (error) {
-        throw new Error(
-            `Failed to fetch MariaDB database stats: ${(error as Error).message}`
-        );
-    } finally {
-        if (connection) {
-            try {
-                connection.release();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        try {
-            await pool.end();
-        } catch (e) {
-            // Ignore
-        }
+      await pool.end();
+    } catch {
+      // Ignore
     }
+  }
 }
 
-export async function listSchemas(
-    cfg: MariaDBConfig
-): Promise<{ name: string }[]> {
-    // Check cache first
-    const cached = mariadbCache.getSchemas(cfg);
-    if (cached !== null) {
-        return cached;
+export async function listSchemas(cfg: MariaDBConfig): Promise<{ name: string }[]> {
+  // Check cache first
+  const cached = mariadbCache.getSchemas(cfg);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await pool.getConnection();
+
+    const [rows] = await connection.execute<RowDataPacket[]>(LIST_SCHEMAS);
+    const result = rows as { name: string }[];
+
+    // Cache the result (longer TTL since schemas rarely change)
+    mariadbCache.setSchemas(cfg, result);
+
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to list schemas: ${(error as Error).message}`);
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch {
+        // Ignore
+      }
     }
-
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
-
     try {
-        connection = await pool.getConnection();
-
-        const [rows] = await connection.execute<RowDataPacket[]>(LIST_SCHEMAS);
-        const result = rows as { name: string }[];
-
-        // Cache the result (longer TTL since schemas rarely change)
-        mariadbCache.setSchemas(cfg, result);
-
-        return result;
-    } catch (error) {
-        throw new Error(`Failed to list schemas: ${(error as Error).message}`);
-    } finally {
-        if (connection) {
-            try {
-                connection.release();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        try {
-            await pool.end();
-        } catch (e) {
-            // Ignore
-        }
+      await pool.end();
+    } catch {
+      // Ignore
     }
+  }
 }
 
-export async function listTables(
-    cfg: MariaDBConfig,
-    schemaName?: string
-): Promise<TableInfo[]> {
-    // Check new cache manager first
-    const cached = mariadbCache.getTableList(cfg, schemaName);
-    if (cached !== null) {
-        return cached;
+export async function listTables(cfg: MariaDBConfig, schemaName?: string): Promise<TableInfo[]> {
+  // Check new cache manager first
+  const cached = mariadbCache.getTableList(cfg, schemaName);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await pool.getConnection();
+
+    // CRITICAL OPTIMIZATION: Query only the current database schema
+    // This avoids scanning the entire information_schema which can be VERY slow
+    let query: string;
+    let queryParams: string[] = [];
+
+    if (schemaName) {
+      // If specific schema requested, only fetch that
+      query = LIST_TABLES_BY_SCHEMA;
+      queryParams = [schemaName];
+    } else {
+      // Otherwise, only fetch tables from the CURRENT database (not all databases!)
+      query = LIST_TABLES_CURRENT_DB;
     }
 
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
+    const [rows] = await connection.execute<RowDataPacket[]>(query, queryParams);
 
+    const result = rows as TableInfo[];
+
+    // Cache the result using new cache manager
+    mariadbCache.setTableList(cfg, result, schemaName);
+
+    return result;
+  } catch (error) {
+    console.error("[MariaDB] listTables error:", error);
+    throw new Error(`Failed to list tables: ${(error as Error).message}`);
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch {
+        // Ignore
+      }
+    }
     try {
-        connection = await pool.getConnection();
-
-        // CRITICAL OPTIMIZATION: Query only the current database schema
-        // This avoids scanning the entire information_schema which can be VERY slow
-        let query: string;
-        let queryParams: string[] = [];
-
-        if (schemaName) {
-            // If specific schema requested, only fetch that
-            query = LIST_TABLES_BY_SCHEMA;
-            queryParams = [schemaName];
-        } else {
-            // Otherwise, only fetch tables from the CURRENT database (not all databases!)
-            query = LIST_TABLES_CURRENT_DB;
-        }
-
-        const [rows] = await connection.execute<RowDataPacket[]>(
-            query,
-            queryParams
-        );
-
-        const result = rows as TableInfo[];
-
-        // Cache the result using new cache manager
-        mariadbCache.setTableList(cfg, result, schemaName);
-
-        return result;
-    } catch (error) {
-        console.error("[MariaDB] listTables error:", error);
-        throw new Error(`Failed to list tables: ${(error as Error).message}`);
-    } finally {
-        if (connection) {
-            try {
-                connection.release();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        try {
-            await pool.end();
-        } catch (e) {
-            // Ignore
-        }
+      await pool.end();
+    } catch {
+      // Ignore
     }
+  }
 }
 
 // Function to clear cache for a specific database (call after schema changes)
 export function clearTableListCache(cfg: MariaDBConfig) {
-    mariadbCache.clearForConnection(cfg);
+  mariadbCache.clearForConnection(cfg);
 }
 
 export async function getTableDetails(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
 ): Promise<ColumnDetail[]> {
-    // Check cache first
-    const cached = mariadbCache.getTableDetails(cfg, schemaName, tableName);
-    if (cached !== null) {
-        return cached;
+  // Check cache first
+  const cached = mariadbCache.getTableDetails(cfg, schemaName, tableName);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await pool.getConnection();
+
+    const [rows] = await connection.execute<RowDataPacket[]>(GET_TABLE_DETAILS, [
+      schemaName,
+      tableName,
+    ]);
+
+    const result = rows as ColumnDetail[];
+
+    // Cache the result
+    mariadbCache.setTableDetails(cfg, schemaName, tableName, result);
+
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to fetch table details: ${(error as Error).message}`);
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch {
+        // Ignore
+      }
     }
-
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
-
     try {
-        connection = await pool.getConnection();
-
-        const [rows] = await connection.execute<RowDataPacket[]>(GET_TABLE_DETAILS, [
-            schemaName,
-            tableName,
-        ]);
-
-        const result = rows as ColumnDetail[];
-
-        // Cache the result
-        mariadbCache.setTableDetails(cfg, schemaName, tableName, result);
-
-        return result;
-    } catch (error) {
-        throw new Error(
-            `Failed to fetch table details: ${(error as Error).message}`
-        );
-    } finally {
-        if (connection) {
-            try {
-                connection.release();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        try {
-            await pool.end();
-        } catch (e) {
-            // Ignore
-        }
+      await pool.end();
+    } catch {
+      // Ignore
     }
+  }
 }
 
 // ============================================
@@ -824,285 +797,287 @@ export async function getTableDetails(
 /**
  * Fetch all schema metadata in a single batch using parallel queries.
  * This is much faster than making individual queries per table.
- * 
+ *
  * Note: MariaDB doesn't have true sequences or standalone enum types like PostgreSQL.
  * - Auto-increment columns are MariaDB's equivalent to sequences
  * - Enum columns are defined inline in table definitions
  */
 export async function getSchemaMetadataBatch(
-    cfg: MariaDBConfig,
-    schemaName: string
+  cfg: MariaDBConfig,
+  schemaName: string,
 ): Promise<MariaDBSchemaMetadataBatch> {
-    // Check cache first
-    const cached = mariadbCache.getSchemaMetadataBatch(cfg, schemaName);
-    if (cached !== null) {
-        return cached;
-    }
+  // Check cache first
+  const cached = mariadbCache.getSchemaMetadataBatch(cfg, schemaName);
+  if (cached !== null) {
+    return cached;
+  }
 
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    let connection: PoolConnection | null = null;
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  let connection: PoolConnection | null = null;
 
-    try {
-        connection = await pool.getConnection();
+  try {
+    connection = await pool.getConnection();
 
-        // Execute all queries in parallel using imported queries
-        const [
-            columnsResult,
-            primaryKeysResult,
-            foreignKeysResult,
-            indexesResult,
-            uniqueResult,
-            checksResult,
-            enumColumnsResult,
-            autoIncrementsResult
-        ] = await Promise.all([
-            // 1. All columns in schema with PK/FK info
-            connection.execute<RowDataPacket[]>(BATCH_GET_ALL_COLUMNS, [schemaName, schemaName]),
+    // Execute all queries in parallel using imported queries
+    const [
+      columnsResult,
+      primaryKeysResult,
+      foreignKeysResult,
+      indexesResult,
+      uniqueResult,
+      checksResult,
+      enumColumnsResult,
+      autoIncrementsResult,
+    ] = await Promise.all([
+      // 1. All columns in schema with PK/FK info
+      connection.execute<RowDataPacket[]>(BATCH_GET_ALL_COLUMNS, [schemaName, schemaName]),
 
-            // 2. All primary keys in schema
-            connection.execute<RowDataPacket[]>(BATCH_GET_PRIMARY_KEYS, [schemaName]),
+      // 2. All primary keys in schema
+      connection.execute<RowDataPacket[]>(BATCH_GET_PRIMARY_KEYS, [schemaName]),
 
-            // 3. All foreign keys in schema
-            connection.execute<RowDataPacket[]>(BATCH_GET_FOREIGN_KEYS, [schemaName]),
+      // 3. All foreign keys in schema
+      connection.execute<RowDataPacket[]>(BATCH_GET_FOREIGN_KEYS, [schemaName]),
 
-            // 4. All indexes in schema
-            connection.execute<RowDataPacket[]>(BATCH_GET_INDEXES, [schemaName]),
+      // 4. All indexes in schema
+      connection.execute<RowDataPacket[]>(BATCH_GET_INDEXES, [schemaName]),
 
-            // 5. All unique constraints in schema (exclude primary keys)
-            connection.execute<RowDataPacket[]>(BATCH_GET_UNIQUE_CONSTRAINTS, [schemaName]),
+      // 5. All unique constraints in schema (exclude primary keys)
+      connection.execute<RowDataPacket[]>(BATCH_GET_UNIQUE_CONSTRAINTS, [schemaName]),
 
-            // 6. All check constraints in schema (MariaDB 10.2.1+)
-            connection.execute<RowDataPacket[]>(BATCH_GET_CHECK_CONSTRAINTS, [schemaName]).catch(() => [[], []]),
+      // 6. All check constraints in schema (MariaDB 10.2.1+)
+      connection
+        .execute<RowDataPacket[]>(BATCH_GET_CHECK_CONSTRAINTS, [schemaName])
+        .catch(() => [[], []]),
 
-            // 7. All enum columns in schema (MariaDB defines enums inline)
-            connection.execute<RowDataPacket[]>(BATCH_GET_ENUM_COLUMNS, [schemaName]),
+      // 7. All enum columns in schema (MariaDB defines enums inline)
+      connection.execute<RowDataPacket[]>(BATCH_GET_ENUM_COLUMNS, [schemaName]),
 
-            // 8. All auto_increment columns (MariaDB's equivalent to sequences)
-            connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName])
-        ]);
+      // 8. All auto_increment columns (MariaDB's equivalent to sequences)
+      connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName]),
+    ]);
 
-        const columns = columnsResult[0] as RowDataPacket[];
-        const primaryKeys = primaryKeysResult[0] as RowDataPacket[];
-        const foreignKeys = foreignKeysResult[0] as RowDataPacket[];
-        const indexes = indexesResult[0] as RowDataPacket[];
-        const uniqueConstraints = uniqueResult[0] as RowDataPacket[];
-        const checkConstraints = (checksResult[0] || []) as RowDataPacket[];
-        const enumColumns = enumColumnsResult[0] as RowDataPacket[];
-        const autoIncrements = autoIncrementsResult[0] as RowDataPacket[];
+    const columns = columnsResult[0] as RowDataPacket[];
+    const primaryKeys = primaryKeysResult[0] as RowDataPacket[];
+    const foreignKeys = foreignKeysResult[0] as RowDataPacket[];
+    const indexes = indexesResult[0] as RowDataPacket[];
+    const uniqueConstraints = uniqueResult[0] as RowDataPacket[];
+    const checkConstraints = (checksResult[0] || []) as RowDataPacket[];
+    const enumColumns = enumColumnsResult[0] as RowDataPacket[];
+    const autoIncrements = autoIncrementsResult[0] as RowDataPacket[];
 
-        // Group results by table
-        const tables = new Map<string, {
-            columns: ColumnDetail[];
-            primaryKeys: PrimaryKeyInfo[];
-            foreignKeys: ForeignKeyInfo[];
-            indexes: IndexInfo[];
-            uniqueConstraints: UniqueConstraintInfo[];
-            checkConstraints: CheckConstraintInfo[];
-        }>();
+    // Group results by table
+    const tables = new Map<
+      string,
+      {
+        columns: ColumnDetail[];
+        primaryKeys: PrimaryKeyInfo[];
+        foreignKeys: ForeignKeyInfo[];
+        indexes: IndexInfo[];
+        uniqueConstraints: UniqueConstraintInfo[];
+        checkConstraints: CheckConstraintInfo[];
+      }
+    >();
 
-        // Process columns
-        for (const row of columns) {
-            if (!tables.has(row.table_name)) {
-                tables.set(row.table_name, {
-                    columns: [],
-                    primaryKeys: [],
-                    foreignKeys: [],
-                    indexes: [],
-                    uniqueConstraints: [],
-                    checkConstraints: []
-                });
-            }
-            tables.get(row.table_name)!.columns.push({
-                name: row.name,
-                type: row.type,
-                not_nullable: Boolean(row.not_nullable),
-                default_value: row.default_value,
-                is_primary_key: Boolean(row.is_primary_key),
-                is_foreign_key: Boolean(row.is_foreign_key),
-                is_unique: Boolean(row.is_unique),
-                is_serial: Boolean(row.is_serial),
-                comment: row.comment,
-                check_constraint: row.check_constraint,
-                ordinal_position: row.ordinal_position
-            });
-        }
-
-        // Process primary keys
-        for (const row of primaryKeys) {
-            if (tables.has(row.table_name)) {
-                tables.get(row.table_name)!.primaryKeys.push({
-                    column_name: row.column_name
-                });
-            }
-        }
-
-        // Process foreign keys
-        for (const row of foreignKeys) {
-            if (tables.has(row.source_table)) {
-                tables.get(row.source_table)!.foreignKeys.push({
-                    constraint_name: row.constraint_name,
-                    source_schema: row.source_schema,
-                    source_table: row.source_table,
-                    source_column: row.source_column,
-                    target_schema: row.target_schema,
-                    target_table: row.target_table,
-                    target_column: row.target_column,
-                    update_rule: row.update_rule,
-                    delete_rule: row.delete_rule
-                });
-            }
-        }
-
-        // Process indexes
-        for (const row of indexes) {
-            if (tables.has(row.table_name)) {
-                tables.get(row.table_name)!.indexes.push({
-                    table_name: row.table_name,
-                    index_name: row.index_name,
-                    column_name: row.column_name,
-                    is_unique: Boolean(row.is_unique),
-                    is_primary: Boolean(row.is_primary),
-                    index_type: row.index_type,
-                    seq_in_index: row.seq_in_index
-                });
-            }
-        }
-
-        // Process unique constraints
-        for (const row of uniqueConstraints) {
-            if (tables.has(row.table_name)) {
-                tables.get(row.table_name)!.uniqueConstraints.push({
-                    constraint_name: row.constraint_name,
-                    table_schema: row.table_schema,
-                    table_name: row.table_name,
-                    column_name: row.column_name,
-                    ordinal_position: row.ordinal_position
-                });
-            }
-        }
-
-        // Process check constraints
-        for (const row of checkConstraints) {
-            if (tables.has(row.table_name)) {
-                tables.get(row.table_name)!.checkConstraints.push({
-                    constraint_name: row.constraint_name,
-                    table_schema: row.table_schema,
-                    table_name: row.table_name,
-                    check_clause: row.check_clause
-                });
-            }
-        }
-
-        // Process enum columns - extract values from ENUM('val1','val2',...)
-        const processedEnumColumns: MariaDBEnumColumnInfo[] = enumColumns.map(row => {
-            const match = row.column_type.match(/^enum\((.+)\)$/i);
-            let enumValues: string[] = [];
-            if (match) {
-                // Parse enum values: 'val1','val2','val3'
-                enumValues = match[1].split(',').map((v: string) => v.trim().replace(/^'|'$/g, ''));
-            }
-            return {
-                table_name: row.table_name,
-                column_name: row.column_name,
-                enum_values: enumValues
-            };
+    // Process columns
+    for (const row of columns) {
+      if (!tables.has(row.table_name)) {
+        tables.set(row.table_name, {
+          columns: [],
+          primaryKeys: [],
+          foreignKeys: [],
+          indexes: [],
+          uniqueConstraints: [],
+          checkConstraints: [],
         });
-
-        // Process auto_increment info
-        const processedAutoIncrements: MariaDBAutoIncrementInfo[] = autoIncrements.map(row => ({
-            table_name: row.table_name,
-            column_name: row.column_name,
-            auto_increment_value: row.auto_increment_value
-        }));
-
-        const result: MariaDBSchemaMetadataBatch = {
-            tables,
-            enumColumns: processedEnumColumns,
-            autoIncrements: processedAutoIncrements
-        };
-
-        // Cache the result
-        mariadbCache.setSchemaMetadataBatch(cfg, schemaName, result);
-
-
-        return result;
-    } catch (error) {
-        throw new Error(`Failed to fetch schema metadata batch: ${(error as Error).message}`);
-    } finally {
-        if (connection) {
-            try {
-                connection.release();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        try {
-            await pool.end();
-        } catch (e) {
-            // Ignore
-        }
+      }
+      tables.get(row.table_name)!.columns.push({
+        name: row.name,
+        type: row.type,
+        not_nullable: Boolean(row.not_nullable),
+        default_value: row.default_value,
+        is_primary_key: Boolean(row.is_primary_key),
+        is_foreign_key: Boolean(row.is_foreign_key),
+        is_unique: Boolean(row.is_unique),
+        is_serial: Boolean(row.is_serial),
+        comment: row.comment,
+        check_constraint: row.check_constraint,
+        ordinal_position: row.ordinal_position,
+      });
     }
+
+    // Process primary keys
+    for (const row of primaryKeys) {
+      if (tables.has(row.table_name)) {
+        tables.get(row.table_name)!.primaryKeys.push({
+          column_name: row.column_name,
+        });
+      }
+    }
+
+    // Process foreign keys
+    for (const row of foreignKeys) {
+      if (tables.has(row.source_table)) {
+        tables.get(row.source_table)!.foreignKeys.push({
+          constraint_name: row.constraint_name,
+          source_schema: row.source_schema,
+          source_table: row.source_table,
+          source_column: row.source_column,
+          target_schema: row.target_schema,
+          target_table: row.target_table,
+          target_column: row.target_column,
+          update_rule: row.update_rule,
+          delete_rule: row.delete_rule,
+        });
+      }
+    }
+
+    // Process indexes
+    for (const row of indexes) {
+      if (tables.has(row.table_name)) {
+        tables.get(row.table_name)!.indexes.push({
+          table_name: row.table_name,
+          index_name: row.index_name,
+          column_name: row.column_name,
+          is_unique: Boolean(row.is_unique),
+          is_primary: Boolean(row.is_primary),
+          index_type: row.index_type,
+          seq_in_index: row.seq_in_index,
+        });
+      }
+    }
+
+    // Process unique constraints
+    for (const row of uniqueConstraints) {
+      if (tables.has(row.table_name)) {
+        tables.get(row.table_name)!.uniqueConstraints.push({
+          constraint_name: row.constraint_name,
+          table_schema: row.table_schema,
+          table_name: row.table_name,
+          column_name: row.column_name,
+          ordinal_position: row.ordinal_position,
+        });
+      }
+    }
+
+    // Process check constraints
+    for (const row of checkConstraints) {
+      if (tables.has(row.table_name)) {
+        tables.get(row.table_name)!.checkConstraints.push({
+          constraint_name: row.constraint_name,
+          table_schema: row.table_schema,
+          table_name: row.table_name,
+          check_clause: row.check_clause,
+        });
+      }
+    }
+
+    // Process enum columns - extract values from ENUM('val1','val2',...)
+    const processedEnumColumns: MariaDBEnumColumnInfo[] = enumColumns.map((row) => {
+      const match = row.column_type.match(/^enum\((.+)\)$/i);
+      let enumValues: string[] = [];
+      if (match) {
+        // Parse enum values: 'val1','val2','val3'
+        enumValues = match[1].split(",").map((v: string) => v.trim().replace(/^'|'$/g, ""));
+      }
+      return {
+        table_name: row.table_name,
+        column_name: row.column_name,
+        enum_values: enumValues,
+      };
+    });
+
+    // Process auto_increment info
+    const processedAutoIncrements: MariaDBAutoIncrementInfo[] = autoIncrements.map((row) => ({
+      table_name: row.table_name,
+      column_name: row.column_name,
+      auto_increment_value: row.auto_increment_value,
+    }));
+
+    const result: MariaDBSchemaMetadataBatch = {
+      tables,
+      enumColumns: processedEnumColumns,
+      autoIncrements: processedAutoIncrements,
+    };
+
+    // Cache the result
+    mariadbCache.setSchemaMetadataBatch(cfg, schemaName, result);
+
+    return result;
+  } catch (error) {
+    throw new Error(`Failed to fetch schema metadata batch: ${(error as Error).message}`);
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch {
+        // Ignore
+      }
+    }
+    try {
+      await pool.end();
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 const TYPE_MAP: Record<string, string> = {
-    INT: "INT",
-    BIGINT: "BIGINT",
-    TEXT: "TEXT",
-    BOOLEAN: "BOOLEAN",
-    DATETIME: "DATETIME",
-    TIMESTAMP: "TIMESTAMP",
-    JSON: "JSON",
+  INT: "INT",
+  BIGINT: "BIGINT",
+  TEXT: "TEXT",
+  BOOLEAN: "BOOLEAN",
+  DATETIME: "DATETIME",
+  TIMESTAMP: "TIMESTAMP",
+  JSON: "JSON",
 };
 
 function quoteIdent(name: string) {
-    return `\`${name.replace(/`/g, "``")}\``;
+  return `\`${name.replace(/`/g, "``")}\``;
 }
 
 export async function createTable(
-    conn: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    columns: ColumnDetail[],
-    foreignKeys: ForeignKeyInfo[] = []
+  conn: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  columns: ColumnDetail[],
+  foreignKeys: ForeignKeyInfo[] = [],
 ) {
-    const connection = await mysql.createPool(createPoolConfig(conn)).getConnection();
+  const connection = await mysql.createPool(createPoolConfig(conn)).getConnection();
 
-    const primaryKeys = columns
-        .filter(c => c.is_primary_key)
-        .map(c => quoteIdent(c.name));
+  const primaryKeys = columns.filter((c) => c.is_primary_key).map((c) => quoteIdent(c.name));
 
-    const columnDefs = columns.map(col => {
-        if (!TYPE_MAP[col.type]) {
-            throw new Error(`Invalid type: ${col.type}`);
-        }
-
-        const parts = [
-            quoteIdent(col.name),
-            TYPE_MAP[col.type],
-            col.not_nullable || col.is_primary_key ? "NOT NULL" : "",
-            col.default_value ? `DEFAULT ${col.default_value}` : ""
-        ].filter(Boolean);
-
-        return parts.join(" ");
-    });
-
-    if (primaryKeys.length > 0) {
-        columnDefs.push(`PRIMARY KEY (${primaryKeys.join(", ")})`);
+  const columnDefs = columns.map((col) => {
+    if (!TYPE_MAP[col.type]) {
+      throw new Error(`Invalid type: ${col.type}`);
     }
 
-    const createTableQuery = `
+    const parts = [
+      quoteIdent(col.name),
+      TYPE_MAP[col.type],
+      col.not_nullable || col.is_primary_key ? "NOT NULL" : "",
+      col.default_value ? `DEFAULT ${col.default_value}` : "",
+    ].filter(Boolean);
+
+    return parts.join(" ");
+  });
+
+  if (primaryKeys.length > 0) {
+    columnDefs.push(`PRIMARY KEY (${primaryKeys.join(", ")})`);
+  }
+
+  const createTableQuery = `
     CREATE TABLE IF NOT EXISTS ${quoteIdent(tableName)} (
       ${columnDefs.join(",\n")}
     ) ENGINE=InnoDB;
   `;
 
-    try {
-        await connection.beginTransaction();
+  try {
+    await connection.beginTransaction();
 
-        await connection.query(createTableQuery);
+    await connection.query(createTableQuery);
 
-        for (const fk of foreignKeys) {
-            const fkQuery = `
+    for (const fk of foreignKeys) {
+      const fkQuery = `
     ALTER TABLE ${quoteIdent(fk.source_table)}
     ADD CONSTRAINT ${quoteIdent(fk.constraint_name)}
     FOREIGN KEY (${quoteIdent(fk.source_column)})
@@ -1111,54 +1086,46 @@ export async function createTable(
     ${fk.delete_rule ? `ON DELETE ${fk.delete_rule}` : ""}
     ${fk.update_rule ? `ON UPDATE ${fk.update_rule}` : ""};
   `;
-            await connection.query(fkQuery);
-        }
-
-        await connection.commit();
-        return true;
-    } catch (err) {
-        await connection.rollback();
-        throw err;
-    } finally {
-        connection.release();
+      await connection.query(fkQuery);
     }
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 }
 
 function groupMariaDBIndexes(indexes: IndexInfo[]) {
-    const map = new Map<string, IndexInfo[]>();
+  const map = new Map<string, IndexInfo[]>();
 
-    for (const idx of indexes) {
-        if (!map.has(idx.index_name)) {
-            map.set(idx.index_name, []);
-        }
-        map.get(idx.index_name)!.push(idx);
+  for (const idx of indexes) {
+    if (!map.has(idx.index_name)) {
+      map.set(idx.index_name, []);
     }
+    map.get(idx.index_name)!.push(idx);
+  }
 
-    return [...map.values()].map(group =>
-        group.sort((a, b) => a.seq_in_index! - b.seq_in_index!)
-    );
+  return [...map.values()].map((group) => group.sort((a, b) => a.seq_in_index! - b.seq_in_index!));
 }
 
+export async function createIndexes(conn: MariaDBConfig, indexes: IndexInfo[]): Promise<boolean> {
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const groupedIndexes = groupMariaDBIndexes(indexes);
 
-export async function createIndexes(
-    conn: MariaDBConfig,
-    indexes: IndexInfo[]
-): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const groupedIndexes = groupMariaDBIndexes(indexes);
+  try {
+    for (const group of groupedIndexes) {
+      const first = group[0];
 
-    try {
-        for (const group of groupedIndexes) {
-            const first = group[0];
+      // Skip primary key (handled during CREATE TABLE)
+      if (first.is_primary) continue;
 
-            // Skip primary key (handled during CREATE TABLE)
-            if (first.is_primary) continue;
+      const columns = group.map((i) => quoteIdent(i.column_name)).join(", ");
 
-            const columns = group
-                .map(i => quoteIdent(i.column_name))
-                .join(", ");
-
-            const query = `
+      const query = `
         CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX
         ${quoteIdent(first.index_name)}
         ON ${quoteIdent(first.table_name)}
@@ -1166,411 +1133,397 @@ export async function createIndexes(
         USING ${first.index_type || "BTREE"};
       `;
 
-            try {
-                await pool.query(query);
-            } catch (err: any) {
-                // Ignore duplicate index creation
-                if (err.code !== "ER_DUP_KEYNAME") {
-                    throw err;
-                }
-            }
+      try {
+        await pool.query(query);
+      } catch (err: any) {
+        // Ignore duplicate index creation
+        if (err.code !== "ER_DUP_KEYNAME") {
+          throw err;
         }
-
-        return true;
-    } finally {
-        await pool.end();
+      }
     }
+
+    return true;
+  } finally {
+    await pool.end();
+  }
 }
 
-
-
 export async function alterTable(
-    conn: MariaDBConfig,
-    tableName: string,
-    operations: MariaDBAlterTableOperation[]
+  conn: MariaDBConfig,
+  tableName: string,
+  operations: MariaDBAlterTableOperation[],
 ): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const connection = await pool.getConnection();
 
-    try {
-        await connection.beginTransaction();
+  try {
+    await connection.beginTransaction();
 
-        for (const op of operations) {
-            let query = "";
+    for (const op of operations) {
+      let query = "";
 
-            switch (op.type) {
-                case "ADD_COLUMN":
-                    query = `
+      switch (op.type) {
+        case "ADD_COLUMN":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             ADD COLUMN ${quoteIdent(op.column.name)}
             ${TYPE_MAP[op.column.type]}
             ${op.column.not_nullable ? "NOT NULL" : ""}
             ${op.column.default_value ? `DEFAULT ${op.column.default_value}` : ""};
           `;
-                    break;
+          break;
 
-                case "DROP_COLUMN":
-                    query = `
+        case "DROP_COLUMN":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             DROP COLUMN ${quoteIdent(op.column_name)};
           `;
-                    break;
+          break;
 
-                case "RENAME_COLUMN":
-                    query = `
+        case "RENAME_COLUMN":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             RENAME COLUMN ${quoteIdent(op.from)} TO ${quoteIdent(op.to)};
           `;
-                    break;
+          break;
 
-                case "SET_NOT_NULL":
-                    query = `
+        case "SET_NOT_NULL":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]} NOT NULL;
           `;
-                    break;
+          break;
 
-                case "DROP_NOT_NULL":
-                    query = `
+        case "DROP_NOT_NULL":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]};
           `;
-                    break;
+          break;
 
-                case "SET_DEFAULT":
-                    query = `
+        case "SET_DEFAULT":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             ALTER ${quoteIdent(op.column_name)}
             SET DEFAULT ${op.default_value};
           `;
-                    break;
+          break;
 
-                case "DROP_DEFAULT":
-                    query = `
+        case "DROP_DEFAULT":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             ALTER ${quoteIdent(op.column_name)} DROP DEFAULT;
           `;
-                    break;
+          break;
 
-                case "ALTER_TYPE":
-                    query = `
+        case "ALTER_TYPE":
+          query = `
             ALTER TABLE ${quoteIdent(tableName)}
             MODIFY ${quoteIdent(op.column_name)} ${TYPE_MAP[op.new_type]};
           `;
-                    break;
-            }
+          break;
+      }
 
-            await connection.query(query);
-        }
-
-        await connection.commit();
-        return true;
-    } catch (err) {
-        await connection.rollback();
-        throw err;
-    } finally {
-        connection.release();
-        await pool.end();
+      await connection.query(query);
     }
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 export async function dropTable(
-    conn: MariaDBConfig,
-    tableName: string,
-    mode: MariaDBDropMode = "RESTRICT"
+  conn: MariaDBConfig,
+  tableName: string,
+  mode: MariaDBDropMode = "RESTRICT",
 ): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const connection = await pool.getConnection();
 
-    try {
-        await connection.beginTransaction();
+  try {
+    await connection.beginTransaction();
 
-        if (mode !== "CASCADE") {
-            const [rows] = await connection.query<any[]>(
-                `
+    if (mode !== "CASCADE") {
+      const [rows] = await connection.query<any[]>(
+        `
         SELECT CONSTRAINT_NAME, TABLE_NAME
         FROM information_schema.KEY_COLUMN_USAGE
         WHERE REFERENCED_TABLE_NAME = ?
           AND REFERENCED_TABLE_SCHEMA = DATABASE();
         `,
-                [tableName]
-            );
+        [tableName],
+      );
 
-            if (rows.length > 0 && mode === "RESTRICT") {
-                throw new Error(
-                    `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`
-                );
-            }
+      if (rows.length > 0 && mode === "RESTRICT") {
+        throw new Error(
+          `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`,
+        );
+      }
 
-            if (mode === "DETACH_FKS") {
-                for (const fk of rows) {
-                    await connection.query(`
+      if (mode === "DETACH_FKS") {
+        for (const fk of rows) {
+          await connection.query(`
             ALTER TABLE ${quoteIdent(fk.TABLE_NAME)}
             DROP FOREIGN KEY ${quoteIdent(fk.CONSTRAINT_NAME)};
           `);
-                }
-            }
         }
+      }
+    }
 
-        await connection.query(`
+    await connection.query(`
       DROP TABLE IF EXISTS ${quoteIdent(tableName)};
     `);
 
-        await connection.commit();
-        return true;
-    } catch (err) {
-        await connection.rollback();
-        throw err;
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 export async function ensureMigrationTable(conn: MariaDBConfig) {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const connection = await pool.getConnection();
 
-    try {
-        await connection.query(CREATE_MIGRATION_TABLE);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+  try {
+    await connection.query(CREATE_MIGRATION_TABLE);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
-
 
 export async function hasAnyMigrations(conn: MariaDBConfig): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const connection = await pool.getConnection();
 
-    try {
-        const [rows] = await connection.query<any[]>(CHECK_MIGRATIONS_EXIST);
-        return rows.length > 0;
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+  try {
+    const [rows] = await connection.query<any[]>(CHECK_MIGRATIONS_EXIST);
+    return rows.length > 0;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
-
 export async function insertBaseline(
-    conn: MariaDBConfig,
-    version: string,
-    name: string,
-    checksum: string
+  conn: MariaDBConfig,
+  version: string,
+  name: string,
+  checksum: string,
 ) {
-    const pool = mysql.createPool(createPoolConfig(conn));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(conn));
+  const connection = await pool.getConnection();
 
-    try {
-        await connection.query(INSERT_MIGRATION, [version, name, checksum]);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+  try {
+    await connection.query(INSERT_MIGRATION, [version, name, checksum]);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 export async function baselineIfNeeded(
-    conn: MariaDBConfig,
-    migrationsDir: string,
-    snapshot?: SchemaFile
+  conn: MariaDBConfig,
+  migrationsDir: string,
+  snapshot?: SchemaFile,
 ) {
-    try {
-        await ensureMigrationTable(conn);
+  try {
+    await ensureMigrationTable(conn);
 
-        const hasMigrations = await hasAnyMigrations(conn);
-        if (hasMigrations) return { baselined: false };
+    const hasMigrations = await hasAnyMigrations(conn);
+    if (hasMigrations) return { baselined: false };
 
-        const version = Date.now().toString();
-        const name = "baseline_existing_schema";
+    const version = Date.now().toString();
+    const name = "baseline_existing_schema";
 
-        const fakeSnapshot = snapshot || {
-            version: 2,
-            projectId: "",
-            databaseId: "",
-            dialect: "mysql",
-            schemas: [],
-            cachedAt: "",
-            relwaveVersion: "",
-            schemaHash: ""
-        };
+    const fakeSnapshot = snapshot || {
+      version: 2,
+      projectId: "",
+      databaseId: "",
+      dialect: "mysql",
+      schemas: [],
+      cachedAt: "",
+      relwaveVersion: "",
+      schemaHash: "",
+    };
 
-        const filePath = writeBaselineMigration(
-            migrationsDir,
-            version,
-            name,
-            fakeSnapshot
-        );
+    const filePath = writeBaselineMigration(migrationsDir, version, name, fakeSnapshot);
 
-        const checksum = crypto
-            .createHash("sha256")
-            .update(fs.readFileSync(filePath))
-            .digest("hex");
+    const checksum = crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 
-        await insertBaseline(conn, version, name, checksum);
+    await insertBaseline(conn, version, name, checksum);
 
-        return { baselined: true, version };
-    } catch (err) {
-        throw err;
-    }
+    return { baselined: true, version };
+  } catch (err) {
+    console.log("[MariaDB] Baseline error:", err);
+    throw err;
+  }
 }
 
-export async function listAppliedMigrations(
-    cfg: MariaDBConfig
-): Promise<AppliedMigration[]> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+export async function listAppliedMigrations(cfg: MariaDBConfig): Promise<AppliedMigration[]> {
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        // Check if schema_migrations table exists in current database
-        const [tables] = await connection.query<any[]>(
-            `
+  try {
+    // Check if schema_migrations table exists in current database
+    const [tables] = await connection.query<any[]>(
+      `
       SELECT 1
       FROM information_schema.tables
       WHERE table_schema = DATABASE()
         AND table_name = 'schema_migrations'
       LIMIT 1;
-      `
-        );
+      `,
+    );
 
-        if (tables.length === 0) {
-            return [];
-        }
-
-        const [rows] = await connection.query<any[]>(LIST_APPLIED_MIGRATIONS);
-
-        return rows as AppliedMigration[];
-    } finally {
-        connection.release();
-        await pool.end();
+    if (tables.length === 0) {
+      return [];
     }
+
+    const [rows] = await connection.query<any[]>(LIST_APPLIED_MIGRATIONS);
+
+    return rows as AppliedMigration[];
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
-
 export async function connectToDatabase(
-    cfg: MariaDBConfig,
-    connectionId: string,
-    options?: { readOnly?: boolean }
+  cfg: MariaDBConfig,
+  connectionId: string,
+  options?: { readOnly?: boolean },
 ) {
-    let baselineResult = { baselined: false };
-    const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
-    ensureDir(migrationsDir);
-    // 1️⃣ Baseline (ONLY if not read-only)
-    if (!options?.readOnly) {
-        // Pass real schema snapshot so baseline contains actual DDL
-        let snapshot: any = undefined;
-        try {
-            const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
-            if (project) {
-                snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
-            }
-        } catch { }
-        baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
-    }
+  let baselineResult = { baselined: false };
+  const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
+  ensureDir(migrationsDir);
+  // 1️⃣ Baseline (ONLY if not read-only)
+  if (!options?.readOnly) {
+    // Pass real schema snapshot so baseline contains actual DDL
+    let snapshot: any = undefined;
+    try {
+      const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
+      if (project) {
+        snapshot = (await projectStoreInstance.getSchema(project.id)) || undefined;
+      }
+    } catch {}
+    baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
+  }
 
-    // 2️⃣ Load schema (read-only introspection)
-    const schema = await listSchemas(cfg);
+  // 2️⃣ Load schema (read-only introspection)
+  const schema = await listSchemas(cfg);
 
-    // 3️⃣ Load local migrations from AppData
-    const localMigrations = await loadLocalMigrations(migrationsDir);
+  // 3️⃣ Load local migrations from AppData
+  const localMigrations = await loadLocalMigrations(migrationsDir);
 
-    // 4️⃣ Load applied migrations from DB
-    const appliedMigrations = await listAppliedMigrations(cfg);
+  // 4️⃣ Load applied migrations from DB
+  const appliedMigrations = await listAppliedMigrations(cfg);
 
-    return {
-        baselined: baselineResult.baselined,
-        schema,
-        migrations: {
-            local: localMigrations,
-            applied: appliedMigrations
-        }
-    };
+  return {
+    baselined: baselineResult.baselined,
+    schema,
+    migrations: {
+      local: localMigrations,
+      applied: appliedMigrations,
+    },
+  };
 }
 
 /**
  * Apply a pending migration
  */
 export async function applyMigration(
-    cfg: MariaDBConfig,
-    migrationFilePath: string
+  cfg: MariaDBConfig,
+  migrationFilePath: string,
 ): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        // Read and parse migration file
-        const { readMigrationFile } = await import('../utils/migrationFileReader');
-        const migration = readMigrationFile(migrationFilePath);
+  try {
+    // Read and parse migration file
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
+    const migration = readMigrationFile(migrationFilePath);
 
-        // Begin transaction
-        await connection.beginTransaction();
+    // Begin transaction
+    await connection.beginTransaction();
 
-        // Execute up SQL
-        await connection.query(migration.upSQL);
+    // Execute up SQL
+    await connection.query(migration.upSQL);
 
-        // Record in schema_migrations
-        await connection.query(
-            `INSERT INTO schema_migrations (version, name, checksum)
+    // Record in schema_migrations
+    await connection.query(
+      `INSERT INTO schema_migrations (version, name, checksum)
        VALUES (?, ?, ?)`,
-            [migration.version, migration.name, migration.checksum]
-        );
+      [migration.version, migration.name, migration.checksum],
+    );
 
-        // Commit transaction
-        await connection.commit();
+    // Commit transaction
+    await connection.commit();
 
-        // Clear cache
-        mariadbCache.clearForConnection(cfg);
+    // Clear cache
+    mariadbCache.clearForConnection(cfg);
 
-        return true;
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
  * Rollback an applied migration
  */
 export async function rollbackMigration(
-    cfg: MariaDBConfig,
-    version: string,
-    migrationFilePath: string
+  cfg: MariaDBConfig,
+  version: string,
+  migrationFilePath: string,
 ): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        // Read and parse migration file
-        const { readMigrationFile } = await import('../utils/migrationFileReader');
-        const migration = readMigrationFile(migrationFilePath);
+  try {
+    // Read and parse migration file
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
+    const migration = readMigrationFile(migrationFilePath);
 
-        // Begin transaction
-        await connection.beginTransaction();
+    // Begin transaction
+    await connection.beginTransaction();
 
-        // Execute down SQL
-        await connection.query(migration.downSQL);
+    // Execute down SQL
+    await connection.query(migration.downSQL);
 
-        // Remove from schema_migrations
-        await connection.query(DELETE_MIGRATION, [version]);
+    // Remove from schema_migrations
+    await connection.query(DELETE_MIGRATION, [version]);
 
-        // Commit transaction
-        await connection.commit();
+    // Commit transaction
+    await connection.commit();
 
-        // Clear cache
-        mariadbCache.clearForConnection(cfg);
+    // Clear cache
+    mariadbCache.clearForConnection(cfg);
 
-        return true;
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
@@ -1582,47 +1535,47 @@ export async function rollbackMigration(
  * @returns The inserted row data with insertId
  */
 export async function insertRow(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    rowData: Record<string, any>
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  rowData: Record<string, any>,
 ): Promise<any> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        const columns = Object.keys(rowData);
-        const values = Object.values(rowData);
+  try {
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
 
-        if (columns.length === 0) {
-            throw new Error("No data provided for insert");
-        }
+    if (columns.length === 0) {
+      throw new Error("No data provided for insert");
+    }
 
-        // Build parameterized query
-        const columnList = columns.map(col => quoteIdent(col)).join(", ");
-        const placeholders = columns.map(() => "?").join(", ");
+    // Build parameterized query
+    const columnList = columns.map((col) => quoteIdent(col)).join(", ");
+    const placeholders = columns.map(() => "?").join(", ");
 
-        const query = `
+    const query = `
       INSERT INTO ${quoteIdent(tableName)} (${columnList})
       VALUES (${placeholders});
     `;
 
-        const [result] = await connection.execute(query, values);
+    const [result] = await connection.execute(query, values);
 
-        // Clear cache to refresh table data
-        mariadbCache.clearForConnection(cfg);
+    // Clear cache to refresh table data
+    mariadbCache.clearForConnection(cfg);
 
-        return {
-            success: true,
-            insertId: (result as any).insertId,
-            affectedRows: (result as any).affectedRows
-        };
-    } catch (error) {
-        throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    return {
+      success: true,
+      insertId: (result as any).insertId,
+      affectedRows: (result as any).affectedRows,
+    };
+  } catch (error) {
+    throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
@@ -1636,47 +1589,47 @@ export async function insertRow(
  * @returns The update result
  */
 export async function updateRow(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    primaryKeyColumn: string,
-    primaryKeyValue: any,
-    rowData: Record<string, any>
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
+  rowData: Record<string, any>,
 ): Promise<any> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        const columns = Object.keys(rowData);
-        const values = Object.values(rowData);
+  try {
+    const columns = Object.keys(rowData);
+    const values = Object.values(rowData);
 
-        if (columns.length === 0) {
-            throw new Error("No data provided for update");
-        }
+    if (columns.length === 0) {
+      throw new Error("No data provided for update");
+    }
 
-        const setClause = columns.map(col => `${quoteIdent(col)} = ?`).join(", ");
+    const setClause = columns.map((col) => `${quoteIdent(col)} = ?`).join(", ");
 
-        const query = `
+    const query = `
       UPDATE ${quoteIdent(tableName)}
       SET ${setClause}
       WHERE ${quoteIdent(primaryKeyColumn)} = ?;
     `;
 
-        const [result] = await connection.execute(query, [...values, primaryKeyValue]);
+    const [result] = await connection.execute(query, [...values, primaryKeyValue]);
 
-        // Clear cache to refresh table data
-        mariadbCache.clearForConnection(cfg);
+    // Clear cache to refresh table data
+    mariadbCache.clearForConnection(cfg);
 
-        return {
-            success: true,
-            affectedRows: (result as any).affectedRows
-        };
-    } catch (error) {
-        throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    return {
+      success: true,
+      affectedRows: (result as any).affectedRows,
+    };
+  } catch (error) {
+    throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
@@ -1689,49 +1642,49 @@ export async function updateRow(
  * @returns Success status
  */
 export async function deleteRow(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    primaryKeyColumn: string,
-    primaryKeyValue: any
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  primaryKeyColumn: string,
+  primaryKeyValue: any,
 ): Promise<boolean> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        let whereClause: string;
-        let whereValues: any[];
+  try {
+    let whereClause: string;
+    let whereValues: any[];
 
-        if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
-            // Single primary key
-            whereClause = `${quoteIdent(primaryKeyColumn)} = ?`;
-            whereValues = [primaryKeyValue];
-        } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
-            // Composite key - use all columns from the object
-            const cols = Object.keys(primaryKeyValue);
-            whereClause = cols.map(col => `${quoteIdent(col)} = ?`).join(" AND ");
-            whereValues = Object.values(primaryKeyValue);
-        } else {
-            throw new Error("Either primary key or where conditions required for delete");
-        }
+    if (primaryKeyColumn && typeof primaryKeyColumn === "string") {
+      // Single primary key
+      whereClause = `${quoteIdent(primaryKeyColumn)} = ?`;
+      whereValues = [primaryKeyValue];
+    } else if (typeof primaryKeyValue === "object" && primaryKeyValue !== null) {
+      // Composite key - use all columns from the object
+      const cols = Object.keys(primaryKeyValue);
+      whereClause = cols.map((col) => `${quoteIdent(col)} = ?`).join(" AND ");
+      whereValues = Object.values(primaryKeyValue);
+    } else {
+      throw new Error("Either primary key or where conditions required for delete");
+    }
 
-        const query = `
+    const query = `
       DELETE FROM ${quoteIdent(tableName)}
       WHERE ${whereClause};
     `;
 
-        const [result] = await connection.execute(query, whereValues);
+    const [result] = await connection.execute(query, whereValues);
 
-        // Clear cache to refresh table data
-        mariadbCache.clearForConnection(cfg);
+    // Clear cache to refresh table data
+    mariadbCache.clearForConnection(cfg);
 
-        return (result as any).affectedRows > 0;
-    } catch (error) {
-        throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+    return (result as any).affectedRows > 0;
+  } catch (error) {
+    throw new Error(`Failed to delete row from ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
@@ -1745,67 +1698,65 @@ export async function deleteRow(
  * @returns Matching rows
  */
 export async function searchTable(
-    cfg: MariaDBConfig,
-    schemaName: string,
-    tableName: string,
-    searchTerm: string,
-    column?: string,
-    page: number = 1,
-    pageSize: number = 50
+  cfg: MariaDBConfig,
+  schemaName: string,
+  tableName: string,
+  searchTerm: string,
+  column?: string,
+  page: number = 1,
+  pageSize: number = 50,
 ): Promise<{ rows: any[]; total: number }> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        const searchPattern = `%${searchTerm.replace(/[%_]/g, '\\$&')}%`;
+  try {
+    const searchPattern = `%${searchTerm.replace(/[%_]/g, "\\$&")}%`;
 
-        let whereClause: string;
-        let values: any[];
+    let whereClause: string;
+    let values: any[];
 
-        if (column) {
-            // Search specific column
-            whereClause = `${quoteIdent(column)} LIKE ?`;
-            values = [searchPattern];
-        } else {
-            // Get all columns and search across them
-            const [colRows] = await connection.query(
-                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
-                [schemaName, tableName]
-            );
-            const columns = (colRows as any[]).map(r => r.COLUMN_NAME);
+    if (column) {
+      // Search specific column
+      whereClause = `${quoteIdent(column)} LIKE ?`;
+      values = [searchPattern];
+    } else {
+      // Get all columns and search across them
+      const [colRows] = await connection.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+        [schemaName, tableName],
+      );
+      const columns = (colRows as any[]).map((r) => r.COLUMN_NAME);
 
-            if (columns.length === 0) {
-                return { rows: [], total: 0 };
-            }
+      if (columns.length === 0) {
+        return { rows: [], total: 0 };
+      }
 
-            // Build OR clause for all columns
-            whereClause = columns
-                .map(col => `${quoteIdent(col)} LIKE ?`)
-                .join(" OR ");
-            values = Array(columns.length).fill(searchPattern);
-        }
-
-        // Count total matches
-        const [countRows] = await connection.query(
-            `SELECT COUNT(*) as total FROM ${quoteIdent(tableName)} WHERE ${whereClause}`,
-            values
-        );
-        const total = (countRows as any[])[0]?.total || 0;
-
-        // Get matching rows with pagination
-        const offset = (page - 1) * pageSize;
-        const [rows] = await connection.query(
-            `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereClause} LIMIT ? OFFSET ?`,
-            [...values, pageSize, offset]
-        );
-
-        return { rows: rows as any[], total };
-    } catch (error) {
-        throw new Error(`Failed to search table ${schemaName}.${tableName}: ${error}`);
-    } finally {
-        connection.release();
-        await pool.end();
+      // Build OR clause for all columns
+      whereClause = columns.map((col) => `${quoteIdent(col)} LIKE ?`).join(" OR ");
+      values = Array(columns.length).fill(searchPattern);
     }
+
+    // Count total matches
+    const [countRows] = await connection.query(
+      `SELECT COUNT(*) as total FROM ${quoteIdent(tableName)} WHERE ${whereClause}`,
+      values,
+    );
+    const total = (countRows as any[])[0]?.total || 0;
+
+    // Get matching rows with pagination
+    const offset = (page - 1) * pageSize;
+    const [rows] = await connection.query(
+      `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereClause} LIMIT ? OFFSET ?`,
+      [...values, pageSize, offset],
+    );
+
+    return { rows: rows as any[], total };
+  } catch (error) {
+    throw new Error(`Failed to search table ${schemaName}.${tableName}: ${error}`);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }
 
 /**
@@ -1813,14 +1764,14 @@ export async function searchTable(
  * Lightweight version for schema selector.
  */
 export async function listSchemaNames(cfg: MariaDBConfig): Promise<string[]> {
-    const pool = mysql.createPool(createPoolConfig(cfg));
-    const connection = await pool.getConnection();
+  const pool = mysql.createPool(createPoolConfig(cfg));
+  const connection = await pool.getConnection();
 
-    try {
-        const [rows] = await connection.query(LIST_SCHEMAS);
-        return (rows as any[]).map((r: any) => r.name);
-    } finally {
-        connection.release();
-        await pool.end();
-    }
+  try {
+    const [rows] = await connection.query(LIST_SCHEMAS);
+    return (rows as any[]).map((r: any) => r.name);
+  } finally {
+    connection.release();
+    await pool.end();
+  }
 }

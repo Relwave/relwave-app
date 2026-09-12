@@ -6,15 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 const LAST_INSTALLED_UPDATE_KEY = "relwave:last-installed-update";
 const RELEASES_URL = "https://github.com/Relwave/relwave-app/releases/latest";
 
-export type UpdateStatus = 
-  | "idle" 
-  | "checking" 
-  | "available" 
-  | "downloading" 
-  | "ready" 
-  | "error" 
-  | "up-to-date"
-  | "dev-mode";
+export type UpdateStatus =
+  "idle" | "checking" | "available" | "downloading" | "ready" | "error" | "up-to-date" | "dev-mode";
 
 export interface UpdateInfo {
   version: string;
@@ -35,8 +28,7 @@ export interface UseUpdaterReturn {
 
 // Check if running in development mode
 const isDev = import.meta.env.DEV;
-const isLinuxRuntime =
-  typeof navigator !== "undefined" && /linux/i.test(navigator.userAgent);
+const isLinuxRuntime = typeof navigator !== "undefined" && /linux/i.test(navigator.userAgent);
 
 function normalizeUpdaterErrorMessage(message: string): string {
   const normalized = message.trim();
@@ -71,9 +63,9 @@ export function useUpdater(): UseUpdaterReturn {
     try {
       setStatus("checking");
       setError(null);
-      
+
       const updateResult = await check();
-      
+
       if (updateResult) {
         setUpdate(updateResult);
         setUpdateInfo({
@@ -122,10 +114,10 @@ export function useUpdater(): UseUpdaterReturn {
       } catch {
         // Non-fatal: if the bridge is already dead, continue with the update.
       }
-      
+
       let downloaded = 0;
       let contentLength = 0;
-      
+
       await update.downloadAndInstall((event) => {
         switch (event.event) {
           case "Started":
@@ -156,13 +148,13 @@ export function useUpdater(): UseUpdaterReturn {
               date: updateInfo.date,
               previousVersion: updateInfo.currentVersion,
               installedAt: new Date().toISOString(),
-            })
+            }),
           );
         } catch {
           // Non-blocking: if storage fails we still complete update flow.
         }
       }
-      
+
       setStatus("ready");
     } catch (err) {
       console.error("Failed to download update:", err);

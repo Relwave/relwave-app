@@ -10,20 +10,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DeleteDialogProps } from "../types";
 
-export function DeleteDialog({
-  open,
-  onOpenChange,
-  databaseName,
-  onConfirm,
-}: DeleteDialogProps) {
+export function DeleteDialog({ open, onOpenChange, databaseName, onConfirm }: DeleteDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Connection</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete "{databaseName}"? This action cannot
-            be undone.
+            Are you sure you want to delete "{databaseName}"? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

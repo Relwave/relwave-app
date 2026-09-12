@@ -77,7 +77,7 @@ export function AIResultDialog({
                   "ml-auto text-[10px] font-medium px-1.5 py-0",
                   cached
                     ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/8"
-                    : "border-blue-500/30 text-blue-600 bg-blue-500/8"
+                    : "border-blue-500/30 text-blue-600 bg-blue-500/8",
                 )}
               >
                 {cached ? "Cached" : "Fresh"}
@@ -174,9 +174,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
         codeLines.push(lines[i]);
         i++;
       }
-      elements.push(
-        <CodeBlock key={i} code={codeLines.join("\n")} lang={lang} />
-      );
+      elements.push(<CodeBlock key={i} code={codeLines.join("\n")} lang={lang} />);
       i++;
       continue;
     }
@@ -186,16 +184,34 @@ export function MarkdownRenderer({ content }: { content: string }) {
     const h2 = line.match(/^##\s+(.+)$/);
     const h1 = line.match(/^#\s+(.+)$/);
     if (h1) {
-      elements.push(<h3 key={i} className="text-sm font-bold mt-4 mb-1.5 text-foreground/90">{renderInline(h1[1])}</h3>);
-      i++; continue;
+      elements.push(
+        <h3 key={i} className="text-sm font-bold mt-4 mb-1.5 text-foreground/90">
+          {renderInline(h1[1])}
+        </h3>,
+      );
+      i++;
+      continue;
     }
     if (h2) {
-      elements.push(<h4 key={i} className="text-[13px] font-semibold mt-3 mb-1 text-foreground/85 border-b border-border/20 pb-1">{renderInline(h2[1])}</h4>);
-      i++; continue;
+      elements.push(
+        <h4
+          key={i}
+          className="text-[13px] font-semibold mt-3 mb-1 text-foreground/85 border-b border-border/20 pb-1"
+        >
+          {renderInline(h2[1])}
+        </h4>,
+      );
+      i++;
+      continue;
     }
     if (h3) {
-      elements.push(<h5 key={i} className="text-xs font-semibold mt-2 mb-1 text-foreground/80">{renderInline(h3[1])}</h5>);
-      i++; continue;
+      elements.push(
+        <h5 key={i} className="text-xs font-semibold mt-2 mb-1 text-foreground/80">
+          {renderInline(h3[1])}
+        </h5>,
+      );
+      i++;
+      continue;
     }
 
     // Bullet list items
@@ -214,7 +230,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
               {renderInline(item)}
             </li>
           ))}
-        </ul>
+        </ul>,
       );
       continue;
     }
@@ -226,7 +242,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
         tableLines.push(lines[i].trim());
         i++;
       }
-      
+
       const parseRow = (rowStr: string) => {
         const parts = rowStr.split("|");
         if (parts.length > 0 && parts[0].trim() === "") parts.shift();
@@ -243,7 +259,10 @@ export function MarkdownRenderer({ content }: { content: string }) {
             <thead>
               <tr className="border-b border-border/50 bg-muted/30">
                 {headerCells.map((cell, idx) => (
-                  <th key={idx} className="px-3 py-2 font-semibold text-foreground/80 whitespace-nowrap">
+                  <th
+                    key={idx}
+                    className="px-3 py-2 font-semibold text-foreground/80 whitespace-nowrap"
+                  >
                     {renderInline(cell.trim())}
                   </th>
                 ))}
@@ -251,7 +270,10 @@ export function MarkdownRenderer({ content }: { content: string }) {
             </thead>
             <tbody>
               {bodyLines.map((rowLine, rowIdx) => (
-                <tr key={rowIdx} className="border-b border-border/20 last:border-0 hover:bg-muted/10">
+                <tr
+                  key={rowIdx}
+                  className="border-b border-border/20 last:border-0 hover:bg-muted/10"
+                >
                   {parseRow(rowLine).map((cell, idx) => (
                     <td key={idx} className="px-3 py-2 text-foreground/70">
                       {renderInline(cell.trim())}
@@ -261,7 +283,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>,
       );
       continue;
     }
@@ -276,7 +298,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
     elements.push(
       <p key={i} className="text-xs text-foreground/80 leading-relaxed my-1">
         {renderInline(line)}
-      </p>
+      </p>,
     );
     i++;
   }
@@ -289,10 +311,21 @@ function renderInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={i} className="font-semibold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
     if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={i} className="px-1 py-0.5 rounded bg-muted/60 text-[10px] font-mono text-primary/80">{part.slice(1, -1)}</code>;
+      return (
+        <code
+          key={i}
+          className="px-1 py-0.5 rounded bg-muted/60 text-[10px] font-mono text-primary/80"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
     }
     return part;
   });
@@ -316,7 +349,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
       <pre
         className={cn(
           "rounded-md border border-border/30 bg-muted/40 pl-3 pr-10 py-2.5 text-[11px] font-mono leading-relaxed overflow-x-auto",
-          lang === "sql" && "text-primary/90"
+          lang === "sql" && "text-primary/90",
         )}
       >
         <code>{code}</code>
@@ -325,16 +358,13 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
         onClick={handleCopy}
         className={cn(
           "absolute top-2 right-2 p-1.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-150 border border-border/30 shadow-xs cursor-pointer md:opacity-0 md:group-hover:opacity-100 focus:opacity-100",
-          copied && "opacity-100 text-emerald-500 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20"
+          copied &&
+            "opacity-100 text-emerald-500 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20",
         )}
         title="Copy code"
         type="button"
       >
-        {copied ? (
-          <Check className="h-3 w-3 text-emerald-500" />
-        ) : (
-          <Copy className="h-3 w-3" />
-        )}
+        {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
       </button>
     </div>
   );

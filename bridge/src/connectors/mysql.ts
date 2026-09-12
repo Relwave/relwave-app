@@ -1,24 +1,13 @@
-import mysql, {
-  FieldPacket,
-  PoolOptions,
-  RowDataPacket,
-  PoolConnection,
-} from "mysql2/promise";
+import mysql, { FieldPacket, PoolOptions, RowDataPacket, PoolConnection } from "mysql2/promise";
 import { loadLocalMigrations, writeBaselineMigration } from "../utils/baselineMigration";
 import crypto from "crypto";
 import fs from "fs";
 import { ensureDir } from "../utils/config";
 import { projectStoreInstance } from "../services/projectStore";
-import {
-  CacheEntry,
-  CACHE_TTL,
-  STATS_CACHE_TTL,
-  SCHEMA_CACHE_TTL
-} from "../types/cache";
+import { CacheEntry, CACHE_TTL, STATS_CACHE_TTL, SCHEMA_CACHE_TTL } from "../types/cache";
 import {
   TableInfo,
   DBStats,
-  SchemaInfo,
   ColumnDetail,
   PrimaryKeyInfo,
   ForeignKeyInfo,
@@ -53,16 +42,29 @@ export type {
 export type { AppliedMigration } from "../types/common";
 
 // Import centralized queries
-import { LIST_SCHEMAS, LIST_TABLES_BY_SCHEMA, LIST_TABLES_CURRENT_DB } from "../queries/mysql/schema";
-import { GET_TABLE_DETAILS, LIST_COLUMNS, KILL_QUERY, GET_CONNECTION_ID } from "../queries/mysql/tables";
-import { BATCH_GET_ALL_COLUMNS, BATCH_GET_ENUM_COLUMNS, BATCH_GET_AUTO_INCREMENTS } from "../queries/mysql/columns";
+import {
+  LIST_SCHEMAS,
+  LIST_TABLES_BY_SCHEMA,
+  LIST_TABLES_CURRENT_DB,
+} from "../queries/mysql/schema";
+import {
+  GET_TABLE_DETAILS,
+  LIST_COLUMNS,
+  KILL_QUERY,
+  GET_CONNECTION_ID,
+} from "../queries/mysql/tables";
+import {
+  BATCH_GET_ALL_COLUMNS,
+  BATCH_GET_ENUM_COLUMNS,
+  BATCH_GET_AUTO_INCREMENTS,
+} from "../queries/mysql/columns";
 import {
   GET_PRIMARY_KEYS,
   BATCH_GET_PRIMARY_KEYS,
   BATCH_GET_FOREIGN_KEYS,
   BATCH_GET_INDEXES,
   BATCH_GET_UNIQUE_CONSTRAINTS,
-  BATCH_GET_CHECK_CONSTRAINTS
+  BATCH_GET_CHECK_CONSTRAINTS,
 } from "../queries/mysql/constraints";
 import { GET_DB_STATS } from "../queries/mysql/stats";
 import {
@@ -70,9 +72,8 @@ import {
   CHECK_MIGRATIONS_EXIST,
   INSERT_MIGRATION,
   LIST_APPLIED_MIGRATIONS,
-  DELETE_MIGRATION
+  DELETE_MIGRATION,
 } from "../queries/mysql/migrations";
-import { quoteIdentifier } from "../queries/mysql/crud";
 
 // ============================================
 // CACHING SYSTEM FOR MYSQL CONNECTOR
@@ -252,7 +253,6 @@ class MySQLCacheManager {
 
     this.dbStatsCache.delete(configKey);
     this.schemasCache.delete(configKey);
-
   }
 
   /**
@@ -306,15 +306,6 @@ class MySQLCacheManager {
 export const mysqlCache = new MySQLCacheManager();
 
 // Legacy cache support (for backward compatibility)
-const tableListCache = new Map<
-  string,
-  { data: TableInfo[]; timestamp: number }
->();
-
-function getCacheKey(cfg: MySQLConfig): string {
-  return `${cfg.host}:${cfg.port}:${cfg.database}`;
-}
-
 export function createPoolConfig(cfg: MySQLConfig): MySQLConfig & PoolOptions {
   return {
     host: cfg.host,
@@ -326,19 +317,19 @@ export function createPoolConfig(cfg: MySQLConfig): MySQLConfig & PoolOptions {
 }
 
 export async function testConnection(
-  cfg: MySQLConfig
-): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
+  cfg: MySQLConfig,
+): Promise<{ ok: boolean; message?: string; status: "connected" | "disconnected" }> {
   let connection;
   try {
     connection = await mysql.createConnection(cfg);
-    return { ok: true, status: 'connected', message: "Connection successful" };
+    return { ok: true, status: "connected", message: "Connection successful" };
   } catch (err) {
-    return { ok: false, message: (err as Error).message, status: 'disconnected' };
+    return { ok: false, message: (err as Error).message, status: "disconnected" };
   } finally {
     if (connection) {
       try {
         await connection.end();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
@@ -350,7 +341,7 @@ export async function fetchTableData(
   schemaName: string,
   tableName: string,
   limit: number,
-  page: number
+  page: number,
 ): Promise<{ rows: RowDataPacket[]; total: number }> {
   const pool = mysql.createPool(createPoolConfig(cfg));
   let connection: PoolConnection | null = null;
@@ -367,7 +358,7 @@ export async function fetchTableData(
 
     let orderBy = "";
     if (pkColumns.length > 0) {
-      const safePks = pkColumns.map(col => `\`${col.replace(/`/g, "``")}\``);
+      const safePks = pkColumns.map((col) => `\`${col.replace(/`/g, "``")}\``);
       orderBy = `ORDER BY ${safePks.join(", ")}`;
     } else {
       const colQuery = `
@@ -381,7 +372,7 @@ export async function fetchTableData(
         schemaName,
         tableName,
       ]);
-      const safeCols = colRows.map(r => `\`${r.COLUMN_NAME}\``);
+      const safeCols = colRows.map((r) => `\`${r.COLUMN_NAME}\``);
       orderBy = safeCols.length ? `ORDER BY ${safeCols.join(", ")}` : "";
     }
 
@@ -412,11 +403,10 @@ export async function fetchTableData(
   }
 }
 
-
 export async function listColumns(
   cfg: MySQLConfig,
   tableName: string,
-  schemaName?: string
+  schemaName?: string,
 ): Promise<RowDataPacket[]> {
   // Check cache first
   if (schemaName) {
@@ -432,10 +422,7 @@ export async function listColumns(
   try {
     connection = await pool.getConnection();
 
-    const [rows] = await connection.execute<RowDataPacket[]>(LIST_COLUMNS, [
-      schemaName,
-      tableName,
-    ]);
+    const [rows] = await connection.execute<RowDataPacket[]>(LIST_COLUMNS, [schemaName, tableName]);
 
     // Cache the result
     if (schemaName) {
@@ -456,12 +443,12 @@ export async function mysqlKillQuery(cfg: MySQLConfig, targetPid: number) {
   try {
     await conn.execute(KILL_QUERY, [targetPid]);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   } finally {
     try {
       await conn.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -470,7 +457,7 @@ export async function mysqlKillQuery(cfg: MySQLConfig, targetPid: number) {
 export async function listPrimaryKeys(
   cfg: MySQLConfig,
   schemaName: string,
-  tableName: string
+  tableName: string,
 ): Promise<string[]> {
   // Check cache first
   const cached = mysqlCache.getPrimaryKeys(cfg, schemaName, tableName);
@@ -499,17 +486,12 @@ export async function listPrimaryKeys(
   }
 }
 
-
-
 export function streamQueryCancelable(
   cfg: MySQLConfig,
   sql: string,
   batchSize: number,
-  onBatch: (
-    rows: RowDataPacket[],
-    columns: FieldPacket[]
-  ) => Promise<void> | void,
-  onDone?: () => void
+  onBatch: (rows: RowDataPacket[], columns: FieldPacket[]) => Promise<void> | void,
+  onDone?: () => void,
 ) {
   let query: any = null;
   let finished = false;
@@ -531,7 +513,7 @@ export function streamQueryCancelable(
       query = raw.query(sql);
 
       let columns: FieldPacket[] | null = null;
-      let buffer: RowDataPacket[] = [];
+      const buffer: RowDataPacket[] = [];
 
       const flush = async () => {
         if (buffer.length === 0) return;
@@ -581,7 +563,7 @@ export function streamQueryCancelable(
     cancelled = true;
 
     if (backendPid) {
-      await mysqlKillQuery(cfg, backendPid).catch(() => { });
+      await mysqlKillQuery(cfg, backendPid).catch(() => {});
     }
 
     query?.emit("error", new Error("Cancelled"));
@@ -620,28 +602,24 @@ export async function getDBStats(cfg: MySQLConfig): Promise<{
 
     return result;
   } catch (error) {
-    throw new Error(
-      `Failed to fetch MySQL database stats: ${(error as Error).message}`
-    );
+    throw new Error(`Failed to fetch MySQL database stats: ${(error as Error).message}`);
   } finally {
     if (connection) {
       try {
         connection.release();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
 }
 
-export async function listSchemas(
-  cfg: MySQLConfig
-): Promise<{ name: string }[]> {
+export async function listSchemas(cfg: MySQLConfig): Promise<{ name: string }[]> {
   // Check cache first
   const cached = mysqlCache.getSchemas(cfg);
   if (cached !== null) {
@@ -667,22 +645,19 @@ export async function listSchemas(
     if (connection) {
       try {
         connection.release();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
 }
 
-export async function listTables(
-  cfg: MySQLConfig,
-  schemaName?: string
-): Promise<TableInfo[]> {
+export async function listTables(cfg: MySQLConfig, schemaName?: string): Promise<TableInfo[]> {
   // Check new cache manager first
   const cached = mysqlCache.getTableList(cfg, schemaName);
   if (cached !== null) {
@@ -709,11 +684,7 @@ export async function listTables(
       query = LIST_TABLES_CURRENT_DB;
     }
 
-    const [rows] = await connection.execute<RowDataPacket[]>(
-      query,
-      queryParams
-    );
-
+    const [rows] = await connection.execute<RowDataPacket[]>(query, queryParams);
 
     const result = rows as TableInfo[];
 
@@ -728,13 +699,13 @@ export async function listTables(
     if (connection) {
       try {
         connection.release();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -748,7 +719,7 @@ export function clearTableListCache(cfg: MySQLConfig) {
 export async function getTableDetails(
   cfg: MySQLConfig,
   schemaName: string,
-  tableName: string
+  tableName: string,
 ): Promise<ColumnDetail[]> {
   // Check cache first
   const cached = mysqlCache.getTableDetails(cfg, schemaName, tableName);
@@ -774,20 +745,18 @@ export async function getTableDetails(
 
     return result;
   } catch (error) {
-    throw new Error(
-      `Failed to fetch table details: ${(error as Error).message}`
-    );
+    throw new Error(`Failed to fetch table details: ${(error as Error).message}`);
   } finally {
     if (connection) {
       try {
         connection.release();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -800,14 +769,14 @@ export async function getTableDetails(
 /**
  * Fetch all schema metadata in a single batch using parallel queries.
  * This is much faster than making individual queries per table.
- * 
+ *
  * Note: MySQL doesn't have true sequences or standalone enum types like PostgreSQL.
  * - Auto-increment columns are MySQL's equivalent to sequences
  * - Enum columns are defined inline in table definitions
  */
 export async function getSchemaMetadataBatch(
   cfg: MySQLConfig,
-  schemaName: string
+  schemaName: string,
 ): Promise<SchemaMetadataBatch> {
   // Check cache first
   const cached = mysqlCache.getSchemaMetadataBatch(cfg, schemaName);
@@ -829,7 +798,7 @@ export async function getSchemaMetadataBatch(
       uniqueResult,
       checksResult,
       enumColumnsResult,
-      autoIncrementsResult
+      autoIncrementsResult,
     ] = await Promise.all([
       // 1. All columns in schema with PK/FK info
       connection.execute<RowDataPacket[]>(BATCH_GET_ALL_COLUMNS, [schemaName, schemaName]),
@@ -847,13 +816,15 @@ export async function getSchemaMetadataBatch(
       connection.execute<RowDataPacket[]>(BATCH_GET_UNIQUE_CONSTRAINTS, [schemaName]),
 
       // 6. All check constraints in schema (MySQL 8.0.16+)
-      connection.execute<RowDataPacket[]>(BATCH_GET_CHECK_CONSTRAINTS, [schemaName]).catch(() => [[], []]),
+      connection
+        .execute<RowDataPacket[]>(BATCH_GET_CHECK_CONSTRAINTS, [schemaName])
+        .catch(() => [[], []]),
 
       // 7. All enum columns in schema (MySQL defines enums inline)
       connection.execute<RowDataPacket[]>(BATCH_GET_ENUM_COLUMNS, [schemaName]),
 
       // 8. All auto_increment columns (MySQL's equivalent to sequences)
-      connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName])
+      connection.execute<RowDataPacket[]>(BATCH_GET_AUTO_INCREMENTS, [schemaName]),
     ]);
 
     // Extract rows from results (mysql2 returns [rows, fields])
@@ -867,14 +838,17 @@ export async function getSchemaMetadataBatch(
     const autoIncrements = autoIncrementsResult[0] as RowDataPacket[];
 
     // Group results by table
-    const tables = new Map<string, {
-      columns: ColumnDetail[];
-      primaryKeys: PrimaryKeyInfo[];
-      foreignKeys: ForeignKeyInfo[];
-      indexes: IndexInfo[];
-      uniqueConstraints: UniqueConstraintInfo[];
-      checkConstraints: CheckConstraintInfo[];
-    }>();
+    const tables = new Map<
+      string,
+      {
+        columns: ColumnDetail[];
+        primaryKeys: PrimaryKeyInfo[];
+        foreignKeys: ForeignKeyInfo[];
+        indexes: IndexInfo[];
+        uniqueConstraints: UniqueConstraintInfo[];
+        checkConstraints: CheckConstraintInfo[];
+      }
+    >();
 
     // Process columns
     for (const row of columns) {
@@ -885,7 +859,7 @@ export async function getSchemaMetadataBatch(
           foreignKeys: [],
           indexes: [],
           uniqueConstraints: [],
-          checkConstraints: []
+          checkConstraints: [],
         });
       }
       tables.get(row.table_name)!.columns.push({
@@ -899,7 +873,7 @@ export async function getSchemaMetadataBatch(
         is_serial: Boolean(row.is_serial),
         comment: row.comment,
         check_constraint: row.check_constraint,
-        ordinal_position: row.ordinal_position
+        ordinal_position: row.ordinal_position,
       });
     }
 
@@ -907,7 +881,7 @@ export async function getSchemaMetadataBatch(
     for (const row of primaryKeys) {
       if (tables.has(row.table_name)) {
         tables.get(row.table_name)!.primaryKeys.push({
-          column_name: row.column_name
+          column_name: row.column_name,
         });
       }
     }
@@ -924,7 +898,7 @@ export async function getSchemaMetadataBatch(
           target_table: row.target_table,
           target_column: row.target_column,
           update_rule: row.update_rule,
-          delete_rule: row.delete_rule
+          delete_rule: row.delete_rule,
         });
       }
     }
@@ -939,7 +913,7 @@ export async function getSchemaMetadataBatch(
           is_unique: Boolean(row.is_unique),
           is_primary: Boolean(row.is_primary),
           index_type: row.index_type,
-          seq_in_index: row.seq_in_index
+          seq_in_index: row.seq_in_index,
         });
       }
     }
@@ -952,7 +926,7 @@ export async function getSchemaMetadataBatch(
           table_schema: row.table_schema,
           table_name: row.table_name,
           column_name: row.column_name,
-          ordinal_position: row.ordinal_position
+          ordinal_position: row.ordinal_position,
         });
       }
     }
@@ -964,37 +938,37 @@ export async function getSchemaMetadataBatch(
           constraint_name: row.constraint_name,
           table_schema: row.table_schema,
           table_name: row.table_name,
-          check_clause: row.check_clause
+          check_clause: row.check_clause,
         });
       }
     }
 
     // Process enum columns - extract values from ENUM('val1','val2',...)
-    const processedEnumColumns: EnumColumnInfo[] = enumColumns.map(row => {
+    const processedEnumColumns: EnumColumnInfo[] = enumColumns.map((row) => {
       const match = row.column_type.match(/^enum\((.+)\)$/i);
       let enumValues: string[] = [];
       if (match) {
         // Parse enum values: 'val1','val2','val3'
-        enumValues = match[1].split(',').map((v: string) => v.trim().replace(/^'|'$/g, ''));
+        enumValues = match[1].split(",").map((v: string) => v.trim().replace(/^'|'$/g, ""));
       }
       return {
         table_name: row.table_name,
         column_name: row.column_name,
-        enum_values: enumValues
+        enum_values: enumValues,
       };
     });
 
     // Process auto_increment info
-    const processedAutoIncrements: AutoIncrementInfo[] = autoIncrements.map(row => ({
+    const processedAutoIncrements: AutoIncrementInfo[] = autoIncrements.map((row) => ({
       table_name: row.table_name,
       column_name: row.column_name,
-      auto_increment_value: row.auto_increment_value
+      auto_increment_value: row.auto_increment_value,
     }));
 
     const result: SchemaMetadataBatch = {
       tables,
       enumColumns: processedEnumColumns,
-      autoIncrements: processedAutoIncrements
+      autoIncrements: processedAutoIncrements,
     };
 
     // Cache the result
@@ -1007,13 +981,13 @@ export async function getSchemaMetadataBatch(
     if (connection) {
       try {
         connection.release();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -1038,15 +1012,13 @@ export async function createTable(
   schemaName: string,
   tableName: string,
   columns: ColumnDetail[],
-  foreignKeys: ForeignKeyInfo[] = []
+  foreignKeys: ForeignKeyInfo[] = [],
 ) {
   const connection = await mysql.createPool(conn).getConnection();
 
-  const primaryKeys = columns
-    .filter(c => c.is_primary_key)
-    .map(c => quoteIdent(c.name));
+  const primaryKeys = columns.filter((c) => c.is_primary_key).map((c) => quoteIdent(c.name));
 
-  const columnDefs = columns.map(col => {
+  const columnDefs = columns.map((col) => {
     if (!TYPE_MAP[col.type]) {
       throw new Error(`Invalid type: ${col.type}`);
     }
@@ -1055,7 +1027,7 @@ export async function createTable(
       quoteIdent(col.name),
       TYPE_MAP[col.type],
       col.not_nullable || col.is_primary_key ? "NOT NULL" : "",
-      col.default_value ? `DEFAULT ${col.default_value}` : ""
+      col.default_value ? `DEFAULT ${col.default_value}` : "",
     ].filter(Boolean);
 
     return parts.join(" ");
@@ -1109,16 +1081,12 @@ function groupMySQLIndexes(indexes: IndexInfo[]) {
     map.get(idx.index_name)!.push(idx);
   }
 
-  return [...map.values()].map(group =>
-    group.sort((a, b) => (a.seq_in_index ?? 0) - (b.seq_in_index ?? 0))
+  return [...map.values()].map((group) =>
+    group.sort((a, b) => (a.seq_in_index ?? 0) - (b.seq_in_index ?? 0)),
   );
 }
 
-
-export async function createIndexes(
-  conn: MySQLConfig,
-  indexes: IndexInfo[]
-): Promise<boolean> {
+export async function createIndexes(conn: MySQLConfig, indexes: IndexInfo[]): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const groupedIndexes = groupMySQLIndexes(indexes);
 
@@ -1129,9 +1097,7 @@ export async function createIndexes(
       // Skip primary key (handled during CREATE TABLE)
       if (first.is_primary) continue;
 
-      const columns = group
-        .map(i => quoteIdent(i.column_name))
-        .join(", ");
+      const columns = group.map((i) => quoteIdent(i.column_name)).join(", ");
 
       const query = `
         CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX
@@ -1157,12 +1123,10 @@ export async function createIndexes(
   }
 }
 
-
-
 export async function alterTable(
   conn: MySQLConfig,
   tableName: string,
-  operations: MySQLAlterTableOperation[]
+  operations: MySQLAlterTableOperation[],
 ): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1252,7 +1216,7 @@ export async function alterTable(
 export async function dropTable(
   conn: MySQLConfig,
   tableName: string,
-  mode: MySQLDropMode = "RESTRICT"
+  mode: MySQLDropMode = "RESTRICT",
 ): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1268,12 +1232,12 @@ export async function dropTable(
         WHERE REFERENCED_TABLE_NAME = ?
           AND REFERENCED_TABLE_SCHEMA = DATABASE();
         `,
-        [tableName]
+        [tableName],
       );
 
       if (rows.length > 0 && mode === "RESTRICT") {
         throw new Error(
-          `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`
+          `Cannot drop table "${tableName}" — referenced by ${rows.length} foreign key(s)`,
         );
       }
 
@@ -1314,7 +1278,6 @@ export async function ensureMigrationTable(conn: MySQLConfig) {
   }
 }
 
-
 export async function hasAnyMigrations(conn: MySQLConfig): Promise<boolean> {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1328,12 +1291,11 @@ export async function hasAnyMigrations(conn: MySQLConfig): Promise<boolean> {
   }
 }
 
-
 export async function insertBaseline(
   conn: MySQLConfig,
   version: string,
   name: string,
-  checksum: string
+  checksum: string,
 ) {
   const pool = mysql.createPool(conn);
   const connection = await pool.getConnection();
@@ -1349,7 +1311,7 @@ export async function insertBaseline(
 export async function baselineIfNeeded(
   conn: MySQLConfig,
   migrationsDir: string,
-  snapshot?: SchemaFile
+  snapshot?: SchemaFile,
 ) {
   try {
     await ensureMigrationTable(conn);
@@ -1368,32 +1330,23 @@ export async function baselineIfNeeded(
       schemas: [],
       cachedAt: "",
       relwaveVersion: "",
-      schemaHash: ""
+      schemaHash: "",
     };
 
-    const filePath = writeBaselineMigration(
-      migrationsDir,
-      version,
-      name,
-      fakeSnapshot
-    );
+    const filePath = writeBaselineMigration(migrationsDir, version, name, fakeSnapshot);
 
-    const checksum = crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(filePath))
-      .digest("hex");
+    const checksum = crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 
     await insertBaseline(conn, version, name, checksum);
 
     return { baselined: true, version };
   } catch (err) {
+    console.log("[MySQL] Baseline failed:", err);
     throw err;
   }
 }
 
-export async function listAppliedMigrations(
-  cfg: MySQLConfig
-): Promise<AppliedMigration[]> {
+export async function listAppliedMigrations(cfg: MySQLConfig): Promise<AppliedMigration[]> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
 
@@ -1406,7 +1359,7 @@ export async function listAppliedMigrations(
       WHERE table_schema = DATABASE()
         AND table_name = 'schema_migrations'
       LIMIT 1;
-      `
+      `,
     );
 
     if (tables.length === 0) {
@@ -1422,11 +1375,10 @@ export async function listAppliedMigrations(
   }
 }
 
-
 export async function connectToDatabase(
   cfg: MySQLConfig,
   connectionId: string,
-  options?: { readOnly?: boolean }
+  options?: { readOnly?: boolean },
 ) {
   let baselineResult = { baselined: false };
   const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
@@ -1438,7 +1390,7 @@ export async function connectToDatabase(
     try {
       const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
       if (project) {
-        snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
+        snapshot = (await projectStoreInstance.getSchema(project.id)) || undefined;
       }
     } catch {}
     baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
@@ -1458,8 +1410,8 @@ export async function connectToDatabase(
     schema,
     migrations: {
       local: localMigrations,
-      applied: appliedMigrations
-    }
+      applied: appliedMigrations,
+    },
   };
 }
 
@@ -1468,14 +1420,14 @@ export async function connectToDatabase(
  */
 export async function applyMigration(
   cfg: MySQLConfig,
-  migrationFilePath: string
+  migrationFilePath: string,
 ): Promise<boolean> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
 
   try {
     // Read and parse migration file
-    const { readMigrationFile } = await import('../utils/migrationFileReader');
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
     const migration = readMigrationFile(migrationFilePath);
 
     // Begin transaction
@@ -1488,7 +1440,7 @@ export async function applyMigration(
     await connection.query(
       `INSERT INTO schema_migrations (version, name, checksum)
        VALUES (?, ?, ?)`,
-      [migration.version, migration.name, migration.checksum]
+      [migration.version, migration.name, migration.checksum],
     );
 
     // Commit transaction
@@ -1513,14 +1465,14 @@ export async function applyMigration(
 export async function rollbackMigration(
   cfg: MySQLConfig,
   version: string,
-  migrationFilePath: string
+  migrationFilePath: string,
 ): Promise<boolean> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
 
   try {
     // Read and parse migration file
-    const { readMigrationFile } = await import('../utils/migrationFileReader');
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
     const migration = readMigrationFile(migrationFilePath);
 
     // Begin transaction
@@ -1560,7 +1512,7 @@ export async function insertRow(
   cfg: MySQLConfig,
   schemaName: string,
   tableName: string,
-  rowData: Record<string, any>
+  rowData: Record<string, any>,
 ): Promise<any> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
@@ -1574,7 +1526,7 @@ export async function insertRow(
     }
 
     // Build parameterized query
-    const columnList = columns.map(col => quoteIdent(col)).join(", ");
+    const columnList = columns.map((col) => quoteIdent(col)).join(", ");
     const placeholders = columns.map(() => "?").join(", ");
 
     const query = `
@@ -1590,7 +1542,7 @@ export async function insertRow(
     return {
       success: true,
       insertId: (result as any).insertId,
-      affectedRows: (result as any).affectedRows
+      affectedRows: (result as any).affectedRows,
     };
   } catch (error) {
     throw new Error(`Failed to insert row into ${schemaName}.${tableName}: ${error}`);
@@ -1616,7 +1568,7 @@ export async function updateRow(
   tableName: string,
   primaryKeyColumn: string,
   primaryKeyValue: any,
-  rowData: Record<string, any>
+  rowData: Record<string, any>,
 ): Promise<any> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
@@ -1629,7 +1581,7 @@ export async function updateRow(
       throw new Error("No data provided for update");
     }
 
-    const setClause = columns.map(col => `${quoteIdent(col)} = ?`).join(", ");
+    const setClause = columns.map((col) => `${quoteIdent(col)} = ?`).join(", ");
 
     const query = `
       UPDATE ${quoteIdent(tableName)}
@@ -1644,7 +1596,7 @@ export async function updateRow(
 
     return {
       success: true,
-      affectedRows: (result as any).affectedRows
+      affectedRows: (result as any).affectedRows,
     };
   } catch (error) {
     throw new Error(`Failed to update row in ${schemaName}.${tableName}: ${error}`);
@@ -1668,7 +1620,7 @@ export async function deleteRow(
   schemaName: string,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: any
+  primaryKeyValue: any,
 ): Promise<boolean> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
@@ -1677,14 +1629,14 @@ export async function deleteRow(
     let whereClause: string;
     let whereValues: any[];
 
-    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+    if (primaryKeyColumn && typeof primaryKeyColumn === "string") {
       // Single primary key
       whereClause = `${quoteIdent(primaryKeyColumn)} = ?`;
       whereValues = [primaryKeyValue];
-    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+    } else if (typeof primaryKeyValue === "object" && primaryKeyValue !== null) {
       // Composite key - use all columns from the object
       const cols = Object.keys(primaryKeyValue);
-      whereClause = cols.map(col => `${quoteIdent(col)} = ?`).join(" AND ");
+      whereClause = cols.map((col) => `${quoteIdent(col)} = ?`).join(" AND ");
       whereValues = Object.values(primaryKeyValue);
     } else {
       throw new Error("Either primary key or where conditions required for delete");
@@ -1726,13 +1678,13 @@ export async function searchTable(
   searchTerm: string,
   column?: string,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
 ): Promise<{ rows: any[]; total: number }> {
   const pool = mysql.createPool(cfg);
   const connection = await pool.getConnection();
 
   try {
-    const searchPattern = `%${searchTerm.replace(/[%_]/g, '\\$&')}%`;
+    const searchPattern = `%${searchTerm.replace(/[%_]/g, "\\$&")}%`;
 
     let whereClause: string;
     let values: any[];
@@ -1745,25 +1697,23 @@ export async function searchTable(
       // Get all columns and search across them
       const [colRows] = await connection.query(
         `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
-        [schemaName, tableName]
+        [schemaName, tableName],
       );
-      const columns = (colRows as any[]).map(r => r.COLUMN_NAME);
+      const columns = (colRows as any[]).map((r) => r.COLUMN_NAME);
 
       if (columns.length === 0) {
         return { rows: [], total: 0 };
       }
 
       // Build OR clause for all columns
-      whereClause = columns
-        .map(col => `${quoteIdent(col)} LIKE ?`)
-        .join(" OR ");
+      whereClause = columns.map((col) => `${quoteIdent(col)} LIKE ?`).join(" OR ");
       values = Array(columns.length).fill(searchPattern);
     }
 
     // Count total matches
     const [countRows] = await connection.query(
       `SELECT COUNT(*) as total FROM ${quoteIdent(tableName)} WHERE ${whereClause}`,
-      values
+      values,
     );
     const total = (countRows as any[])[0]?.total || 0;
 
@@ -1771,7 +1721,7 @@ export async function searchTable(
     const offset = (page - 1) * pageSize;
     const [rows] = await connection.query(
       `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereClause} LIMIT ? OFFSET ?`,
-      [...values, pageSize, offset]
+      [...values, pageSize, offset],
     );
 
     return { rows: rows as any[], total };

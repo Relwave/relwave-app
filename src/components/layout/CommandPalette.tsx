@@ -89,7 +89,7 @@ function ItemBadge({ type }: { type: ItemType }) {
         // font-mono resolves to IBM Plex Mono via your global CSS / Tailwind config
         "ml-auto shrink-0 rounded border px-1.5 py-[2px]",
         "font-mono text-[9.5px] font-medium tracking-[0.12em]",
-        TYPE_COLORS[type]
+        TYPE_COLORS[type],
       )}
     >
       {TYPE_LABELS[type]}
@@ -106,16 +106,14 @@ function KbdHint({ keys }: { keys: string[] }) {
     <div className="flex items-center gap-0.5">
       {keys.map((k, i) => (
         <React.Fragment key={k}>
-          {i > 0 && (
-            <span className="font-mono text-[9px] text-muted-foreground/40 mx-px">+</span>
-          )}
+          {i > 0 && <span className="font-mono text-[9px] text-muted-foreground/40 mx-px">+</span>}
           <kbd
             className={cn(
               "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border",
               "border-sidebar-border bg-sidebar px-1",
               // IBM Plex Mono — characters are narrower so ↑↓↵ sit better
               "font-mono text-[10px] font-medium text-muted-foreground/70",
-              "leading-none"
+              "leading-none",
             )}
           >
             {k}
@@ -139,9 +137,7 @@ function EmptyState({ query }: { query: string }) {
           No results
         </p>
         {/* IBM Plex Mono for the echoed query — makes the search term look "literal" */}
-        <p className="font-mono text-[11px] text-muted-foreground/40">
-          &ldquo;{query}&rdquo;
-        </p>
+        <p className="font-mono text-[11px] text-muted-foreground/40">&ldquo;{query}&rdquo;</p>
       </div>
     </div>
   );
@@ -167,9 +163,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <span className="font-semibold text-primary">
-        {text.slice(idx, idx + query.length)}
-      </span>
+      <span className="font-semibold text-primary">{text.slice(idx, idx + query.length)}</span>
       {text.slice(idx + query.length)}
     </>
   );
@@ -204,7 +198,9 @@ export function CommandPalette() {
     try {
       const saved = localStorage.getItem(RECENT_ITEMS_KEY);
       if (saved) setRecentItems(JSON.parse(saved));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const addToRecent = React.useCallback((item: Omit<RecentItem, "timestamp">) => {
@@ -243,13 +239,16 @@ export function CommandPalette() {
       command();
       if (item) addToRecent(item);
     },
-    [addToRecent]
+    [addToRecent],
   );
 
-  const pages = React.useMemo(() => [
-    { icon: Home, label: "Dashboard", path: "/" },
-    { icon: Settings, label: "Settings", path: "/settings" },
-  ], []);
+  const pages = React.useMemo(
+    () => [
+      { icon: Home, label: "Dashboard", path: "/" },
+      { icon: Settings, label: "Settings", path: "/settings" },
+    ],
+    [],
+  );
 
   const isSearching = search.trim().length > 0;
   const showRecent = !isSearching && recentItems.length > 0;
@@ -282,7 +281,7 @@ export function CommandPalette() {
                 "flex h-12 w-full bg-transparent py-3 outline-none",
                 // IBM Plex Sans 400, slightly larger than item text for prominence
                 "font-sans text-[14px] font-normal tracking-[-0.01em]",
-                "placeholder:text-muted-foreground/40 text-foreground"
+                "placeholder:text-muted-foreground/40 text-foreground",
               )}
               value={search}
               onValueChange={setSearch}
@@ -290,10 +289,12 @@ export function CommandPalette() {
 
             {/* Active DB context pill */}
             {contextLabel && !isSearching && (
-              <div className={cn(
-                "flex items-center gap-1 rounded border border-sidebar-border bg-sidebar/60 px-2 py-1",
-                "font-mono text-[10.5px] text-muted-foreground/60 whitespace-nowrap"
-              )}>
+              <div
+                className={cn(
+                  "flex items-center gap-1 rounded border border-sidebar-border bg-sidebar/60 px-2 py-1",
+                  "font-mono text-[10.5px] text-muted-foreground/60 whitespace-nowrap",
+                )}
+              >
                 <Database className="h-3 w-3" />
                 {contextLabel}
               </div>
@@ -336,8 +337,11 @@ export function CommandPalette() {
                     key={`recent-${item.id}`}
                     valuePrefix="recent-"
                     icon={
-                      item.type === "connection" ? Database :
-                        item.type === "project" ? FolderOpen : Home
+                      item.type === "connection"
+                        ? Database
+                        : item.type === "project"
+                          ? FolderOpen
+                          : Home
                     }
                     label={item.label}
                     type={item.type}
@@ -361,7 +365,10 @@ export function CommandPalette() {
                   query={search}
                   onSelect={() =>
                     runCommand(() => navigate(page.path), {
-                      id: page.path, type: "page", label: page.label, path: page.path,
+                      id: page.path,
+                      type: "page",
+                      label: page.label,
+                      path: page.path,
                     })
                   }
                 />
@@ -381,7 +388,10 @@ export function CommandPalette() {
                     meta={`${db.type} · ${db.host}`}
                     onSelect={() =>
                       runCommand(() => navigate(`/${db.id}`), {
-                        id: db.id, type: "connection", label: db.name, path: `/${db.id}`,
+                        id: db.id,
+                        type: "connection",
+                        label: db.name,
+                        path: `/${db.id}`,
                       })
                     }
                   />
@@ -391,7 +401,9 @@ export function CommandPalette() {
 
             {/* Tables */}
             {tables.length > 0 && (
-              <Command.Group heading={<GroupHeading label={`Tables · ${contextLabel ?? dbId}`} mono />}>
+              <Command.Group
+                heading={<GroupHeading label={`Tables · ${contextLabel ?? dbId}`} mono />}
+              >
                 {tables.map((table) => (
                   <CommandItem
                     key={`${dbId}-${table.schema}-${table.name}`}
@@ -418,7 +430,10 @@ export function CommandPalette() {
                     query={search}
                     onSelect={() =>
                       runCommand(() => navigate(`/${project.databaseId}`), {
-                        id: project.id, type: "project", label: project.name, path: `/${project.databaseId}`,
+                        id: project.id,
+                        type: "project",
+                        label: project.name,
+                        path: `/${project.databaseId}`,
                       })
                     }
                   />
@@ -447,7 +462,7 @@ export function CommandPalette() {
                   meta={contextLabel ?? dbId}
                   onSelect={() =>
                     runCommand(() =>
-                      navigate(`/${dbId}`, { state: { activePanel: "sql-workspace" } })
+                      navigate(`/${dbId}`, { state: { activePanel: "sql-workspace" } }),
                     )
                   }
                 />
@@ -458,9 +473,7 @@ export function CommandPalette() {
                 label={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
                 type="action"
                 query={search}
-                onSelect={() =>
-                  runCommand(() => setTheme(theme === "light" ? "dark" : "light"))
-                }
+                onSelect={() => runCommand(() => setTheme(theme === "light" ? "dark" : "light"))}
               />
 
               {THEME_VARIANTS.map((variant) => (
@@ -534,7 +547,7 @@ function GroupHeading({
           "flex items-center gap-1.5",
           mono
             ? "font-mono text-[10px] font-medium tracking-[0.06em] text-muted-foreground/50"
-            : "font-sans  text-[10px] font-semibold tracking-[0.1em] text-muted-foreground/50 uppercase"
+            : "font-sans  text-[10px] font-semibold tracking-[0.1em] text-muted-foreground/50 uppercase",
         )}
       >
         {icon}
@@ -562,7 +575,16 @@ interface CommandItemProps {
   valuePrefix?: string;
 }
 
-function CommandItem({ icon: Icon, label, type, query, meta, suffix, onSelect, valuePrefix = "" }: CommandItemProps) {
+function CommandItem({
+  icon: Icon,
+  label,
+  type,
+  query,
+  meta,
+  suffix,
+  onSelect,
+  valuePrefix = "",
+}: CommandItemProps) {
   return (
     <Command.Item
       value={`${valuePrefix}${type}-${label}`}
@@ -571,24 +593,28 @@ function CommandItem({ icon: Icon, label, type, query, meta, suffix, onSelect, v
         "group flex cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-[7px]",
         "outline-none transition-colors",
         "data-[selected='true']:bg-primary/10 data-[selected='true']:text-foreground",
-        "text-foreground/75 hover:bg-sidebar-accent"
+        "text-foreground/75 hover:bg-sidebar-accent",
       )}
     >
       {/* Tinted icon tile */}
-      <div className={cn(
-        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border",
-        TYPE_COLORS[type]
-      )}>
+      <div
+        className={cn(
+          "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border",
+          TYPE_COLORS[type],
+        )}
+      >
         <Icon className="h-3 w-3" />
       </div>
 
       {/* Label — IBM Plex Sans 450 (between regular and medium) */}
-      <span className={cn(
-        "flex-1 truncate font-sans text-[13px] leading-none",
-        // font-[450] is supported in Tailwind v3.3+ via arbitrary value
-        // Falls back gracefully to 400 on older setups
-        "font-[450] tracking-[-0.005em]"
-      )}>
+      <span
+        className={cn(
+          "flex-1 truncate font-sans text-[13px] leading-none",
+          // font-[450] is supported in Tailwind v3.3+ via arbitrary value
+          // Falls back gracefully to 400 on older setups
+          "font-[450] tracking-[-0.005em]",
+        )}
+      >
         <HighlightMatch text={label} query={query} />
       </span>
 

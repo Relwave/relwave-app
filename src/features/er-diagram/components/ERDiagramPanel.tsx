@@ -4,19 +4,19 @@ import TableNode from "@/features/er-diagram/components/TableNode";
 import ERDiagramContent from "@/features/er-diagram/components/ERDiagramContent";
 
 const nodeTypes = {
-    table: TableNode,
+  table: TableNode,
 } as const;
 
 interface ERDiagramPanelProps {
-    projectId?: string | null;
+  projectId?: string | null;
 }
 
 export default function ERDiagramPanel({ projectId }: ERDiagramPanelProps) {
-    return (
-        <div className="h-full flex flex-col bg-background text-foreground overflow-hidden">
-            <ReactFlowProvider>
-                <ERDiagramContent nodeTypes={nodeTypes} projectId={projectId} />
-            </ReactFlowProvider>
-        </div>
-    );
+  return (
+    <div className="h-full flex flex-col bg-background text-foreground overflow-hidden">
+      <ReactFlowProvider>
+        <ERDiagramContent nodeTypes={nodeTypes} projectId={projectId} />
+      </ReactFlowProvider>
+    </div>
+  );
 }

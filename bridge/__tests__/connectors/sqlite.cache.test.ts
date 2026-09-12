@@ -1,5 +1,5 @@
-import { sqliteCache, SQLiteCacheManager } from "../../src/connectors/sqlite";
-import { describe, it, expect, test, beforeEach } from "@jest/globals";
+import { sqliteCache } from "../../src/connectors/sqlite";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { SQLiteConfig } from "../../src/types/sqlite";
 
 const mockConfig: SQLiteConfig = {
@@ -143,8 +143,22 @@ describe("SQLiteCacheManager", () => {
 
   describe("Table Details Cache", () => {
     const mockDetails = [
-      { name: "id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false },
-      { name: "name", type: "TEXT", not_nullable: true, default_value: null, is_primary_key: false, is_foreign_key: false },
+      {
+        name: "id",
+        type: "INTEGER",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: true,
+        is_foreign_key: false,
+      },
+      {
+        name: "name",
+        type: "TEXT",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: false,
+        is_foreign_key: false,
+      },
     ];
 
     it("should cache and retrieve table details", () => {
@@ -160,8 +174,26 @@ describe("SQLiteCacheManager", () => {
     });
 
     it("should cache table details per schema and table", () => {
-      const usersDetails = [{ name: "id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false }];
-      const ordersDetails = [{ name: "order_id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false }];
+      const usersDetails = [
+        {
+          name: "id",
+          type: "INTEGER",
+          not_nullable: true,
+          default_value: null,
+          is_primary_key: true,
+          is_foreign_key: false,
+        },
+      ];
+      const ordersDetails = [
+        {
+          name: "order_id",
+          type: "INTEGER",
+          not_nullable: true,
+          default_value: null,
+          is_primary_key: true,
+          is_foreign_key: false,
+        },
+      ];
 
       sqliteCache.setTableDetails(mockConfig, "main", "users", usersDetails);
       sqliteCache.setTableDetails(mockConfig, "main", "orders", ordersDetails);
@@ -276,11 +308,22 @@ describe("SQLiteCacheManager", () => {
   describe("Cache Invalidation", () => {
     it("should clear all caches for a specific connection", () => {
       const table = { schema: "main", name: "users", type: "table" };
-      const detail = { name: "id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false };
+      const detail = {
+        name: "id",
+        type: "INTEGER",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: true,
+        is_foreign_key: false,
+      };
 
       // Setup caches
       sqliteCache.setTableList(mockConfig, [table]);
-      sqliteCache.setDBStats(mockConfig, { total_tables: 5, total_db_size_mb: 1.5, total_rows: 500 });
+      sqliteCache.setDBStats(mockConfig, {
+        total_tables: 5,
+        total_db_size_mb: 1.5,
+        total_rows: 500,
+      });
       sqliteCache.setSchemas(mockConfig, [{ name: "main" }]);
       sqliteCache.setTableDetails(mockConfig, "main", "users", [detail]);
       sqliteCache.setPrimaryKeys(mockConfig, "main", "users", [{ column_name: "id" }]);
@@ -299,12 +342,28 @@ describe("SQLiteCacheManager", () => {
       expect(sqliteCache.getPrimaryKeys(mockConfig, "main", "users")).toBeNull();
 
       // Verify second connection intact
-      expect(sqliteCache.getTableList(mockConfig2)).toEqual([{ schema: "main", name: "products", type: "table" }]);
+      expect(sqliteCache.getTableList(mockConfig2)).toEqual([
+        { schema: "main", name: "products", type: "table" },
+      ]);
     });
 
     it("should clear table-specific caches", () => {
-      const usersDetail = { name: "id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false };
-      const ordersDetail = { name: "order_id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false };
+      const usersDetail = {
+        name: "id",
+        type: "INTEGER",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: true,
+        is_foreign_key: false,
+      };
+      const ordersDetail = {
+        name: "order_id",
+        type: "INTEGER",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: true,
+        is_foreign_key: false,
+      };
 
       // Setup
       sqliteCache.setTableDetails(mockConfig, "main", "users", [usersDetail]);
@@ -321,13 +380,19 @@ describe("SQLiteCacheManager", () => {
 
       // Verify other table intact
       expect(sqliteCache.getTableDetails(mockConfig, "main", "orders")).toEqual([ordersDetail]);
-      expect(sqliteCache.getPrimaryKeys(mockConfig, "main", "orders")).toEqual([{ column_name: "order_id" }]);
+      expect(sqliteCache.getPrimaryKeys(mockConfig, "main", "orders")).toEqual([
+        { column_name: "order_id" },
+      ]);
     });
 
     it("should clear all caches", () => {
       sqliteCache.setTableList(mockConfig, [{ schema: "main", name: "users", type: "table" }]);
       sqliteCache.setTableList(mockConfig2, [{ schema: "main", name: "products", type: "table" }]);
-      sqliteCache.setDBStats(mockConfig, { total_tables: 5, total_db_size_mb: 1.5, total_rows: 500 });
+      sqliteCache.setDBStats(mockConfig, {
+        total_tables: 5,
+        total_db_size_mb: 1.5,
+        total_rows: 500,
+      });
 
       sqliteCache.clearAll();
 
@@ -340,11 +405,22 @@ describe("SQLiteCacheManager", () => {
   describe("Cache Statistics", () => {
     it("should return correct cache statistics", () => {
       const table = { schema: "main", name: "users", type: "table" };
-      const detail = { name: "id", type: "INTEGER", not_nullable: true, default_value: null, is_primary_key: true, is_foreign_key: false };
+      const detail = {
+        name: "id",
+        type: "INTEGER",
+        not_nullable: true,
+        default_value: null,
+        is_primary_key: true,
+        is_foreign_key: false,
+      };
 
       sqliteCache.setTableList(mockConfig, [table]);
       sqliteCache.setTableList(mockConfig, [table], "main");
-      sqliteCache.setDBStats(mockConfig, { total_tables: 5, total_db_size_mb: 1.5, total_rows: 500 });
+      sqliteCache.setDBStats(mockConfig, {
+        total_tables: 5,
+        total_db_size_mb: 1.5,
+        total_rows: 500,
+      });
       sqliteCache.setSchemas(mockConfig, [{ name: "main" }]);
       sqliteCache.setTableDetails(mockConfig, "main", "users", [detail]);
       sqliteCache.setPrimaryKeys(mockConfig, "main", "users", [{ column_name: "id" }]);
@@ -404,7 +480,7 @@ describe("SQLiteCacheManager", () => {
               total_rows: i * 100,
             });
             return sqliteCache.getDBStats(mockConfig);
-          })
+          }),
         );
       }
 

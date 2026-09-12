@@ -29,9 +29,15 @@ export class SessionManager {
     return s;
   }
 
-  get(id: string) { return this.sessions.get(id); }
-  remove(id: string) { return this.sessions.delete(id); }
-  list() { return Array.from(this.sessions.values()); }
+  get(id: string) {
+    return this.sessions.get(id);
+  }
+  remove(id: string) {
+    return this.sessions.delete(id);
+  }
+  list() {
+    return Array.from(this.sessions.values());
+  }
 
   registerCancel(id: string, fn: () => Promise<void> | void) {
     const s = this.sessions.get(id);

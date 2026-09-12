@@ -4,17 +4,11 @@ import fsSync from "fs";
 
 export const CONFIG_FOLDER =
   process.env.RELWAVE_HOME ||
-  path.join(
-    os.homedir(),
-    process.platform === "win32"
-      ? "AppData\\Roaming\\relwave"
-      : ".relwave"
-  );
+  path.join(os.homedir(), process.platform === "win32" ? "AppData\\Roaming\\relwave" : ".relwave");
 
 export const CONFIG_FILE = path.join(CONFIG_FOLDER, "databases.json");
 export const CREDENTIALS_FILE = path.join(CONFIG_FOLDER, ".credentials");
 export const AI_SETTINGS_FILE = path.join(CONFIG_FOLDER, "ai-settings.json");
-
 
 export const PROJECTS_FOLDER = path.join(CONFIG_FOLDER, "projects");
 export const PROJECTS_INDEX_FILE = path.join(PROJECTS_FOLDER, "index.json");

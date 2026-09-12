@@ -1,6 +1,6 @@
 /**
  * PostgreSQL CRUD Query Builders
- * 
+ *
  * These are helper functions that generate parameterized queries
  * for safe data manipulation operations.
  */
@@ -29,7 +29,7 @@ export function pgBuildSelectQuery(
   tableName: string,
   orderBy: string,
   limit: number,
-  offset: number
+  offset: number,
 ): string {
   const safeSchema = pgQuoteIdentifier(schemaName);
   const safeTable = pgQuoteIdentifier(tableName);
@@ -48,16 +48,16 @@ export function pgBuildSelectQuery(
 export function pgBuildInsertQuery(
   schemaName: string,
   tableName: string,
-  columns: string[]
+  columns: string[],
 ): { query: string; paramCount: number } {
   const safeSchema = pgQuoteIdentifier(schemaName);
   const safeTable = pgQuoteIdentifier(tableName);
-  const columnList = columns.map(pgQuoteIdentifier).join(', ');
-  const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+  const columnList = columns.map(pgQuoteIdentifier).join(", ");
+  const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
   return {
     query: `INSERT INTO ${safeSchema}.${safeTable} (${columnList}) VALUES (${placeholders}) RETURNING *;`,
-    paramCount: columns.length
+    paramCount: columns.length,
   };
 }
 
@@ -68,16 +68,16 @@ export function pgBuildUpdateQuery(
   schemaName: string,
   tableName: string,
   columns: string[],
-  pkColumn: string
+  pkColumn: string,
 ): { query: string; pkParamIndex: number } {
   const safeSchema = pgQuoteIdentifier(schemaName);
   const safeTable = pgQuoteIdentifier(tableName);
-  const setClause = columns.map((col, i) => `${pgQuoteIdentifier(col)} = $${i + 1}`).join(', ');
+  const setClause = columns.map((col, i) => `${pgQuoteIdentifier(col)} = $${i + 1}`).join(", ");
   const pkParamIndex = columns.length + 1;
 
   return {
     query: `UPDATE ${safeSchema}.${safeTable} SET ${setClause} WHERE ${pgQuoteIdentifier(pkColumn)} = $${pkParamIndex} RETURNING *;`,
-    pkParamIndex
+    pkParamIndex,
   };
 }
 
@@ -87,7 +87,7 @@ export function pgBuildUpdateQuery(
 export function pgBuildDeleteQuery(
   schemaName: string,
   tableName: string,
-  pkColumn: string
+  pkColumn: string,
 ): string {
   const safeSchema = pgQuoteIdentifier(schemaName);
   const safeTable = pgQuoteIdentifier(tableName);
@@ -103,7 +103,7 @@ export function pgBuildSearchQuery(
   tableName: string,
   searchColumns: string[],
   limit: number,
-  offset: number
+  offset: number,
 ): { dataQuery: string; countQuery: string; paramStartIndex: number } {
   const safeSchema = pgQuoteIdentifier(schemaName);
   const safeTable = pgQuoteIdentifier(tableName);
@@ -111,7 +111,7 @@ export function pgBuildSearchQuery(
   // Each column gets its own parameter for the search term
   const whereClause = searchColumns
     .map((col, i) => `CAST(${pgQuoteIdentifier(col)} AS TEXT) ILIKE $${i + 1}`)
-    .join(' OR ');
+    .join(" OR ");
 
   return {
     dataQuery: `
@@ -123,6 +123,6 @@ export function pgBuildSearchQuery(
       SELECT COUNT(*) AS total FROM ${safeSchema}.${safeTable}
       WHERE ${whereClause};
     `,
-    paramStartIndex: 1
+    paramStartIndex: 1,
   };
 }

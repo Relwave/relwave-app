@@ -65,7 +65,7 @@ export function AnalyzeSchemaButton({ schemaData, databaseType, dbId }: AnalyzeS
           isPrimaryKey: col.isPrimaryKey,
           isForeignKey: col.isForeignKey,
         })),
-      }))
+      })),
     ),
   });
 

@@ -8,13 +8,16 @@ export function buildQueryExplanationPrompt(input: QueryExplanationInput): {
   const schemaContext =
     input.schema && input.schema.length > 0
       ? input.schema
-        .map((t) => {
-          const cols = t.columns
-            .map((c) => `${c.name} ${c.type}${c.isPrimaryKey ? " PK" : ""}${c.isForeignKey ? " FK" : ""}`)
-            .join(", ");
-          return `- ${t.name}(${cols})`;
-        })
-        .join("\n")
+          .map((t) => {
+            const cols = t.columns
+              .map(
+                (c) =>
+                  `${c.name} ${c.type}${c.isPrimaryKey ? " PK" : ""}${c.isForeignKey ? " FK" : ""}`,
+              )
+              .join(", ");
+            return `- ${t.name}(${cols})`;
+          })
+          .join("\n")
       : "Schema not provided.";
 
   const dbType = input.databaseType ? ` (${input.databaseType})` : "";

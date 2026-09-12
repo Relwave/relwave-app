@@ -108,12 +108,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10  # aligned with release workflow
+          version: 10 # aligned with release workflow
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22  # aligned with release workflow, not lts/*
+          node-version: 22 # aligned with release workflow, not lts/*
           cache: "pnpm"
 
       - name: Install bridge dependencies
@@ -137,4 +137,3 @@ jobs:
         run: |
           cd bridge
           pnpm test
-          

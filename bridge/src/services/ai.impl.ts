@@ -24,17 +24,20 @@ export class AIServiceImpl {
     switch (name) {
       case "anthropic": {
         const key = settings.anthropicApiKey?.trim();
-        if (!key) throw new AIError("MISSING_API_KEY", "anthropic", "Anthropic API key is not configured.");
+        if (!key)
+          throw new AIError("MISSING_API_KEY", "anthropic", "Anthropic API key is not configured.");
         return new AnthropicProvider(key, settings.anthropicModel);
       }
       case "openai": {
         const key = settings.openaiApiKey?.trim();
-        if (!key) throw new AIError("MISSING_API_KEY", "openai", "OpenAI API key is not configured.");
+        if (!key)
+          throw new AIError("MISSING_API_KEY", "openai", "OpenAI API key is not configured.");
         return new OpenAIProvider(key, settings.openaiModel);
       }
       case "gemini": {
         const key = settings.geminiApiKey?.trim();
-        if (!key) throw new AIError("MISSING_API_KEY", "gemini", "Gemini API key is not configured.");
+        if (!key)
+          throw new AIError("MISSING_API_KEY", "gemini", "Gemini API key is not configured.");
         return new GeminiProvider(key, settings.geminiModel);
       }
       case "groq": {
@@ -44,7 +47,8 @@ export class AIServiceImpl {
       }
       case "mistral": {
         const key = settings.mistralApiKey?.trim();
-        if (!key) throw new AIError("MISSING_API_KEY", "mistral", "Mistral API key is not configured.");
+        if (!key)
+          throw new AIError("MISSING_API_KEY", "mistral", "Mistral API key is not configured.");
         return new MistralProvider(key, settings.mistralModel);
       }
       case "ollama": {

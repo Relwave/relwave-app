@@ -8,12 +8,7 @@ import path from "path";
 import { ensureDir } from "../utils/config";
 import { projectStoreInstance } from "../services/projectStore";
 import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
-import {
-  CacheEntry,
-  CACHE_TTL,
-  STATS_CACHE_TTL,
-  SCHEMA_CACHE_TTL
-} from "../types/cache";
+import { CacheEntry, CACHE_TTL, STATS_CACHE_TTL, SCHEMA_CACHE_TTL } from "../types/cache";
 import {
   TableInfo,
   DBStats,
@@ -52,10 +47,9 @@ import {
   SQLITE_CHECK_MIGRATIONS_EXIST,
   SQLITE_INSERT_MIGRATION,
   SQLITE_LIST_APPLIED_MIGRATIONS,
-  SQLITE_DELETE_MIGRATION
+  SQLITE_DELETE_MIGRATION,
 } from "../queries/sqlite/migrations";
 import { SQLITE_GET_TABLE_SQL } from "../queries/sqlite/constraints";
-import { sqliteQuoteIdentifier } from "../queries/sqlite/crud";
 import { SchemaFile } from "../services/projectStore";
 
 // ============================================
@@ -204,9 +198,13 @@ export class SQLiteCacheManager {
   clearForConnection(cfg: SQLiteConfig): void {
     const configKey = this.getConfigKey(cfg);
     for (const cache of [
-      this.tableListCache, this.primaryKeysCache, this.tableDetailsCache,
-      this.foreignKeysCache, this.indexesCache, this.uniqueCache,
-      this.checksCache
+      this.tableListCache,
+      this.primaryKeysCache,
+      this.tableDetailsCache,
+      this.foreignKeysCache,
+      this.indexesCache,
+      this.uniqueCache,
+      this.checksCache,
     ]) {
       for (const [key] of cache) {
         if (key.startsWith(configKey)) cache.delete(key);
@@ -264,33 +262,37 @@ let cachedNativeBindingPath: string | null | undefined = undefined;
 
 function validateSQLitePath(
   rawPath: string,
-  options: { requireExistingFile?: boolean } = {}
+  options: { requireExistingFile?: boolean } = {},
 ): string {
   const dbPath = normalizeSQLitePath(rawPath);
 
   if (!dbPath || !dbPath.trim()) {
-    throw new Error(`Invalid SQLite path: path is empty or missing. Received: ${JSON.stringify(rawPath)}`);
+    throw new Error(
+      `Invalid SQLite path: path is empty or missing. Received: ${JSON.stringify(rawPath)}`,
+    );
   }
 
   if (isWindowsDriveRootPath(dbPath)) {
     throw new Error(
-      `Invalid SQLite path "${dbPath}" - it points to a Windows drive root, not a database file.`
+      `Invalid SQLite path "${dbPath}" - it points to a Windows drive root, not a database file.`,
     );
   }
 
-  const validExtensions = ['.db', '.sqlite', '.sqlite3', '.db3', '.s3db', '.sl3'];
-  const ext = dbPath.substring(dbPath.lastIndexOf('.')).toLowerCase();
-  
-  if (dbPath !== ':memory:' && !validExtensions.includes(ext)) {
+  const validExtensions = [".db", ".sqlite", ".sqlite3", ".db3", ".s3db", ".sl3"];
+  const ext = dbPath.substring(dbPath.lastIndexOf(".")).toLowerCase();
+
+  if (dbPath !== ":memory:" && !validExtensions.includes(ext)) {
     throw new Error(
-      `Invalid SQLite path "${dbPath}" - must have a valid SQLite extension (.db, .sqlite, etc.) to prevent arbitrary file access.`
+      `Invalid SQLite path "${dbPath}" - must have a valid SQLite extension (.db, .sqlite, etc.) to prevent arbitrary file access.`,
     );
   }
 
   if (fs.existsSync(dbPath)) {
     const stat = fs.statSync(dbPath);
     if (stat.isDirectory()) {
-      throw new Error(`Invalid SQLite path "${dbPath}" - it points to a directory, not a database file.`);
+      throw new Error(
+        `Invalid SQLite path "${dbPath}" - it points to a directory, not a database file.`,
+      );
     }
     return dbPath;
   }
@@ -346,7 +348,8 @@ export function resolvePkgNativeBindingPath(): string | undefined {
     return undefined;
   }
 
-  const envOverride = process.env.RELWAVE_SQLITE_NATIVE_BINDING || process.env.BETTER_SQLITE3_BINDING;
+  const envOverride =
+    process.env.RELWAVE_SQLITE_NATIVE_BINDING || process.env.BETTER_SQLITE3_BINDING;
   if (envOverride) {
     const resolvedOverride = path.resolve(envOverride);
     if (fs.existsSync(resolvedOverride)) {
@@ -379,8 +382,21 @@ export function resolvePkgNativeBindingPath(): string | undefined {
     snapshotCandidates.push(
       path.join(pkgDir, "build", "Release", "better_sqlite3.node"),
       path.join(pkgDir, "build", "Debug", "better_sqlite3.node"),
-      path.join(pkgDir, "compiled", `${process.versions.node}`, process.platform, process.arch, "better_sqlite3.node"),
-      path.join(pkgDir, "lib", "binding", `node-v${process.versions.modules}-${process.platform}-${process.arch}`, "better_sqlite3.node")
+      path.join(
+        pkgDir,
+        "compiled",
+        `${process.versions.node}`,
+        process.platform,
+        process.arch,
+        "better_sqlite3.node",
+      ),
+      path.join(
+        pkgDir,
+        "lib",
+        "binding",
+        `node-v${process.versions.modules}-${process.platform}-${process.arch}`,
+        "better_sqlite3.node",
+      ),
     );
   } catch {
     // Ignore; fall back to hardcoded snapshot paths below.
@@ -389,9 +405,36 @@ export function resolvePkgNativeBindingPath(): string | undefined {
   const snapshotRoot = path.join(path.sep, "snapshot", "bridge", "node_modules");
   snapshotCandidates.push(
     path.join(snapshotRoot, "better-sqlite3", "build", "Release", "better_sqlite3.node"),
-    path.join(snapshotRoot, ".pnpm", "better-sqlite3@12.6.2", "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node"),
-    path.join(snapshotRoot, ".pnpm", "better-sqlite3@11.10.0", "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node"),
-    path.join(snapshotRoot, ".pnpm", "better-sqlite3@11.9.0", "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node")
+    path.join(
+      snapshotRoot,
+      ".pnpm",
+      "better-sqlite3@12.6.2",
+      "node_modules",
+      "better-sqlite3",
+      "build",
+      "Release",
+      "better_sqlite3.node",
+    ),
+    path.join(
+      snapshotRoot,
+      ".pnpm",
+      "better-sqlite3@11.10.0",
+      "node_modules",
+      "better-sqlite3",
+      "build",
+      "Release",
+      "better_sqlite3.node",
+    ),
+    path.join(
+      snapshotRoot,
+      ".pnpm",
+      "better-sqlite3@11.9.0",
+      "node_modules",
+      "better-sqlite3",
+      "build",
+      "Release",
+      "better_sqlite3.node",
+    ),
   );
 
   const targetNodeFile = path.join(os.tmpdir(), `relwave-better_sqlite3-${process.pid}.node`);
@@ -441,7 +484,9 @@ function quoteIdent(name: string): string {
 // ============================================
 
 /** Test connection to SQLite database (checks if file is accessible) */
-export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; message?: string; status: 'connected' | 'disconnected' }> {
+export async function testConnection(
+  cfg: SQLiteConfig,
+): Promise<{ ok: boolean; message?: string; status: "connected" | "disconnected" }> {
   try {
     const dbPath = validateSQLitePath(cfg.path, { requireExistingFile: true });
 
@@ -453,9 +498,12 @@ export async function testConnection(cfg: SQLiteConfig): Promise<{ ok: boolean; 
       };
     }
     // Use fileMustExist so better-sqlite3 will not create a new file during connection test
-    const db = openDB({ ...cfg, path: dbPath }, {
-      fileMustExist: true,
-    });
+    const db = openDB(
+      { ...cfg, path: dbPath },
+      {
+        fileMustExist: true,
+      },
+    );
     db.pragma("journal_mode");
     db.close();
     return { ok: true, status: "connected", message: "Connection successful" };
@@ -480,7 +528,11 @@ export async function listTables(cfg: SQLiteConfig, _schemaName?: string): Promi
 }
 
 /** List primary keys for a table */
-export async function listPrimaryKeys(cfg: SQLiteConfig, schemaName: string = 'main', tableName: string): Promise<PrimaryKeyInfo[]> {
+export async function listPrimaryKeys(
+  cfg: SQLiteConfig,
+  schemaName: string = "main",
+  tableName: string,
+): Promise<PrimaryKeyInfo[]> {
   const cached = sqliteCache.getPrimaryKeys(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -499,7 +551,11 @@ export async function listPrimaryKeys(cfg: SQLiteConfig, schemaName: string = 'm
 }
 
 /** List foreign keys for a table */
-export async function listForeignKeys(cfg: SQLiteConfig, schemaName: string = 'main', tableName: string): Promise<ForeignKeyInfo[]> {
+export async function listForeignKeys(
+  cfg: SQLiteConfig,
+  schemaName: string = "main",
+  tableName: string,
+): Promise<ForeignKeyInfo[]> {
   const cached = sqliteCache.getForeignKeys(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -514,8 +570,8 @@ export async function listForeignKeys(cfg: SQLiteConfig, schemaName: string = 'm
       target_schema: schemaName,
       target_table: fk.table,
       target_column: fk.to,
-      update_rule: fk.on_update || 'NO ACTION',
-      delete_rule: fk.on_delete || 'NO ACTION',
+      update_rule: fk.on_update || "NO ACTION",
+      delete_rule: fk.on_delete || "NO ACTION",
       ordinal_position: fk.seq,
     }));
 
@@ -527,7 +583,11 @@ export async function listForeignKeys(cfg: SQLiteConfig, schemaName: string = 'm
 }
 
 /** List indexes for a table */
-export async function listIndexes(cfg: SQLiteConfig, schemaName: string = 'main', tableName: string): Promise<IndexInfo[]> {
+export async function listIndexes(
+  cfg: SQLiteConfig,
+  schemaName: string = "main",
+  tableName: string,
+): Promise<IndexInfo[]> {
   const cached = sqliteCache.getIndexes(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -544,8 +604,8 @@ export async function listIndexes(cfg: SQLiteConfig, schemaName: string = 'main'
           index_name: idx.name,
           column_name: col.name,
           is_unique: idx.unique === 1,
-          is_primary: idx.origin === 'pk',
-          index_type: 'btree',
+          is_primary: idx.origin === "pk",
+          index_type: "btree",
           ordinal_position: col.seqno,
         });
       }
@@ -559,7 +619,11 @@ export async function listIndexes(cfg: SQLiteConfig, schemaName: string = 'main'
 }
 
 /** List unique constraints for a table */
-export async function listUniqueConstraints(cfg: SQLiteConfig, schemaName: string = 'main', tableName: string): Promise<UniqueConstraintInfo[]> {
+export async function listUniqueConstraints(
+  cfg: SQLiteConfig,
+  schemaName: string = "main",
+  tableName: string,
+): Promise<UniqueConstraintInfo[]> {
   const cached = sqliteCache.getUnique(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -569,7 +633,7 @@ export async function listUniqueConstraints(cfg: SQLiteConfig, schemaName: strin
     const result: UniqueConstraintInfo[] = [];
 
     for (const idx of indexes) {
-      if (idx.unique !== 1 || idx.origin === 'pk') continue;
+      if (idx.unique !== 1 || idx.origin === "pk") continue;
       const cols = db.pragma(`index_info(${quoteIdent(idx.name)})`) as any[];
       for (const col of cols) {
         result.push({
@@ -590,7 +654,11 @@ export async function listUniqueConstraints(cfg: SQLiteConfig, schemaName: strin
 }
 
 /** List check constraints for a table (best-effort via CREATE TABLE SQL parsing) */
-export async function listCheckConstraints(cfg: SQLiteConfig, schemaName: string = 'main', tableName: string): Promise<CheckConstraintInfo[]> {
+export async function listCheckConstraints(
+  cfg: SQLiteConfig,
+  schemaName: string = "main",
+  tableName: string,
+): Promise<CheckConstraintInfo[]> {
   const cached = sqliteCache.getChecks(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -634,9 +702,9 @@ export async function getDBStats(cfg: SQLiteConfig): Promise<DBStats> {
     // Get DB file size
     const pageCount = db.pragma("page_count", { simple: true }) as number;
     const pageSize = db.pragma("page_size", { simple: true }) as number;
-    const totalSizeMB = (pageCount * pageSize) / (1024 * 1024);    // Count total rows across all tables.
+    const totalSizeMB = (pageCount * pageSize) / (1024 * 1024); // Count total rows across all tables.
     // Removed because better-sqlite3 is synchronous and SELECT COUNT(*) blocks the Node event loop.
-    let totalRows = -1;
+    const totalRows = -1;
 
     const result: DBStats = {
       total_tables: totalTables,
@@ -656,18 +724,22 @@ export async function listSchemas(cfg: SQLiteConfig): Promise<SchemaInfo[]> {
   const cached = sqliteCache.getSchemas(cfg);
   if (cached !== null) return cached;
 
-  const result: SchemaInfo[] = [{ name: 'main' }];
+  const result: SchemaInfo[] = [{ name: "main" }];
   sqliteCache.setSchemas(cfg, result);
   return result;
 }
 
 /** List schema names */
-export async function listSchemaNames(cfg: SQLiteConfig): Promise<string[]> {
-  return ['main'];
+export async function listSchemaNames(_cfg: SQLiteConfig): Promise<string[]> {
+  return ["main"];
 }
 
 /** Get table column details */
-export async function getTableDetails(cfg: SQLiteConfig, schemaName: string, tableName: string): Promise<ColumnDetail[]> {
+export async function getTableDetails(
+  cfg: SQLiteConfig,
+  schemaName: string,
+  tableName: string,
+): Promise<ColumnDetail[]> {
   const cached = sqliteCache.getTableDetails(cfg, schemaName, tableName);
   if (cached !== null) return cached;
 
@@ -681,7 +753,7 @@ export async function getTableDetails(cfg: SQLiteConfig, schemaName: string, tab
       .filter((col: any) => !col.hidden || col.hidden === 0)
       .map((col: any) => ({
         name: col.name,
-        type: col.type || 'TEXT',
+        type: col.type || "TEXT",
         not_nullable: col.notnull === 1,
         default_value: col.dflt_value,
         is_primary_key: col.pk > 0,
@@ -698,19 +770,22 @@ export async function getTableDetails(cfg: SQLiteConfig, schemaName: string, tab
 /** Fetch all table metadata in batch for a schema */
 export async function getSchemaMetadataBatch(
   cfg: SQLiteConfig,
-  _schemaName: string
+  _schemaName: string,
 ): Promise<SQLiteSchemaMetadataBatch> {
   const db = openDB(cfg);
   try {
     const tableRows = db.prepare(SQLITE_LIST_TABLES).all() as any[];
-    const tables = new Map<string, {
-      columns: ColumnDetail[];
-      primaryKeys: PrimaryKeyInfo[];
-      foreignKeys: ForeignKeyInfo[];
-      indexes: IndexInfo[];
-      uniqueConstraints: UniqueConstraintInfo[];
-      checkConstraints: CheckConstraintInfo[];
-    }>();
+    const tables = new Map<
+      string,
+      {
+        columns: ColumnDetail[];
+        primaryKeys: PrimaryKeyInfo[];
+        foreignKeys: ForeignKeyInfo[];
+        indexes: IndexInfo[];
+        uniqueConstraints: UniqueConstraintInfo[];
+        checkConstraints: CheckConstraintInfo[];
+      }
+    >();
 
     for (const t of tableRows) {
       const tableName = t.name;
@@ -724,13 +799,13 @@ export async function getSchemaMetadataBatch(
         .filter((col: any) => !col.hidden || col.hidden === 0)
         .map((col: any) => ({
           name: col.name,
-          type: col.type || 'TEXT',
+          type: col.type || "TEXT",
           not_nullable: col.notnull === 1,
           default_value: col.dflt_value,
           is_primary_key: col.pk > 0,
           is_foreign_key: fkColumns.has(col.name),
           is_unique: false, // will be updated below if unique index exists
-          is_serial: col.pk > 0 && (col.type || '').toLowerCase() === 'integer',
+          is_serial: col.pk > 0 && (col.type || "").toLowerCase() === "integer",
           check_constraint: undefined,
           comment: undefined,
           ordinal_position: col.cid + 1,
@@ -742,14 +817,14 @@ export async function getSchemaMetadataBatch(
 
       const foreignKeys: ForeignKeyInfo[] = fks.map((fk: any) => ({
         constraint_name: `fk_${tableName}_${fk.from}_${fk.id}`,
-        source_schema: 'main',
+        source_schema: "main",
         source_table: tableName,
         source_column: fk.from,
-        target_schema: 'main',
+        target_schema: "main",
         target_table: fk.table,
         target_column: fk.to,
-        update_rule: fk.on_update || 'NO ACTION',
-        delete_rule: fk.on_delete || 'NO ACTION',
+        update_rule: fk.on_update || "NO ACTION",
+        delete_rule: fk.on_delete || "NO ACTION",
         ordinal_position: fk.seq,
       }));
 
@@ -766,19 +841,19 @@ export async function getSchemaMetadataBatch(
             index_name: idx.name,
             column_name: col.name,
             is_unique: idx.unique === 1,
-            is_primary: idx.origin === 'pk',
-            index_type: 'btree',
+            is_primary: idx.origin === "pk",
+            index_type: "btree",
             ordinal_position: col.seqno,
           });
 
           if (idx.unique === 1) {
-            const c = columns.find(c => c.name === col.name);
+            const c = columns.find((c) => c.name === col.name);
             if (c) c.is_unique = true;
 
-            if (idx.origin !== 'pk') {
+            if (idx.origin !== "pk") {
               uniqueConstraints.push({
                 constraint_name: idx.name,
-                table_schema: 'main',
+                table_schema: "main",
                 table_name: tableName,
                 column_name: col.name,
                 ordinal_position: col.seqno,
@@ -798,7 +873,7 @@ export async function getSchemaMetadataBatch(
         while ((match = checkRegex.exec(tableRow.sql)) !== null) {
           checkConstraints.push({
             constraint_name: `check_${tableName}_${idx++}`,
-            table_schema: 'main',
+            table_schema: "main",
             table_name: tableName,
             definition: `CHECK(${match[1]})`,
           });
@@ -830,7 +905,7 @@ export function streamQueryCancelable(
   sql: string,
   batchSize: number,
   onBatch: (rows: any[], columns: { name: string }[]) => Promise<void> | void,
-  onDone?: () => void
+  onDone?: () => void,
 ): { promise: Promise<void>; cancel: () => Promise<void> } {
   let cancelled = false;
 
@@ -840,7 +915,7 @@ export function streamQueryCancelable(
       const stmt = db.prepare(sql);
       const iter = stmt.iterate();
       let columns: { name: string }[] | null = null;
-      let buffer: any[] = [];
+      const buffer: any[] = [];
 
       for (const row of iter) {
         if (cancelled) break;
@@ -880,7 +955,7 @@ export async function fetchTableData(
   _schemaName: string,
   tableName: string,
   limit: number,
-  page: number
+  page: number,
 ): Promise<{ rows: any[]; total: number }> {
   const db = openDB(cfg);
   try {
@@ -888,7 +963,7 @@ export async function fetchTableData(
     const offset = (page - 1) * limit;
 
     // Get primary keys for ordering
-    const pkResult = await listPrimaryKeys(cfg, 'main', tableName);
+    const pkResult = await listPrimaryKeys(cfg, "main", tableName);
     const pkColumns = pkResult.map((r) => quoteIdent(r.column_name));
 
     let orderBy = "";
@@ -901,7 +976,9 @@ export async function fetchTableData(
     const countRow = db.prepare(`SELECT COUNT(*) AS count FROM ${safeTable}`).get() as any;
     const total = Number(countRow.count);
 
-    const rows = db.prepare(`SELECT * FROM ${safeTable} ${orderBy} LIMIT ? OFFSET ?`).all(limit, offset);
+    const rows = db
+      .prepare(`SELECT * FROM ${safeTable} ${orderBy} LIMIT ? OFFSET ?`)
+      .all(limit, offset);
     return { rows, total };
   } catch (error) {
     throw new Error(`Failed to fetch paginated data from ${tableName}: ${error}`);
@@ -925,21 +1002,19 @@ export async function createTable(
   _schemaName: string,
   tableName: string,
   columns: ColumnDetail[],
-  foreignKeys: ForeignKeyInfo[] = []
+  foreignKeys: ForeignKeyInfo[] = [],
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
-    const primaryKeys = columns
-      .filter(c => c.is_primary_key)
-      .map(c => quoteIdent(c.name));
+    const primaryKeys = columns.filter((c) => c.is_primary_key).map((c) => quoteIdent(c.name));
 
-    const columnDefs = columns.map(col => {
+    const columnDefs = columns.map((col) => {
       const sqlType = SQLITE_TYPE_MAP[col.type] || col.type;
       const parts = [
         quoteIdent(col.name),
         sqlType,
         col.not_nullable || col.is_primary_key ? "NOT NULL" : "",
-        col.default_value ? `DEFAULT ${col.default_value}` : ""
+        col.default_value ? `DEFAULT ${col.default_value}` : "",
       ].filter(Boolean);
       return parts.join(" ");
     });
@@ -952,8 +1027,8 @@ export async function createTable(
     for (const fk of foreignKeys) {
       columnDefs.push(
         `FOREIGN KEY (${quoteIdent(fk.source_column)}) REFERENCES ${quoteIdent(fk.target_table)}(${quoteIdent(fk.target_column)})` +
-        (fk.delete_rule ? ` ON DELETE ${fk.delete_rule}` : '') +
-        (fk.update_rule ? ` ON UPDATE ${fk.update_rule}` : '')
+          (fk.delete_rule ? ` ON DELETE ${fk.delete_rule}` : "") +
+          (fk.update_rule ? ` ON UPDATE ${fk.update_rule}` : ""),
       );
     }
 
@@ -963,6 +1038,7 @@ export async function createTable(
     sqliteCache.clearForConnection(cfg);
     return true;
   } catch (err) {
+    console.log("[SQLite] Error creating table:", err);
     throw err;
   } finally {
     db.close();
@@ -973,7 +1049,7 @@ export async function createTable(
 export async function createIndexes(
   cfg: SQLiteConfig,
   _schemaName: string,
-  indexes: IndexInfo[]
+  indexes: IndexInfo[],
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
@@ -990,7 +1066,7 @@ export async function createIndexes(
         const first = sorted[0];
         if (first.is_primary) continue;
 
-        const cols = sorted.map(i => quoteIdent(i.column_name)).join(", ");
+        const cols = sorted.map((i) => quoteIdent(i.column_name)).join(", ");
         const sql = `CREATE ${first.is_unique ? "UNIQUE" : ""} INDEX IF NOT EXISTS ${quoteIdent(first.index_name)} ON ${quoteIdent(first.table_name)} (${cols});`;
         db.exec(sql);
       }
@@ -1008,7 +1084,7 @@ export async function alterTable(
   cfg: SQLiteConfig,
   _schemaName: string,
   tableName: string,
-  operations: SQLiteAlterTableOperation[]
+  operations: SQLiteAlterTableOperation[],
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
@@ -1018,9 +1094,11 @@ export async function alterTable(
         switch (op.type) {
           case "ADD_COLUMN": {
             const sqlType = SQLITE_TYPE_MAP[op.column.type] || op.column.type;
-            sql = `ALTER TABLE ${quoteIdent(tableName)} ADD COLUMN ${quoteIdent(op.column.name)} ${sqlType}` +
+            sql =
+              `ALTER TABLE ${quoteIdent(tableName)} ADD COLUMN ${quoteIdent(op.column.name)} ${sqlType}` +
               (op.column.not_nullable ? " NOT NULL" : "") +
-              (op.column.default_value ? ` DEFAULT ${op.column.default_value}` : "") + ";";
+              (op.column.default_value ? ` DEFAULT ${op.column.default_value}` : "") +
+              ";";
             break;
           }
           case "DROP_COLUMN":
@@ -1038,6 +1116,7 @@ export async function alterTable(
     sqliteCache.clearForConnection(cfg);
     return true;
   } catch (err) {
+    console.log("[SQLite] Error altering table:", err);
     throw err;
   } finally {
     db.close();
@@ -1049,7 +1128,7 @@ export async function dropTable(
   cfg: SQLiteConfig,
   _schemaName: string,
   tableName: string,
-  _mode: SQLiteDropMode = "RESTRICT"
+  _mode: SQLiteDropMode = "RESTRICT",
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
@@ -1076,9 +1155,11 @@ export async function hasAnyMigrations(cfg: SQLiteConfig): Promise<boolean> {
   const db = openDB(cfg);
   try {
     // Check if table exists first
-    const tableExists = db.prepare(
-      `SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations' LIMIT 1`
-    ).get();
+    const tableExists = db
+      .prepare(
+        `SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations' LIMIT 1`,
+      )
+      .get();
     if (!tableExists) return false;
 
     const row = db.prepare(SQLITE_CHECK_MIGRATIONS_EXIST).get();
@@ -1093,7 +1174,7 @@ export async function insertBaseline(
   cfg: SQLiteConfig,
   version: string,
   name: string,
-  checksum: string
+  checksum: string,
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
@@ -1108,7 +1189,7 @@ export async function insertBaseline(
 export async function baselineIfNeeded(
   cfg: SQLiteConfig,
   migrationsDir: string,
-  snapshot?: SchemaFile
+  snapshot?: SchemaFile,
 ) {
   await ensureMigrationTable(cfg);
 
@@ -1126,15 +1207,12 @@ export async function baselineIfNeeded(
     schemas: [],
     cachedAt: "",
     relwaveVersion: "",
-    schemaHash: ""
+    schemaHash: "",
   };
 
   const filePath = writeBaselineMigration(migrationsDir, version, name, fakeSnapshot);
 
-  const checksum = crypto
-    .createHash("sha256")
-    .update(fs.readFileSync(filePath))
-    .digest("hex");
+  const checksum = crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 
   await insertBaseline(cfg, version, name, checksum);
 
@@ -1145,9 +1223,11 @@ export async function baselineIfNeeded(
 export async function listAppliedMigrations(cfg: SQLiteConfig): Promise<AppliedMigration[]> {
   const db = openDB(cfg);
   try {
-    const tableExists = db.prepare(
-      `SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations' LIMIT 1`
-    ).get();
+    const tableExists = db
+      .prepare(
+        `SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations' LIMIT 1`,
+      )
+      .get();
     if (!tableExists) return [];
 
     const rows = db.prepare(SQLITE_LIST_APPLIED_MIGRATIONS).all() as AppliedMigration[];
@@ -1161,7 +1241,7 @@ export async function listAppliedMigrations(cfg: SQLiteConfig): Promise<AppliedM
 export async function connectToDatabase(
   cfg: SQLiteConfig,
   connectionId: string,
-  options?: { readOnly?: boolean }
+  options?: { readOnly?: boolean },
 ) {
   let baselineResult = { baselined: false };
   const migrationsDir = await projectStoreInstance.resolveMigrationsDir(connectionId);
@@ -1173,7 +1253,7 @@ export async function connectToDatabase(
     try {
       const project = await projectStoreInstance.getProjectByDatabaseId(connectionId);
       if (project) {
-        snapshot = await projectStoreInstance.getSchema(project.id) || undefined;
+        snapshot = (await projectStoreInstance.getSchema(project.id)) || undefined;
       }
     } catch {}
     baselineResult = await baselineIfNeeded(cfg, migrationsDir, snapshot);
@@ -1196,22 +1276,27 @@ export async function connectToDatabase(
 /** Apply a pending migration */
 export async function applyMigration(
   cfg: SQLiteConfig,
-  migrationFilePath: string
+  migrationFilePath: string,
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
-    const { readMigrationFile } = await import('../utils/migrationFileReader');
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
     const migration = readMigrationFile(migrationFilePath);
 
     const transaction = db.transaction(() => {
       db.exec(migration.upSQL);
-      db.prepare(SQLITE_INSERT_MIGRATION).run(migration.version, migration.name, migration.checksum);
+      db.prepare(SQLITE_INSERT_MIGRATION).run(
+        migration.version,
+        migration.name,
+        migration.checksum,
+      );
     });
 
     transaction();
     sqliteCache.clearForConnection(cfg);
     return true;
   } catch (error) {
+    console.log("[SQLite] Error applying migration:", error);
     throw error;
   } finally {
     db.close();
@@ -1222,11 +1307,11 @@ export async function applyMigration(
 export async function rollbackMigration(
   cfg: SQLiteConfig,
   version: string,
-  migrationFilePath: string
+  migrationFilePath: string,
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
-    const { readMigrationFile } = await import('../utils/migrationFileReader');
+    const { readMigrationFile } = await import("../utils/migrationFileReader");
     const migration = readMigrationFile(migrationFilePath);
 
     const transaction = db.transaction(() => {
@@ -1238,6 +1323,7 @@ export async function rollbackMigration(
     sqliteCache.clearForConnection(cfg);
     return true;
   } catch (error) {
+    console.log("[SQLite] Error rolling back migration:", error);
     throw error;
   } finally {
     db.close();
@@ -1249,7 +1335,7 @@ export async function insertRow(
   cfg: SQLiteConfig,
   _schemaName: string,
   tableName: string,
-  rowData: Record<string, any>
+  rowData: Record<string, any>,
 ): Promise<any> {
   const db = openDB(cfg);
   try {
@@ -1259,7 +1345,7 @@ export async function insertRow(
     if (columns.length === 0) throw new Error("No data provided for insert");
 
     const safeTable = quoteIdent(tableName);
-    const columnList = columns.map(col => quoteIdent(col)).join(", ");
+    const columnList = columns.map((col) => quoteIdent(col)).join(", ");
     const placeholders = columns.map(() => "?").join(", ");
 
     const sql = `INSERT INTO ${safeTable} (${columnList}) VALUES (${placeholders});`;
@@ -1285,7 +1371,7 @@ export async function updateRow(
   tableName: string,
   primaryKeyColumn: string,
   primaryKeyValue: any,
-  rowData: Record<string, any>
+  rowData: Record<string, any>,
 ): Promise<any> {
   const db = openDB(cfg);
   try {
@@ -1295,9 +1381,9 @@ export async function updateRow(
     if (columns.length === 0) throw new Error("No data provided for update");
 
     const safeTable = quoteIdent(tableName);
-    const setClause = columns.map(col => `${quoteIdent(col)} = ?`).join(", ");
+    const setClause = columns.map((col) => `${quoteIdent(col)} = ?`).join(", ");
 
-    if (!primaryKeyColumn || typeof primaryKeyColumn !== 'string') {
+    if (!primaryKeyColumn || typeof primaryKeyColumn !== "string") {
       throw new Error("Primary key column is required for update");
     }
 
@@ -1305,7 +1391,9 @@ export async function updateRow(
     db.prepare(sql).run(...values, primaryKeyValue);
 
     // Return updated row
-    const updated = db.prepare(`SELECT * FROM ${safeTable} WHERE ${quoteIdent(primaryKeyColumn)} = ?`).get(primaryKeyValue);
+    const updated = db
+      .prepare(`SELECT * FROM ${safeTable} WHERE ${quoteIdent(primaryKeyColumn)} = ?`)
+      .get(primaryKeyValue);
 
     sqliteCache.clearForConnection(cfg);
     return updated;
@@ -1322,7 +1410,7 @@ export async function deleteRow(
   _schemaName: string,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: any
+  primaryKeyValue: any,
 ): Promise<boolean> {
   const db = openDB(cfg);
   try {
@@ -1331,12 +1419,12 @@ export async function deleteRow(
     let sql: string;
     let values: any[];
 
-    if (primaryKeyColumn && typeof primaryKeyColumn === 'string') {
+    if (primaryKeyColumn && typeof primaryKeyColumn === "string") {
       sql = `DELETE FROM ${safeTable} WHERE ${quoteIdent(primaryKeyColumn)} = ?;`;
       values = [primaryKeyValue];
-    } else if (typeof primaryKeyValue === 'object' && primaryKeyValue !== null) {
+    } else if (typeof primaryKeyValue === "object" && primaryKeyValue !== null) {
       const cols = Object.keys(primaryKeyValue);
-      const whereClause = cols.map(col => `${quoteIdent(col)} = ?`).join(" AND ");
+      const whereClause = cols.map((col) => `${quoteIdent(col)} = ?`).join(" AND ");
       sql = `DELETE FROM ${safeTable} WHERE ${whereClause};`;
       values = Object.values(primaryKeyValue);
     } else {
@@ -1361,12 +1449,12 @@ export async function searchTable(
   searchTerm: string,
   column?: string,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
 ): Promise<{ rows: any[]; total: number }> {
   const db = openDB(cfg);
   try {
     const safeTable = quoteIdent(tableName);
-    const searchPattern = `%${searchTerm.replace(/[%_]/g, '\\$&')}%`;
+    const searchPattern = `%${searchTerm.replace(/[%_]/g, "\\$&")}%`;
 
     let whereClause: string;
 
@@ -1381,14 +1469,18 @@ export async function searchTable(
       if (columnNames.length === 0) return { rows: [], total: 0 };
 
       whereClause = columnNames
-        .map(col => `CAST(${quoteIdent(col)} AS TEXT) LIKE ? ESCAPE '\\'`)
+        .map((col) => `CAST(${quoteIdent(col)} AS TEXT) LIKE ? ESCAPE '\\'`)
         .join(" OR ");
     }
 
     // For multi-column search, we reuse the same search pattern parameter
     // SQLite doesn't support named params the same way, but we can use
     // a single value repeated
-    const paramCount = column ? 1 : (db.pragma(`table_xinfo(${quoteIdent(tableName)})`) as any[]).filter((c: any) => !c.hidden || c.hidden === 0).length;
+    const paramCount = column
+      ? 1
+      : (db.pragma(`table_xinfo(${quoteIdent(tableName)})`) as any[]).filter(
+          (c: any) => !c.hidden || c.hidden === 0,
+        ).length;
     const params = Array(paramCount).fill(searchPattern);
 
     const countQuery = `SELECT COUNT(*) AS total FROM ${safeTable} WHERE ${whereClause}`;

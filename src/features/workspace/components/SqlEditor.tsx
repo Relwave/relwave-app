@@ -60,7 +60,9 @@ const SqlEditor: FC<SqlEditorProps> = ({
   dialect = "postgresql",
 }) => {
   const { theme } = useTheme();
-  const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const handleChange = useCallback(
     (val: string) => {
@@ -68,7 +70,7 @@ const SqlEditor: FC<SqlEditorProps> = ({
         onChange(val);
       }
     },
-    [onChange, disabled]
+    [onChange, disabled],
   );
 
   // Select SQL dialect

@@ -23,7 +23,7 @@ export class StatsHandlers {
     private rpc: Rpc,
     private logger: Logger,
     private dbService: DatabaseService,
-    private queryExecutor: QueryExecutor
+    private queryExecutor: QueryExecutor,
   ) {}
 
   /** Handle db.getStats — get statistics for a specific database */
@@ -55,7 +55,7 @@ export class StatsHandlers {
         });
       }
 
-      let totalStats = { tables: 0, rows: 0, sizeBytes: 0 };
+      const totalStats = { tables: 0, rows: 0, sizeBytes: 0 };
 
       for (const db of dbs) {
         try {
@@ -64,7 +64,7 @@ export class StatsHandlers {
           const connectionTest = await this.queryExecutor.testConnection(conn, dbType);
           if (!(connectionTest as any)?.ok) {
             this.logger.warn(
-              `Skipping stats for DB ${db.name} (${db.id}) — connection test failed`
+              `Skipping stats for DB ${db.name} (${db.id}) — connection test failed`,
             );
             continue;
           }
@@ -76,7 +76,7 @@ export class StatsHandlers {
         } catch (dbError: any) {
           this.logger.warn(
             { dbError, dbId: db.id, dbName: db.name },
-            `Failed to get stats for database ${db.name}`
+            `Failed to get stats for database ${db.name}`,
           );
         }
       }

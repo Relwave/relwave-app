@@ -27,7 +27,9 @@ logger.info(`Uptime at start: ${process.uptime()} sec`);
 logger.info(`process.execPath: ${process.execPath}`);
 logger.info(`process.cwd(): ${process.cwd()}`);
 logger.info(`isPkg: ${Boolean((process as any).pkg)}`);
-logger.info(`RELWAVE_SQLITE_NATIVE_BINDING: ${process.env.RELWAVE_SQLITE_NATIVE_BINDING ?? "(not set)"}`);
+logger.info(
+  `RELWAVE_SQLITE_NATIVE_BINDING: ${process.env.RELWAVE_SQLITE_NATIVE_BINDING ?? "(not set)"}`,
+);
 logger.info(`BETTER_SQLITE3_BINDING: ${process.env.BETTER_SQLITE3_BINDING ?? "(not set)"}`);
 
 // Send initial ready notification
@@ -42,7 +44,7 @@ rpc.on("notification", (n: any) => {
 // Fallback request handler: handles methods not registered via rpc.register()
 // Only truly built-in methods should be here.
 rpc.on("request", async (req: any) => {
-  const { id, method, params } = req;
+  const { id, method } = req;
   logger.info({ id, method }, "unregistered request (fallback handler)");
 
   try {

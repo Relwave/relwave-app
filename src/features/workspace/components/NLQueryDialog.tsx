@@ -70,7 +70,8 @@ export const NLQueryDialog: React.FC<NLQueryDialogProps> = ({
             Natural Language to SQL
           </DialogTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            AI can make mistakes. Please verify the generated SQL before applying it to your workspace.
+            AI can make mistakes. Please verify the generated SQL before applying it to your
+            workspace.
           </p>
         </DialogHeader>
 
@@ -110,9 +111,7 @@ export const NLQueryDialog: React.FC<NLQueryDialogProps> = ({
             <div className="flex-1 rounded-md border p-4 bg-muted/20 overflow-y-auto min-h-0">
               <div className="flex flex-col gap-4">
                 {response.intent === "unclear" || response.error ? (
-                  <div className="text-destructive font-medium">
-                    {response.explanation}
-                  </div>
+                  <div className="text-destructive font-medium">{response.explanation}</div>
                 ) : (
                   <>
                     <div className="w-full">
@@ -155,7 +154,10 @@ export const NLQueryDialog: React.FC<NLQueryDialogProps> = ({
                             <thead className="bg-muted">
                               <tr>
                                 {Object.keys(response.results[0] as any).map((k) => (
-                                  <th key={k} className="p-2 text-left font-medium border-b border-r last:border-r-0 border-border/50 whitespace-nowrap">
+                                  <th
+                                    key={k}
+                                    className="p-2 text-left font-medium border-b border-r last:border-r-0 border-border/50 whitespace-nowrap"
+                                  >
                                     {k}
                                   </th>
                                 ))}
@@ -165,7 +167,11 @@ export const NLQueryDialog: React.FC<NLQueryDialogProps> = ({
                               {response.results.slice(0, 5).map((row: any, i) => (
                                 <tr key={i} className="border-t">
                                   {Object.values(row).map((val: any, j) => (
-                                    <td key={j} className="p-2 border-r last:border-r-0 border-border/50 truncate max-w-50" title={String(val)}>
+                                    <td
+                                      key={j}
+                                      className="p-2 border-r last:border-r-0 border-border/50 truncate max-w-50"
+                                      title={String(val)}
+                                    >
                                       {String(val)}
                                     </td>
                                   ))}

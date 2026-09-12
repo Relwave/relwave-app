@@ -11,6 +11,6 @@ export class DBTypeDetector {
       }
       if (normalized.includes("sqlite")) return DBType.SQLITE;
     }
-    return DBType.POSTGRES; // default  
+    return DBType.POSTGRES; // default
   }
 }

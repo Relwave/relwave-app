@@ -16,7 +16,7 @@ export class SSHTunnelService {
   async createSSHTunnel(
     ssh: SSHConfig,
     remoteHost: string,
-    remotePort: number
+    remotePort: number,
   ): Promise<TunnelInfo> {
     return new Promise((resolve, reject) => {
       const sshClient = new Client();
@@ -54,7 +54,7 @@ export class SSHTunnelService {
                     return;
                   }
                   socket.pipe(stream).pipe(socket);
-                }
+                },
               );
             });
           })

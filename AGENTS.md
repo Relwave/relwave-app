@@ -13,6 +13,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework:** React 19
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS 4, shadcn/ui (Radix UI)
@@ -21,6 +22,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 - **Editor:** CodeMirror 6 (SQL editing)
 
 ### Bridge (Node.js)
+
 - **Runtime:** Node.js (bundled via `pkg`)
 - **Database Drivers:** `pg` (PostgreSQL), `mysql2` (MySQL/MariaDB), `better-sqlite3` (SQLite)
 - **Version Control:** `simple-git`
@@ -28,6 +30,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 - **Security:** `@napi-rs/keyring` for encrypted credential storage
 
 ### Desktop Layer
+
 - **Framework:** Tauri 2 (Rust)
 
 ## 📂 Key Directories

@@ -50,7 +50,7 @@ describe("DbStore Cache Tests", () => {
       TEST_CONFIG_FILE,
       TEST_CREDENTIALS_FILE,
       NORMAL_CACHE_TTL,
-      true // autoPreload
+      true, // autoPreload
     );
     // Wait for preload to complete
     await dbStore.waitUntilReady();
@@ -163,7 +163,7 @@ describe("DbStore Cache Tests", () => {
     });
 
     test("should invalidate cache on write operations", async () => {
-      const result = await dbStore.addDB(mockDBPayload);
+      await dbStore.addDB(mockDBPayload);
       expect(dbStore.getCacheStats().configCached).toBe(true);
 
       // Manual invalidation
@@ -214,7 +214,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         SHORT_CACHE_TTL,
-        true // autoPreload
+        true, // autoPreload
       );
       await shortTtlStore.waitUntilReady();
 
@@ -237,7 +237,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        true // autoPreload enabled
+        true, // autoPreload enabled
       );
 
       // Wait for preload
@@ -255,7 +255,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        false // autoPreload disabled
+        false, // autoPreload disabled
       );
 
       // Without preload, cache should not be ready immediately
@@ -275,7 +275,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        true
+        true,
       );
       await preloadStore.waitUntilReady();
 
@@ -290,7 +290,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        false // no preload
+        false, // no preload
       );
 
       // First listDBs will read from disk
@@ -313,7 +313,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        true
+        true,
       );
       await newStore.waitUntilReady();
 
@@ -338,7 +338,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        false
+        false,
       );
 
       expect(manualStore.isReady()).toBe(false);
@@ -375,7 +375,7 @@ describe("DbStore Cache Tests", () => {
         TEST_CONFIG_FILE,
         TEST_CREDENTIALS_FILE,
         NORMAL_CACHE_TTL,
-        true
+        true,
       );
       await preloadStore.waitUntilReady();
 
@@ -410,8 +410,7 @@ describe("DbStore Cache Tests", () => {
         cachedTimes.push(performance.now() - cachedStart);
       }
 
-      const avgCachedTime =
-        cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
+      const avgCachedTime = cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
 
       // Cached reads should be significantly faster
       // We expect at least 2x improvement (usually much more)
@@ -437,8 +436,7 @@ describe("DbStore Cache Tests", () => {
         cachedTimes.push(performance.now() - cachedStart);
       }
 
-      const avgCachedTime =
-        cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
+      const avgCachedTime = cachedTimes.reduce((a, b) => a + b, 0) / cachedTimes.length;
 
       expect(avgCachedTime).toBeLessThan(uncachedTime);
     });
@@ -498,7 +496,7 @@ describe("DbStore Cache Tests", () => {
     });
 
     test("should handle database without password", async () => {
-      const { password, ...payloadWithoutPassword } = mockDBPayload;
+      const { password: _password, ...payloadWithoutPassword } = mockDBPayload;
       const result = await dbStore.addDB(payloadWithoutPassword);
 
       const retrievedPassword = await dbStore.getPasswordFor(result);
@@ -509,7 +507,7 @@ describe("DbStore Cache Tests", () => {
       // Add multiple DBs
       const db1 = await dbStore.addDB({ ...mockDBPayload, name: "DB1" });
       const db2 = await dbStore.addDB({ ...mockDBPayload, name: "DB2" });
-      const db3 = await dbStore.addDB({ ...mockDBPayload, name: "DB3" });
+      await dbStore.addDB({ ...mockDBPayload, name: "DB3" });
 
       expect(dbStore.getCacheStats().dbCount).toBe(3);
 
@@ -529,4 +527,3 @@ describe("DbStore Cache Tests", () => {
     });
   });
 });
-

@@ -22,11 +22,7 @@ import { Logger } from "pino";
  * @param logger - Logger instance
  * @param sessions - Session manager instance
  */
-export function registerDbHandlers(
-  rpc: Rpc,
-  logger: Logger,
-  sessions: SessionManager
-) {
+export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionManager) {
   // Initialize services
   const dbService = new DatabaseService();
   const queryExecutor = new QueryExecutor();
@@ -34,106 +30,51 @@ export function registerDbHandlers(
   const monitoringWebSocketServer = new MonitoringWebSocketServer(
     dbService,
     monitoringService,
-    logger
+    logger,
   );
   monitoringWebSocketServer.start();
 
   // Initialize handlers with dependencies
   const sessionHandlers = new SessionHandlers(rpc, logger, sessions);
-  const queryHandlers = new QueryHandlers(
-    rpc,
-    logger,
-    sessions,
-    dbService,
-    queryExecutor
-  );
-  const databaseHandlers = new DatabaseHandlers(
-    rpc,
-    logger,
-    dbService,
-    queryExecutor
-  );
-  const statsHandlers = new StatsHandlers(
-    rpc,
-    logger,
-    dbService,
-    queryExecutor
-  );
-  const migrationHandlers = new MigrationHandlers(
-    rpc,
-    logger,
-    dbService,
-    queryExecutor
-  );
+  const queryHandlers = new QueryHandlers(rpc, logger, sessions, dbService, queryExecutor);
+  const databaseHandlers = new DatabaseHandlers(rpc, logger, dbService, queryExecutor);
+  const statsHandlers = new StatsHandlers(rpc, logger, dbService, queryExecutor);
+  const migrationHandlers = new MigrationHandlers(rpc, logger, dbService, queryExecutor);
   const projectHandlers = new ProjectHandlers(rpc, logger, dbService, queryExecutor);
   const gitHandlers = new GitHandlers(rpc, logger);
   const gitAdvancedHandlers = new GitAdvancedHandlers(rpc, logger);
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
-  const aiHandlers = new (require("./handlers/aiHandlers")).AIHandlers(rpc, logger, dbService);
+  const aiHandlers = new (require("./handlers/aiHandlers").AIHandlers)(rpc, logger, dbService);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
   // ==========================================
-  rpcRegister(rpc, "query.createSession", (p, id) =>
-    sessionHandlers.handleCreateSession(p, id)
-  );
-  rpcRegister(rpc, "query.cancel", (p, id) =>
-    sessionHandlers.handleCancelSession(p, id)
-  );
-  rpcRegister(rpc, "query.getSession", (p, id) =>
-    sessionHandlers.handleGetSession(p, id)
-  );
-  rpcRegister(rpc, "query.listSessions", (p, id) =>
-    sessionHandlers.handleListSessions(p, id)
-  );
-  rpcRegister(rpc, "query.destroySession", (p, id) =>
-    sessionHandlers.handleDestroySession(p, id)
-  );
+  rpcRegister(rpc, "query.createSession", (p, id) => sessionHandlers.handleCreateSession(p, id));
+  rpcRegister(rpc, "query.cancel", (p, id) => sessionHandlers.handleCancelSession(p, id));
+  rpcRegister(rpc, "query.getSession", (p, id) => sessionHandlers.handleGetSession(p, id));
+  rpcRegister(rpc, "query.listSessions", (p, id) => sessionHandlers.handleListSessions(p, id));
+  rpcRegister(rpc, "query.destroySession", (p, id) => sessionHandlers.handleDestroySession(p, id));
 
   // ==========================================
   // QUERY HANDLERS
   // ==========================================
   rpcRegister(rpc, "query.run", (p, id) => queryHandlers.handleQueryRun(p, id));
-  rpcRegister(rpc, "query.fetchTableData", (p, id) =>
-    queryHandlers.handleFetchTableData(p, id)
-  );
-  rpcRegister(rpc, "query.listPrimaryKeys", (p, id) =>
-    queryHandlers.handleFetchPrimaryKeys(p, id)
-  );
-  rpcRegister(rpc, "query.createTable", (p, id) =>
-    queryHandlers.handleCreateTable(p, id)
-  );
-  rpcRegister(rpc, "query.createIndexes", (p, id) =>
-    queryHandlers.handleCreateIndexes(p, id)
-  );
-  rpcRegister(rpc, "query.dropTable", (p, id) =>
-    queryHandlers.handleDropTable(p, id)
-  );
-  rpcRegister(rpc, "query.alterTable", (p, id) =>
-    queryHandlers.handleAlterTable(p, id)
-  );
-  rpcRegister(rpc, "query.connectToDatabase", (p, id) =>
-    queryHandlers.connectToDatabase(p, id)
-  );
-  rpcRegister(rpc, "query.insertRow", (p, id) =>
-    queryHandlers.handleInsertRow(p, id)
-  );
-  rpcRegister(rpc, "query.updateRow", (p, id) =>
-    queryHandlers.handleUpdateRow(p, id)
-  );
-  rpcRegister(rpc, "query.deleteRow", (p, id) =>
-    queryHandlers.handleDeleteRow(p, id)
-  );
-  rpcRegister(rpc, "query.searchTable", (p, id) =>
-    queryHandlers.handleSearchTable(p, id)
-  );
+  rpcRegister(rpc, "query.fetchTableData", (p, id) => queryHandlers.handleFetchTableData(p, id));
+  rpcRegister(rpc, "query.listPrimaryKeys", (p, id) => queryHandlers.handleFetchPrimaryKeys(p, id));
+  rpcRegister(rpc, "query.createTable", (p, id) => queryHandlers.handleCreateTable(p, id));
+  rpcRegister(rpc, "query.createIndexes", (p, id) => queryHandlers.handleCreateIndexes(p, id));
+  rpcRegister(rpc, "query.dropTable", (p, id) => queryHandlers.handleDropTable(p, id));
+  rpcRegister(rpc, "query.alterTable", (p, id) => queryHandlers.handleAlterTable(p, id));
+  rpcRegister(rpc, "query.connectToDatabase", (p, id) => queryHandlers.connectToDatabase(p, id));
+  rpcRegister(rpc, "query.insertRow", (p, id) => queryHandlers.handleInsertRow(p, id));
+  rpcRegister(rpc, "query.updateRow", (p, id) => queryHandlers.handleUpdateRow(p, id));
+  rpcRegister(rpc, "query.deleteRow", (p, id) => queryHandlers.handleDeleteRow(p, id));
+  rpcRegister(rpc, "query.searchTable", (p, id) => queryHandlers.handleSearchTable(p, id));
 
   // ==========================================
   // DATABASE CRUD HANDLERS
   // ==========================================
-  rpcRegister(rpc, "db.list", (p, id) =>
-    databaseHandlers.handleListDatabases(p, id)
-  );
+  rpcRegister(rpc, "db.list", (p, id) => databaseHandlers.handleListDatabases(p, id));
   rpcRegister(rpc, "db.get", (p, id) => databaseHandlers.handleGetDatabase(p, id));
   rpcRegister(rpc, "db.add", (p, id) => databaseHandlers.handleAddDatabase(p, id));
   rpcRegister(rpc, "db.delete", (p, id) => databaseHandlers.handleDeleteDatabase(p, id));
@@ -143,58 +84,42 @@ export function registerDbHandlers(
   // ==========================================
   // DATABASE METADATA HANDLERS
   // ==========================================
-  rpcRegister(rpc, "db.listTables", (p, id) =>
-    databaseHandlers.handleListTables(p, id)
-  );
-  rpcRegister(rpc, "db.getSchema", (p, id) =>
-    databaseHandlers.handleGetSchema(p, id)
-  );
-  rpcRegister(rpc, "db.listSchemas", (p, id) =>
-    databaseHandlers.handleListSchemas(p, id)
-  );
+  rpcRegister(rpc, "db.listTables", (p, id) => databaseHandlers.handleListTables(p, id));
+  rpcRegister(rpc, "db.getSchema", (p, id) => databaseHandlers.handleGetSchema(p, id));
+  rpcRegister(rpc, "db.listSchemas", (p, id) => databaseHandlers.handleListSchemas(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS
   // ==========================================
   rpcRegister(rpc, "migration.generateCreate", (p, id) =>
-    migrationHandlers.handleGenerateCreateMigration(p, id)
+    migrationHandlers.handleGenerateCreateMigration(p, id),
   );
   rpcRegister(rpc, "migration.generateAlter", (p, id) =>
-    migrationHandlers.handleGenerateAlterMigration(p, id)
+    migrationHandlers.handleGenerateAlterMigration(p, id),
   );
   rpcRegister(rpc, "migration.generateDrop", (p, id) =>
-    migrationHandlers.handleGenerateDropMigration(p, id)
+    migrationHandlers.handleGenerateDropMigration(p, id),
   );
-  rpcRegister(rpc, "migration.apply", (p, id) =>
-    migrationHandlers.handleApplyMigration(p, id)
-  );
+  rpcRegister(rpc, "migration.apply", (p, id) => migrationHandlers.handleApplyMigration(p, id));
   rpcRegister(rpc, "migration.applyMigrations", (p, id) =>
-    migrationHandlers.handleApplyMigrations(p, id)
+    migrationHandlers.handleApplyMigrations(p, id),
   );
   rpcRegister(rpc, "migration.applySnapshot", (p, id) =>
-    migrationHandlers.handleApplySnapshot(p, id)
+    migrationHandlers.handleApplySnapshot(p, id),
   );
   rpcRegister(rpc, "migration.rollback", (p, id) =>
-    migrationHandlers.handleRollbackMigration(p, id)
+    migrationHandlers.handleRollbackMigration(p, id),
   );
-  rpcRegister(rpc, "migration.delete", (p, id) =>
-    migrationHandlers.handleDeleteMigration(p, id)
-  );
-  rpcRegister(rpc, "migration.getSQL", (p, id) =>
-    migrationHandlers.handleGetMigrationSQL(p, id)
-  );
+  rpcRegister(rpc, "migration.delete", (p, id) => migrationHandlers.handleDeleteMigration(p, id));
+  rpcRegister(rpc, "migration.getSQL", (p, id) => migrationHandlers.handleGetMigrationSQL(p, id));
 
   // ==========================================
   // STATISTICS HANDLERS
   // ==========================================
   rpcRegister(rpc, "db.getStats", (p, id) => statsHandlers.handleGetStats(p, id));
-  rpcRegister(rpc, "db.getTotalStats", (p, id) =>
-    statsHandlers.handleGetTotalStats(p, id)
-  );
+  rpcRegister(rpc, "db.getTotalStats", (p, id) => statsHandlers.handleGetTotalStats(p, id));
 
-  rpcRegister(rpc, "db.monitoringSnapshot", (p, id) =>
-    monitoringHandlers.handleGetSnapshot(p, id)
-  );
+  rpcRegister(rpc, "db.monitoringSnapshot", (p, id) => monitoringHandlers.handleGetSnapshot(p, id));
   rpcRegister(rpc, "db.monitoringWsInfo", (_p, id) => {
     try {
       rpc.sendResponse(id, { ok: true, data: monitoringWebSocketServer.getInfo() });
@@ -209,110 +134,64 @@ export function registerDbHandlers(
   // ==========================================
   // PROJECT HANDLERS
   // ==========================================
-  rpcRegister(rpc, "project.list", (p, id) =>
-    projectHandlers.handleListProjects(p, id)
-  );
-  rpcRegister(rpc, "project.get", (p, id) =>
-    projectHandlers.handleGetProject(p, id)
-  );
+  rpcRegister(rpc, "project.list", (p, id) => projectHandlers.handleListProjects(p, id));
+  rpcRegister(rpc, "project.get", (p, id) => projectHandlers.handleGetProject(p, id));
   rpcRegister(rpc, "project.getByDatabaseId", (p, id) =>
-    projectHandlers.handleGetProjectByDatabaseId(p, id)
+    projectHandlers.handleGetProjectByDatabaseId(p, id),
   );
-  rpcRegister(rpc, "project.create", (p, id) =>
-    projectHandlers.handleCreateProject(p, id)
-  );
-  rpcRegister(rpc, "project.update", (p, id) =>
-    projectHandlers.handleUpdateProject(p, id)
-  );
-  rpcRegister(rpc, "project.delete", (p, id) =>
-    projectHandlers.handleDeleteProject(p, id)
-  );
-  rpcRegister(rpc, "project.getSchema", (p, id) =>
-    projectHandlers.handleGetSchema(p, id)
-  );
-  rpcRegister(rpc, "project.saveSchema", (p, id) =>
-    projectHandlers.handleSaveSchema(p, id)
-  );
+  rpcRegister(rpc, "project.create", (p, id) => projectHandlers.handleCreateProject(p, id));
+  rpcRegister(rpc, "project.update", (p, id) => projectHandlers.handleUpdateProject(p, id));
+  rpcRegister(rpc, "project.delete", (p, id) => projectHandlers.handleDeleteProject(p, id));
+  rpcRegister(rpc, "project.getSchema", (p, id) => projectHandlers.handleGetSchema(p, id));
+  rpcRegister(rpc, "project.saveSchema", (p, id) => projectHandlers.handleSaveSchema(p, id));
   rpcRegister(rpc, "project.refreshSchemaCache", (p, id) =>
-    projectHandlers.handleRefreshSchemaCache(p, id)
+    projectHandlers.handleRefreshSchemaCache(p, id),
   );
-  rpcRegister(rpc, "project.getERDiagram", (p, id) =>
-    projectHandlers.handleGetERDiagram(p, id)
-  );
-  rpcRegister(rpc, "project.saveERDiagram", (p, id) =>
-    projectHandlers.handleSaveERDiagram(p, id)
-  );
+  rpcRegister(rpc, "project.getERDiagram", (p, id) => projectHandlers.handleGetERDiagram(p, id));
+  rpcRegister(rpc, "project.saveERDiagram", (p, id) => projectHandlers.handleSaveERDiagram(p, id));
   rpcRegister(rpc, "project.getAnnotations", (p, id) =>
-    projectHandlers.handleGetAnnotations(p, id)
+    projectHandlers.handleGetAnnotations(p, id),
   );
   rpcRegister(rpc, "project.saveAnnotations", (p, id) =>
-    projectHandlers.handleSaveAnnotations(p, id)
+    projectHandlers.handleSaveAnnotations(p, id),
   );
-  rpcRegister(rpc, "project.analyzeImport", (p, id) =>
-    projectHandlers.handleAnalyzeImport(p, id)
-  );
-  rpcRegister(rpc, "project.verifyLock", (p, id) =>
-    projectHandlers.handleVerifyLock(p, id)
-  );
+  rpcRegister(rpc, "project.analyzeImport", (p, id) => projectHandlers.handleAnalyzeImport(p, id));
+  rpcRegister(rpc, "project.verifyLock", (p, id) => projectHandlers.handleVerifyLock(p, id));
   rpcRegister(rpc, "project.pushMigrations", (p, id) =>
-    projectHandlers.handlePushMigrations(p, id)
+    projectHandlers.handlePushMigrations(p, id),
   );
   rpcRegister(rpc, "project.syncMigrations", (p, id) =>
-    projectHandlers.handleSyncMigrations(p, id)
+    projectHandlers.handleSyncMigrations(p, id),
   );
-  rpcRegister(rpc, "project.generateSQL", (p, id) =>
-    projectHandlers.handleGenerateSQL(p, id)
-  );
-  rpcRegister(rpc, "project.getDrift", (p, id) =>
-    projectHandlers.handleGetDrift(p, id)
-  );
-  rpcRegister(rpc, "project.getQueries", (p, id) =>
-    projectHandlers.handleGetQueries(p, id)
-  );
-  rpcRegister(rpc, "project.addQuery", (p, id) =>
-    projectHandlers.handleAddQuery(p, id)
-  );
-  rpcRegister(rpc, "project.updateQuery", (p, id) =>
-    projectHandlers.handleUpdateQuery(p, id)
-  );
-  rpcRegister(rpc, "project.deleteQuery", (p, id) =>
-    projectHandlers.handleDeleteQuery(p, id)
-  );
-  rpcRegister(rpc, "project.export", (p, id) =>
-    projectHandlers.handleExportProject(p, id)
-  );
-  rpcRegister(rpc, "project.getDir", (p, id) =>
-    projectHandlers.handleGetProjectDir(p, id)
-  );
+  rpcRegister(rpc, "project.generateSQL", (p, id) => projectHandlers.handleGenerateSQL(p, id));
+  rpcRegister(rpc, "project.getDrift", (p, id) => projectHandlers.handleGetDrift(p, id));
+  rpcRegister(rpc, "project.getQueries", (p, id) => projectHandlers.handleGetQueries(p, id));
+  rpcRegister(rpc, "project.addQuery", (p, id) => projectHandlers.handleAddQuery(p, id));
+  rpcRegister(rpc, "project.updateQuery", (p, id) => projectHandlers.handleUpdateQuery(p, id));
+  rpcRegister(rpc, "project.deleteQuery", (p, id) => projectHandlers.handleDeleteQuery(p, id));
+  rpcRegister(rpc, "project.export", (p, id) => projectHandlers.handleExportProject(p, id));
+  rpcRegister(rpc, "project.getDir", (p, id) => projectHandlers.handleGetProjectDir(p, id));
   rpcRegister(rpc, "project.getLocalConfig", (p, id) =>
-    projectHandlers.handleGetLocalConfig(p, id)
+    projectHandlers.handleGetLocalConfig(p, id),
   );
   rpcRegister(rpc, "project.saveLocalConfig", (p, id) =>
-    projectHandlers.handleSaveLocalConfig(p, id)
+    projectHandlers.handleSaveLocalConfig(p, id),
   );
   rpcRegister(rpc, "project.ensureGitignore", (p, id) =>
-    projectHandlers.handleEnsureGitignore(p, id)
+    projectHandlers.handleEnsureGitignore(p, id),
   );
-  rpcRegister(rpc, "project.scanImport", (p, id) =>
-    projectHandlers.handleScanImport(p, id)
-  );
-  rpcRegister(rpc, "project.import", (p, id) =>
-    projectHandlers.handleImportProject(p, id)
-  );
-  rpcRegister(rpc, "project.linkDatabase", (p, id) =>
-    projectHandlers.handleLinkDatabase(p, id)
-  );
+  rpcRegister(rpc, "project.scanImport", (p, id) => projectHandlers.handleScanImport(p, id));
+  rpcRegister(rpc, "project.import", (p, id) => projectHandlers.handleImportProject(p, id));
+  rpcRegister(rpc, "project.linkDatabase", (p, id) => projectHandlers.handleLinkDatabase(p, id));
   rpcRegister(rpc, "project.unlinkFromConnection", (p, id) =>
-    projectHandlers.handleUnlinkFromConnection(p, id)
+    projectHandlers.handleUnlinkFromConnection(p, id),
   );
   rpcRegister(rpc, "project.deleteWithConnection", (p, id) =>
-    projectHandlers.handleDeleteWithConnection(p, id)
+    projectHandlers.handleDeleteWithConnection(p, id),
   );
-  rpcRegister(rpc, "project.getGitRemote", (p, id) =>
-    projectHandlers.handleGetGitRemote(p, id)
-  );
+  rpcRegister(rpc, "project.getGitRemote", (p, id) => projectHandlers.handleGetGitRemote(p, id));
   rpcRegister(rpc, "project.relinkToConnection", (p, id) =>
-    projectHandlers.handleRelinkToConnection(p, id)
+    projectHandlers.handleRelinkToConnection(p, id),
   );
 
   // ==========================================
@@ -365,29 +244,19 @@ export function registerDbHandlers(
   // ==========================================
   // AI HANDLERS
   // ==========================================
-  rpcRegister(rpc, "ai.testConnection", (p, id) =>
-    aiHandlers.handleTestConnection(p, id)
-  );
+  rpcRegister(rpc, "ai.testConnection", (p, id) => aiHandlers.handleTestConnection(p, id));
   rpcRegister(rpc, "ai.analyzeSchema", (p, id) => aiHandlers.handleAnalyzeSchema(p, id));
   rpcRegister(rpc, "ai.explainQuery", (p, id) => aiHandlers.handleExplainQuery(p, id));
   rpcRegister(rpc, "ai.recommendChart", (p, id) => aiHandlers.handleRecommendChart(p, id));
-  rpcRegister(rpc, "ai.naturalLanguageQuery", (p, id) => aiHandlers.handleNaturalLanguageQuery(p, id));
+  rpcRegister(rpc, "ai.naturalLanguageQuery", (p, id) =>
+    aiHandlers.handleNaturalLanguageQuery(p, id),
+  );
   rpcRegister(rpc, "ai.getHistory", (p, id) => aiHandlers.handleGetHistory(p, id));
-  rpcRegister(rpc, "ai.getHistoryById", (p, id) =>
-    aiHandlers.handleGetHistoryById(p, id)
-  );
-  rpcRegister(rpc, "ai.deleteHistory", (p, id) =>
-    aiHandlers.handleDeleteHistory(p, id)
-  );
-  rpcRegister(rpc, "ai.clearHistory", (p, id) =>
-    aiHandlers.handleClearHistory(p, id)
-  );
-  rpcRegister(rpc, "ai.loadSettings", (p, id) =>
-    aiHandlers.handleLoadSettings(p, id)
-  );
-  rpcRegister(rpc, "ai.saveSettings", (p, id) =>
-    aiHandlers.handleSaveSettings(p, id)
-  );
+  rpcRegister(rpc, "ai.getHistoryById", (p, id) => aiHandlers.handleGetHistoryById(p, id));
+  rpcRegister(rpc, "ai.deleteHistory", (p, id) => aiHandlers.handleDeleteHistory(p, id));
+  rpcRegister(rpc, "ai.clearHistory", (p, id) => aiHandlers.handleClearHistory(p, id));
+  rpcRegister(rpc, "ai.loadSettings", (p, id) => aiHandlers.handleLoadSettings(p, id));
+  rpcRegister(rpc, "ai.saveSettings", (p, id) => aiHandlers.handleSaveSettings(p, id));
 
   logger?.info("All RPC handlers registered successfully");
 }
@@ -400,7 +269,7 @@ export function registerDbHandlers(
 function rpcRegister(
   rpc: Rpc,
   method: string,
-  fn: (params: any, id: number | string) => Promise<void> | void
+  fn: (params: any, id: number | string) => Promise<void> | void,
 ) {
   if (typeof (rpc as any).register === "function") {
     (rpc as any).register(method, fn);

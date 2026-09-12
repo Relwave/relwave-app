@@ -82,7 +82,7 @@ export const DataTable = ({
               <TableCell
                 key={column}
                 className="font-mono text-xs whitespace-nowrap px-4 py-2.5 max-w-75 truncate"
-                title={row[column]?.toString() || 'NULL'}
+                title={row[column]?.toString() || "NULL"}
               >
                 {row[column] !== null && row[column] !== undefined ? (
                   formatCellValue(row[column], column)
@@ -98,7 +98,7 @@ export const DataTable = ({
                     <Button
                       variant="ghost"
                       size="icon"
-                  className="h-7 w-7 hover:bg-primary/10"
+                      className="h-7 w-7 hover:bg-primary/10"
                       onClick={() => onEditRow(row)}
                       title="Edit row"
                     >
@@ -109,7 +109,7 @@ export const DataTable = ({
                     <Button
                       variant="ghost"
                       size="icon"
-                  className="h-7 w-7 hover:bg-destructive/10"
+                      className="h-7 w-7 hover:bg-destructive/10"
                       onClick={() => onDeleteRow(row)}
                       title="Delete row"
                     >
@@ -152,24 +152,39 @@ function formatCellValue(value: any, columnName?: string): React.ReactNode {
     return <span className="text-muted-foreground/40 italic text-xs font-sans">null</span>;
   }
 
-  if (typeof value === 'boolean') {
+  if (typeof value === "boolean") {
     return (
-      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${value
-        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-        }`}>
+      <span
+        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${
+          value
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+        }`}
+      >
         {value.toString()}
       </span>
     );
   }
 
-  if (typeof value === 'number') {
-    const isLikelyTimestampCol = columnName?.toLowerCase().match(/time|date|created|updated|deleted/);
+  if (typeof value === "number") {
+    const isLikelyTimestampCol = columnName
+      ?.toLowerCase()
+      .match(/time|date|created|updated|deleted/);
     if (isLikelyTimestampCol) {
-      if (value > 1e9 && value < 1e10) { // Seconds
-        return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(value * 1000).toISOString())}</span>;
-      } else if (value > 1e12 && value < 1e13) { // Milliseconds
-        return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(value).toISOString())}</span>;
+      if (value > 1e9 && value < 1e10) {
+        // Seconds
+        return (
+          <span className="text-violet-600 dark:text-violet-400">
+            {formatTimestamp(new Date(value * 1000).toISOString())}
+          </span>
+        );
+      } else if (value > 1e12 && value < 1e13) {
+        // Milliseconds
+        return (
+          <span className="text-violet-600 dark:text-violet-400">
+            {formatTimestamp(new Date(value).toISOString())}
+          </span>
+        );
       }
     }
     return (
@@ -187,13 +202,13 @@ function formatCellValue(value: any, columnName?: string): React.ReactNode {
     );
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     try {
       const jsonStr = JSON.stringify(value);
       return (
         <span className="text-amber-600 dark:text-amber-400 text-xs bg-amber-500/5 px-1.5 py-0.5 rounded">
           {jsonStr.slice(0, 80)}
-          {jsonStr.length > 80 ? '…' : ''}
+          {jsonStr.length > 80 ? "…" : ""}
         </span>
       );
     } catch {
@@ -204,8 +219,10 @@ function formatCellValue(value: any, columnName?: string): React.ReactNode {
   const strValue = String(value);
 
   // Check if it looks like a date string
-  if (typeof strValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(strValue)) {
-    return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(strValue)}</span>;
+  if (typeof strValue === "string" && /^\d{4}-\d{2}-\d{2}/.test(strValue)) {
+    return (
+      <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(strValue)}</span>
+    );
   }
 
   // Check if it's a UNIX timestamp (seconds or ms) based on column name heuristic
@@ -213,10 +230,18 @@ function formatCellValue(value: any, columnName?: string): React.ReactNode {
   if (isLikelyTimestampCol) {
     // 10 digits (seconds) or 13 digits (ms)
     if (/^\d{10}$/.test(strValue)) {
-      return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(Number(strValue) * 1000).toISOString())}</span>;
+      return (
+        <span className="text-violet-600 dark:text-violet-400">
+          {formatTimestamp(new Date(Number(strValue) * 1000).toISOString())}
+        </span>
+      );
     }
     if (/^\d{13}$/.test(strValue)) {
-      return <span className="text-violet-600 dark:text-violet-400">{formatTimestamp(new Date(Number(strValue)).toISOString())}</span>;
+      return (
+        <span className="text-violet-600 dark:text-violet-400">
+          {formatTimestamp(new Date(Number(strValue)).toISOString())}
+        </span>
+      );
     }
   }
 

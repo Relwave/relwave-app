@@ -261,7 +261,7 @@ export class DbStore {
     configFile: string = CONFIG_FILE,
     credentialsFile: string = CREDENTIALS_FILE,
     cacheTtl: number = DEFAULT_CACHE_TTL,
-    autoPreload: boolean = true
+    autoPreload: boolean = true,
   ) {
     this.configFolder = configFolder;
     this.configFile = configFile;
@@ -294,21 +294,13 @@ export class DbStore {
         const configData = await fs.readFile(this.configFile, "utf-8");
         const normalized = normalizeConfigData(JSON.parse(configData));
         if (normalized.changed) {
-          await fs.writeFile(
-            this.configFile,
-            JSON.stringify(normalized.data, null, 2),
-            "utf-8"
-          );
+          await fs.writeFile(this.configFile, JSON.stringify(normalized.data, null, 2), "utf-8");
         }
         this.cache.setConfig(normalized.data);
       } else {
         // Create empty config and cache it
         const emptyConfig: ConfigData = { version: 1, databases: [] };
-        await fs.writeFile(
-          this.configFile,
-          JSON.stringify(emptyConfig, null, 2),
-          "utf-8"
-        );
+        await fs.writeFile(this.configFile, JSON.stringify(emptyConfig, null, 2), "utf-8");
         this.cache.setConfig(emptyConfig);
       }
 
@@ -349,10 +341,7 @@ export class DbStore {
     const iv = randomBytes(16);
     const key = (await scryptAsync(appKey, salt, 32)) as Buffer;
     const cipher = createCipheriv("aes-256-cbc", key, iv);
-    const encrypted = Buffer.concat([
-      cipher.update(password, "utf8"),
-      cipher.final(),
-    ]);
+    const encrypted = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
     // salt(32) + iv(16) + ciphertext → base64
     return Buffer.concat([salt, iv, encrypted]).toString("base64");
   }
@@ -372,10 +361,7 @@ export class DbStore {
     const appKey = await loadOrCreateAppKey();
     const key = (await scryptAsync(appKey, salt, 32)) as Buffer;
     const decipher = createDecipheriv("aes-256-cbc", key, iv);
-    const decrypted = Buffer.concat([
-      decipher.update(encrypted),
-      decipher.final(),
-    ]);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted.toString("utf8");
   }
 
@@ -413,11 +399,7 @@ export class DbStore {
    */
   private async saveCredentials(credentials: CredentialStore): Promise<void> {
     try {
-      await fs.writeFile(
-        this.credentialsFile,
-        JSON.stringify(credentials, null, 2),
-        "utf-8"
-      );
+      await fs.writeFile(this.credentialsFile, JSON.stringify(credentials, null, 2), "utf-8");
       // Set file permissions to user-only (Unix systems)
       if (process.platform !== "win32") {
         await fs.chmod(this.credentialsFile, 0o600);
@@ -446,7 +428,7 @@ export class DbStore {
       await fs.writeFile(
         this.configFile,
         JSON.stringify({ version: 1, databases: [] }, null, 2),
-        "utf-8"
+        "utf-8",
       );
     }
   }
@@ -558,9 +540,7 @@ export class DbStore {
     if (payload.password && credentialId) {
       try {
         const credentials = await this.loadCredentials();
-        credentials[credentialId] = await this.encryptPassword(
-          payload.password
-        );
+        credentials[credentialId] = await this.encryptPassword(payload.password);
         await this.saveCredentials(credentials);
       } catch (error) {
         console.error("Failed to store password:", error);
@@ -574,10 +554,7 @@ export class DbStore {
   /**
    * Update an existing database connection
    */
-  async updateDB(
-    id: string,
-    patch: Partial<DBMeta> & { password?: string }
-  ): Promise<boolean> {
+  async updateDB(id: string, patch: Partial<DBMeta> & { password?: string }): Promise<boolean> {
     const all = await this.loadAll();
     const idx = all.databases.findIndex((db) => db.id === id);
     if (idx === -1) throw new Error("Database not found");
@@ -714,11 +691,9 @@ export const dbStoreInstance = new DbStore();
 export const listDBs = () => dbStoreInstance.listDBs();
 export const getDB = (id: string) => dbStoreInstance.getDB(id);
 export const addDB = (payload: any) => dbStoreInstance.addDB(payload);
-export const updateDB = (id: string, patch: any) =>
-  dbStoreInstance.updateDB(id, patch);
+export const updateDB = (id: string, patch: any) => dbStoreInstance.updateDB(id, patch);
 export const deleteDB = (id: string) => dbStoreInstance.deleteDB(id);
-export const getPasswordFor = (meta: DBMeta) =>
-  dbStoreInstance.getPasswordFor(meta);
+export const getPasswordFor = (meta: DBMeta) => dbStoreInstance.getPasswordFor(meta);
 export const invalidateCache = () => dbStoreInstance.invalidateCache();
 export const touchDB = (id: string) => dbStoreInstance.touchDB(id);
 

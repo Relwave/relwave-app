@@ -44,7 +44,7 @@ export function convertToCSV(data: TableRow[], columns?: string[]): string {
 
   // Create data rows
   const dataRows = data.map((row) =>
-    headers.map((header) => escapeCSVValue(row[header])).join(",")
+    headers.map((header) => escapeCSVValue(row[header])).join(","),
   );
 
   return [headerRow, ...dataRows].join("\n");
@@ -76,11 +76,7 @@ export function convertToJSON(data: TableRow[], columns?: string[]): string {
 /**
  * Convert data to the specified format
  */
-export function convertData(
-  data: TableRow[],
-  format: ExportFormat,
-  columns?: string[]
-): string {
+export function convertData(data: TableRow[], format: ExportFormat, columns?: string[]): string {
   switch (format) {
     case "json":
       return convertToJSON(data, columns);
@@ -116,7 +112,7 @@ export function getFileExtension(format: ExportFormat): string {
 export function downloadFile(
   content: string,
   filename: string,
-  mimeType: string = "text/csv;charset=utf-8;"
+  mimeType: string = "text/csv;charset=utf-8;",
 ): void {
   // Add BOM for CSV files to help Excel with UTF-8
   const bom = mimeType.includes("csv") ? "\uFEFF" : "";
@@ -143,7 +139,7 @@ export function downloadTableData(
   data: TableRow[],
   tableName: string,
   format: ExportFormat = "csv",
-  columns?: string[]
+  columns?: string[],
 ): void {
   const content = convertData(data, format, columns);
   const timestamp = new Date().toISOString().split("T")[0];

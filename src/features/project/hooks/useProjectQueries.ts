@@ -28,11 +28,11 @@ export const projectKeys = {
 // Stale times
 // ============================================
 const STALE_TIMES = {
-  list: 5 * 60 * 1000,        // 5 min — project list rarely changes
+  list: 5 * 60 * 1000, // 5 min — project list rarely changes
   detail: 5 * 60 * 1000,
-  schema: 10 * 60 * 1000,     // 10 min — cached schema
+  schema: 10 * 60 * 1000, // 10 min — cached schema
   erDiagram: 10 * 60 * 1000,
-  queries: 2 * 60 * 1000,     // 2 min — queries update more often
+  queries: 2 * 60 * 1000, // 2 min — queries update more often
 };
 
 // ============================================
@@ -40,8 +40,7 @@ const STALE_TIMES = {
 // ============================================
 export function useProjects() {
   const queryClient = useQueryClient();
-  const bridgeReady =
-    queryClient.getQueryData<boolean>(["bridge-ready"]) ?? isBridgeReady();
+  const bridgeReady = queryClient.getQueryData<boolean>(["bridge-ready"]) ?? isBridgeReady();
 
   return useQuery({
     queryKey: projectKeys.all,
@@ -163,8 +162,8 @@ export function useRelinkProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ projectId, databaseId }: { projectId: string; databaseId: string }) => 
-        projectService.relinkToConnection(projectId, databaseId),
+    mutationFn: ({ projectId, databaseId }: { projectId: string; databaseId: string }) =>
+      projectService.relinkToConnection(projectId, databaseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
     },
@@ -187,13 +186,8 @@ export function useSaveProjectSchema() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      projectId,
-      schemas,
-    }: {
-      projectId: string;
-      schemas: SchemaSnapshot[];
-    }) => projectService.saveProjectSchema(projectId, schemas),
+    mutationFn: ({ projectId, schemas }: { projectId: string; schemas: SchemaSnapshot[] }) =>
+      projectService.saveProjectSchema(projectId, schemas),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.schema(variables.projectId),
@@ -301,13 +295,8 @@ export function useDeleteProjectQuery() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      projectId,
-      queryId,
-    }: {
-      projectId: string;
-      queryId: string;
-    }) => projectService.deleteProjectQuery(projectId, queryId),
+    mutationFn: ({ projectId, queryId }: { projectId: string; queryId: string }) =>
+      projectService.deleteProjectQuery(projectId, queryId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: projectKeys.queries(variables.projectId),

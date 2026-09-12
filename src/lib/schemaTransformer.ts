@@ -1,4 +1,9 @@
-import { ColumnDetails, DatabaseSchemaDetails, ForeignKeyInfo, TableSchemaDetails } from '@/features/database/types';
+import {
+  ColumnDetails,
+  DatabaseSchemaDetails,
+  ForeignKeyInfo,
+  TableSchemaDetails,
+} from "@/features/database/types";
 import type { ERNode } from "@/features/project/types";
 import { Edge, MarkerType, Node } from "reactflow";
 import dagre from "dagre";
@@ -31,7 +36,7 @@ const getNodeDimensions = (table: TableSchemaDetails) => {
   const footerHeight = 30;
 
   const width = Math.max(baseWidth, table.name.length * 10 + 80);
-  const height = headerHeight + (table.columns.length * columnHeight) + footerHeight;
+  const height = headerHeight + table.columns.length * columnHeight + footerHeight;
 
   return { width, height };
 };
@@ -40,7 +45,7 @@ const getNodeDimensions = (table: TableSchemaDetails) => {
 const applyDagreLayout = (
   nodes: Node<TableNodeData>[],
   edges: Edge<any>[],
-  direction: "TB" | "LR" = "LR"
+  direction: "TB" | "LR" = "LR",
 ): Node<TableNodeData>[] => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -56,7 +61,7 @@ const applyDagreLayout = (
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, {
       width: node.width || 220,
-      height: node.height || 200
+      height: node.height || 200,
     });
   });
 
@@ -84,7 +89,7 @@ const applyDagreLayout = (
 export const transformSchemaToER = (
   schema: DatabaseSchemaDetails,
   useDagreLayout: boolean = true,
-  savedLayout?: ERNode[] | null
+  savedLayout?: ERNode[] | null,
 ): TransformedERData => {
   const nodes: Node<TableNodeData>[] = [];
   const edges: Edge<any>[] = [];
@@ -92,17 +97,10 @@ export const transformSchemaToER = (
 
   // Colors
   const PRIMARY_CYAN = "#06B6D4"; // Tailwind cyan-500
-  const SCHEMA_COLORS: Record<string, string> = {
-    public: "#3B82F6",    // blue
-    private: "#8B5CF6",   // purple
-    auth: "#10B981",      // emerald
-    analytics: "#F59E0B", // amber
-  };
-
   // Build a map of column -> foreign key info for quick lookup
   const buildFkMap = (foreignKeys: ForeignKeyInfo[] = []): Map<string, ForeignKeyInfo> => {
     const map = new Map<string, ForeignKeyInfo>();
-    foreignKeys.forEach(fk => {
+    foreignKeys.forEach((fk) => {
       map.set(fk.source_column, fk);
     });
     return map;
@@ -111,24 +109,24 @@ export const transformSchemaToER = (
   // Build saved layout lookup: tableId → ERNode
   const layoutMap = new Map<string, ERNode>();
   if (savedLayout) {
-    savedLayout.forEach(n => layoutMap.set(n.tableId, n));
+    savedLayout.forEach((n) => layoutMap.set(n.tableId, n));
   }
 
   // First pass: Create all nodes with enriched column data
   schema.schemas.forEach((schemaGroup) => {
-    const schemaColor = SCHEMA_COLORS[schemaGroup.name] || "#6B7280";
-
     schemaGroup.tables.forEach((table) => {
       const tableName = `${schemaGroup.name}.${table.name}`;
       const fkMap = buildFkMap(table.foreignKeys);
       const { width, height } = getNodeDimensions(table);
 
       // Enrich columns with foreign key reference info
-      const enrichedColumns: Column[] = table.columns.map(col => {
+      const enrichedColumns: Column[] = table.columns.map((col) => {
         const fkInfo = fkMap.get(col.name);
         return {
           ...col,
-          fkRef: fkInfo ? `${fkInfo.target_schema}.${fkInfo.target_table}.${fkInfo.target_column}` : undefined,
+          fkRef: fkInfo
+            ? `${fkInfo.target_schema}.${fkInfo.target_table}.${fkInfo.target_column}`
+            : undefined,
         };
       });
 
@@ -233,9 +231,10 @@ export const transformSchemaToER = (
   //  - Dagre is requested AND there are edges
   //  - AND there is NO saved layout (would overwrite user-saved positions)
   const hasSavedPositions = savedLayout && savedLayout.length > 0;
-  const layoutedNodes = useDagreLayout && edges.length > 0 && !hasSavedPositions
-    ? applyDagreLayout(nodes, edges, "LR")
-    : nodes;
+  const layoutedNodes =
+    useDagreLayout && edges.length > 0 && !hasSavedPositions
+      ? applyDagreLayout(nodes, edges, "LR")
+      : nodes;
 
   return { nodes: layoutedNodes, edges };
 };

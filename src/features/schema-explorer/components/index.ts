@@ -1,28 +1,28 @@
 // Main components
-export { default as SchemaExplorerPanel } from './SchemaExplorerPanel';
-export { default as SchemaExplorerHeader } from './SchemaExplorerHeader';
-export { default as MetaDataPanel } from './MetaDataPanel';
+export { default as SchemaExplorerPanel } from "./SchemaExplorerPanel";
+export { default as SchemaExplorerHeader } from "./SchemaExplorerHeader";
+export { default as MetaDataPanel } from "./MetaDataPanel";
 
 // Dialogs
-export { default as CreateTableDialog } from './CreateTableDialog';
-export { default as AlterTableDialog } from './AlterTableDialog';
-export { default as DropTableDialog } from './DropTableDialog';
-export { default as AddIndexesDialog } from './AddIndexesDialog';
+export { default as CreateTableDialog } from "./CreateTableDialog";
+export { default as AlterTableDialog } from "./AlterTableDialog";
+export { default as DropTableDialog } from "./DropTableDialog";
+export { default as AddIndexesDialog } from "./AddIndexesDialog";
 
 // Form components
-export { default as TableDesignerForm } from './TableDesignerForm';
-export { default as ForeignKeyRow } from './ForeignKeyRow';
-export { default as IndexRow } from './IndexRow';
+export { default as TableDesignerForm } from "./TableDesignerForm";
+export { default as ForeignKeyRow } from "./ForeignKeyRow";
+export { default as IndexRow } from "./IndexRow";
 
 // Metadata detail components
-export * from './metadata';
+export * from "./metadata";
 
 // Types
 export type {
-    Column,
-    TableSchema,
-    Schema,
-    DatabaseSchema,
-    MetaDataPanelProps,
-    TableSelection,
-} from '../types';
+  Column,
+  TableSchema,
+  Schema,
+  DatabaseSchema,
+  MetaDataPanelProps,
+  TableSelection,
+} from "../types";

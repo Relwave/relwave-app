@@ -1,9 +1,20 @@
 import { useState, useEffect } from "react";
-import { Bot, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ChevronDown, Zap, Scale, Brain, ExternalLink } from "lucide-react";
+import {
+  Bot,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ChevronDown,
+  Zap,
+  Scale,
+  Brain,
+  ExternalLink,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -180,7 +191,12 @@ const TIER_CONFIG: Record<ModelTier, { label: string; icon: typeof Zap; classNam
 function TierBadge({ tier }: { tier: ModelTier }) {
   const { label, icon: Icon, className } = TIER_CONFIG[tier];
   return (
-    <span className={cn("inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border", className)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border",
+        className,
+      )}
+    >
       <Icon className="h-2.5 w-2.5" />
       {label}
     </span>
@@ -229,10 +245,15 @@ function ModelSelector({
           {(["fast", "balanced", "powerful"] as ModelTier[]).map((tier) => {
             const tierOptions = byTier[tier];
             if (tierOptions.length === 0) return null;
-            const { label, icon: Icon, className: badgeCls } = TIER_CONFIG[tier];
+            const { label, icon: Icon } = TIER_CONFIG[tier];
             return (
               <div key={tier}>
-                <DropdownMenuLabel className={cn("text-[10px] flex items-center gap-1.5 font-semibold py-1.5", `text-${tier === "fast" ? "emerald" : tier === "balanced" ? "blue" : "purple"}-500`)}>
+                <DropdownMenuLabel
+                  className={cn(
+                    "text-[10px] flex items-center gap-1.5 font-semibold py-1.5",
+                    `text-${tier === "fast" ? "emerald" : tier === "balanced" ? "blue" : "purple"}-500`,
+                  )}
+                >
                   <Icon className="h-3 w-3" />
                   {label}
                 </DropdownMenuLabel>
@@ -241,12 +262,14 @@ function ModelSelector({
                     key={opt.value}
                     className={cn(
                       "flex items-center justify-between text-xs cursor-pointer",
-                      opt.value === selected.value && "bg-primary/8 text-primary font-medium"
+                      opt.value === selected.value && "bg-primary/8 text-primary font-medium",
                     )}
                     onClick={() => onChange(opt.value)}
                   >
                     <span>{opt.label}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground/50 truncate max-w-[130px]">{opt.value}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/50 truncate max-w-[130px]">
+                      {opt.value}
+                    </span>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
@@ -269,12 +292,14 @@ type ConnectionStatus = "idle" | "testing" | "ok" | "error";
 function StatusBadge({ status, message }: { status: ConnectionStatus; message?: string }) {
   if (status === "idle") return null;
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full",
-      status === "testing" && "text-muted-foreground bg-muted/50",
-      status === "ok" && "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-      status === "error" && "text-destructive bg-destructive/10",
-    )}>
+    <div
+      className={cn(
+        "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full",
+        status === "testing" && "text-muted-foreground bg-muted/50",
+        status === "ok" && "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+        status === "error" && "text-destructive bg-destructive/10",
+      )}
+    >
       {status === "testing" && <Loader2 className="h-3 w-3 animate-spin" />}
       {status === "ok" && <CheckCircle2 className="h-3 w-3" />}
       {status === "error" && <XCircle className="h-3 w-3" />}
@@ -369,14 +394,17 @@ export default function AISettings() {
 
   // Get the currently selected model label for the provider description
   const activeModelField = MODEL_FIELD[activeProvider.name];
-  const activeModelValue = activeModelField ? (settings[activeModelField] as string | undefined) : undefined;
+  const activeModelValue = activeModelField
+    ? (settings[activeModelField] as string | undefined)
+    : undefined;
   const activeModelOptions = MODEL_OPTIONS[activeProvider.name] ?? [];
-  const activeModelInfo = activeModelOptions.find((o) => o.value === activeModelValue) ?? activeModelOptions[0];
+  const activeModelInfo =
+    activeModelOptions.find((o) => o.value === activeModelValue) ?? activeModelOptions[0];
 
   // Which providers already have keys saved (excluding ollama which needs no key)
   const configuredProviders = PROVIDERS.filter((p) => {
     if (!p.requiresKey || !p.keyField) return false;
-    return !!((settings[p.keyField] as string | undefined)?.trim());
+    return !!(settings[p.keyField] as string | undefined)?.trim();
   });
   const configuredCount = configuredProviders.length;
 
@@ -416,13 +444,18 @@ export default function AISettings() {
           <div className="space-y-0.5">
             <Label className="text-xs font-medium">Active Provider</Label>
             <p className="text-[11px] text-muted-foreground/60">
-              {activeModelInfo ? `${activeModelInfo.label} · ` : ""}{activeProvider.label}
+              {activeModelInfo ? `${activeModelInfo.label} · ` : ""}
+              {activeProvider.label}
             </p>
             {configuredCount > 0 && (
               <p className="text-[10px] text-muted-foreground/40 flex items-center gap-1.5 pt-0.5">
                 <span className="flex items-center gap-1">
                   {configuredProviders.map((p) => (
-                    <span key={p.name} title={`${p.label} key saved`} className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-500/80">
+                    <span
+                      key={p.name}
+                      title={`${p.label} key saved`}
+                      className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-500/80"
+                    >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                       {p.label.split(" ")[0]}
                     </span>
@@ -434,22 +467,28 @@ export default function AISettings() {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-2 border-border/40 min-w-[160px] justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-2 border-border/40 min-w-[160px] justify-between"
+              >
                 {activeProvider.label}
                 <ChevronDown className="h-3.5 w-3.5 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               {PROVIDERS.map((p) => {
-                const hasKey = p.requiresKey && p.keyField
-                  ? !!((settings[p.keyField] as string | undefined)?.trim())
-                  : !p.requiresKey; // ollama always "configured"
+                const hasKey =
+                  p.requiresKey && p.keyField
+                    ? !!(settings[p.keyField] as string | undefined)?.trim()
+                    : !p.requiresKey; // ollama always "configured"
                 return (
                   <DropdownMenuItem
                     key={p.name}
                     className={cn(
                       "flex items-center gap-2 text-xs py-2",
-                      p.name === settings.defaultProvider && "bg-primary/8 text-primary font-medium"
+                      p.name === settings.defaultProvider &&
+                        "bg-primary/8 text-primary font-medium",
                     )}
                     onClick={() => update({ defaultProvider: p.name })}
                   >
@@ -457,16 +496,20 @@ export default function AISettings() {
                     <span
                       className={cn(
                         "w-2 h-2 rounded-full shrink-0",
-                        hasKey ? "bg-emerald-500" : "bg-muted-foreground/25"
+                        hasKey ? "bg-emerald-500" : "bg-muted-foreground/25",
                       )}
                       title={hasKey ? "API key saved" : "No key saved"}
                     />
                     <div className="flex flex-col min-w-0">
                       <span>{p.label}</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">{p.defaultModelLabel}</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        {p.defaultModelLabel}
+                      </span>
                     </div>
                     {p.name === settings.defaultProvider && (
-                      <span className="ml-auto text-[9px] text-primary/70 font-semibold uppercase tracking-wider shrink-0">Active</span>
+                      <span className="ml-auto text-[9px] text-primary/70 font-semibold uppercase tracking-wider shrink-0">
+                        Active
+                      </span>
                     )}
                   </DropdownMenuItem>
                 );
@@ -475,7 +518,8 @@ export default function AISettings() {
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground/50">
-                    {configuredCount} provider{configuredCount !== 1 ? "s" : ""} with saved keys — switching won't delete them.
+                    {configuredCount} provider{configuredCount !== 1 ? "s" : ""} with saved keys —
+                    switching won't delete them.
                   </DropdownMenuLabel>
                 </>
               )}
@@ -489,7 +533,10 @@ export default function AISettings() {
           {activeProvider.requiresKey && activeProvider.keyField && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor={`ai-key-${activeProvider.name}`} className="text-[11px] text-muted-foreground/70 uppercase tracking-wider font-semibold">
+                <Label
+                  htmlFor={`ai-key-${activeProvider.name}`}
+                  className="text-[11px] text-muted-foreground/70 uppercase tracking-wider font-semibold"
+                >
                   API Key
                 </Label>
                 {activeProvider.docsUrl && (
@@ -516,7 +563,7 @@ export default function AISettings() {
           {activeProvider.name !== "ollama" && MODEL_FIELD[activeProvider.name] && (
             <ModelSelector
               provider={activeProvider.name}
-              value={(settings[MODEL_FIELD[activeProvider.name]!] as string | undefined)}
+              value={settings[MODEL_FIELD[activeProvider.name]!] as string | undefined}
               onChange={(model) => update({ [MODEL_FIELD[activeProvider.name]!]: model })}
             />
           )}
@@ -524,7 +571,10 @@ export default function AISettings() {
           {/* Extra fields (Ollama base URL / model text input) */}
           {activeProvider.extraFields?.map((field) => (
             <div key={field.field} className="space-y-1.5">
-              <Label htmlFor={`ai-${field.field}`} className="text-[11px] text-muted-foreground/70 uppercase tracking-wider font-semibold">
+              <Label
+                htmlFor={`ai-${field.field}`}
+                className="text-[11px] text-muted-foreground/70 uppercase tracking-wider font-semibold"
+              >
                 {field.label}
               </Label>
               <Input
@@ -551,17 +601,10 @@ export default function AISettings() {
               onClick={handleTest}
               disabled={status === "testing"}
             >
-              {status === "testing" ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-              ) : null}
+              {status === "testing" ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
               Test Connection
             </Button>
-            <Button
-              size="sm"
-              className="h-7 text-xs"
-              onClick={handleSave}
-              disabled={!dirty}
-            >
+            <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={!dirty}>
               Save
             </Button>
           </div>
@@ -575,42 +618,53 @@ export default function AISettings() {
           Configure other providers
         </summary>
         <div className="mt-3 rounded-lg border border-border/30 bg-card/30 divide-y divide-border/20">
-          {PROVIDERS.filter((p) => p.name !== settings.defaultProvider && p.requiresKey).map((provider) => {
-            const modelField = MODEL_FIELD[provider.name];
-            const modelOptions = MODEL_OPTIONS[provider.name] ?? [];
-            const selectedModel = modelField ? (settings[modelField] as string | undefined) : undefined;
-            const selectedModelInfo = modelOptions.find((o) => o.value === selectedModel) ?? modelOptions[0];
-            return (
-              <div key={provider.name} className="px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor={`ai-other-${provider.name}`} className="text-[11px] font-semibold flex items-center gap-2">
-                    {provider.label}
-                    {selectedModelInfo && (
-                      <TierBadge tier={selectedModelInfo.tier} />
+          {PROVIDERS.filter((p) => p.name !== settings.defaultProvider && p.requiresKey).map(
+            (provider) => {
+              const modelField = MODEL_FIELD[provider.name];
+              const modelOptions = MODEL_OPTIONS[provider.name] ?? [];
+              const selectedModel = modelField
+                ? (settings[modelField] as string | undefined)
+                : undefined;
+              const selectedModelInfo =
+                modelOptions.find((o) => o.value === selectedModel) ?? modelOptions[0];
+              return (
+                <div key={provider.name} className="px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor={`ai-other-${provider.name}`}
+                      className="text-[11px] font-semibold flex items-center gap-2"
+                    >
+                      {provider.label}
+                      {selectedModelInfo && <TierBadge tier={selectedModelInfo.tier} />}
+                    </Label>
+                    {provider.docsUrl && (
+                      <a
+                        href={provider.docsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground flex items-center gap-1"
+                      >
+                        Get key <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
                     )}
-                  </Label>
-                  {provider.docsUrl && (
-                    <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground flex items-center gap-1">
-                      Get key <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
+                  </div>
+                  <SecretInput
+                    id={`ai-other-${provider.name}`}
+                    value={(settings[provider.keyField!] as string) ?? ""}
+                    onChange={(v) => update({ [provider.keyField!]: v })}
+                    placeholder={provider.keyPlaceholder}
+                  />
+                  {modelField && modelOptions.length > 0 && (
+                    <ModelSelector
+                      provider={provider.name}
+                      value={selectedModel}
+                      onChange={(model) => update({ [modelField]: model })}
+                    />
                   )}
                 </div>
-                <SecretInput
-                  id={`ai-other-${provider.name}`}
-                  value={(settings[provider.keyField!] as string) ?? ""}
-                  onChange={(v) => update({ [provider.keyField!]: v })}
-                  placeholder={provider.keyPlaceholder}
-                />
-                {modelField && modelOptions.length > 0 && (
-                  <ModelSelector
-                    provider={provider.name}
-                    value={selectedModel}
-                    onChange={(model) => update({ [modelField]: model })}
-                  />
-                )}
-              </div>
-            );
-          })}
+              );
+            },
+          )}
         </div>
       </details>
     </div>

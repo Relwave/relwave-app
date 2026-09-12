@@ -1,6 +1,8 @@
-import { SYSTEM_CONTEXT } from "./shared";
-
-export function buildResultInterpreterPrompt(question: string, sql: string, resultsJSON: string): {
+export function buildResultInterpreterPrompt(
+  question: string,
+  sql: string,
+  resultsJSON: string,
+): {
   system: string;
   user: string;
 } {

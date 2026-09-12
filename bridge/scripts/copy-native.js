@@ -48,9 +48,7 @@ function findFirstNodeBinary(rootDir) {
 
 function downloadPkgRuntimeBinary(betterSqlite3Dir) {
   const packageJsonPath = path.join(betterSqlite3Dir, "package.json");
-  const tempDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "relwave-better-sqlite3-"),
-  );
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "relwave-better-sqlite3-"));
   const prebuildInstallBin = require.resolve("prebuild-install/bin.js", {
     paths: [betterSqlite3Dir],
   });
@@ -96,9 +94,7 @@ function downloadPkgRuntimeBinary(betterSqlite3Dir) {
 
   const downloadedBinary = findFirstNodeBinary(tempDir);
   if (!downloadedBinary) {
-    console.error(
-      "ERROR: prebuild-install completed, but no better_sqlite3.node was extracted.",
-    );
+    console.error("ERROR: prebuild-install completed, but no better_sqlite3.node was extracted.");
     process.exit(1);
   }
 
@@ -153,12 +149,7 @@ if (!src || !fs.existsSync(src)) {
 }
 
 const repoRoot = path.resolve(__dirname, "..", "..");
-const dest = path.join(
-  repoRoot,
-  "src-tauri",
-  "resources",
-  "better_sqlite3.node",
-);
+const dest = path.join(repoRoot, "src-tauri", "resources", "better_sqlite3.node");
 
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 fs.copyFileSync(src, dest);

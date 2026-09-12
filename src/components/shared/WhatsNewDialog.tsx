@@ -41,7 +41,7 @@ async function fetchReleaseNotes(version: string): Promise<string | undefined> {
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
         },
-      }
+      },
     );
     if (!res.ok) return undefined;
     const data = await res.json();
@@ -87,7 +87,9 @@ export function WhatsNewDialog() {
     };
 
     void load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Dev-only: Cmd+Shift+W resets and reloads
@@ -171,13 +173,9 @@ export function WhatsNewDialog() {
                   </h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-sm font-medium text-foreground/90 mt-4 mb-1.5">
-                    {children}
-                  </h3>
+                  <h3 className="text-sm font-medium text-foreground/90 mt-4 mb-1.5">{children}</h3>
                 ),
-                ul: ({ children }) => (
-                  <ul className="space-y-1.5 mb-3">{children}</ul>
-                ),
+                ul: ({ children }) => <ul className="space-y-1.5 mb-3">{children}</ul>,
                 ol: ({ children }) => (
                   <ol className="space-y-1.5 mb-3 list-decimal pl-4">{children}</ol>
                 ),
@@ -188,19 +186,13 @@ export function WhatsNewDialog() {
                   </li>
                 ),
                 p: ({ children }) => (
-                  <p className="text-sm text-foreground/70 leading-relaxed mb-2">
-                    {children}
-                  </p>
+                  <p className="text-sm text-foreground/70 leading-relaxed mb-2">{children}</p>
                 ),
                 strong: ({ children }) => (
                   <strong className="font-medium text-foreground">{children}</strong>
                 ),
-                em: ({ children }) => (
-                  <em className="italic text-foreground/60">{children}</em>
-                ),
-                hr: () => (
-                  <hr className="border-border/40 my-4" />
-                ),
+                em: ({ children }) => <em className="italic text-foreground/60">{children}</em>,
+                hr: () => <hr className="border-border/40 my-4" />,
                 code: ({ children, className }) => {
                   const isBlock = !!className;
                   return isBlock ? (
@@ -237,14 +229,12 @@ export function WhatsNewDialog() {
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t border-border/50 bg-muted/20 flex-row items-center justify-between gap-4 sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            Thanks for keeping RelWave up to date.
-          </p>
+          <p className="text-xs text-muted-foreground">Thanks for keeping RelWave up to date.</p>
           <Button size="sm" onClick={() => handleClose(false)} disabled={loading}>
             Got it
           </Button>
         </DialogFooter>
-      </DialogContent >
-    </Dialog >
+      </DialogContent>
+    </Dialog>
   );
 }

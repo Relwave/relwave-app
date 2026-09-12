@@ -1,4 +1,14 @@
-import { CheckCircle2, Clock, AlertCircle, Database, Play, Undo2, Trash2, Eye, RefreshCw } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Database,
+  Play,
+  Undo2,
+  Trash2,
+  Eye,
+  RefreshCw,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,265 +20,271 @@ import { formatTimestamp } from "@/lib/utils";
 import { MigrationsPanelLoadingState } from "@/features/database/components/MigrationsPanelLoadingState";
 
 interface MigrationsPanelProps {
-    migrations: MigrationsData;
-    baselined: boolean;
-    dbId: string;
+  migrations: MigrationsData;
+  baselined: boolean;
+  dbId: string;
 }
 
 export default function MigrationsPanel({ migrations, baselined, dbId }: MigrationsPanelProps) {
+  const {
+    allMigrations,
+    applied,
+    selectedMigration,
+    showSQLDialog,
+    sqlContent,
+    isRefreshing,
+    handleRefresh,
+    handleApply,
+    handleRollback,
+    handleDelete,
+    handleViewSQL,
+    setShowSQLDialog,
+  } = useMigrationsPanel({ migrations, baselined, dbId });
 
-    const {
-        allMigrations,
-        applied,
-        local,
-        selectedMigration,
-        showSQLDialog,
-        sqlContent,
-        isRefreshing,
-        handleRefresh,
-        handleApply,
-        handleRollback,
-        handleDelete,
-        handleViewSQL,
-        setShowSQLDialog,
-    } = useMigrationsPanel({ migrations, baselined, dbId })
+  if (isRefreshing) {
+    return <MigrationsPanelLoadingState />;
+  }
 
-    if (isRefreshing) {
-        return (
-            <MigrationsPanelLoadingState />
-        );
-    }
+  return (
+    <>
+      <Card className="h-full flex flex-col border-border/50">
+        <CardHeader className="border-b border-border/50 pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Migrations
+            </CardTitle>
+            <Badge variant={baselined ? "default" : "secondary"} className="text-xs">
+              {baselined ? "Baselined" : "Not Baselined"}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Schema version control and migration status
+          </p>
+        </CardHeader>
 
-    return (
-        <>
-            <Card className="h-full flex flex-col border-border/50">
-                <CardHeader className="border-b border-border/50 pb-4">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <Database className="h-4 w-4" />
-                            Migrations
-                        </CardTitle>
-                        <Badge variant={baselined ? "default" : "secondary"} className="text-xs">
-                            {baselined ? "Baselined" : "Not Baselined"}
-                        </Badge>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
-                        >
-                            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-                        </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Schema version control and migration status
-                    </p>
-                </CardHeader>
-
-                <CardContent className="flex-1 p-0 overflow-hidden">
-                    <ScrollArea className="h-full">
-                        <div className="p-4 space-y-3">
-                            {/* Summary Stats */}
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                                    <div className="text-xs text-muted-foreground mb-1">Applied</div>
-                                    <div className="text-2xl font-bold text-foreground">
-                                        {applied.length}
-                                    </div>
-                                </div>
-                                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                                    <div className="text-xs text-muted-foreground mb-1">Pending</div>
-                                    <div className="text-2xl font-bold text-foreground">
-                                        {allMigrations.filter(m => m.status === "pending").length}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Migrations List */}
-                            {allMigrations.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <Database className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
-                                    <p className="text-sm text-muted-foreground">No migrations found</p>
-                                    <p className="text-xs text-muted-foreground/70 mt-1">
-                                        {baselined ? "Database has been baselined" : "Create your first migration"}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {allMigrations.map((migration) => (
-                                        <MigrationItem
-                                            key={migration.version}
-                                            migration={migration}
-                                            onApply={handleApply}
-                                            onRollback={handleRollback}
-                                            onDelete={handleDelete}
-                                            onViewSQL={handleViewSQL}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </ScrollArea>
-                </CardContent>
-            </Card>
-
-            {/* SQL View Dialog - Simple for now */}
-            {showSQLDialog && sqlContent && selectedMigration && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSQLDialog(false)}>
-                    <div className="bg-background border border-border rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-lg font-semibold mb-4">Migration SQL: {selectedMigration.name}</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <h4 className="text-sm font-medium mb-2 text-green-600">↑ UP (Apply)</h4>
-                                <pre className="bg-muted p-3 rounded text-xs overflow-auto">{sqlContent.up}</pre>
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-medium mb-2 text-orange-600">↓ DOWN (Rollback)</h4>
-                                <pre className="bg-muted p-3 rounded text-xs overflow-auto">{sqlContent.down}</pre>
-                            </div>
-                        </div>
-                        <Button className="mt-4" onClick={() => setShowSQLDialog(false)}>Close</Button>
-                    </div>
+        <CardContent className="flex-1 p-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-3">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
+                  <div className="text-xs text-muted-foreground mb-1">Applied</div>
+                  <div className="text-2xl font-bold text-foreground">{applied.length}</div>
                 </div>
-            )}
-        </>
-    );
+                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
+                  <div className="text-xs text-muted-foreground mb-1">Pending</div>
+                  <div className="text-2xl font-bold text-foreground">
+                    {allMigrations.filter((m) => m.status === "pending").length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Migrations List */}
+              {allMigrations.length === 0 ? (
+                <div className="text-center py-12">
+                  <Database className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No migrations found</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {baselined ? "Database has been baselined" : "Create your first migration"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {allMigrations.map((migration) => (
+                    <MigrationItem
+                      key={migration.version}
+                      migration={migration}
+                      onApply={handleApply}
+                      onRollback={handleRollback}
+                      onDelete={handleDelete}
+                      onViewSQL={handleViewSQL}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* SQL View Dialog - Simple for now */}
+      {showSQLDialog && sqlContent && selectedMigration && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowSQLDialog(false)}
+        >
+          <div
+            className="bg-background border border-border rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Migration SQL: {selectedMigration.name}</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2 text-green-600">↑ UP (Apply)</h4>
+                <pre className="bg-muted p-3 rounded text-xs overflow-auto">{sqlContent.up}</pre>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2 text-orange-600">↓ DOWN (Rollback)</h4>
+                <pre className="bg-muted p-3 rounded text-xs overflow-auto">{sqlContent.down}</pre>
+              </div>
+            </div>
+            <Button className="mt-4" onClick={() => setShowSQLDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // Migration Item Component
 interface MigrationItemProps {
-    migration: {
-        version: string;
-        name: string;
-        status: "applied" | "pending";
-        appliedAt?: string;
-        checksum?: string;
-    };
-    onApply: (version: string, name: string) => void;
-    onRollback: (version: string, name: string) => void;
-    onDelete: (version: string, name: string) => void;
-    onViewSQL: (version: string, name: string) => void;
+  migration: {
+    version: string;
+    name: string;
+    status: "applied" | "pending";
+    appliedAt?: string;
+    checksum?: string;
+  };
+  onApply: (version: string, name: string) => void;
+  onRollback: (version: string, name: string) => void;
+  onDelete: (version: string, name: string) => void;
+  onViewSQL: (version: string, name: string) => void;
 }
 
-function MigrationItem({ migration, onApply, onRollback, onDelete, onViewSQL }: MigrationItemProps) {
-    const isBaseline = migration.name?.includes("baseline");
+function MigrationItem({
+  migration,
+  onApply,
+  onRollback,
+  onDelete,
+  onViewSQL,
+}: MigrationItemProps) {
+  const isBaseline = migration.name?.includes("baseline");
 
-    return (
-        <div
-            className={cn(
-                "border rounded-lg p-3 transition-colors",
-                migration.status === "applied"
-                    ? "border-green-500/30 bg-green-500/5"
-                    : "border-orange-500/30 bg-orange-500/5"
+  return (
+    <div
+      className={cn(
+        "border rounded-lg p-3 transition-colors",
+        migration.status === "applied"
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-orange-500/30 bg-orange-500/5",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Status Icon */}
+          <div className="mt-0.5 shrink-0">
+            {migration.status === "applied" ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            ) : (
+              <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             )}
-        >
-            <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex items-start gap-2 flex-1 min-w-0">
-                    {/* Status Icon */}
-                    <div className="mt-0.5 shrink-0">
-                        {migration.status === "applied" ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        ) : (
-                            <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                        )}
-                    </div>
+          </div>
 
-                    {/* Migration Info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono text-xs font-semibold text-foreground">
-                                {migration.version}
-                            </span>
-                            {isBaseline && (
-                                <Badge variant="outline" className="text-xs px-1.5 py-0">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    Baseline
-                                </Badge>
-                            )}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                            {migration.name}
-                        </p>
-                        {migration.appliedAt && (
-                            <p className="text-xs text-muted-foreground/70 mt-1">
-                                Applied: {formatTimestamp(migration.appliedAt)}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Status Badge */}
-                <Badge
-                    variant={migration.status === "applied" ? "default" : "secondary"}
-                    className={cn(
-                        "text-xs shrink-0",
-                        migration.status === "applied"
-                            ? "bg-green-600 dark:bg-green-700"
-                            : "bg-orange-600 dark:bg-orange-700 text-white"
-                    )}
-                >
-                    {migration.status === "applied" ? "Applied" : "Pending"}
+          {/* Migration Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-xs font-semibold text-foreground">
+                {migration.version}
+              </span>
+              {isBaseline && (
+                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Baseline
                 </Badge>
+              )}
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 mt-2">
-                {migration.status === "pending" ? (
-                    <>
-                        <Button
-                            size="sm"
-                            variant="default"
-                            className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                            onClick={() => onApply(migration.version, migration.name)}
-                        >
-                            <Play className="h-3 w-3" />
-                            Apply
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => onViewSQL(migration.version, migration.name)}
-                        >
-                            <Eye className="h-3 w-3" />
-                            View SQL
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => onDelete(migration.version, migration.name)}
-                        >
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                        </Button>
-                    </>
-                ) : (
-                    <>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => onViewSQL(migration.version, migration.name)}
-                        >
-                            <Eye className="h-3 w-3" />
-                            View SQL
-                        </Button>
-                        {!isBaseline && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs gap-1 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-                                onClick={() => onRollback(migration.version, migration.name)}
-                            >
-                                <Undo2 className="h-3 w-3" />
-                                Rollback
-                            </Button>
-                        )}
-                    </>
-                )}
-            </div>
+            <p className="text-xs text-muted-foreground truncate">{migration.name}</p>
+            {migration.appliedAt && (
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Applied: {formatTimestamp(migration.appliedAt)}
+              </p>
+            )}
+          </div>
         </div>
-    );
+
+        {/* Status Badge */}
+        <Badge
+          variant={migration.status === "applied" ? "default" : "secondary"}
+          className={cn(
+            "text-xs shrink-0",
+            migration.status === "applied"
+              ? "bg-green-600 dark:bg-green-700"
+              : "bg-orange-600 dark:bg-orange-700 text-white",
+          )}
+        >
+          {migration.status === "applied" ? "Applied" : "Pending"}
+        </Badge>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-2 mt-2">
+        {migration.status === "pending" ? (
+          <>
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
+              onClick={() => onApply(migration.version, migration.name)}
+            >
+              <Play className="h-3 w-3" />
+              Apply
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => onViewSQL(migration.version, migration.name)}
+            >
+              <Eye className="h-3 w-3" />
+              View SQL
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 text-xs gap-1"
+              onClick={() => onDelete(migration.version, migration.name)}
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => onViewSQL(migration.version, migration.name)}
+            >
+              <Eye className="h-3 w-3" />
+              View SQL
+            </Button>
+            {!isBaseline && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+                onClick={() => onRollback(migration.version, migration.name)}
+              >
+                <Undo2 className="h-3 w-3" />
+                Rollback
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }

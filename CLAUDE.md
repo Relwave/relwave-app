@@ -3,11 +3,12 @@
 Welcome, Claude. This document outlines project-specific instructions and preferences to help you provide the best possible assistance.
 
 ## 🎯 High-Level Goals
+
 RelWave is a modern, high-performance database management tool. Our priority is a seamless developer experience, visual clarity, and rock-solid reliability.
 
 ## 🛠️ Code Style & Preferences
 
-- **React:** 
+- **React:**
   - Use functional components with hooks.
   - Prefer TanStack Query for data fetching and state synchronization.
   - Use `lucide-react` for icons.
@@ -25,6 +26,7 @@ RelWave is a modern, high-performance database management tool. Our priority is 
 ## 🌉 The Bridge Protocol
 
 When implementing a new feature that requires the Bridge:
+
 1.  **Define the Interface:** Decide on the JSON-RPC method name and parameters.
 2.  **Bridge Handler:** Add a handler in `bridge/src/handlers/`.
 3.  **Bridge Service:** Implement the logic in a service within `bridge/src/services/`.
@@ -46,4 +48,4 @@ When implementing a new feature that requires the Bridge:
 
 - **No browser-only APIs:** Remember this runs in a desktop environment.
 - **No heavy logic in handlers:** Handlers should just route requests to services.
-- **No direct DB calls from Frontend:** All database interaction *must* go through the bridge.
+- **No direct DB calls from Frontend:** All database interaction _must_ go through the bridge.

@@ -12,7 +12,15 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, ShieldAlert, FileJson, Loader2, Database, ShieldX, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  ShieldAlert,
+  FileJson,
+  Loader2,
+  Database,
+  ShieldX,
+  Play,
+} from "lucide-react";
 import { projectService } from "@/services/bridge/project";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -99,20 +107,29 @@ export function MigrationSyncDialog({
   // STATE 4: No migrations, no schema.json
   if (!analysis.hasMigrations && !analysis.hasSchemaSnapshot) {
     return (
-      <Dialog open={open} onOpenChange={() => { }}>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               Incomplete Project
             </DialogTitle>
             <DialogDescription>
-              We could not find any migration files or a schema snapshot in this repository.
-              RelWave cannot reconstruct the database from an empty state.
+              We could not find any migration files or a schema snapshot in this repository. RelWave
+              cannot reconstruct the database from an empty state.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => { setOpen(false); onClose(); }}>
+            <Button
+              onClick={() => {
+                setOpen(false);
+                onClose();
+              }}
+            >
               Open Anyway
             </Button>
           </DialogFooter>
@@ -123,11 +140,19 @@ export function MigrationSyncDialog({
 
   // STATE 2: Migrations exist, schema differs
   if (analysis.hasMigrations && analysis.driftStatus !== "synced") {
-    const hasDestructive = analysis.pendingMigrations.some(m => m.isDestructive);
+    const hasDestructive = analysis.pendingMigrations.some((m) => m.isDestructive);
     const tampered = analysis.lockFileStatus === "tampered";
 
     return (
-      <Dialog open={open} onOpenChange={(val) => { if (!val) { setOpen(false); onClose(); } }}>
+      <Dialog
+        open={open}
+        onOpenChange={(val) => {
+          if (!val) {
+            setOpen(false);
+            onClose();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -147,13 +172,17 @@ export function MigrationSyncDialog({
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm">{m.file}</span>
                       {m.isDestructive && (
-                        <Badge variant="destructive" className="ml-2">DESTRUCTIVE</Badge>
+                        <Badge variant="destructive" className="ml-2">
+                          DESTRUCTIVE
+                        </Badge>
                       )}
                     </div>
                     {m.isDestructive && m.destructiveOps.length > 0 && (
                       <div className="mt-2 text-xs text-destructive bg-destructive/10 p-2 rounded">
                         <ul className="list-disc pl-4">
-                          {m.destructiveOps.map((op, i) => <li key={i}>{op}</li>)}
+                          {m.destructiveOps.map((op, i) => (
+                            <li key={i}>{op}</li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -173,7 +202,10 @@ export function MigrationSyncDialog({
             )}
 
             {!analysis.targetDatabaseEmpty && (
-              <Alert variant="destructive" className="border-orange-500/50 text-orange-600 bg-orange-500/10">
+              <Alert
+                variant="destructive"
+                className="border-orange-500/50 text-orange-600 bg-orange-500/10"
+              >
                 <AlertTriangle className="h-4 w-4 text-orange-600" />
                 <AlertTitle>Target database is not empty</AlertTitle>
                 <AlertDescription className="text-orange-600/80">
@@ -189,7 +221,9 @@ export function MigrationSyncDialog({
                 <AlertDescription>
                   The following migration files may have been modified after being applied:
                   <ul className="list-disc pl-4 mt-2">
-                    {analysis.tamperedFiles.map(f => <li key={f}>{f}</li>)}
+                    {analysis.tamperedFiles.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
                   </ul>
                   Proceeding is not recommended.
                 </AlertDescription>
@@ -205,13 +239,22 @@ export function MigrationSyncDialog({
               </div>
             ) : (
               <>
-                <Button variant="outline" onClick={() => { setOpen(false); onClose(); }}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setOpen(false);
+                    onClose();
+                  }}
+                >
                   Skip for now
                 </Button>
                 <Button
                   onClick={handleApplyMigrations}
                   disabled={tampered}
-                  className={cn(hasDestructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                  className={cn(
+                    hasDestructive &&
+                      "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                  )}
                 >
                   <Play className="h-4 w-4 mr-2" />
                   Apply Migrations
@@ -227,7 +270,15 @@ export function MigrationSyncDialog({
   // STATE 3: No migrations, schema.json exists
   if (!analysis.hasMigrations && analysis.hasSchemaSnapshot && analysis.driftStatus !== "synced") {
     return (
-      <Dialog open={open} onOpenChange={(val) => { if (!val) { setOpen(false); onClose(); } }}>
+      <Dialog
+        open={open}
+        onOpenChange={(val) => {
+          if (!val) {
+            setOpen(false);
+            onClose();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -235,14 +286,17 @@ export function MigrationSyncDialog({
               Apply Schema Snapshot
             </DialogTitle>
             <DialogDescription>
-              No migration history found, but a schema snapshot is available.
-              We can generate a baseline migration to reconstruct the schema.
+              No migration history found, but a schema snapshot is available. We can generate a
+              baseline migration to reconstruct the schema.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 my-2">
             {!analysis.targetDatabaseEmpty && (
-              <Alert variant='destructive' className="border-orange-500/50 text-orange-600 bg-orange-500/10">
+              <Alert
+                variant="destructive"
+                className="border-orange-500/50 text-orange-600 bg-orange-500/10"
+              >
                 <AlertTriangle className="h-4 w-4 text-orange-600" />
                 <AlertTitle>Target database is not empty</AlertTitle>
                 <AlertDescription className="text-orange-600/80">
@@ -261,16 +315,20 @@ export function MigrationSyncDialog({
             ) : (
               <>
                 <div className="flex-1">
-                  <Button variant="outline" onClick={() => { setOpen(false); onClose(); }}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setOpen(false);
+                      onClose();
+                    }}
+                  >
                     Skip
                   </Button>
                 </div>
                 <Button variant="secondary" onClick={handlePreviewSQL}>
                   Preview SQL
                 </Button>
-                <Button onClick={handleApplySnapshot}>
-                  Generate & Apply
-                </Button>
+                <Button onClick={handleApplySnapshot}>Generate & Apply</Button>
               </>
             )}
           </DialogFooter>
@@ -278,7 +336,9 @@ export function MigrationSyncDialog({
 
         <SQLPreviewSheet
           open={!!previewSql}
-          onOpenChange={(val) => { if (!val) setPreviewSql(null); }}
+          onOpenChange={(val) => {
+            if (!val) setPreviewSql(null);
+          }}
           sql={previewSql || ""}
           title="Baseline SQL Preview"
         />

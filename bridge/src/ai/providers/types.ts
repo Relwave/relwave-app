@@ -65,16 +65,31 @@ export function classifyError(err: unknown, provider: string): AIError {
   const msg = err instanceof Error ? err.message : String(err);
   const lower = msg.toLowerCase();
 
-  if (lower.includes("api key") || lower.includes("apikey") || lower.includes("authentication") || lower.includes("unauthorized") || lower.includes("401")) {
+  if (
+    lower.includes("api key") ||
+    lower.includes("apikey") ||
+    lower.includes("authentication") ||
+    lower.includes("unauthorized") ||
+    lower.includes("401")
+  ) {
     return new AIError("INVALID_API_KEY", provider, msg);
   }
-  if (lower.includes("rate limit") || lower.includes("429") || lower.includes("too many requests")) {
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("429") ||
+    lower.includes("too many requests")
+  ) {
     return new AIError("RATE_LIMIT", provider, msg);
   }
   if (lower.includes("timeout") || lower.includes("timed out")) {
     return new AIError("TIMEOUT", provider, msg);
   }
-  if (lower.includes("econnrefused") || lower.includes("enotfound") || lower.includes("fetch failed") || lower.includes("network")) {
+  if (
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network")
+  ) {
     return new AIError("NETWORK_FAILURE", provider, msg);
   }
   if (lower.includes("model") && (lower.includes("not found") || lower.includes("invalid"))) {

@@ -1,1 +1,1 @@
-export { default as MigrationsPanel } from './MigrationsPanel'
+export { default as MigrationsPanel } from "./MigrationsPanel";

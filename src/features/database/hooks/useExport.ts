@@ -40,23 +40,14 @@ export function useExport({ dbId, databaseName }: UseExportOptions) {
   /**
    * Fetch all data from a table (handles pagination internally)
    */
-  const fetchAllTableData = async (
-    schemaName: string,
-    tableName: string
-  ): Promise<TableRow[]> => {
+  const fetchAllTableData = async (schemaName: string, tableName: string): Promise<TableRow[]> => {
     const allRows: TableRow[] = [];
     const pageSize = 1000; // Fetch 1000 rows at a time
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
-      const result = await queryService.fetchTableData(
-        dbId,
-        schemaName,
-        tableName,
-        pageSize,
-        page
-      );
+      const result = await queryService.fetchTableData(dbId, schemaName, tableName, pageSize, page);
 
       allRows.push(...result.rows);
 
@@ -183,7 +174,8 @@ export function useExport({ dbId, databaseName }: UseExportOptions) {
       } catch (error: unknown) {
         console.error("Export failed:", error);
         setProgress((p) => ({ ...p, status: "error" }));
-        const errorMessage = error instanceof Error ? error.message : "An error occurred during export";
+        const errorMessage =
+          error instanceof Error ? error.message : "An error occurred during export";
         toast.error("Export failed", {
           id: toastId,
           description: errorMessage,
@@ -201,7 +193,7 @@ export function useExport({ dbId, databaseName }: UseExportOptions) {
         }, 2000);
       }
     },
-    [dbId, databaseName, isExporting]
+    [dbId, databaseName, isExporting],
   );
 
   /**
@@ -239,7 +231,7 @@ export function useExport({ dbId, databaseName }: UseExportOptions) {
         });
       }
     },
-    [dbId]
+    [dbId],
   );
 
   return {

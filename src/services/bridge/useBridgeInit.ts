@@ -4,7 +4,7 @@ import {
   startBridgeListeners,
   stopBridgeListeners,
   isBridgeReady,
-  waitForTauri
+  waitForTauri,
 } from "@/services/bridge/bridgeClient";
 
 /**

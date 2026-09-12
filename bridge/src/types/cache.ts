@@ -12,7 +12,7 @@ export const SCHEMA_CACHE_TTL = 300000; // 5 minutes for schemas (rarely change)
  * Generic cache entry with TTL support
  */
 export type CacheEntry<T> = {
-    data: T;
-    timestamp: number;
-    ttl: number;
+  data: T;
+  timestamp: number;
+  ttl: number;
 };

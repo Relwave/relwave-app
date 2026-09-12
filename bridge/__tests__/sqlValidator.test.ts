@@ -14,22 +14,42 @@ describe("validateGeneratedSQL", () => {
       {
         name: "public",
         tables: [
-          { name: "users", type: "BASE TABLE", columns: [], indexes: [], foreignKeys: [], checks: [] },
-          { name: "orders", type: "BASE TABLE", columns: [], indexes: [], foreignKeys: [], checks: [] }
-        ]
-      }
-    ]
+          {
+            name: "users",
+            type: "BASE TABLE",
+            columns: [],
+            indexes: [],
+            foreignKeys: [],
+            checks: [],
+          },
+          {
+            name: "orders",
+            type: "BASE TABLE",
+            columns: [],
+            indexes: [],
+            foreignKeys: [],
+            checks: [],
+          },
+        ],
+      },
+    ],
   };
 
   it("should allow a valid SELECT query with known tables", () => {
-    const result = validateGeneratedSQL('SELECT * FROM "users" JOIN public.orders on users.id = orders.user_id', mockSchema);
+    const result = validateGeneratedSQL(
+      'SELECT * FROM "users" JOIN public.orders on users.id = orders.user_id',
+      mockSchema,
+    );
     expect(result.valid).toBe(true);
     expect(result.intent).toBe("read");
   });
 
   it("should block non-SELECT queries", () => {
-    const result = validateGeneratedSQL('WITH cte AS (SELECT * FROM users) SELECT * FROM cte', mockSchema);
-    // Actually our simple check blocks WITH if it doesn't start with SELECT. 
+    const result = validateGeneratedSQL(
+      "WITH cte AS (SELECT * FROM users) SELECT * FROM cte",
+      mockSchema,
+    );
+    // Actually our simple check blocks WITH if it doesn't start with SELECT.
     // That's acceptable for a strict auto-execution guard as per TASKS.md
     expect(result.valid).toBe(false);
     expect(result.reason).toContain("start with SELECT");

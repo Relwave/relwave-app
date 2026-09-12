@@ -8,7 +8,7 @@ export class MonitoringHandlers {
     private rpc: Rpc,
     private logger: Logger,
     private dbService: DatabaseService,
-    private monitoringService: MonitoringService
+    private monitoringService: MonitoringService,
   ) {}
 
   async handleGetSnapshot(params: any, id: number | string) {

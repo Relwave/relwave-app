@@ -36,7 +36,7 @@ function notifyConnectionState(healthy: boolean) {
   if (connectionHealthy !== healthy) {
     console.log(`bridgeClient: Connection state changed: ${connectionHealthy} -> ${healthy}`);
     connectionHealthy = healthy;
-    connectionStateListeners.forEach(listener => listener(healthy));
+    connectionStateListeners.forEach((listener) => listener(healthy));
   }
 }
 
@@ -67,9 +67,7 @@ export async function startBridgeListeners(): Promise<void> {
   }
 
   if (!hasTauriInvoke()) {
-    console.warn(
-      "bridgeClient: Tauri invoke not available — running in browser fallback mode."
-    );
+    console.warn("bridgeClient: Tauri invoke not available — running in browser fallback mode.");
     return;
   }
 
@@ -87,7 +85,7 @@ export async function startBridgeListeners(): Promise<void> {
             window.dispatchEvent(
               new CustomEvent(`bridge:${payload.method}`, {
                 detail: payload.params,
-              })
+              }),
             );
             return;
           }
@@ -130,13 +128,13 @@ export async function startBridgeListeners(): Promise<void> {
     notifyConnectionState(true);
     lastSuccessfulRequest = Date.now();
     reconnectAttempts = 0; // Reset on manual/init start
-    
+
     // Start health check interval
     startHealthCheck();
-    
+
     // Listen for visibility changes (tab/app becomes visible)
     setupVisibilityHandler();
-    
+
     console.log("bridgeClient: Listeners initialized");
   } catch (error) {
     console.error("bridgeClient: Failed to initialize listeners", error);
@@ -153,17 +151,17 @@ function setupVisibilityHandler(): void {
   if (visibilityHandler) {
     document.removeEventListener("visibilitychange", visibilityHandler);
   }
-  
+
   visibilityHandler = async () => {
     if (document.visibilityState === "visible" && isInitialized) {
       console.log("bridgeClient: App became visible, verifying connection...");
-      
+
       // Reset timestamp to avoid immediate health check trigger
       lastSuccessfulRequest = Date.now();
-      
+
       // Small delay for system to stabilize
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Quick health check
       try {
         const status = await invoke<string>("bridge_status");
@@ -176,19 +174,21 @@ function setupVisibilityHandler(): void {
             reconnectAttempts = 0;
           }
         } else {
-          console.warn(`bridgeClient: Bridge not running after visibility change (status: ${status})`);
+          console.warn(
+            `bridgeClient: Bridge not running after visibility change (status: ${status})`,
+          );
           await handleBridgeReconnect();
         }
       } catch (error) {
         console.warn("bridgeClient: Connection check failed after visibility change:", error);
         // If it's a pipe error, try to reconnect
         if (isPipeError(error)) {
-           await handleBridgeReconnect();
+          await handleBridgeReconnect();
         }
       }
     }
   };
-  
+
   document.addEventListener("visibilitychange", visibilityHandler);
 }
 
@@ -199,24 +199,26 @@ function startHealthCheck(): void {
   if (healthCheckInterval) {
     clearInterval(healthCheckInterval);
   }
-  
+
   lastHealthCheckTime = Date.now();
-  
+
   healthCheckInterval = setInterval(async () => {
     const now = Date.now();
     const timeSinceLastHealthCheck = now - lastHealthCheckTime;
     lastHealthCheckTime = now;
-    
+
     // Detect system wake from sleep - if interval fired much later than expected
     if (timeSinceLastHealthCheck > HEALTH_CHECK_INTERVAL + SLEEP_DETECTION_THRESHOLD) {
-      console.log(`bridgeClient: System likely woke from sleep (${Math.round(timeSinceLastHealthCheck / 1000)}s since last check)`);
+      console.log(
+        `bridgeClient: System likely woke from sleep (${Math.round(timeSinceLastHealthCheck / 1000)}s since last check)`,
+      );
       // Reset the timestamp to give the system time to stabilize
       lastSuccessfulRequest = now;
       reconnectAttempts = 0;
-      
+
       // Wait a moment for system to stabilize after wake
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       // Do a gentle health check
       try {
         const status = await invoke<string>("bridge_status");
@@ -231,30 +233,37 @@ function startHealthCheck(): void {
           await handleBridgeReconnect();
         }
       } catch (error) {
-        console.warn("bridgeClient: Health check failed after wake, attempting reconnect...", error);
+        console.warn(
+          "bridgeClient: Health check failed after wake, attempting reconnect...",
+          error,
+        );
         await handleBridgeReconnect();
       }
       return;
     }
-    
+
     // Reconnection logic for unhealthy state
     if (!connectionHealthy) {
-      console.warn("bridgeClient: Connection is currently unhealthy, attempting background recovery...");
+      console.warn(
+        "bridgeClient: Connection is currently unhealthy, attempting background recovery...",
+      );
       await handleBridgeReconnect();
       return;
     }
 
     // Normal health check - only if no recent activity
     const timeSinceLastActivity = now - lastSuccessfulRequest;
-    
+
     if (timeSinceLastActivity > CONNECTION_TIMEOUT) {
       console.warn("bridgeClient: No recent activity, checking health...");
-      
+
       // First check if the bridge process is still running
       try {
         const status = await invoke<string>("bridge_status");
         if (status !== "running") {
-          console.warn(`bridgeClient: Bridge process not running (status: ${status}), attempting restart...`);
+          console.warn(
+            `bridgeClient: Bridge process not running (status: ${status}), attempting restart...`,
+          );
           notifyConnectionState(false);
           await handleBridgeReconnect();
           return;
@@ -262,7 +271,7 @@ function startHealthCheck(): void {
       } catch (statusError) {
         console.error("bridgeClient: Failed to check bridge status:", statusError);
       }
-      
+
       // If process is running, try a ping
       try {
         await bridgeRequestInternal(HEALTH_PING_METHOD, {}, 10000);
@@ -278,7 +287,6 @@ function startHealthCheck(): void {
   }, HEALTH_CHECK_INTERVAL);
 }
 
-
 /**
  * Handle bridge reconnection with deduplication
  */
@@ -287,7 +295,7 @@ async function handleBridgeReconnect(): Promise<void> {
     console.log("bridgeClient: Reconnection already in progress, waiting...");
     return reconnectPromise;
   }
-  
+
   reconnectPromise = (async () => {
     try {
       await reinitializeBridge();
@@ -297,7 +305,7 @@ async function handleBridgeReconnect(): Promise<void> {
       reconnectPromise = null;
     }
   })();
-  
+
   return reconnectPromise;
 }
 
@@ -337,7 +345,7 @@ export function stopBridgeListeners(): void {
 function getTimeoutForMethod(method: string): number {
   // Ping should be fast
   if (method === "ping" || method === HEALTH_PING_METHOD) return 5000; // 5 seconds
-  
+
   // Schema operations can be very slow on large databases
   if (method === "db.getSchema") return 180000; // 3 minutes
 
@@ -374,20 +382,18 @@ function isPipeError(error: any): boolean {
 async function bridgeRequestInternal(
   method: string,
   params?: any,
-  timeoutMs?: number
+  timeoutMs?: number,
 ): Promise<any> {
   const timeout = timeoutMs ?? getTimeoutForMethod(method);
-  
+
   if (!hasTauriInvoke()) {
     throw new Error(
-      "Tauri runtime not available. Run inside the Tauri app (pnpm tauri dev) or provide a browser fallback."
+      "Tauri runtime not available. Run inside the Tauri app (pnpm tauri dev) or provide a browser fallback.",
     );
   }
 
   if (!isInitialized) {
-    throw new Error(
-      "Bridge client not initialized. Call startBridgeListeners() first."
-    );
+    throw new Error("Bridge client not initialized. Call startBridgeListeners() first.");
   }
 
   const id = nextId++;
@@ -403,7 +409,7 @@ async function bridgeRequestInternal(
         pending.delete(id);
         const elapsed = performance.now() - startTime;
         console.error(
-          `[Bridge Timeout ${id}] ${method} after ${elapsed.toFixed(0)}ms (limit: ${timeout}ms)`
+          `[Bridge Timeout ${id}] ${method} after ${elapsed.toFixed(0)}ms (limit: ${timeout}ms)`,
         );
         reject(new Error(`Bridge request timeout after ${timeout}ms: ${method}`));
       }
@@ -445,7 +451,7 @@ async function bridgeRequestInternal(
 export async function bridgeRequest(
   method: string,
   params?: any,
-  timeoutMs?: number
+  timeoutMs?: number,
 ): Promise<any> {
   const maxRetries = 2;
   let lastError: any;
@@ -456,18 +462,18 @@ export async function bridgeRequest(
       return result;
     } catch (error) {
       lastError = error;
-      
+
       // Check if this is a pipe/connection error
       if (isPipeError(error)) {
         console.warn(`[Bridge] Pipe error on attempt ${attempt + 1}/${maxRetries + 1}:`, error);
         notifyConnectionState(false);
-        
+
         if (attempt < maxRetries) {
           // Wait before retry, increasing delay with each attempt
           const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
           console.log(`[Bridge] Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          
+          await new Promise((resolve) => setTimeout(resolve, delay));
+
           // Try to reinitialize the connection
           try {
             await handleBridgeReconnect();
@@ -477,7 +483,7 @@ export async function bridgeRequest(
           continue;
         }
       }
-      
+
       // For non-pipe errors or if we've exhausted retries, throw
       throw error;
     }
@@ -494,16 +500,18 @@ async function reinitializeBridge(): Promise<void> {
     console.error("[Bridge] Max reconnect attempts reached");
     throw new Error("Max reconnect attempts reached. Please restart the application.");
   }
-  
+
   reconnectAttempts++;
-  console.log(`[Bridge] Reinitializing (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-  
+  console.log(
+    `[Bridge] Reinitializing (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`,
+  );
+
   // Stop existing listeners
   stopBridgeListeners();
-  
+
   // Wait a bit for cleanup
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
   // Try to restart the bridge process on the Rust side
   try {
     console.log("[Bridge] Requesting bridge restart from Rust...");
@@ -513,13 +521,13 @@ async function reinitializeBridge(): Promise<void> {
     console.error("[Bridge] Failed to restart bridge process:", rustError);
     // Continue anyway - listeners restart might help
   }
-  
+
   // Wait for the new bridge process to be ready
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   // Restart listeners
   await startBridgeListeners();
-  
+
   console.log("[Bridge] Reinitialized successfully");
 }
 
@@ -559,22 +567,22 @@ export async function restartBridge(): Promise<boolean> {
   if (!hasTauriInvoke()) {
     return false;
   }
-  
+
   try {
     console.log("[Bridge] Manual restart requested...");
     stopBridgeListeners();
-    
+
     await invoke("bridge_restart");
-    
+
     // Wait for the new bridge process to be ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     await startBridgeListeners();
-    
+
     // Reset reconnect attempts on successful manual restart
     reconnectAttempts = 0;
     notifyConnectionState(true);
-    
+
     console.log("[Bridge] Manual restart completed successfully");
     return true;
   } catch (error) {
@@ -596,14 +604,14 @@ export function resetReconnectAttempts(): void {
  */
 export async function bridgeRequestBatch(
   requests: Array<{ method: string; params?: any }>,
-  timeoutMs = 30000
+  timeoutMs = 30000,
 ): Promise<any[]> {
   // Send all requests in parallel
   const promises = requests.map((req) =>
     bridgeRequest(req.method, req.params, timeoutMs).catch((error) => {
       console.warn(`Batch request failed: ${req.method}`, error);
       return null; // Return null for failed requests instead of breaking the whole batch
-    })
+    }),
   );
 
   return Promise.all(promises);

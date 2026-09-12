@@ -26,7 +26,7 @@ export class KeyringService {
   async getCredential(id: string): Promise<string | null> {
     try {
       return credentialEntry(id).getPassword();
-    } catch (err) {
+    } catch {
       // If it doesn't exist, getPassword might throw or return null depending on platform/impl.
       // Usually it throws if not found.
       logger.debug({ id }, "Credential not found in keyring or error occurred");

@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.git
+.turbo
+src-tauri/target
+src-tauri/gen
+src-tauri/resources
+*.lock
+pnpm-lock.yaml

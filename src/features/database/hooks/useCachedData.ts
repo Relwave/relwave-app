@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 const CACHE_PREFIX = "relwave-cache-";
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
@@ -17,13 +17,13 @@ function getCachedData<T>(key: string): T | null {
     if (!cached) return null;
 
     const entry: CacheEntry<T> = JSON.parse(cached);
-    
+
     // Check if cache is expired
     if (Date.now() - entry.timestamp > CACHE_EXPIRY) {
       localStorage.removeItem(CACHE_PREFIX + key);
       return null;
     }
-    
+
     return entry.data;
   } catch {
     return null;
@@ -52,7 +52,7 @@ function setCachedData<T>(key: string, data: T): void {
  */
 export function useCachedConnectionStatus() {
   const CACHE_KEY = "connection-status";
-  
+
   const [cachedStatus, setCachedStatus] = useState<Map<string, string>>(() => {
     const cached = getCachedData<Record<string, string>>(CACHE_KEY);
     return cached ? new Map(Object.entries(cached)) : new Map();
@@ -73,7 +73,7 @@ export function useCachedConnectionStatus() {
  */
 export function useCachedTotalStats() {
   const CACHE_KEY = "total-stats";
-  
+
   interface TotalStats {
     tables: number;
     rows: number;
@@ -97,7 +97,7 @@ export function useCachedTotalStats() {
  */
 export function useCachedDbStats() {
   const CACHE_KEY = "db-stats";
-  
+
   interface DbStats {
     tables: number;
     rows: number;
@@ -110,7 +110,7 @@ export function useCachedDbStats() {
   });
 
   const updateCache = useCallback((dbId: string, stats: DbStats) => {
-    setCachedDbStats(prev => {
+    setCachedDbStats((prev) => {
       const newMap = new Map(prev);
       newMap.set(dbId, stats);
       // Convert Map to object for JSON serialization
@@ -120,9 +120,12 @@ export function useCachedDbStats() {
     });
   }, []);
 
-  const getStats = useCallback((dbId: string): DbStats | undefined => {
-    return cachedDbStats.get(dbId);
-  }, [cachedDbStats]);
+  const getStats = useCallback(
+    (dbId: string): DbStats | undefined => {
+      return cachedDbStats.get(dbId);
+    },
+    [cachedDbStats],
+  );
 
   return { cachedDbStats, updateCache, getStats };
 }
@@ -131,6 +134,6 @@ export function useCachedDbStats() {
  * Clear all cached data
  */
 export function clearAllCache(): void {
-  const keys = Object.keys(localStorage).filter(key => key.startsWith(CACHE_PREFIX));
-  keys.forEach(key => localStorage.removeItem(key));
+  const keys = Object.keys(localStorage).filter((key) => key.startsWith(CACHE_PREFIX));
+  keys.forEach((key) => localStorage.removeItem(key));
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, test, jest, beforeAll, afterAll } from "@jest/globals";
+import { describe, expect, test, jest, beforeAll, afterAll } from "@jest/globals";
 import * as sqliteConnector from "../../src/connectors/sqlite";
 import { SQLiteConfig } from "../../src/types/sqlite";
 import fs from "fs";
@@ -320,12 +320,12 @@ describe("SQLite Connector", () => {
         validConfig,
         "SELECT * FROM persons;",
         100,
-        (batch, columns) => {
+        (batch, _columns) => {
           rows.push(...batch);
         },
         () => {
           doneCalled = true;
-        }
+        },
       );
 
       await promise;
@@ -345,7 +345,7 @@ describe("SQLite Connector", () => {
         (batch) => {
           batchCount++;
           expect(batch.length).toBeLessThanOrEqual(1);
-        }
+        },
       );
 
       await promise;
@@ -361,7 +361,7 @@ describe("SQLite Connector", () => {
         1,
         (batch) => {
           rows.push(...batch);
-        }
+        },
       );
 
       // Cancel immediately
@@ -390,22 +390,17 @@ describe("SQLite Connector", () => {
     });
 
     test("Should throw on empty data", async () => {
-      await expect(
-        sqliteConnector.insertRow(validConfig, "main", "persons", {})
-      ).rejects.toThrow("No data provided for insert");
+      await expect(sqliteConnector.insertRow(validConfig, "main", "persons", {})).rejects.toThrow(
+        "No data provided for insert",
+      );
     });
   });
 
   describe("updateRow", () => {
     test("Should update a row and return it", async () => {
-      const updated = await sqliteConnector.updateRow(
-        validConfig,
-        "main",
-        "persons",
-        "id",
-        1,
-        { name: "Alice Updated" }
-      );
+      const updated = await sqliteConnector.updateRow(validConfig, "main", "persons", "id", 1, {
+        name: "Alice Updated",
+      });
 
       expect(updated.name).toBe("Alice Updated");
       expect(updated.id).toBe(1);
@@ -413,7 +408,7 @@ describe("SQLite Connector", () => {
 
     test("Should throw on empty update data", async () => {
       await expect(
-        sqliteConnector.updateRow(validConfig, "main", "persons", "id", 1, {})
+        sqliteConnector.updateRow(validConfig, "main", "persons", "id", 1, {}),
       ).rejects.toThrow("No data provided for update");
     });
   });
@@ -432,20 +427,14 @@ describe("SQLite Connector", () => {
         "main",
         "persons",
         "id",
-        inserted.id
+        inserted.id,
       );
 
       expect(result).toBe(true);
     });
 
     test("Should return false when no row matches", async () => {
-      const result = await sqliteConnector.deleteRow(
-        validConfig,
-        "main",
-        "persons",
-        "id",
-        999999
-      );
+      const result = await sqliteConnector.deleteRow(validConfig, "main", "persons", "id", 999999);
 
       expect(result).toBe(false);
     });
@@ -456,12 +445,7 @@ describe("SQLite Connector", () => {
   // ===============================
   describe("searchTable", () => {
     test("Should search across all columns", async () => {
-      const result = await sqliteConnector.searchTable(
-        validConfig,
-        "main",
-        "persons",
-        "Bob"
-      );
+      const result = await sqliteConnector.searchTable(validConfig, "main", "persons", "Bob");
 
       expect(result.rows.length).toBeGreaterThan(0);
       expect(result.total).toBeGreaterThan(0);
@@ -473,7 +457,7 @@ describe("SQLite Connector", () => {
         "main",
         "persons",
         "bob@test.com",
-        "email"
+        "email",
       );
 
       expect(result.rows.length).toBe(1);
@@ -485,7 +469,7 @@ describe("SQLite Connector", () => {
         validConfig,
         "main",
         "persons",
-        "nonexistent_value_xyz"
+        "nonexistent_value_xyz",
       );
 
       expect(result.rows).toEqual([]);
@@ -498,15 +482,24 @@ describe("SQLite Connector", () => {
   // ===============================
   describe("createTable", () => {
     test("Should create a new table", async () => {
-      const result = await sqliteConnector.createTable(
-        validConfig,
-        "main",
-        "test_create_table",
-        [
-          { name: "id", type: "INTEGER", not_nullable: true, is_primary_key: true, is_foreign_key: false, default_value: null },
-          { name: "value", type: "TEXT", not_nullable: false, is_primary_key: false, is_foreign_key: false, default_value: null },
-        ]
-      );
+      const result = await sqliteConnector.createTable(validConfig, "main", "test_create_table", [
+        {
+          name: "id",
+          type: "INTEGER",
+          not_nullable: true,
+          is_primary_key: true,
+          is_foreign_key: false,
+          default_value: null,
+        },
+        {
+          name: "value",
+          type: "TEXT",
+          not_nullable: false,
+          is_primary_key: false,
+          is_foreign_key: false,
+          default_value: null,
+        },
+      ]);
 
       expect(result).toBe(true);
 
@@ -524,11 +517,28 @@ describe("SQLite Connector", () => {
     test("Should add a column to a table", async () => {
       // Create a temp table first
       await sqliteConnector.createTable(validConfig, "main", "test_alter", [
-        { name: "id", type: "INTEGER", not_nullable: true, is_primary_key: true, is_foreign_key: false, default_value: null },
+        {
+          name: "id",
+          type: "INTEGER",
+          not_nullable: true,
+          is_primary_key: true,
+          is_foreign_key: false,
+          default_value: null,
+        },
       ]);
 
       const result = await sqliteConnector.alterTable(validConfig, "main", "test_alter", [
-        { type: "ADD_COLUMN", column: { name: "new_col", type: "TEXT", not_nullable: false, is_primary_key: false, is_foreign_key: false, default_value: null } },
+        {
+          type: "ADD_COLUMN",
+          column: {
+            name: "new_col",
+            type: "TEXT",
+            not_nullable: false,
+            is_primary_key: false,
+            is_foreign_key: false,
+            default_value: null,
+          },
+        },
       ]);
 
       expect(result).toBe(true);
@@ -558,7 +568,14 @@ describe("SQLite Connector", () => {
   describe("dropTable", () => {
     test("Should drop a table", async () => {
       await sqliteConnector.createTable(validConfig, "main", "test_drop", [
-        { name: "id", type: "INTEGER", not_nullable: true, is_primary_key: true, is_foreign_key: false, default_value: null },
+        {
+          name: "id",
+          type: "INTEGER",
+          not_nullable: true,
+          is_primary_key: true,
+          is_foreign_key: false,
+          default_value: null,
+        },
       ]);
 
       const result = await sqliteConnector.dropTable(validConfig, "main", "test_drop");
@@ -572,8 +589,22 @@ describe("SQLite Connector", () => {
   describe("createIndexes", () => {
     test("Should create indexes on a table", async () => {
       await sqliteConnector.createTable(validConfig, "main", "test_indexes", [
-        { name: "id", type: "INTEGER", not_nullable: true, is_primary_key: true, is_foreign_key: false, default_value: null },
-        { name: "value", type: "TEXT", not_nullable: false, is_primary_key: false, is_foreign_key: false, default_value: null },
+        {
+          name: "id",
+          type: "INTEGER",
+          not_nullable: true,
+          is_primary_key: true,
+          is_foreign_key: false,
+          default_value: null,
+        },
+        {
+          name: "value",
+          type: "TEXT",
+          not_nullable: false,
+          is_primary_key: false,
+          is_foreign_key: false,
+          default_value: null,
+        },
       ]);
 
       const result = await sqliteConnector.createIndexes(validConfig, "main", [
@@ -600,7 +631,7 @@ describe("SQLite Connector", () => {
   });
 
   // ===============================
-  // READONLY TESTS  
+  // READONLY TESTS
   // ===============================
   describe("readonly mode", () => {
     test("Should open in readonly mode and allow reads", async () => {

@@ -43,101 +43,113 @@ describeOrSkip("SSHTunnelService Integration Tests", () => {
     }
   });
 
-  it("should connect to postgres via SSH tunnel using password auth", async () => {
-    // 1. Create SSH Tunnel
-    tunnel = await sshTunnelServiceInstance.createSSHTunnel(
-      {
-        host: "localhost",
-        port: 2222, // ssh-server exposed port
-        username: "testsshuser",
-        authMethod: "password",
-        password: "testpassword",
-      },
-      "postgres-behind-ssh", // remote host inside docker network
-      5432 // remote port
-    );
+  it(
+    "should connect to postgres via SSH tunnel using password auth",
+    async () => {
+      // 1. Create SSH Tunnel
+      tunnel = await sshTunnelServiceInstance.createSSHTunnel(
+        {
+          host: "localhost",
+          port: 2222, // ssh-server exposed port
+          username: "testsshuser",
+          authMethod: "password",
+          password: "testpassword",
+        },
+        "postgres-behind-ssh", // remote host inside docker network
+        5432, // remote port
+      );
 
-    expect(tunnel.localPort).toBeGreaterThan(0);
+      expect(tunnel.localPort).toBeGreaterThan(0);
 
-    // 2. Connect to Postgres via the local tunnel port
-    const pgClient = new PgClient({
-      host: "127.0.0.1",
-      port: tunnel.localPort,
-      user: "testuser",
-      password: "testpass",
-      database: "testdb",
-    });
-
-    await pgClient.connect();
-    const res = await pgClient.query("SELECT 1 + 1 AS result");
-    expect(res.rows[0].result).toBe(2);
-    await pgClient.end();
-  }, TIMEOUT);
-
-  it("should connect to postgres via SSH tunnel using private key auth", async () => {
-    // 1. Create SSH Tunnel
-    tunnel = await sshTunnelServiceInstance.createSSHTunnel(
-      {
-        host: "localhost",
-        port: 2222,
-        username: "testsshuser",
-        authMethod: "privateKey",
-        privateKey: TEST_PRIVATE_KEY,
-      },
-      "postgres-behind-ssh",
-      5432
-    );
-
-    expect(tunnel.localPort).toBeGreaterThan(0);
-
-    // 2. Connect to Postgres
-    const pgClient = new PgClient({
-      host: "127.0.0.1",
-      port: tunnel.localPort,
-      user: "testuser",
-      password: "testpass",
-      database: "testdb",
-    });
-
-    await pgClient.connect();
-    const res = await pgClient.query("SELECT 1 + 1 AS result");
-    expect(res.rows[0].result).toBe(2);
-    await pgClient.end();
-  }, TIMEOUT);
-
-  it("tunnel.close() tears down cleanly and subsequent connections fail", async () => {
-    // 1. Create SSH Tunnel
-    tunnel = await sshTunnelServiceInstance.createSSHTunnel(
-      {
-        host: "localhost",
-        port: 2222,
-        username: "testsshuser",
-        authMethod: "password",
-        password: "testpassword",
-      },
-      "postgres-behind-ssh",
-      5432
-    );
-
-    const localPort = tunnel.localPort;
-
-    // 2. Close tunnel
-    tunnel.close();
-    tunnel = null;
-
-    // 3. Verify connection fails
-    const socket = new net.Socket();
-    const connectionPromise = new Promise((resolve, reject) => {
-      socket.setTimeout(1000);
-      socket.connect(localPort, "127.0.0.1", () => {
-        socket.destroy();
-        resolve(true);
+      // 2. Connect to Postgres via the local tunnel port
+      const pgClient = new PgClient({
+        host: "127.0.0.1",
+        port: tunnel.localPort,
+        user: "testuser",
+        password: "testpass",
+        database: "testdb",
       });
-      socket.on("error", () => resolve(false));
-      socket.on("timeout", () => resolve(false));
-    });
 
-    const isConnected = await connectionPromise;
-    expect(isConnected).toBe(false);
-  }, TIMEOUT);
+      await pgClient.connect();
+      const res = await pgClient.query("SELECT 1 + 1 AS result");
+      expect(res.rows[0].result).toBe(2);
+      await pgClient.end();
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "should connect to postgres via SSH tunnel using private key auth",
+    async () => {
+      // 1. Create SSH Tunnel
+      tunnel = await sshTunnelServiceInstance.createSSHTunnel(
+        {
+          host: "localhost",
+          port: 2222,
+          username: "testsshuser",
+          authMethod: "privateKey",
+          privateKey: TEST_PRIVATE_KEY,
+        },
+        "postgres-behind-ssh",
+        5432,
+      );
+
+      expect(tunnel.localPort).toBeGreaterThan(0);
+
+      // 2. Connect to Postgres
+      const pgClient = new PgClient({
+        host: "127.0.0.1",
+        port: tunnel.localPort,
+        user: "testuser",
+        password: "testpass",
+        database: "testdb",
+      });
+
+      await pgClient.connect();
+      const res = await pgClient.query("SELECT 1 + 1 AS result");
+      expect(res.rows[0].result).toBe(2);
+      await pgClient.end();
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "tunnel.close() tears down cleanly and subsequent connections fail",
+    async () => {
+      // 1. Create SSH Tunnel
+      tunnel = await sshTunnelServiceInstance.createSSHTunnel(
+        {
+          host: "localhost",
+          port: 2222,
+          username: "testsshuser",
+          authMethod: "password",
+          password: "testpassword",
+        },
+        "postgres-behind-ssh",
+        5432,
+      );
+
+      const localPort = tunnel.localPort;
+
+      // 2. Close tunnel
+      tunnel.close();
+      tunnel = null;
+
+      // 3. Verify connection fails
+      const socket = new net.Socket();
+      const connectionPromise = new Promise((resolve, _reject) => {
+        socket.setTimeout(1000);
+        socket.connect(localPort, "127.0.0.1", () => {
+          socket.destroy();
+          resolve(true);
+        });
+        socket.on("error", () => resolve(false));
+        socket.on("timeout", () => resolve(false));
+      });
+
+      const isConnected = await connectionPromise;
+      expect(isConnected).toBe(false);
+    },
+    TIMEOUT,
+  );
 });

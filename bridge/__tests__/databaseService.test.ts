@@ -7,7 +7,6 @@ import path from "path";
 const TEST_RELWAVE_HOME = path.join(os.tmpdir(), `database-service-test-${Date.now()}`);
 process.env.RELWAVE_HOME = TEST_RELWAVE_HOME;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { DatabaseService } = require("../src/services/databaseService");
 
 const mockInput = {
@@ -35,7 +34,7 @@ describe("Database Service Method", () => {
     for (const id of createdDbIds) {
       try {
         await dbService.deleteDatabase(id);
-      } catch (e) {
+      } catch {
         // Ignore - may already be deleted
       }
     }
@@ -47,12 +46,12 @@ describe("Database Service Method", () => {
         if (TEST_DB_NAMES.includes(db.name)) {
           try {
             await dbService.deleteDatabase(db.id);
-          } catch (e) {
+          } catch {
             // Ignore deletion errors during cleanup
           }
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore errors during final cleanup
     }
 
@@ -106,61 +105,51 @@ describe("Database Service Method", () => {
 
   test("should throw error when required field 'host' is missing", async () => {
     // Arrange
-    const { host, ...payload } = mockInput;
+    const { host: _host, ...payload } = mockInput;
     // Act & Assert
-    await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: host"
-    );
+    await expect(dbService.addDatabase(payload)).rejects.toThrow("Missing required field: host");
   });
 
   // Test Case 3: Missing required field 'user'
   test("should throw error when required field 'user' is missing", async () => {
     // Arrange
-    const { user, ...payload } = mockInput;
+    const { user: _user, ...payload } = mockInput;
     // Act & Assert
-    await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: user"
-    );
+    await expect(dbService.addDatabase(payload)).rejects.toThrow("Missing required field: user");
   });
 
   // Test Case 4: Missing required field 'database'
   test("should throw error when required field 'database' is missing", async () => {
     // Arrange
-    const { database, ...payload } = mockInput;
+    const { database: _database, ...payload } = mockInput;
     // Act & Assert
     await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: database"
+      "Missing required field: database",
     );
   });
 
   // Test Case 5: Missing required field 'type'
   test("should throw error when required field 'type' is missing", async () => {
     // Arrange
-    const { type, ...payload } = mockInput;
+    const { type: _type, ...payload } = mockInput;
     // Act & Assert
-    await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: type"
-    );
+    await expect(dbService.addDatabase(payload)).rejects.toThrow("Missing required field: type");
   });
 
   // Test Case 6: Missing required field 'name'
   test("should throw error when required field 'name' is missing", async () => {
     // Arrange
-    const { name, ...payload } = mockInput;
+    const { name: _name, ...payload } = mockInput;
     // Act & Assert
-    await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: name"
-    );
+    await expect(dbService.addDatabase(payload)).rejects.toThrow("Missing required field: name");
   });
 
   // Test Case 7: Missing required field 'port'
   test("should throw error when required field 'port' is missing", async () => {
     // Arrange
-    const { port, ...payload } = mockInput;
+    const { port: _port, ...payload } = mockInput;
     // Act & Assert
-    await expect(dbService.addDatabase(payload)).rejects.toThrow(
-      "Missing required field: port"
-    );
+    await expect(dbService.addDatabase(payload)).rejects.toThrow("Missing required field: port");
   });
 
   // Test Case 8 : List databases does not expose credentialId
@@ -179,9 +168,7 @@ describe("Database Service Method", () => {
     // Arrange
     const fakeDbId = "nonexistent-id";
     // Act & Assert
-    await expect(dbService.getDatabaseConnection(fakeDbId)).rejects.toThrow(
-      "Database not found"
-    );
+    await expect(dbService.getDatabaseConnection(fakeDbId)).rejects.toThrow("Database not found");
   });
 
   // Test Case 10: Update database with missing ID
@@ -189,9 +176,7 @@ describe("Database Service Method", () => {
     // Arrange
     const payload = { name: "UpdatedName" };
     // Act & Assert
-    await expect(dbService.updateDatabase("", payload)).rejects.toThrow(
-      "Missing id"
-    );
+    await expect(dbService.updateDatabase("", payload)).rejects.toThrow("Missing id");
   });
 
   // Test Case 11: Delete database with missing ID
@@ -213,14 +198,14 @@ describe("Database Service Method", () => {
 
     // Verify it exists in the list
     let dbList = await dbService.listDatabases();
-    expect(dbList.some((db) => db.id === createdDb.id)).toBe(true);
+    expect(dbList.some((db: any) => db.id === createdDb.id)).toBe(true);
 
     // Act - Delete the database
     await dbService.deleteDatabase(createdDb.id);
 
     // Assert - Verify it no longer exists in the list
     dbList = await dbService.listDatabases();
-    expect(dbList.some((db) => db.id === createdDb.id)).toBe(false);
+    expect(dbList.some((db: any) => db.id === createdDb.id)).toBe(false);
 
     // Note: No need to set createdDbId here since we already deleted it
   });
@@ -230,8 +215,6 @@ describe("Database Service Method", () => {
     // Arrange
     const fakeDbId = "nonexistent-database-id";
     // Act & Assert
-    await expect(dbService.deleteDatabase(fakeDbId)).rejects.toThrow(
-      "Database not found"
-    );
+    await expect(dbService.deleteDatabase(fakeDbId)).rejects.toThrow("Database not found");
   });
 });

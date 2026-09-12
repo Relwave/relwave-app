@@ -10,9 +10,7 @@ const targetScriptByPlatform = {
 const targetScript = targetScriptByPlatform[process.platform];
 
 if (!targetScript) {
-  console.error(
-    `ERROR: Unsupported platform for bridge packaging: ${process.platform}`,
-  );
+  console.error(`ERROR: Unsupported platform for bridge packaging: ${process.platform}`);
   process.exit(1);
 }
 

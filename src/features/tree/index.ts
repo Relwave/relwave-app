@@ -1,1 +1,1 @@
-export { default as TreeViewPanel } from './TreeViewPanel';
+export { default as TreeViewPanel } from "./TreeViewPanel";

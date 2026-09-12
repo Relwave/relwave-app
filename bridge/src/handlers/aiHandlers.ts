@@ -29,7 +29,11 @@ import { DatabaseService } from "../services/databaseService";
 export class AIHandlers {
   private aiService: AIService;
 
-  constructor(private rpc: Rpc, private logger: Logger, private dbService: DatabaseService) {
+  constructor(
+    private rpc: Rpc,
+    private logger: Logger,
+    private dbService: DatabaseService,
+  ) {
     this.aiService = new AIService();
   }
 
@@ -46,7 +50,10 @@ export class AIHandlers {
     }
   }
 
-  async handleAnalyzeSchema(params: AIAnalyzeSchemaParams & { skipCache?: boolean }, id: number | string) {
+  async handleAnalyzeSchema(
+    params: AIAnalyzeSchemaParams & { skipCache?: boolean },
+    id: number | string,
+  ) {
     try {
       if (!params?.input?.tables?.length) {
         return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "No tables provided." });
@@ -85,7 +92,10 @@ export class AIHandlers {
     }
   }
 
-  async handleExplainQuery(params: AIExplainQueryParams & { skipCache?: boolean }, id: number | string) {
+  async handleExplainQuery(
+    params: AIExplainQueryParams & { skipCache?: boolean },
+    id: number | string,
+  ) {
     try {
       if (!params?.input?.sql?.trim()) {
         return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "No SQL provided." });
@@ -124,10 +134,16 @@ export class AIHandlers {
     }
   }
 
-  async handleRecommendChart(params: AIRecommendChartParams & { skipCache?: boolean }, id: number | string) {
+  async handleRecommendChart(
+    params: AIRecommendChartParams & { skipCache?: boolean },
+    id: number | string,
+  ) {
     try {
       if (!params?.input?.tableName || !params?.input?.columns?.length) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing tableName or columns." });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing tableName or columns.",
+        });
       }
 
       const hash = hashChartRecommendation(params.input, params.datasourceName);
@@ -178,7 +194,16 @@ export class AIHandlers {
 
   // ── History CRUD handlers ─────────────────────────────────────────────
 
-  async handleGetHistory(params: { feature?: string; provider?: string; datasource_id?: string; limit?: number; offset?: number }, id: number | string) {
+  async handleGetHistory(
+    params: {
+      feature?: string;
+      provider?: string;
+      datasource_id?: string;
+      limit?: number;
+      offset?: number;
+    },
+    id: number | string,
+  ) {
     try {
       const result = aiHistoryStore.list({
         feature: params?.feature,
@@ -211,11 +236,14 @@ export class AIHandlers {
     try {
       const { question, databaseId, settings, history, options } = params;
       if (!question || !databaseId || !settings) {
-        return this.rpc.sendError(id, { code: "BAD_REQUEST", message: "Missing question, databaseId, or settings" });
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing question, databaseId, or settings",
+        });
       }
 
       const { conn, dbType } = await this.dbService.getDatabaseConnection(databaseId);
-      
+
       const { nlSqlService } = require("../services/nlSqlService");
       const response = await nlSqlService.naturalLanguageToSQL({
         question,
@@ -224,7 +252,7 @@ export class AIHandlers {
         history,
         options,
         dbType,
-        conn
+        conn,
       });
 
       this.rpc.sendResponse(id, response);
@@ -277,11 +305,7 @@ export class AIHandlers {
   async handleSaveSettings(params: { settings: AISettings }, id: number | string) {
     try {
       ensureDir(CONFIG_FOLDER);
-      await fs.writeFile(
-        AI_SETTINGS_FILE,
-        JSON.stringify(params.settings, null, 2),
-        "utf-8"
-      );
+      await fs.writeFile(AI_SETTINGS_FILE, JSON.stringify(params.settings, null, 2), "utf-8");
       // On non-Windows platforms, restrict file permissions (contains API keys)
       if (process.platform !== "win32") {
         await fs.chmod(AI_SETTINGS_FILE, 0o600);

@@ -1,4 +1,4 @@
-import { SchemaFile, SchemaSnapshot, TableSnapshot, ColumnSnapshot } from "../../services/projectStore";
+import { SchemaFile } from "../../services/projectStore";
 
 export interface SchemaContextOptions {
   excludeTables?: string[];
@@ -6,7 +6,8 @@ export interface SchemaContextOptions {
   maskSensitiveColumns?: boolean;
 }
 
-const SENSITIVE_PATTERN = /password|password_hash|secret|api_key|token|private_key|credit_card|ssn|cvv/i;
+const SENSITIVE_PATTERN =
+  /password|password_hash|secret|api_key|token|private_key|credit_card|ssn|cvv/i;
 const ALWAYS_EXCLUDED_TABLES = ["schema_migrations", "relwave_migrations", "ai_history"];
 
 export function buildSchemaContext(schema: SchemaFile, options: SchemaContextOptions = {}): string {
@@ -58,7 +59,9 @@ export function buildSchemaContext(schema: SchemaFile, options: SchemaContextOpt
         const flags: string[] = [];
         if (col.isPrimaryKey) flags.push("PK");
         if (col.isForeignKey && col.foreignKey) {
-          flags.push(`FK→${col.foreignKey.schema}.${col.foreignKey.table}.${col.foreignKey.column}`);
+          flags.push(
+            `FK→${col.foreignKey.schema}.${col.foreignKey.table}.${col.foreignKey.column}`,
+          );
         } else if (col.isForeignKey) {
           // Fallback if foreignKey details are missing but flag is true
           flags.push("FK");
@@ -87,7 +90,7 @@ export function buildSchemaContext(schema: SchemaFile, options: SchemaContextOpt
           // e.g. RELATIONSHIP public.users.id → public.orders.user_id
           // Actually, fk.columns are the local columns.
           relationships.push(
-            `RELATIONSHIP ${s.name}.${t.name}.${fk.columns.join(",")} → ${fk.referencedSchema}.${fk.referencedTable}.${fk.referencedColumns.join(",")}`
+            `RELATIONSHIP ${s.name}.${t.name}.${fk.columns.join(",")} → ${fk.referencedSchema}.${fk.referencedTable}.${fk.referencedColumns.join(",")}`,
           );
         }
       }

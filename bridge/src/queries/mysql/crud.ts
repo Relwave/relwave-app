@@ -1,6 +1,6 @@
 /**
  * MySQL CRUD Query Builders
- * 
+ *
  * These are helper functions that generate parameterized queries
  * for safe data manipulation operations.
  */
@@ -9,7 +9,7 @@
  * Build a safe table/schema identifier
  */
 export function quoteIdentifier(name: string): string {
-  return `\`${name.replace(/`/g, '``')}\``;
+  return `\`${name.replace(/`/g, "``")}\``;
 }
 
 /**
@@ -29,7 +29,7 @@ export function buildSelectQuery(
   tableName: string,
   orderBy: string,
   limit: number,
-  offset: number
+  offset: number,
 ): string {
   const safeSchema = quoteIdentifier(schemaName);
   const safeTable = quoteIdentifier(tableName);
@@ -48,16 +48,16 @@ export function buildSelectQuery(
 export function buildInsertQuery(
   schemaName: string,
   tableName: string,
-  columns: string[]
+  columns: string[],
 ): { query: string; placeholders: string } {
   const safeSchema = quoteIdentifier(schemaName);
   const safeTable = quoteIdentifier(tableName);
-  const columnList = columns.map(quoteIdentifier).join(', ');
-  const placeholders = columns.map(() => '?').join(', ');
+  const columnList = columns.map(quoteIdentifier).join(", ");
+  const placeholders = columns.map(() => "?").join(", ");
 
   return {
     query: `INSERT INTO ${safeSchema}.${safeTable} (${columnList}) VALUES (${placeholders});`,
-    placeholders
+    placeholders,
   };
 }
 
@@ -68,11 +68,11 @@ export function buildUpdateQuery(
   schemaName: string,
   tableName: string,
   columns: string[],
-  pkColumn: string
+  pkColumn: string,
 ): string {
   const safeSchema = quoteIdentifier(schemaName);
   const safeTable = quoteIdentifier(tableName);
-  const setClause = columns.map(col => `${quoteIdentifier(col)} = ?`).join(', ');
+  const setClause = columns.map((col) => `${quoteIdentifier(col)} = ?`).join(", ");
 
   return `UPDATE ${safeSchema}.${safeTable} SET ${setClause} WHERE ${quoteIdentifier(pkColumn)} = ?;`;
 }
@@ -80,11 +80,7 @@ export function buildUpdateQuery(
 /**
  * Build DELETE query
  */
-export function buildDeleteQuery(
-  schemaName: string,
-  tableName: string,
-  pkColumn: string
-): string {
+export function buildDeleteQuery(schemaName: string, tableName: string, pkColumn: string): string {
   const safeSchema = quoteIdentifier(schemaName);
   const safeTable = quoteIdentifier(tableName);
 
@@ -99,14 +95,14 @@ export function buildSearchQuery(
   tableName: string,
   searchColumns: string[],
   limit: number,
-  offset: number
+  offset: number,
 ): { dataQuery: string; countQuery: string } {
   const safeSchema = quoteIdentifier(schemaName);
   const safeTable = quoteIdentifier(tableName);
 
   const whereClause = searchColumns
-    .map(col => `CAST(${quoteIdentifier(col)} AS CHAR) LIKE ?`)
-    .join(' OR ');
+    .map((col) => `CAST(${quoteIdentifier(col)} AS CHAR) LIKE ?`)
+    .join(" OR ");
 
   return {
     dataQuery: `
@@ -117,6 +113,6 @@ export function buildSearchQuery(
     countQuery: `
       SELECT COUNT(*) AS total FROM ${safeSchema}.${safeTable}
       WHERE ${whereClause};
-    `
+    `,
   };
 }

@@ -1,12 +1,6 @@
 // ── Shared types for the AI integration layer (moved from src/ai/ai.types.ts)
 
-export type AIProviderName =
-  | "anthropic"
-  | "openai"
-  | "gemini"
-  | "groq"
-  | "mistral"
-  | "ollama";
+export type AIProviderName = "anthropic" | "openai" | "gemini" | "groq" | "mistral" | "ollama";
 
 /**
  * User-facing AI settings — stored client-side and passed on every RPC call.

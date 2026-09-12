@@ -43,8 +43,6 @@ const DatabaseDetail = () => {
     activePanel,
     // ... rest of imports ...
     setActivePanel,
-    migrationsOpen,
-    setMigrationsOpen,
     chartOpen,
     setChartOpen,
     insertDialogOpen,
@@ -97,25 +95,52 @@ const DatabaseDetail = () => {
 
   // Project sync
   const { data: schemaData, refetch: refetchSchema } = useFullSchema(dbId);
-  const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } = useProjectSync(dbId, schemaData ?? undefined);
+  const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } =
+    useProjectSync(dbId, schemaData ?? undefined);
   const { data: projectDir } = useProjectDir(projectId);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
   // ---- Guards ----
   if (bridgeLoading || bridgeReady === undefined) return <BridgeLoader />;
-  if (error) return <DatabaseErrorView error={error} isRetrying={loadingTables} onRetry={fetchTables} />;
+  if (error)
+    return <DatabaseErrorView error={error} isRetrying={loadingTables} onRetry={fetchTables} />;
 
   // ---- Panel router ----
   const renderPanel = () => {
     switch (activePanel) {
-      case "sql-workspace": return <SQLWorkspacePanel key={`sql-${dbId}`} dbId={dbId || ""} />;
-      case "query-builder": return <QueryBuilderPanel key={`qb-${dbId}`} dbId={dbId || ""} />;
-      case "schema-explorer": return <SchemaExplorerPanel key={`schema-${dbId}`} dbId={dbId || ""} projectId={projectId} />;
-      case "er-diagram": return <ERDiagramPanel key={`er-${dbId}`} projectId={projectId} />;
-      case "monitoring": return <MonitoringPanel key={`mon-${dbId}`} dbId={dbId || ""} databaseName={databaseName} databaseType={databaseType} />;
-      case "git-status": return <GitStatusPanel key={`git-${dbId}`} projectDir={projectDir} projectId={projectId ?? ''} />;
-      case "ai-workspace": return <AIWorkspacePanel key={`ai-${dbId}`} dbId={dbId || ""} onNavigate={setActivePanel} />;
-      case "migrations": return <div className="p-6 h-full" key={`mig-${dbId}`}><MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} /></div>;
+      case "sql-workspace":
+        return <SQLWorkspacePanel key={`sql-${dbId}`} dbId={dbId || ""} />;
+      case "query-builder":
+        return <QueryBuilderPanel key={`qb-${dbId}`} dbId={dbId || ""} />;
+      case "schema-explorer":
+        return (
+          <SchemaExplorerPanel key={`schema-${dbId}`} dbId={dbId || ""} projectId={projectId} />
+        );
+      case "er-diagram":
+        return <ERDiagramPanel key={`er-${dbId}`} projectId={projectId} />;
+      case "monitoring":
+        return (
+          <MonitoringPanel
+            key={`mon-${dbId}`}
+            dbId={dbId || ""}
+            databaseName={databaseName}
+            databaseType={databaseType}
+          />
+        );
+      case "git-status":
+        return (
+          <GitStatusPanel key={`git-${dbId}`} projectDir={projectDir} projectId={projectId ?? ""} />
+        );
+      case "ai-workspace":
+        return (
+          <AIWorkspacePanel key={`ai-${dbId}`} dbId={dbId || ""} onNavigate={setActivePanel} />
+        );
+      case "migrations":
+        return (
+          <div className="p-6 h-full" key={`mig-${dbId}`}>
+            <MigrationsPanel dbId={dbId || ""} migrations={migrationsData} baselined={baselined} />
+          </div>
+        );
       default:
         return (
           <DataViewPanel
@@ -172,9 +197,7 @@ const DatabaseDetail = () => {
           activePanel={activePanel}
           onPanelChange={setActivePanel}
         />
-        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
-          {renderPanel()}
-        </main>
+        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">{renderPanel()}</main>
       </div>
 
       {/* Status bar */}
@@ -205,7 +228,12 @@ const DatabaseDetail = () => {
       )}
 
       {/* Chart */}
-      <SlideOutPanel isOpen={chartOpen} onClose={() => setChartOpen(false)} title={`Chart: ${selectedTable?.name || "Table"}`} width="60%">
+      <SlideOutPanel
+        isOpen={chartOpen}
+        onClose={() => setChartOpen(false)}
+        title={`Chart: ${selectedTable?.name || "Table"}`}
+        width="60%"
+      >
         {selectedTable && <ChartVisualization selectedTable={selectedTable} dbId={dbId} />}
       </SlideOutPanel>
 
@@ -216,7 +244,10 @@ const DatabaseDetail = () => {
         dbId={dbId || ""}
         tableName={selectedTable?.name || ""}
         schemaName={selectedTable?.schema || ""}
-        onSuccess={() => { refetchTableData(); setInsertDialogOpen(false); }}
+        onSuccess={() => {
+          refetchTableData();
+          setInsertDialogOpen(false);
+        }}
       />
 
       {/* Edit */}

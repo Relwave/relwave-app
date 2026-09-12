@@ -150,7 +150,7 @@ export class AIHistoryStore {
       record.prompt,
       record.response,
       record.tokens_used ?? null,
-      new Date().toISOString()
+      new Date().toISOString(),
     );
     return info.lastInsertRowid as number;
   }
@@ -168,14 +168,14 @@ export class AIHistoryStore {
       // Match both hash and the specific datasource
       row = db
         .prepare(
-          `SELECT * FROM ai_history WHERE content_hash = ? AND datasource_id = ? ORDER BY created_at DESC LIMIT 1`
+          `SELECT * FROM ai_history WHERE content_hash = ? AND datasource_id = ? ORDER BY created_at DESC LIMIT 1`,
         )
         .get(contentHash, datasourceId) as AIHistoryRow | undefined;
     } else {
       // No datasource specified — only match rows that also have no datasource
       row = db
         .prepare(
-          `SELECT * FROM ai_history WHERE content_hash = ? AND datasource_id IS NULL ORDER BY created_at DESC LIMIT 1`
+          `SELECT * FROM ai_history WHERE content_hash = ? AND datasource_id IS NULL ORDER BY created_at DESC LIMIT 1`,
         )
         .get(contentHash) as AIHistoryRow | undefined;
     }
@@ -202,9 +202,7 @@ export class AIHistoryStore {
       values.push(params.datasource_id);
     }
 
-    const where = conditions.length
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const limit = params.limit ?? 20;
     const offset = params.offset ?? 0;
@@ -220,7 +218,7 @@ export class AIHistoryStore {
         `SELECT id, feature, datasource_id, table_name, provider, model, tokens_used, created_at
          FROM ai_history ${where}
          ORDER BY created_at DESC
-         LIMIT ? OFFSET ?`
+         LIMIT ? OFFSET ?`,
       )
       .all(...values, limit, offset) as AIHistoryListItem[];
 
@@ -230,9 +228,8 @@ export class AIHistoryStore {
   /** Get a single history entry by ID (full record). */
   getById(id: number): AIHistoryRow | null {
     const db = this.getDb();
-    const row = db
-      .prepare(`SELECT * FROM ai_history WHERE id = ?`)
-      .get(id) as AIHistoryRow | undefined;
+    const row = db.prepare(`SELECT * FROM ai_history WHERE id = ?`).get(id) as
+      AIHistoryRow | undefined;
     return row ?? null;
   }
 

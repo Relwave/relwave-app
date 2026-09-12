@@ -27,9 +27,13 @@ export function ExplainQueryButton({ sql, disabled, dbId }: ExplainQueryButtonPr
     setLoading(true);
 
     try {
-      const result = await aiService.explainQuery(settings, {
-        sql: sql.trim(),
-      }, { skipCache, datasourceName: dbId });
+      const result = await aiService.explainQuery(
+        settings,
+        {
+          sql: sql.trim(),
+        },
+        { skipCache, datasourceName: dbId },
+      );
       setMarkdown(result.markdown);
       setCached(result.cached);
       setCreatedAt(result.createdAt);

@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,25 +11,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Bot,
-  Copy,
-  Check,
-  Trash2,
-  ChevronDown,
-  Clock,
-  Cpu,
-  Hash,
-  FileText,
-} from "lucide-react";
+import { Bot, Copy, Check, Trash2, ChevronDown, Clock, Cpu, Hash, FileText } from "lucide-react";
 import { MarkdownRenderer } from "./AIResultDialog";
 import type { AIHistoryEntry } from "@/services/bridge/ai";
 import { cn } from "@/lib/utils";
@@ -119,11 +100,7 @@ export function AIHistoryDetailDialog({
               label="Provider"
               value={PROVIDER_LABELS[entry.provider] ?? entry.provider}
             />
-            <MetaItem
-              icon={<Hash className="h-3 w-3" />}
-              label="Model"
-              value={entry.model}
-            />
+            <MetaItem icon={<Hash className="h-3 w-3" />} label="Model" value={entry.model} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -157,10 +134,7 @@ export function AIHistoryDetailDialog({
                   className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground px-2"
                 >
                   <ChevronDown
-                    className={cn(
-                      "h-3 w-3 transition-transform",
-                      promptOpen && "rotate-180"
-                    )}
+                    className={cn("h-3 w-3 transition-transform", promptOpen && "rotate-180")}
                   />
                   Prompt
                 </Button>
@@ -227,8 +201,8 @@ export function AIHistoryDetailDialog({
                   <AlertDialogHeader>
                     <AlertDialogTitle className="text-sm">Delete this analysis?</AlertDialogTitle>
                     <AlertDialogDescription className="text-xs">
-                      This will permanently remove this AI analysis from your local history.
-                      This action cannot be undone.
+                      This will permanently remove this AI analysis from your local history. This
+                      action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -256,26 +230,36 @@ export function AIHistoryDetailDialog({
 function FormattedResponseRenderer({ feature, content }: { feature: string; content: string }) {
   try {
     const data = JSON.parse(content);
-    
+
     if (feature === "nl_to_sql") {
       return (
         <div className="space-y-4">
           <div className="p-3 bg-muted/30 border border-border/30 rounded-md">
-            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 block">Generated SQL</span>
-            <pre className="text-[11px] font-mono text-primary/90 whitespace-pre-wrap">{data.sql}</pre>
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 block">
+              Generated SQL
+            </span>
+            <pre className="text-[11px] font-mono text-primary/90 whitespace-pre-wrap">
+              {data.sql}
+            </pre>
           </div>
           {data.explanation && (
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Explanation</span>
+              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">
+                Explanation
+              </span>
               <p className="text-xs text-foreground/80 leading-relaxed">{data.explanation}</p>
             </div>
           )}
           {data.assumptions && data.assumptions.length > 0 && (
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Assumptions</span>
+              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">
+                Assumptions
+              </span>
               <ul className="list-disc pl-4 space-y-1">
                 {data.assumptions.map((a: string, i: number) => (
-                  <li key={i} className="text-xs text-foreground/70">{a}</li>
+                  <li key={i} className="text-xs text-foreground/70">
+                    {a}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -283,55 +267,57 @@ function FormattedResponseRenderer({ feature, content }: { feature: string; cont
         </div>
       );
     }
-    
+
     if (feature === "chart-recommendation") {
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="p-2.5 bg-muted/20 border border-border/20 rounded-md">
-              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">Chart Type</span>
-              <span className="text-xs text-foreground/80 font-medium capitalize">{data.chartType}</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">
+                Chart Type
+              </span>
+              <span className="text-xs text-foreground/80 font-medium capitalize">
+                {data.chartType}
+              </span>
             </div>
             <div className="p-2.5 bg-muted/20 border border-border/20 rounded-md">
-              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">X-Axis</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">
+                X-Axis
+              </span>
               <span className="text-xs text-foreground/80 font-mono">{data.xAxis}</span>
             </div>
             <div className="p-2.5 bg-muted/20 border border-border/20 rounded-md">
-              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">Y-Axis</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider block mb-1">
+                Y-Axis
+              </span>
               <span className="text-xs text-foreground/80 font-mono">{data.yAxis}</span>
             </div>
           </div>
           {data.reasoning && (
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Reasoning</span>
+              <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">
+                Reasoning
+              </span>
               <p className="text-xs text-foreground/80 leading-relaxed">{data.reasoning}</p>
             </div>
           )}
         </div>
       );
     }
-    
+
     // Fallback for other JSON types
     return (
       <pre className="text-[11px] font-mono text-foreground/80 whitespace-pre-wrap">
         {JSON.stringify(data, null, 2)}
       </pre>
     );
-  } catch (e) {
+  } catch {
     // Not valid JSON, fallback to markdown renderer (used by schema-analysis, query-explanation)
     return <MarkdownRenderer content={content} />;
   }
 }
 
-function MetaItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function MetaItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground/60">{icon}</span>

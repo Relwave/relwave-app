@@ -14,7 +14,11 @@ interface MigrationStatusCardProps {
   connectionName: string;
 }
 
-export function MigrationStatusCard({ projectId, databaseId, connectionName }: MigrationStatusCardProps) {
+export function MigrationStatusCard({
+  projectId,
+  databaseId,
+  connectionName,
+}: MigrationStatusCardProps) {
   const { analysis, loading, refetch } = useImportAnalysis(projectId, databaseId);
   const [driftSheetOpen, setDriftSheetOpen] = useState(false);
 
@@ -37,12 +41,18 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
               Migration Status
             </div>
             {isSynced ? (
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+              <Badge
+                variant="outline"
+                className="bg-green-500/10 text-green-600 border-green-500/20"
+              >
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Synced
               </Badge>
             ) : isDrifted ? (
-              <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+              <Badge
+                variant="outline"
+                className="bg-orange-500/10 text-orange-600 border-orange-500/20"
+              >
                 <AlertTriangle className="h-3 w-3 mr-1" />
                 Drift Detected
               </Badge>
@@ -52,9 +62,7 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
               </Badge>
             )}
           </CardTitle>
-          <CardDescription>
-            State of the live database against the project schema.
-          </CardDescription>
+          <CardDescription>State of the live database against the project schema.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -65,7 +73,8 @@ export function MigrationStatusCard({ projectId, databaseId, connectionName }: M
 
             {isDrifted && analysis.driftDetails && (
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                Schema drift detected. The live database has modifications not tracked in the schema snapshot.
+                Schema drift detected. The live database has modifications not tracked in the schema
+                snapshot.
               </div>
             )}
 

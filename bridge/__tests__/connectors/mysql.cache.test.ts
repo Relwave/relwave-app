@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, jest } from "@jest/globals";
+import { describe, expect, test, beforeEach } from "@jest/globals";
 import { mysqlCache } from "../../src/connectors/mysql";
 
 // Mock MySQL config for testing
@@ -43,9 +43,7 @@ describe("MySQL Cache Manager", () => {
     });
 
     test("should cache table list with schema", () => {
-      const tableData = [
-        { schema: "myschema", name: "products", type: "BASE TABLE" },
-      ];
+      const tableData = [{ schema: "myschema", name: "products", type: "BASE TABLE" }];
 
       mysqlCache.setTableList(mockConfig, tableData, "myschema");
       const cached = mysqlCache.getTableList(mockConfig, "myschema");
@@ -149,11 +147,7 @@ describe("MySQL Cache Manager", () => {
     });
 
     test("should cache and retrieve schemas", () => {
-      const schemaData = [
-        { name: "testdb" },
-        { name: "production" },
-        { name: "staging" },
-      ];
+      const schemaData = [{ name: "testdb" }, { name: "production" }, { name: "staging" }];
 
       mysqlCache.setSchemas(mockConfig, schemaData);
       const cached = mysqlCache.getSchemas(mockConfig);
@@ -199,7 +193,9 @@ describe("MySQL Cache Manager", () => {
     test("should clear all caches for a connection", () => {
       // Set up various caches
       mysqlCache.setTableList(mockConfig, [{ schema: "testdb", name: "t1", type: "BASE TABLE" }]);
-      mysqlCache.setColumns(mockConfig, "testdb", "t1", [{ column_name: "id", data_type: "int" }] as any);
+      mysqlCache.setColumns(mockConfig, "testdb", "t1", [
+        { column_name: "id", data_type: "int" },
+      ] as any);
       mysqlCache.setPrimaryKeys(mockConfig, "testdb", "t1", ["id"]);
       mysqlCache.setDBStats(mockConfig, { total_tables: 1, total_db_size_mb: 1, total_rows: 100 });
       mysqlCache.setSchemas(mockConfig, [{ name: "testdb" }]);
@@ -235,8 +231,12 @@ describe("MySQL Cache Manager", () => {
     });
 
     test("should clear table-specific cache", () => {
-      mysqlCache.setColumns(mockConfig, "testdb", "users", [{ column_name: "id", data_type: "int" }] as any);
-      mysqlCache.setColumns(mockConfig, "testdb", "orders", [{ column_name: "order_id", data_type: "int" }] as any);
+      mysqlCache.setColumns(mockConfig, "testdb", "users", [
+        { column_name: "id", data_type: "int" },
+      ] as any);
+      mysqlCache.setColumns(mockConfig, "testdb", "orders", [
+        { column_name: "order_id", data_type: "int" },
+      ] as any);
       mysqlCache.setPrimaryKeys(mockConfig, "testdb", "users", ["id"]);
       mysqlCache.setTableDetails(mockConfig, "testdb", "users", []);
 
@@ -317,7 +317,9 @@ describe("MySQL Cache Manager", () => {
       // Set up various caches
       mysqlCache.setDBStats(mockConfig, { total_tables: 1, total_db_size_mb: 1, total_rows: 100 });
       mysqlCache.setSchemas(mockConfig, [{ name: "testdb" }]);
-      mysqlCache.setTableList(mockConfig, [{ schema: "testdb", name: "users", type: "BASE TABLE" }]);
+      mysqlCache.setTableList(mockConfig, [
+        { schema: "testdb", name: "users", type: "BASE TABLE" },
+      ]);
       mysqlCache.setColumns(mockConfig, "testdb", "users", [] as any);
       mysqlCache.setPrimaryKeys(mockConfig, "testdb", "users", ["id"]);
       mysqlCache.setTableDetails(mockConfig, "testdb", "users", []);

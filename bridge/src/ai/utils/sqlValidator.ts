@@ -44,9 +44,13 @@ export function validateGeneratedSQL(sql: string, schema: SchemaFile): Validatio
   // A semicolon anywhere except at the very end is considered stacked
   const semiIndex = sql.indexOf(";");
   if (semiIndex !== -1 && semiIndex !== sql.trim().length - 1) {
-    return { valid: false, reason: "Stacked statements (multiple queries) are not allowed", intent: "read" };
+    return {
+      valid: false,
+      reason: "Stacked statements (multiple queries) are not allowed",
+      intent: "read",
+    };
   }
-  
+
   if (sql.includes("--") || sql.includes("/*")) {
     return { valid: false, reason: "SQL comments are not allowed", intent: "read" };
   }
@@ -56,7 +60,7 @@ export function validateGeneratedSQL(sql: string, schema: SchemaFile): Validatio
   // This looks for FROM/JOIN, then optional spaces, then an identifier that might be quoted
   const tableRegex = /(?:FROM|JOIN)\s+([a-zA-Z0-9_."`]+)/gi;
   let match;
-  
+
   const validTables = new Set<string>();
   for (const s of schema.schemas) {
     for (const t of s.tables) {
@@ -69,11 +73,11 @@ export function validateGeneratedSQL(sql: string, schema: SchemaFile): Validatio
     let tableName = match[1];
     // Strip quotes
     tableName = tableName.replace(/["`]/g, "").toLowerCase();
-    
+
     // Sometimes aliases are captured if not careful, but the regex only grabs the first word.
     // If it's a subquery like FROM (SELECT...), it will grab "(" which we ignore
     if (tableName === "(") continue;
-    
+
     if (!validTables.has(tableName)) {
       return { valid: false, reason: `Table not found in schema: ${tableName}`, intent: "read" };
     }

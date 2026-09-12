@@ -30,10 +30,7 @@ interface ChartVisualizationProps {
   dbId?: string;
 }
 
-export const ChartVisualization = ({
-  selectedTable,
-  dbId,
-}: ChartVisualizationProps) => {
+export const ChartVisualization = ({ selectedTable, dbId }: ChartVisualizationProps) => {
   const { settings: aiSettings } = useAISettings();
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -57,14 +54,18 @@ export const ChartVisualization = ({
     if (!columnData.length) return;
     setAiLoading(true);
     try {
-      const rec = await aiService.recommendChart(aiSettings, {
-        tableName: selectedTable?.name ?? "table",
-        columns: columnData.map((c) => ({
-          name: c.name,
-          type: c.type,
-          isPrimaryKey: c.isPrimaryKey,
-        })),
-      }, { datasourceName: dbId });
+      const rec = await aiService.recommendChart(
+        aiSettings,
+        {
+          tableName: selectedTable?.name ?? "table",
+          columns: columnData.map((c) => ({
+            name: c.name,
+            type: c.type,
+            isPrimaryKey: c.isPrimaryKey,
+          })),
+        },
+        { datasourceName: dbId },
+      );
       setChartType(rec.chartType);
       setXAxis(rec.xAxis);
       setYAxis(rec.yAxis);
@@ -111,11 +112,7 @@ export const ChartVisualization = ({
             onClick={handleAISuggest}
             disabled={aiLoading || !columnData.length}
           >
-            {aiLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Bot className="h-3 w-3" />
-            )}
+            {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
             AI Suggest
           </Button>
 
@@ -133,16 +130,10 @@ export const ChartVisualization = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="text-xs">
-              <DropdownMenuItem
-                onClick={() => handleExport("png")}
-                className="gap-2"
-              >
+              <DropdownMenuItem onClick={() => handleExport("png")} className="gap-2">
                 Export as PNG
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleExport("svg")}
-                className="gap-2"
-              >
+              <DropdownMenuItem onClick={() => handleExport("svg")} className="gap-2">
                 Export as SVG
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -166,10 +157,7 @@ export const ChartVisualization = ({
       </div>
 
       {/* ── Chart canvas ───────────────────────────────────────────────── */}
-      <div
-        id="chart-container"
-        className="flex-1 flex flex-col min-h-0 overflow-auto px-4 py-4"
-      >
+      <div id="chart-container" className="flex-1 flex flex-col min-h-0 overflow-auto px-4 py-4">
         {/* Title */}
         {chartTitle && isReady && (
           <p className="text-[11px] font-medium text-center text-muted-foreground/70 mb-4 tracking-wide">
@@ -204,12 +192,7 @@ export const ChartVisualization = ({
             subtitle="The query returned no rows for these axes"
           />
         ) : (
-          <ChartRenderer
-            chartType={chartType}
-            xAxis={xAxis}
-            yAxis={yAxis}
-            data={rowData}
-          />
+          <ChartRenderer chartType={chartType} xAxis={xAxis} yAxis={yAxis} data={rowData} />
         )}
 
         {/* Summary stats strip — shown only when data is ready */}
@@ -218,21 +201,14 @@ export const ChartVisualization = ({
             <Separator className="my-4 opacity-40" />
             <div className="flex items-center justify-center gap-8">
               <Stat label="Rows" value={rowData.length} />
-              <Stat
-                label="Max"
-                value={Math.max(...rowData.map((r) => Number(r.count ?? 0)))}
-              />
+              <Stat label="Max" value={Math.max(...rowData.map((r) => Number(r.count ?? 0)))} />
               <Stat
                 label="Avg"
                 value={(
-                  rowData.reduce((s, r) => s + Number(r.count ?? 0), 0) /
-                  rowData.length
+                  rowData.reduce((s, r) => s + Number(r.count ?? 0), 0) / rowData.length
                 ).toFixed(1)}
               />
-              <Stat
-                label="Total"
-                value={rowData.reduce((s, r) => s + Number(r.count ?? 0), 0)}
-              />
+              <Stat label="Total" value={rowData.reduce((s, r) => s + Number(r.count ?? 0), 0)} />
             </div>
           </>
         )}
@@ -287,9 +263,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className="text-[11px] font-mono tabular-nums font-semibold text-foreground/80">
-        {typeof value === "number" && value >= 1000
-          ? `${(value / 1000).toFixed(1)}k`
-          : value}
+        {typeof value === "number" && value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
       </span>
       <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-semibold">
         {label}

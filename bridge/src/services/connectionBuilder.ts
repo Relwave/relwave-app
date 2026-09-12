@@ -9,22 +9,18 @@ export interface BuildResult {
 }
 
 export class ConnectionBuilder {
-  static async buildConnection(
-    db: any,
-    pwd: string | null,
-    dbType: DBType
-  ): Promise<BuildResult> {
+  static async buildConnection(db: any, pwd: string | null, dbType: DBType): Promise<BuildResult> {
     if (dbType === DBType.SQLITE) {
       const dbPath = normalizeSQLitePath(db.database || db.path);
       if (!dbPath || typeof dbPath !== "string" || !dbPath.trim()) {
         throw new Error(
           `SQLite connection requires a non-empty file path. ` +
-          `Got database=${JSON.stringify(db.database)}, path=${JSON.stringify(db.path)}`
+            `Got database=${JSON.stringify(db.database)}, path=${JSON.stringify(db.path)}`,
         );
       }
       if (isWindowsDriveRootPath(dbPath)) {
         throw new Error(
-          `Invalid SQLite path "${dbPath}" — it points to a Windows drive root, not a database file.`
+          `Invalid SQLite path "${dbPath}" — it points to a Windows drive root, not a database file.`,
         );
       }
       return {
@@ -46,11 +42,7 @@ export class ConnectionBuilder {
     };
 
     if (base.ssh) {
-      const tunnel = await sshTunnelServiceInstance.createSSHTunnel(
-        base.ssh,
-        base.host,
-        base.port
-      );
+      const tunnel = await sshTunnelServiceInstance.createSSHTunnel(base.ssh, base.host, base.port);
       // Rewrite host/port to point to the local tunnel endpoint
       return {
         config: {

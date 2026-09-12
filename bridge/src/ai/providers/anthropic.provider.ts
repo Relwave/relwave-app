@@ -8,7 +8,10 @@ import {
 } from "../../types";
 import { buildSchemaAnalysisPrompt } from "../prompts/schema-analysis";
 import { buildQueryExplanationPrompt } from "../prompts/query-explanation";
-import { buildChartRecommendationPrompt, parseChartRecommendation } from "../prompts/chart-recommendation";
+import {
+  buildChartRecommendationPrompt,
+  parseChartRecommendation,
+} from "../prompts/chart-recommendation";
 
 const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 

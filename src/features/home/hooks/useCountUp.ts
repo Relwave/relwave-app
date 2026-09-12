@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function useCountUp(end: number | string, durationMs: number = 1000): number | string {
   const [count, setCount] = useState<number | string>(0);
 
   useEffect(() => {
-    if (typeof end === 'string') {
+    if (typeof end === "string") {
       setCount(end);
       return;
     }
@@ -14,7 +14,7 @@ export function useCountUp(end: number | string, durationMs: number = 1000): num
       return;
     }
 
-    const preferReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const preferReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (preferReducedMotion) {
       setCount(end);
       return;
@@ -24,10 +24,10 @@ export function useCountUp(end: number | string, durationMs: number = 1000): num
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / durationMs, 1);
-      
+
       // easeOutExpo
       const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      
+
       setCount(Math.floor(easeProgress * end));
 
       if (progress < 1) {

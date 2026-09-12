@@ -1,4 +1,4 @@
-import { describe, it, expect, test, jest } from "@jest/globals";
+import { describe, expect, test, jest } from "@jest/globals";
 import * as postgresConnector from "../../src/connectors/postgres";
 
 const invalidConfig: postgresConnector.PGConfig = {
@@ -64,11 +64,7 @@ describe("Postgres Connector", () => {
   });
 
   test("Should Get the Table Details", async () => {
-    const result = await postgresConnector.getTableDetails(
-      validConfig,
-      "public",
-      "student"
-    );
+    const result = await postgresConnector.getTableDetails(validConfig, "public", "student");
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]).toHaveProperty("name");
@@ -77,13 +73,7 @@ describe("Postgres Connector", () => {
   });
 
   test("Should Get Table Columns for student Table", async () => {
-    const columns = await postgresConnector.fetchTableData(
-      validConfig,
-      "public",
-      "student",
-      10,
-      1
-    );
+    const columns = await postgresConnector.fetchTableData(validConfig, "public", "student", 10, 1);
     expect(columns.rows.length).toBeGreaterThan(0);
     expect(columns.rows[0]).toHaveProperty("id");
     expect(columns.rows[0]).toHaveProperty("name");
@@ -99,13 +89,13 @@ describe("Postgres Connector", () => {
       "SELECT * FROM public.student;",
       1000,
       // onBatch callback
-      (batch, columns) => {
+      (batch, _columns) => {
         rows.push(...batch);
       },
       // onDone callback
       () => {
         doneCalled = true;
-      }
+      },
     );
 
     // wait for streaming to complete
@@ -130,7 +120,7 @@ describe("Postgres Connector", () => {
       100,
       (batch) => {
         rows.push(...batch);
-      }
+      },
     );
 
     // cancel after small delay
@@ -140,7 +130,7 @@ describe("Postgres Connector", () => {
 
     try {
       await promise;
-    } catch (err) {
+    } catch {
       errorCaught = true;
     }
 

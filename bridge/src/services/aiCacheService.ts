@@ -9,7 +9,6 @@
 
 import crypto from "crypto";
 import { aiHistoryStore, type AIHistoryInsert } from "./aiHistoryStore";
-import { AIProvider } from "../ai/providers/types";
 import {
   AISettings,
   SchemaAnalysisInput,
@@ -19,7 +18,8 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-export type AIFeature = "schema-analysis" | "query-explanation" | "chart-recommendation" | "nl_to_sql";
+export type AIFeature =
+  "schema-analysis" | "query-explanation" | "chart-recommendation" | "nl_to_sql";
 
 export interface CachedResult {
   response: string;
@@ -63,7 +63,10 @@ export function hashSchemaAnalysis(input: SchemaAnalysisInput, datasourceName?: 
 }
 
 /** Hash for query explanation: uses datasource + sql + schema. */
-export function hashQueryExplanation(input: QueryExplanationInput, datasourceName?: string): string {
+export function hashQueryExplanation(
+  input: QueryExplanationInput,
+  datasourceName?: string,
+): string {
   const normalized = {
     datasource: datasourceName ?? null,
     sql: (input.sql ?? "").trim(),
@@ -81,7 +84,10 @@ export function hashQueryExplanation(input: QueryExplanationInput, datasourceNam
 }
 
 /** Hash for chart recommendation: uses datasource + tableName + columns. */
-export function hashChartRecommendation(input: ChartRecommendationInput, datasourceName?: string): string {
+export function hashChartRecommendation(
+  input: ChartRecommendationInput,
+  datasourceName?: string,
+): string {
   const normalized = {
     datasource: datasourceName ?? null,
     tableName: input.tableName,

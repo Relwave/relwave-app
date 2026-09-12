@@ -25,7 +25,7 @@ export class MonitoringWebSocketServer {
   constructor(
     private dbService: DatabaseService,
     private monitoringService: MonitoringService,
-    private logger: Logger
+    private logger: Logger,
   ) {}
 
   start() {
@@ -74,7 +74,10 @@ export class MonitoringWebSocketServer {
     const url = new URL(request.url || "/monitoring", "ws://127.0.0.1");
     const dbId = url.searchParams.get("dbId");
     const requestedInterval = Number(url.searchParams.get("intervalMs") || DEFAULT_INTERVAL_MS);
-    const intervalMs = Math.max(MIN_INTERVAL_MS, Number.isFinite(requestedInterval) ? requestedInterval : DEFAULT_INTERVAL_MS);
+    const intervalMs = Math.max(
+      MIN_INTERVAL_MS,
+      Number.isFinite(requestedInterval) ? requestedInterval : DEFAULT_INTERVAL_MS,
+    );
 
     if (!dbId) {
       socket.close(1008, "Missing dbId");
@@ -90,10 +93,12 @@ export class MonitoringWebSocketServer {
       try {
         const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
         if (![DBType.POSTGRES, DBType.MYSQL, DBType.MARIADB].includes(dbType)) {
-          socket.send(JSON.stringify({
-            type: "unsupported",
-            message: `Monitoring is not supported for ${dbType}`,
-          }));
+          socket.send(
+            JSON.stringify({
+              type: "unsupported",
+              message: `Monitoring is not supported for ${dbType}`,
+            }),
+          );
           socket.close(1008, "Unsupported database type");
           return;
         }
@@ -101,10 +106,12 @@ export class MonitoringWebSocketServer {
         const snapshot = await this.monitoringService.getSnapshot(dbId, conn, dbType);
         socket.send(JSON.stringify({ type: "snapshot", data: snapshot }));
       } catch (error: any) {
-        socket.send(JSON.stringify({
-          type: "error",
-          message: error?.message || String(error),
-        }));
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error?.message || String(error),
+          }),
+        );
       }
     };
 
