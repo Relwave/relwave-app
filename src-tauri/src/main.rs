@@ -4,11 +4,17 @@ mod bridge;
 mod devtools;
 mod services;
 
-use bridge::{bridge_restart, bridge_kill, bridge_status, bridge_write, BridgeProcess};
+use bridge::{bridge_kill, bridge_restart, bridge_status, bridge_write, kill_bridge_child, BridgeProcess};
 use devtools::{close_devtools, is_devtools_open, navigate_back, navigate_forward, open_devtools, reload_webview};
 use services::analytics::AnalyticsService;
 use tauri::{Manager, State};
 use tauri_plugin_aptabase::EventTracker;
+
+fn cleanup_bridge(app_handle: &tauri::AppHandle) {
+    if let Some(state) = app_handle.try_state::<BridgeProcess>() {
+        kill_bridge_child(&state);
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +25,13 @@ async fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let _ = window.hide();
+                cleanup_bridge(window.app_handle());
+            }
+        });
 
     let aptabase_key = option_env!("APTABASE_APP_KEY")
         .map(String::from)
@@ -85,21 +97,21 @@ async fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                // Track exit event before killing bridge
-                let _ = app_handle.track_event("app_exited", None);
-                app_handle.flush_events_blocking();
-                
-                // Kill bridge process on app exit to prevent orphaned processes
-                if let Some(state) = app_handle.try_state::<BridgeProcess>() {
-                    let mut guard = state.0.lock().unwrap();
-                    if let Some(mut child) = guard.take() {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                    }
-                }
+        .run(|app_handle, event| match event {
+            tauri::RunEvent::ExitRequested { .. } => {
+                cleanup_bridge(app_handle);
             }
+            tauri::RunEvent::Exit => {
+                cleanup_bridge(app_handle);
+                let _ = app_handle.track_event("app_exited", None);
+            }
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } => {
+                cleanup_bridge(app_handle);
+            }
+            _ => {}
         });
 }
 

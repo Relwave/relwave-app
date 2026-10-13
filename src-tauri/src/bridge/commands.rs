@@ -30,18 +30,44 @@ pub fn bridge_write(data: String, state: State<'_, BridgeProcess>) -> Result<(),
     Ok(())
 }
 
+pub fn kill_bridge_child(state: &BridgeProcess) {
+    if let Ok(mut guard) = state.0.lock() {
+        if let Some(mut child) = guard.take() {
+            #[cfg(target_os = "windows")]
+            {
+                let pid = child.id();
+                // 1. Instantly terminate all processes in the Windows Job Object (<1ms)
+                super::process::job::terminate_job();
+                // 2. Terminate the child handle directly
+                let _ = child.kill();
+
+                // 3. Fallback taskkill in a background thread without blocking the UI/main thread
+                std::thread::spawn(move || {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    let _ = std::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/PID", &pid.to_string()])
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .output();
+                });
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = child.kill();
+            }
+
+            let _ = child.wait();
+        }
+    }
+}
+
 /// Kill the bridge process and wait for it to fully exit.
 /// Called before applying an update so the bridge releases file handles on
 /// bundled resources (e.g. better_sqlite3.node) before the installer overwrites them.
 #[tauri::command]
 pub fn bridge_kill(state: State<'_, BridgeProcess>) -> Result<(), String> {
-    let mut guard = state.0.lock().unwrap();
-    if let Some(mut child) = guard.take() {
-        child.kill().map_err(|e| format!("failed to kill bridge: {}", e))?;
-        // wait() is essential — it ensures the OS fully closes all file handles
-        // before we return, giving the installer a clean shot at the files.
-        child.wait().map_err(|e| format!("failed to wait for bridge exit: {}", e))?;
-    }
+    kill_bridge_child(&state);
     Ok(())
 }
 

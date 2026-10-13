@@ -24,6 +24,12 @@ const TitleBar = () => {
   const handleClose = async () => {
     try {
       const appWindow = getCurrentWindow();
+      // Hide window immediately for instant feedback (guarded in try-catch)
+      try {
+        await appWindow.hide();
+      } catch {
+        // Proceed even if hide has an issue
+      }
       await appWindow.close();
     } catch (error) {
       console.error("Failed to close:", error);
