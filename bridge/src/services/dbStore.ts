@@ -203,8 +203,9 @@ function normalizeSQLiteDatabaseValue(rawPath: unknown): string {
 }
 
 function normalizeSQLiteMeta<T extends Pick<DBMeta, "type" | "database">>(meta: T): T {
-  const isSQLite = typeof meta.type === "string" && meta.type.toLowerCase().includes("sqlite");
-  if (!isSQLite) {
+  const typeLower = typeof meta.type === "string" ? meta.type.toLowerCase() : "";
+  const isFileBasedDB = typeLower.includes("sqlite") || typeLower.includes("duckdb");
+  if (!isFileBasedDB) {
     return meta;
   }
 

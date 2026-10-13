@@ -55,6 +55,7 @@ export class QueryExecutor {
   public mysql = getConnector(DBType.MYSQL) as typeof import("../connectors/mysql");
   public mariadb = getConnector(DBType.MARIADB) as typeof import("../connectors/mariadb");
   public sqlite = getConnector(DBType.SQLITE) as typeof import("../connectors/sqlite");
+  public duckdb = getConnector(DBType.DUCKDB) as typeof import("../connectors/duckdb");
 
   async executeQuery(
     params: QueryParams,
@@ -161,7 +162,7 @@ export class QueryExecutor {
     });
 
     const dbName =
-      dbType === DBType.SQLITE
+      dbType === DBType.SQLITE || dbType === DBType.DUCKDB
         ? (conn as any).path || (conn as any).database
         : (conn as any).database;
 

@@ -1,6 +1,7 @@
 import { Rpc } from "../types";
 import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
+import { getConnector } from "../services/connectorRegistry";
 import { Logger } from "pino";
 import path from "path";
 import fs from "fs";
@@ -163,15 +164,8 @@ export class MigrationHandlers {
 
       const migrationFilePath = path.join(migrationsDir, migrationFile);
 
-      if (dbType === "mysql") {
-        await this.queryExecutor.mysql.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "postgres") {
-        await this.queryExecutor.postgres.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "mariadb") {
-        await this.queryExecutor.mariadb.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "sqlite") {
-        await this.queryExecutor.sqlite.applyMigration(conn, migrationFilePath);
-      }
+      const connector = getConnector(dbType) as any;
+      await connector.applyMigration(conn, migrationFilePath);
 
       // Hook syncMigrationFiles
       try {
@@ -182,16 +176,7 @@ export class MigrationHandlers {
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
           // Update Migration Lock first so it gets included in the git sync commit
-          let appliedMigrations: any[] = [];
-          if (dbType === "mysql") {
-            appliedMigrations = await require("../connectors/mysql").listAppliedMigrations(conn);
-          } else if (dbType === "postgres") {
-            appliedMigrations = await require("../connectors/postgres").listAppliedMigrations(conn);
-          } else if (dbType === "mariadb") {
-            appliedMigrations = await require("../connectors/mariadb").listAppliedMigrations(conn);
-          } else if (dbType === "sqlite") {
-            appliedMigrations = await require("../connectors/sqlite").listAppliedMigrations(conn);
-          }
+          const appliedMigrations = await connector.listAppliedMigrations(conn);
 
           const schemaFile = await projectStoreInstance.getSchema(project.id);
           const schemaHash = (schemaFile as any)?.schemaHash || "";
@@ -249,12 +234,7 @@ export class MigrationHandlers {
       const { loadLocalMigrations } = await import("../utils/baselineMigration");
       const localMigrations = await loadLocalMigrations(migrationsDir);
 
-      let connector: any;
-      if (dbType === "mysql") connector = require("../connectors/mysql");
-      else if (dbType === "postgres") connector = require("../connectors/postgres");
-      else if (dbType === "mariadb") connector = require("../connectors/mariadb");
-      else if (dbType === "sqlite") connector = require("../connectors/sqlite");
-
+      const connector = getConnector(dbType) as any;
       const appliedMigrations = await connector.listAppliedMigrations(conn);
       const appliedSet = new Set(appliedMigrations.map((m: any) => m.version));
 
@@ -270,14 +250,7 @@ export class MigrationHandlers {
           throw new Error(`Migration file not found for version: ${migration.version}`);
 
         const migrationFilePath = path.join(migrationsDir, migrationFile);
-        if (dbType === "mysql")
-          await this.queryExecutor.mysql.applyMigration(conn, migrationFilePath);
-        else if (dbType === "postgres")
-          await this.queryExecutor.postgres.applyMigration(conn, migrationFilePath);
-        else if (dbType === "mariadb")
-          await this.queryExecutor.mariadb.applyMigration(conn, migrationFilePath);
-        else if (dbType === "sqlite")
-          await this.queryExecutor.sqlite.applyMigration(conn, migrationFilePath);
+        await connector.applyMigration(conn, migrationFilePath);
       }
 
       try {
@@ -338,11 +311,7 @@ export class MigrationHandlers {
       const { generateBaselineSQL } = await import("../utils/baselineMigration");
       const baselineSQL = generateBaselineSQL(snapshot, Date.now().toString(), "apply_snapshot");
 
-      let connector: any;
-      if (dbType === "mysql") connector = require("../connectors/mysql");
-      else if (dbType === "postgres") connector = require("../connectors/postgres");
-      else if (dbType === "mariadb") connector = require("../connectors/mariadb");
-      else if (dbType === "sqlite") connector = require("../connectors/sqlite");
+      const connector = getConnector(dbType) as any;
 
       // For full snapshot apply, we assume DB is empty or we should drop it.
       // A full implementation would drop tables here.
@@ -353,13 +322,7 @@ export class MigrationHandlers {
       const baselinePath = path.join(migrationsDir, `${versionStr}_apply_snapshot.sql`);
       fs.writeFileSync(baselinePath, baselineSQL, "utf8");
 
-      if (dbType === "mysql") await this.queryExecutor.mysql.applyMigration(conn, baselinePath);
-      else if (dbType === "postgres")
-        await this.queryExecutor.postgres.applyMigration(conn, baselinePath);
-      else if (dbType === "mariadb")
-        await this.queryExecutor.mariadb.applyMigration(conn, baselinePath);
-      else if (dbType === "sqlite")
-        await this.queryExecutor.sqlite.applyMigration(conn, baselinePath);
+      await connector.applyMigration(conn, baselinePath);
 
       if (fs.existsSync(baselinePath)) fs.unlinkSync(baselinePath);
 
@@ -411,16 +374,8 @@ export class MigrationHandlers {
 
       const migrationFilePath = path.join(migrationsDir, migrationFile);
 
-      // Rollback migration
-      if (dbType === "mysql") {
-        await this.queryExecutor.mysql.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "postgres") {
-        await this.queryExecutor.postgres.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "mariadb") {
-        await this.queryExecutor.mariadb.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "sqlite") {
-        await this.queryExecutor.sqlite.rollbackMigration(conn, version, migrationFilePath);
-      }
+      const connector = getConnector(dbType) as any;
+      await connector.rollbackMigration(conn, version, migrationFilePath);
 
       // Hook syncMigrationFiles and Lock Update
       try {
@@ -431,16 +386,7 @@ export class MigrationHandlers {
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
           // Update Migration Lock first so it gets included in the git sync commit
-          let appliedMigrations: any[] = [];
-          if (dbType === "mysql") {
-            appliedMigrations = await require("../connectors/mysql").listAppliedMigrations(conn);
-          } else if (dbType === "postgres") {
-            appliedMigrations = await require("../connectors/postgres").listAppliedMigrations(conn);
-          } else if (dbType === "mariadb") {
-            appliedMigrations = await require("../connectors/mariadb").listAppliedMigrations(conn);
-          } else if (dbType === "sqlite") {
-            appliedMigrations = await require("../connectors/sqlite").listAppliedMigrations(conn);
-          }
+          const appliedMigrations = await connector.listAppliedMigrations(conn);
 
           const schemaFile = await projectStoreInstance.getSchema(project.id);
           const schemaHash = (schemaFile as any)?.schemaHash || "";

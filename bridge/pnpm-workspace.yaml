@@ -1,6 +1,7 @@
 allowBuilds:
   better-sqlite3: true
   cpu-features: true
+  duckdb: false
   esbuild: true
   ssh2: true
   unrs-resolver: true
