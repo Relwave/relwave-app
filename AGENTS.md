@@ -24,7 +24,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 ### Bridge (Node.js)
 
 - **Runtime:** Node.js (bundled via `pkg`)
-- **Database Drivers:** `pg` (PostgreSQL), `mysql2` (MySQL/MariaDB), `better-sqlite3` (SQLite)
+- **Database Drivers:** `pg` (PostgreSQL), `mysql2` (MySQL/MariaDB), `better-sqlite3` (SQLite), `@duckdb/node-api` (DuckDB)
 - **Version Control:** `simple-git`
 - **Logging:** `pino`
 - **Security:** `@napi-rs/keyring` for encrypted credential storage
@@ -53,6 +53,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 3. **Styling:** Use Tailwind CSS 4 utility classes. Prefer components from `src/components/ui`.
 4. **Error Handling:** Use the established JSON-RPC error format to ensure errors from the bridge are gracefully handled in the UI via `sonner` notifications.
 5. **Testing:** Bridge logic should be tested in `bridge/__tests__` using Jest.
+6. **Native Modules & Binaries:** When updating native C/C++ drivers (such as `better-sqlite3` or DuckDB), verify both development execution and packaged Tauri builds via `scripts/bundle-duckdb.cjs` and `tauri.conf.json` resource mappings.
 
 ## 📝 Conventions
 
