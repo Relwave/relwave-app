@@ -65,8 +65,8 @@ class DatabaseService {
   async addDatabase(params: AddDatabaseParams): Promise<DatabaseConnection> {
     try {
       // Validate required fields
-      const isSQLite = params.type === "sqlite";
-      const required = isSQLite
+      const isFileBasedDB = params.type === "sqlite" || params.type === "duckdb";
+      const required = isFileBasedDB
         ? ["name", "type", "database"]
         : ["name", "type", "host", "port", "user", "database"];
       for (const field of required) {

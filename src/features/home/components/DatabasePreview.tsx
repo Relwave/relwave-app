@@ -33,6 +33,7 @@ const DB_COLORS: Record<string, { bg: string; text: string }> = {
   mysql: { bg: "bg-orange-500/10", text: "text-orange-500" },
   mariadb: { bg: "bg-teal-500/10", text: "text-teal-500" },
   sqlite: { bg: "bg-cyan-500/10", text: "text-cyan-500" },
+  duckdb: { bg: "bg-yellow-500/10", text: "text-yellow-600" },
 };
 
 function getDbColors(type: string) {
@@ -119,7 +120,7 @@ export function DatabasePreview({
                 </span>
               </div>
               <p className="text-sm text-muted-foreground font-mono mt-0.5">
-                {database.type === "sqlite"
+                {database.type === "sqlite" || database.type === "duckdb"
                   ? database.database
                   : `${database.host}:${database.port}/${database.database}`}
               </p>

@@ -55,6 +55,12 @@ export function ResultsPanel({ activeTab, queryProgress, onClearResults }: Resul
           <div className="p-4">
             <DataTable data={activeTab.results} maxHeight="100%" />
           </div>
+        ) : activeTab?.status === "success" ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <Database className="h-10 w-10 mb-3 opacity-20" />
+            <p className="text-sm font-medium">Query executed successfully</p>
+            <p className="text-xs mt-1 opacity-60">0 rows returned</p>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Database className="h-10 w-10 mb-3 opacity-20" />

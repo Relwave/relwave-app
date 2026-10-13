@@ -1,4 +1,4 @@
-export type DatabaseType = "postgresql" | "mysql" | "sqlite";
+export type DatabaseType = "postgresql" | "mysql" | "sqlite" | "duckdb";
 
 export interface SSHConfig {
   host: string;
@@ -11,7 +11,7 @@ export interface SSHConfig {
 }
 
 export interface DiscoveredDatabase {
-  type: "postgresql" | "mysql" | "mariadb" | "sqlite";
+  type: "postgresql" | "mysql" | "mariadb" | "sqlite" | "duckdb";
   host: string;
   port: number;
   source: "local" | "docker";
@@ -202,7 +202,7 @@ export interface MonitoringActiveQuery {
 }
 
 export interface MonitoringSnapshot {
-  databaseType: "postgres" | "mysql" | "mariadb";
+  databaseType: "postgres" | "mysql" | "mariadb" | "duckdb";
   sampledAt: string;
   health: {
     ok: boolean;
