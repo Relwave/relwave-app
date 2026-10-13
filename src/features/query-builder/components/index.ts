@@ -7,6 +7,7 @@ export { BuilderSidebar } from "./BuilderSidebar";
 export { DiagramCanvas } from "./DiagramCanvas";
 export { SQLResultsPanel } from "./SQLResultsPanel";
 export { BuilderStatusBar } from "./BuilderStatusBar";
+export { QueryTableNode } from "./QueryTableNode";
 
 // Types
 export type {

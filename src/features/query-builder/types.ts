@@ -92,6 +92,7 @@ export interface DiagramCanvasProps {
   onEdgeClick: (event: React.MouseEvent, edge: any) => void;
   onUpdateJoinType: (joinType: "INNER" | "LEFT" | "RIGHT" | "FULL") => void;
   onCloseMenu: () => void;
+  onDeleteEdge?: (edgeId: string) => void;
 }
 
 export interface SQLResultsPanelProps {
