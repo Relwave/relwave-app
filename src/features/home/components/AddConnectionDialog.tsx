@@ -99,7 +99,7 @@ export function AddConnectionDialog({
     onOpenChange(newOpen);
   };
 
-  const isSQLite = formData.type === "sqlite";
+  const isFileBasedDB = formData.type === "sqlite" || formData.type === "duckdb";
   const showSslOption = formData.type === "postgresql" || formData.type === "mariadb";
 
   return (
@@ -122,12 +122,12 @@ export function AddConnectionDialog({
             {initialData ? "Edit Connection" : "New Connection"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Connect to PostgreSQL, MySQL, MariaDB, or SQLite
+            Connect to PostgreSQL, MySQL, MariaDB, SQLite, or DuckDB
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {!isSQLite && !isDiscoveredMode && (
+          {!isFileBasedDB && !isDiscoveredMode && (
             <Tabs value={useUrl ? "url" : "params"} onValueChange={(v) => setUseUrl(v === "url")}>
               <TabsList className="grid w-full grid-cols-2 h-9">
                 <TabsTrigger value="url" className="text-xs">
@@ -142,7 +142,7 @@ export function AddConnectionDialog({
             </Tabs>
           )}
 
-          {useUrl && !isSQLite && (
+          {useUrl && !isFileBasedDB && (
             <div className="space-y-1.5">
               <Label className="text-xs">Connection URL</Label>
               <Input
@@ -172,8 +172,8 @@ export function AddConnectionDialog({
                 value={formData.type}
                 onValueChange={(val) => {
                   handleInputChange("type", val);
-                  if (val === "sqlite") {
-                    // Clear network-related fields when switching to SQLite
+                  if (val === "sqlite" || val === "duckdb") {
+                    // Clear network-related fields when switching to SQLite or DuckDB
                     setUseUrl(false);
                     setConnectionUrl("");
                     setFormData((prev) => ({
@@ -205,13 +205,14 @@ export function AddConnectionDialog({
                   <SelectItem value="mysql">MySQL</SelectItem>
                   <SelectItem value="mariadb">MariaDB</SelectItem>
                   <SelectItem value="sqlite">SQLite</SelectItem>
+                  <SelectItem value="duckdb">DuckDB</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
 
           {!useUrl &&
-            (isSQLite ? (
+            (isFileBasedDB ? (
               <div className="space-y-1.5">
                 <Label className="text-xs">Database File</Label>
                 <div className="flex gap-2">
@@ -230,9 +231,18 @@ export function AddConnectionDialog({
                     disabled={isDiscoveredMode}
                     onClick={async () => {
                       const selected = await openDialog({
-                        title: "Select SQLite Database",
+                        title:
+                          formData.type === "duckdb"
+                            ? "Select DuckDB Database"
+                            : "Select SQLite Database",
                         filters: [
-                          { name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] },
+                          {
+                            name: formData.type === "duckdb" ? "DuckDB" : "SQLite",
+                            extensions:
+                              formData.type === "duckdb"
+                                ? ["db", "duckdb", "ddb"]
+                                : ["db", "sqlite", "sqlite3", "s3db"],
+                          },
                         ],
                       });
                       if (selected) handleInputChange("database", selected as string);

@@ -10,6 +10,7 @@ export class DBTypeDetector {
         return DBType.POSTGRES;
       }
       if (normalized.includes("sqlite")) return DBType.SQLITE;
+      if (normalized.includes("duckdb")) return DBType.DUCKDB;
     }
     return DBType.POSTGRES; // default
   }

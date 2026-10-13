@@ -2,7 +2,7 @@
 
 This document provides a comprehensive breakdown of all features and capabilities in RelWave. For installation and setup instructions, see the main [README](README.md).
 
-**Tech Stack:** Tauri + React 18 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3
+**Tech Stack:** Tauri + React 19 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3 + DuckDB
 
 ---
 
@@ -29,6 +29,17 @@ This document provides a comprehensive breakdown of all features and capabilitie
 | MySQL      | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
 | MariaDB    | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
 | SQLite     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
+| DuckDB     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
+
+### DuckDB-Specific Features
+
+- **Embedded analytical engine** — powered by `@duckdb/node-api` for lightning-fast columnar analytics
+- **Local file & in-memory databases** — connect to `.db`, `.duckdb`, `.ddb`, or temporary/in-memory databases
+- **Native file picker** — native Tauri file browser for selecting database files
+- **Full DDL & schema migrations** — automated migration table (`schema_migrations`), table creations, index creation, column mutations, and schema diffing
+- **Vectorized & parallel execution** — ultra-fast aggregations and queries on large datasets (millions of rows)
+- **Native Windows packaging** — bundled with `duckdb.dll` runtime binaries
+- **High-throughput benchmark seeder** — built-in seed generator (`npm run seed:duckdb`) generating up to 3.5M+ rows across users, products, orders, and analytics events
 
 ### SQLite-Specific Features
 
@@ -51,9 +62,9 @@ The main landing page for managing database connections. Features a clean, IDE-i
 
 - Add new database connections with detailed configuration (name, type, host, port, user, password, SSL options)
 - **SSH Tunneling** — connect securely to remote databases via SSH tunnels using private keys and passphrases
-- **SQLite support** — connect to local `.db`, `.sqlite`, `.sqlite3`, `.s3db` files via native file picker
+- **SQLite & DuckDB support** — connect to local relational or columnar analytical database files (`.db`, `.duckdb`, `.ddb`, `.sqlite`, `.sqlite3`, `.s3db`) via native file picker
 - Connect via URL — paste connection strings like `postgres://user:pass@host:port/db`
-- Auto-parse URLs to populate connection form fields (including `sqlite://` protocol)
+- Auto-parse URLs to populate connection form fields (including `sqlite://` and `duckdb://` protocols)
 - **Safe connection deletion** — intercepts deletion to prevent accidental loss of associated project data (schemas, queries, diagrams)
 - **Unlinked project management** — view, delete, or relink orphaned projects to new connections directly from the sidebar
 - Delete existing database connections
@@ -64,7 +75,7 @@ The main landing page for managing database connections. Features a clean, IDE-i
 
 - Automatically discover databases running on the local machine
 - TCP port scanning for PostgreSQL (5432–5434) and MySQL (3306–3308)
-- SQLite file-based connections (no host/port — uses native file browser)
+- SQLite & DuckDB file-based connections (no host/port — uses native file browser)
 - Docker container detection with image recognition
 - Docker credential extraction — reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MYSQL_ROOT_PASSWORD`, etc. from container environment variables
 - One-click add with pre-filled connection details
@@ -132,7 +143,7 @@ Detailed view for individual database operations with a split-panel layout.
 **Search**
 
 - Cross-column search across all table fields
-- Case-insensitive matching (ILIKE for PostgreSQL, LIKE for MySQL/MariaDB/SQLite)
+- Case-insensitive matching (ILIKE for PostgreSQL and DuckDB, LIKE for MySQL/MariaDB/SQLite)
 - Paginated search results
 - Real-time result count display
 - Clear search to return to the default view
@@ -228,10 +239,11 @@ Visual SQL query builder with drag-and-drop canvas.
 - Click to add or remove tables from the canvas (toggle behavior)
 - Checkmark indicator for added tables
 - Table count badge
+- Automatic stale query pruning — removing a table automatically cleans up referenced columns from SELECT, WHERE, and ORDER BY clauses
 
 **Configuration**
 
-- Columns — select columns for the SELECT clause
+- Columns — grouped by table headers in the sidebar to prevent ambiguous column name collisions; toggle individual columns or select all per table
 - Filters — add WHERE conditions with column, operator, and value
 - Sort By — ORDER BY with ascending/descending toggle
 - Group By — GROUP BY column selection
@@ -240,13 +252,16 @@ Visual SQL query builder with drag-and-drop canvas.
 **Visual Canvas**
 
 - Drag-and-drop table nodes
+- **Interactive column handles** — drag directly from any column's source handle to another table's target handle to visually define relationships
 - Connect tables to create JOINs
 - Click edges to change join type (INNER, LEFT, RIGHT, FULL)
 - Color-coded join types
 - Zoom and pan controls
 
-**SQL Generation**
+**SQL Generation & Execution**
 
+- **Connected graph generation** — traverses active JOIN edges to build clean, connected query graphs; isolated tables on the canvas do not create invalid binder errors or unintentional cross-joins
+- **Strict identifier quoting** — generates fully qualified, engine-compatible column references (`"table"."column"`) without synthetic table aliases
 - Real-time SQL preview
 - Auto-save to query history
 - Execute generated queries directly
@@ -576,6 +591,7 @@ $$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_re
 | MySQL      | Orange |
 | MariaDB    | Purple |
 | SQLite     | Cyan   |
+| DuckDB     | Amber  |
 
 ### Theming
 
@@ -657,6 +673,9 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 ### Desktop (Tauri)
 
 - Custom 32px title bar with draggable area and window controls
+- **Instant window close responsiveness** — TitleBar close action executes an immediate `window.hide()` while background bridge process teardown completes asynchronously
+- **Kernel-level orphan process prevention** — Windows `JobObject` / `TerminateJobObject` integration in the Rust backend guarantees that all bridge child processes are immediately terminated on exit, preventing background locks on `.db` files
+- **Native binary packaging** — Bundles both `better-sqlite3` and `duckdb.dll` native binaries directly into production NSIS/MSI distributions
 - All pages use `h-[calc(100vh-32px)]` for proper layout
 - Fixed elements offset with `top-8` (32px)
 - Z-index layering: title bar (z-100), panels (z-50), sidebar (z-40)
@@ -664,7 +683,7 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ### Web Technologies
 
-- React 18 with concurrent features
+- React 19 with concurrent features
 - Vite for development and bundling
 - TypeScript for full type coverage
 - CSS variables for runtime theming

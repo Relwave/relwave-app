@@ -62,12 +62,14 @@ export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
       type = "mysql";
     } else if (protocol === "sqlite") {
       type = "sqlite";
+    } else if (protocol === "duckdb") {
+      type = "duckdb";
     } else {
       return null; // Unsupported protocol
     }
 
-    // SQLite uses path only, no host/port/auth
-    if (type === "sqlite") {
+    // SQLite and DuckDB use path only, no host/port/auth
+    if (type === "sqlite" || type === "duckdb") {
       const dbPath = normalizeSqlitePathFromUrl(parsed);
       return {
         type,
@@ -122,8 +124,8 @@ export function buildConnectionUrl(params: {
   database: string;
   sslmode?: string;
 }): string {
-  if (params.type === "sqlite") {
-    return `sqlite:///${encodeSqlitePathSegments(params.database)}`;
+  if (params.type === "sqlite" || params.type === "duckdb") {
+    return `${params.type}:///${encodeSqlitePathSegments(params.database)}`;
   }
   const protocol = params.type === "mysql" ? "mysql" : "postgres";
   const auth = params.password

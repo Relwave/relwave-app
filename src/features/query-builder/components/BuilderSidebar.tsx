@@ -200,7 +200,8 @@ export function BuilderSidebar({
                     {availableColumns.length > 0 ? (
                       availableColumns.map((col) => (
                         <SelectItem key={col.value} value={col.value} className="text-xs">
-                          {col.value.split(".")[1]}
+                          <span className="text-muted-foreground mr-1">{col.table}.</span>
+                          <span className="font-mono">{col.value.split(".")[1]}</span>
                         </SelectItem>
                       ))
                     ) : (
@@ -212,21 +213,26 @@ export function BuilderSidebar({
                 </Select>
                 {selectedColumns.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {selectedColumns.map((col) => (
-                      <span
-                        key={col}
-                        className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]"
-                      >
-                        {col.split(".")[1]}
-                        <button
-                          onClick={() =>
-                            onSelectedColumnsChange(selectedColumns.filter((c) => c !== col))
-                          }
+                    {selectedColumns.map((col) => {
+                      const [tablePart, ...colParts] = col.split(".");
+                      const colPart = colParts.join(".");
+                      return (
+                        <span
+                          key={col}
+                          className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-mono"
                         >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </span>
-                    ))}
+                          <span className="opacity-70">{tablePart}.</span>
+                          <span>{colPart}</span>
+                          <button
+                            onClick={() =>
+                              onSelectedColumnsChange(selectedColumns.filter((c) => c !== col))
+                            }
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
                 {selectedColumns.length === 0 && (
@@ -261,7 +267,8 @@ export function BuilderSidebar({
                           <SelectContent>
                             {availableColumns.map((col) => (
                               <SelectItem key={col.value} value={col.value} className="text-xs">
-                                {col.value.split(".")[1]}
+                                <span className="text-muted-foreground mr-1">{col.table}.</span>
+                                <span className="font-mono">{col.value.split(".")[1]}</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -314,7 +321,8 @@ export function BuilderSidebar({
                     <SelectContent>
                       {availableColumns.map((col) => (
                         <SelectItem key={col.value} value={col.value} className="text-xs">
-                          {col.value.split(".")[1]}
+                          <span className="text-muted-foreground mr-1">{col.table}.</span>
+                          <span className="font-mono">{col.value.split(".")[1]}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -350,7 +358,8 @@ export function BuilderSidebar({
                   <SelectContent>
                     {availableColumns.map((col) => (
                       <SelectItem key={col.value} value={col.value} className="text-xs">
-                        {col.value.split(".")[1]}
+                        <span className="text-muted-foreground mr-1">{col.table}.</span>
+                        <span className="font-mono">{col.value.split(".")[1]}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

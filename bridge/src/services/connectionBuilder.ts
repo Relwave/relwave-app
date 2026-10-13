@@ -10,17 +10,18 @@ export interface BuildResult {
 
 export class ConnectionBuilder {
   static async buildConnection(db: any, pwd: string | null, dbType: DBType): Promise<BuildResult> {
-    if (dbType === DBType.SQLITE) {
+    if (dbType === DBType.SQLITE || dbType === DBType.DUCKDB) {
+      const engineName = dbType === DBType.DUCKDB ? "DuckDB" : "SQLite";
       const dbPath = normalizeSQLitePath(db.database || db.path);
       if (!dbPath || typeof dbPath !== "string" || !dbPath.trim()) {
         throw new Error(
-          `SQLite connection requires a non-empty file path. ` +
+          `${engineName} connection requires a non-empty file path. ` +
             `Got database=${JSON.stringify(db.database)}, path=${JSON.stringify(db.path)}`,
         );
       }
       if (isWindowsDriveRootPath(dbPath)) {
         throw new Error(
-          `Invalid SQLite path "${dbPath}" — it points to a Windows drive root, not a database file.`,
+          `Invalid ${engineName} path "${dbPath}" — it points to a Windows drive root, not a database file.`,
         );
       }
       return {
@@ -71,5 +72,9 @@ export class ConnectionBuilder {
 
   static async buildSQLiteConnection(db: any): Promise<BuildResult> {
     return this.buildConnection(db, null, DBType.SQLITE);
+  }
+
+  static async buildDuckDBConnection(db: any): Promise<BuildResult> {
+    return this.buildConnection(db, null, DBType.DUCKDB);
   }
 }

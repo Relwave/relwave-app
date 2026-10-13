@@ -94,6 +94,15 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
     );
   }, [nodes]);
 
+  // Prune invalid column selections whenever availableColumns changes
+  useEffect(() => {
+    const validColSet = new Set(availableColumns.map((c) => c.value));
+    setSelectedColumns((prev) => prev.filter((col) => validColSet.has(col)));
+    setFilters((prev) => prev.filter((f) => !f.column || validColSet.has(f.column)));
+    setSortBy((prev) => (prev && validColSet.has(prev) ? prev : ""));
+    setGroupBy((prev) => (prev && validColSet.has(prev) ? prev : ""));
+  }, [availableColumns]);
+
   const addTable = useCallback(
     (tableName: string) => {
       if (!schemaData || !tableName) return;
@@ -124,45 +133,198 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
           label: table.name,
           tableName: table.name,
           columns: table.columns,
+          schema: (table as any).schema || (selectedSchema !== "__all__" ? selectedSchema : "main"),
         },
       };
 
       setNodes((nds) => [...nds, newNode]);
       toast.success(`Added ${table.name}`);
     },
-    [schemaData, allTables, nodes, setNodes],
+    [schemaData, allTables, nodes, setNodes, selectedSchema],
   );
 
   const removeTable = useCallback(
     (nodeId: string) => {
+      const nodeToRemove = nodes.find((n) => n.id === nodeId);
+      const tableName = nodeToRemove?.data?.tableName;
+
+      if (tableName) {
+        setSelectedColumns((prev) => prev.filter((col) => !col.startsWith(`${tableName}.`)));
+        setFilters((prev) => prev.filter((f) => !f.column.startsWith(`${tableName}.`)));
+        setSortBy((prev) => (prev.startsWith(`${tableName}.`) ? "" : prev));
+        setGroupBy((prev) => (prev.startsWith(`${tableName}.`) ? "" : prev));
+      }
+
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
     },
-    [setNodes, setEdges],
+    [nodes, setNodes, setEdges],
+  );
+
+  // Global listeners for table node events
+  useEffect(() => {
+    const handleRemove = (event: CustomEvent) => {
+      if (event.detail?.id) {
+        removeTable(event.detail.id);
+      }
+    };
+
+    const handleToggleCol = (event: CustomEvent) => {
+      if (event.detail?.column) {
+        const col = event.detail.column;
+        setSelectedColumns((prev) =>
+          prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col],
+        );
+      }
+    };
+
+    window.addEventListener("querybuilder:removetable", handleRemove as EventListener);
+    window.addEventListener("querybuilder:togglecolumn", handleToggleCol as EventListener);
+
+    return () => {
+      window.removeEventListener("querybuilder:removetable", handleRemove as EventListener);
+      window.removeEventListener("querybuilder:togglecolumn", handleToggleCol as EventListener);
+    };
+  }, [removeTable]);
+
+  // Helper to resolve join columns from handles, metadata, or naming conventions
+  const resolveJoinColumns = useCallback(
+    (
+      sourceTable: string,
+      targetTable: string,
+      edgeData?: any,
+    ): { sourceCol: string; targetCol: string } => {
+      if (edgeData?.sourceColumn && edgeData?.targetColumn) {
+        return {
+          sourceCol: edgeData.sourceColumn,
+          targetCol: edgeData.targetColumn,
+        };
+      }
+
+      // Check foreign key constraints from schemaData
+      if (schemaData?.schemas) {
+        for (const schema of schemaData.schemas) {
+          for (const table of schema.tables || []) {
+            if (table.name === targetTable && table.foreignKeys) {
+              const fk = table.foreignKeys.find((f: any) => f.target_table === sourceTable);
+              if (fk) {
+                return { sourceCol: fk.target_column, targetCol: fk.source_column };
+              }
+            }
+            if (table.name === sourceTable && table.foreignKeys) {
+              const fk = table.foreignKeys.find((f: any) => f.target_table === targetTable);
+              if (fk) {
+                return { sourceCol: fk.source_column, targetCol: fk.target_column };
+              }
+            }
+          }
+        }
+      }
+
+      // Check naming conventions
+      const sourceTableObj = allTables?.find((t) => t.name === sourceTable);
+      const targetTableObj = allTables?.find((t) => t.name === targetTable);
+      const sourceCols: string[] = sourceTableObj?.columns?.map((c: any) => c.name) || [];
+      const targetCols: string[] = targetTableObj?.columns?.map((c: any) => c.name) || [];
+
+      const singular = (name: string) => name.replace(/s$/, "");
+
+      // Target has <source>_id or <singularSource>_id
+      const targetFk = targetCols.find(
+        (c) =>
+          c.toLowerCase() === `${sourceTable.toLowerCase()}_id` ||
+          c.toLowerCase() === `${singular(sourceTable.toLowerCase())}_id`,
+      );
+      if (targetFk && (sourceCols.includes("id") || sourceCols.length > 0)) {
+        return { sourceCol: sourceCols.includes("id") ? "id" : sourceCols[0], targetCol: targetFk };
+      }
+
+      // Source has <target>_id or <singularTarget>_id
+      const sourceFk = sourceCols.find(
+        (c) =>
+          c.toLowerCase() === `${targetTable.toLowerCase()}_id` ||
+          c.toLowerCase() === `${singular(targetTable.toLowerCase())}_id`,
+      );
+      if (sourceFk && (targetCols.includes("id") || targetCols.length > 0)) {
+        return { sourceCol: sourceFk, targetCol: targetCols.includes("id") ? "id" : targetCols[0] };
+      }
+
+      const defaultTargetCol = targetCols.includes(`${singular(sourceTable)}_id`)
+        ? `${singular(sourceTable)}_id`
+        : targetCols.includes("id")
+          ? "id"
+          : targetCols[0] || "id";
+
+      const defaultSourceCol = sourceCols.includes("id") ? "id" : sourceCols[0] || "id";
+
+      return {
+        sourceCol: defaultSourceCol,
+        targetCol: defaultTargetCol,
+      };
+    },
+    [schemaData, allTables],
   );
 
   const onConnect = useCallback(
     (params: Connection) => {
       if (!params.source || !params.target || params.source === params.target) return;
 
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const targetNode = nodes.find((n) => n.id === params.target);
+      if (!sourceNode || !targetNode) return;
+
+      const sourceTable = sourceNode.data.tableName;
+      const targetTable = targetNode.data.tableName;
+
+      const parseHandleCol = (handleId: string | null | undefined) => {
+        if (!handleId || handleId.includes("-header-")) return null;
+        const clean = handleId.replace(/-(source|target)$/, "");
+        const parts = clean.split(".");
+        return parts.length >= 2 ? parts.slice(1).join(".") : clean;
+      };
+
+      let sourceCol = parseHandleCol(params.sourceHandle);
+      let targetCol = parseHandleCol(params.targetHandle);
+
+      if (!sourceCol || !targetCol) {
+        const resolved = resolveJoinColumns(sourceTable, targetTable);
+        sourceCol = sourceCol || resolved.sourceCol;
+        targetCol = targetCol || resolved.targetCol;
+      }
+
+      const joinType = "INNER";
+      const label = `${joinType} (${sourceCol} = ${targetCol})`;
+
       setEdges((eds) => {
-        const exists = eds.some((e) => e.source === params.source && e.target === params.target);
+        const exists = eds.some(
+          (e) =>
+            (e.source === params.source && e.target === params.target) ||
+            (e.source === params.target && e.target === params.source),
+        );
         if (exists) return eds;
 
         return addEdge(
           {
             ...params,
-            data: { joinType: "INNER" },
+            data: {
+              joinType,
+              sourceTable,
+              targetTable,
+              sourceColumn: sourceCol,
+              targetColumn: targetCol,
+            },
             animated: true,
-            style: { stroke: "hsl(var(--primary))" },
-            label: "INNER",
-            labelStyle: { fill: "hsl(var(--primary))", fontWeight: 500, fontSize: 10 },
+            style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
+            label,
+            labelStyle: { fill: "hsl(var(--primary))", fontWeight: 600, fontSize: 10 },
+            labelBgStyle: { fill: "hsl(var(--card))", fillOpacity: 0.9, rx: 4, ry: 4 },
+            labelBgPadding: [6, 3] as [number, number],
           },
           eds,
         );
       });
     },
-    [setEdges],
+    [nodes, resolveJoinColumns, setEdges],
   );
 
   const onEdgeClick = useCallback((event: React.MouseEvent, edge: any) => {
@@ -185,12 +347,16 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
       setEdges((eds) =>
         eds.map((edge) => {
           if (edge.id === selectedEdge.id) {
+            const sCol = edge.data?.sourceColumn || "id";
+            const tCol = edge.data?.targetColumn || "id";
             return {
               ...edge,
-              data: { joinType },
-              style: { stroke: joinColors[joinType] },
-              label: joinType,
-              labelStyle: { fill: joinColors[joinType], fontWeight: 500, fontSize: 10 },
+              data: { ...edge.data, joinType },
+              style: { stroke: joinColors[joinType], strokeWidth: 2 },
+              label: `${joinType} (${sCol} = ${tCol})`,
+              labelStyle: { fill: joinColors[joinType], fontWeight: 600, fontSize: 10 },
+              labelBgStyle: { fill: "hsl(var(--card))", fillOpacity: 0.9, rx: 4, ry: 4 },
+              labelBgPadding: [6, 3] as [number, number],
             };
           }
           return edge;
@@ -201,6 +367,15 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
       setMenuPosition(null);
     },
     [selectedEdge, setEdges],
+  );
+
+  const deleteEdge = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      setSelectedEdge(null);
+      setMenuPosition(null);
+    },
+    [setEdges],
   );
 
   const closeMenu = useCallback(() => {
@@ -214,40 +389,135 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
       return;
     }
 
-    const tables = nodes.map((n) => n.data.tableName);
+    const canvasTableNames = nodes.map((n) => n.data.tableName);
 
-    const joins = edges
-      .map((e) => {
-        const sourceNode = nodes.find((n) => n.id === e.source);
-        const targetNode = nodes.find((n) => n.id === e.target);
-        if (!sourceNode || !targetNode) return null;
+    // Build adjacency list for joins between tables
+    interface JoinEdge {
+      neighbor: string;
+      joinType: string;
+      onClause: string;
+    }
+    const adj = new Map<string, JoinEdge[]>();
+    canvasTableNames.forEach((t) => adj.set(t, []));
 
-        const joinType = e.data?.joinType || "INNER";
-        return `${joinType} JOIN ${targetNode.data.tableName} ON ${sourceNode.data.tableName}.id = ${targetNode.data.tableName}.${sourceNode.data.tableName}_id`;
-      })
-      .filter(Boolean)
-      .join("\n");
+    edges.forEach((e) => {
+      const sNode = nodes.find((n) => n.id === e.source);
+      const tNode = nodes.find((n) => n.id === e.target);
+      if (!sNode || !tNode) return;
 
-    const whereClause = filters
-      .filter((f) => f.column && f.value)
-      .map((f) => `${f.column} ${f.operator} '${f.value}'`)
-      .join(" AND ");
+      const sTable = sNode.data.tableName;
+      const tTable = tNode.data.tableName;
+      const joinType = e.data?.joinType || "INNER";
 
+      const resolved = resolveJoinColumns(sTable, tTable, e.data);
+      const sCol = resolved.sourceCol;
+      const tCol = resolved.targetCol;
+
+      adj.get(sTable)?.push({
+        neighbor: tTable,
+        joinType,
+        onClause: `${sTable}.${sCol} = ${tTable}.${tCol}`,
+      });
+
+      let revJoinType = joinType;
+      if (joinType === "LEFT") revJoinType = "RIGHT";
+      else if (joinType === "RIGHT") revJoinType = "LEFT";
+
+      adj.get(tTable)?.push({
+        neighbor: sTable,
+        joinType: revJoinType,
+        onClause: `${sTable}.${sCol} = ${tTable}.${tCol}`,
+      });
+    });
+
+    // Traverse connected components to build FROM clauses
+    const visited = new Set<string>();
+    const componentClauses: string[] = [];
+
+    for (const startTable of canvasTableNames) {
+      if (visited.has(startTable)) continue;
+
+      visited.add(startTable);
+      const queue = [startTable];
+      let componentSql = startTable;
+
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        const neighbors = adj.get(curr) || [];
+
+        for (const edgeInfo of neighbors) {
+          if (!visited.has(edgeInfo.neighbor)) {
+            visited.add(edgeInfo.neighbor);
+            queue.push(edgeInfo.neighbor);
+            componentSql += `\n${edgeInfo.joinType} JOIN ${edgeInfo.neighbor} ON ${edgeInfo.onClause}`;
+          }
+        }
+      }
+
+      componentClauses.push(componentSql);
+    }
+
+    const fromClause = componentClauses.join("\nCROSS JOIN ");
+
+    // Selected columns
     const columns = selectedColumns.length > 0 ? selectedColumns.join(", ") : "*";
-    let sql = `SELECT ${columns}\nFROM ${tables[0]}`;
+    let sql = `SELECT ${columns}\nFROM ${fromClause}`;
 
-    if (joins) sql += `\n${joins}`;
-    if (whereClause) sql += `\nWHERE ${whereClause}`;
-    if (groupBy) sql += `\nGROUP BY ${groupBy}`;
-    if (sortBy) sql += `\nORDER BY ${sortBy} ${sortOrder}`;
-    if (limit > 0) sql += `\nLIMIT ${limit}`;
+    // Filters / WHERE formatting
+    const formatFilterValue = (val: string, operator: string) => {
+      if (operator === "LIKE") {
+        return val.includes("%") ? `'${val}'` : `'%${val}%'`;
+      }
+      if (
+        val.toLowerCase() === "true" ||
+        val.toLowerCase() === "false" ||
+        val.toLowerCase() === "null"
+      ) {
+        return val.toUpperCase();
+      }
+      if (!isNaN(Number(val)) && val.trim() !== "") {
+        return val;
+      }
+      return `'${val}'`;
+    };
+
+    const whereConditions = filters
+      .filter((f) => f.column && f.value)
+      .map((f) => `${f.column} ${f.operator} ${formatFilterValue(f.value, f.operator)}`);
+
+    if (whereConditions.length > 0) {
+      sql += `\nWHERE ${whereConditions.join(" AND ")}`;
+    }
+
+    if (groupBy) {
+      sql += `\nGROUP BY ${groupBy}`;
+    }
+
+    if (sortBy) {
+      sql += `\nORDER BY ${sortBy} ${sortOrder}`;
+    }
+
+    if (limit > 0) {
+      sql += `\nLIMIT ${limit}`;
+    }
 
     sql += ";";
 
     setGeneratedSQL(sql);
-    addQuery(sql, tables);
+    addQuery(sql, canvasTableNames);
     toast.success("SQL generated");
-  }, [nodes, edges, filters, groupBy, sortBy, sortOrder, limit, selectedColumns, addQuery]);
+  }, [
+    nodes,
+    edges,
+    filters,
+    groupBy,
+    sortBy,
+    sortOrder,
+    limit,
+    selectedColumns,
+    resolveJoinColumns,
+    addQuery,
+  ]);
 
   const executeQuery = useCallback(async () => {
     if (!dbId || !generatedSQL) {
@@ -407,6 +677,7 @@ const QueryBuilderPanel = ({ dbId }: QueryBuilderPanelProps) => {
             onEdgeClick={onEdgeClick}
             onUpdateJoinType={updateEdgeJoinType}
             onCloseMenu={closeMenu}
+            onDeleteEdge={deleteEdge}
           />
 
           <SQLResultsPanel generatedSQL={generatedSQL} tableData={tableData} rowCount={rowCount} />

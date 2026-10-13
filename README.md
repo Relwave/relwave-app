@@ -40,7 +40,7 @@ _RelWave brings the power of native Git versioning, visual ER diagrams, and seam
       <b>Native Core</b>
       <br />
       <br />
-      Direct connections via native drivers. Zero browser overhead. Pure speed.
+      Direct connections via native drivers (PostgreSQL, MySQL, SQLite, DuckDB). Zero browser overhead. Pure speed.
     </td>
     <td align="center" width="25%">
       <br />
@@ -133,7 +133,7 @@ RelWave uses a **three-layer bridge architecture**. React owns the user experien
 
 <img width="1565" height="518" alt="image" src="https://github.com/user-attachments/assets/defdc3b7-7555-40ac-bf97-b1cb9420b325" />
 
-The request path is **React UI -> Tauri command -> Node.js JSON-RPC handler -> service -> database, Git, local storage, monitoring, or LLM provider**. Responses return through the same boundary in reverse. Long-running SQL queries additionally stream `query.result`, `query.progress`, and `query.done` notifications back to the React client. The Node.js bridge contains the database connectors, Git service, AI services, monitoring services, project stores, credential access, and SSH tunnel handling.
+The request path is **React UI -> Tauri command -> Node.js JSON-RPC handler -> service -> database, Git, local storage, monitoring, or LLM provider**. Responses return through the same boundary in reverse. Long-running SQL queries additionally stream `query.result`, `query.progress`, and `query.done` notifications back to the React client. The Node.js bridge contains the database connectors (PostgreSQL, MySQL/MariaDB, SQLite, DuckDB), Git service, AI services, monitoring services, project stores, credential access, and SSH tunnel handling.
 
 <br />
 

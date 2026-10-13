@@ -41,7 +41,7 @@
       "icons/icon.ico"
     ],
     "externalBin": ["resources/bridge"],
-    "resources": ["resources/better_sqlite3.node"],
+    "resources": ["resources/better_sqlite3.node", "resources/duckdb.dll"],
     "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {

@@ -38,10 +38,16 @@ export class JsonStdio extends EventEmitter {
       }
     });
 
-    process.stdin.on("end", () => {
-      this.closed = true;
-      this.emit("end");
-    });
+    const handleCloseOrEnd = () => {
+      if (!this.closed) {
+        this.closed = true;
+        this.emit("end");
+      }
+    };
+
+    process.stdin.on("end", handleCloseOrEnd);
+    process.stdin.on("close", handleCloseOrEnd);
+    process.on("disconnect", handleCloseOrEnd);
 
     process.stdin.on("error", (err) => {
       logger.error({ err }, "stdin error");

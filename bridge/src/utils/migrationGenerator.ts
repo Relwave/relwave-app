@@ -33,7 +33,7 @@ export function generateCreateTableMigration(params: {
   tableName: string;
   columns: any[];
   foreignKeys?: any[];
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite";
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
 }): MigrationFile {
   const { schemaName, tableName, columns, foreignKeys = [], dbType } = params;
   const version = generateMigrationVersion();
@@ -88,7 +88,7 @@ export function generateAlterTableMigration(params: {
   schemaName: string;
   tableName: string;
   operations: any[];
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite";
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
 }): MigrationFile {
   const { schemaName, tableName, operations, dbType } = params;
   const version = generateMigrationVersion();
@@ -243,7 +243,7 @@ export function generateDropTableMigration(params: {
   schemaName: string;
   tableName: string;
   mode: "RESTRICT" | "DETACH_FKS" | "CASCADE";
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite";
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
 }): MigrationFile {
   const { schemaName, tableName, mode, dbType } = params;
   const version = generateMigrationVersion();
@@ -303,7 +303,10 @@ ${migration.downSQL}
 /**
  * Helper: Quote identifier based on database type
  */
-function quoteIdent(name: string, dbType: "mysql" | "postgres" | "mariadb" | "sqlite"): string {
+function quoteIdent(
+  name: string,
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb",
+): string {
   if (dbType === "mysql" || dbType === "mariadb") {
     return `\`${name.replace(/`/g, "``")}\``;
   } else {

@@ -33,8 +33,22 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore watching `src-tauri`, `bridge`, and database / WAL / journal files
+      ignored: [
+        "**/src-tauri/**",
+        "**/bridge/**",
+        "**/*.db",
+        "**/*.db.*",
+        "**/*.db-*",
+        "**/*.sqlite*",
+        "**/*.duckdb*",
+        "**/*.ddb*",
+        "**/*.wal",
+        "**/*.shm",
+        "**/*.journal",
+        "**/*.tmp",
+        /\.(db|sqlite|duckdb|ddb|wal|shm|journal|tmp)($|[.\-_])/i,
+      ],
     },
   },
 }));

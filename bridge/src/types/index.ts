@@ -14,6 +14,7 @@ export * from "./common";
 export * from "./mysql";
 export * from "./postgres";
 export * from "./sqlite";
+export * from "./duckdb";
 export * from "./ai";
 export { SSHConfig } from "./common";
 
@@ -22,6 +23,7 @@ export enum DBType {
   MYSQL = "mysql",
   MARIADB = "mariadb",
   SQLITE = "sqlite",
+  DUCKDB = "duckdb",
 }
 
 export type Rpc = {

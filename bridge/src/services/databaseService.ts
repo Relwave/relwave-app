@@ -59,8 +59,10 @@ export class DatabaseService {
   }
 
   async addDatabase(payload: Record<string, any>) {
-    const isSQLite = (payload.type as string | undefined)?.toLowerCase().includes("sqlite");
-    const required = isSQLite
+    const isFileBasedDB = ["sqlite", "duckdb"].includes(
+      (payload.type as string | undefined)?.toLowerCase() || "",
+    );
+    const required = isFileBasedDB
       ? ["name", "database", "type"]
       : ["name", "host", "port", "user", "database", "type"];
     for (const field of required) {
@@ -75,7 +77,8 @@ export class DatabaseService {
       delete payload.ssh.passphrase;
     }
 
-    if (isSQLite) {
+    if (isFileBasedDB) {
+      // NOTE: ConnectionBuilder.buildSQLiteConnection works for duckdb paths too
       const { config } = await ConnectionBuilder.buildSQLiteConnection(payload);
       payload = {
         ...payload,
@@ -98,7 +101,9 @@ export class DatabaseService {
 
   async updateDatabase(id: string, payload: Record<string, any>) {
     if (!id) throw new Error("Missing id");
-    const isSQLite = (payload.type as string | undefined)?.toLowerCase().includes("sqlite");
+    const isFileBasedDB = ["sqlite", "duckdb"].includes(
+      (payload.type as string | undefined)?.toLowerCase() || "",
+    );
 
     // Extract SSH credentials
     const sshPwd = payload.ssh?.password;
@@ -108,12 +113,12 @@ export class DatabaseService {
       delete payload.ssh.passphrase;
     }
 
-    if (isSQLite || typeof payload.database === "string") {
+    if (isFileBasedDB || typeof payload.database === "string") {
       const current = await dbStoreInstance.getDB(id);
-      const currentIsSQLite = (current?.type as string | undefined)
-        ?.toLowerCase()
-        .includes("sqlite");
-      if (currentIsSQLite || isSQLite) {
+      const currentIsFileBasedDB = ["sqlite", "duckdb"].includes(
+        (current?.type as string | undefined)?.toLowerCase() || "",
+      );
+      if (currentIsFileBasedDB || isFileBasedDB) {
         const { config } = await ConnectionBuilder.buildSQLiteConnection({
           ...current,
           ...payload,

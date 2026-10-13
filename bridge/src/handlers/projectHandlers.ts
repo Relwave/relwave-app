@@ -4,6 +4,7 @@ import { projectStoreInstance } from "../services/projectStore";
 import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
 import { gitServiceInstance } from "../services/gitService";
+import { getConnector } from "../services/connectorRegistry";
 import path from "path";
 
 /**
@@ -363,10 +364,9 @@ export class ProjectHandlers {
         try {
           const { conn, dbType } = await this.dbService.getDatabaseConnection(project.databaseId);
           let connector: any;
-          if (dbType === "mysql") connector = require("../connectors/mysql");
-          else if (dbType === "postgres") connector = require("../connectors/postgres");
-          else if (dbType === "mariadb") connector = require("../connectors/mariadb");
-          else if (dbType === "sqlite") connector = require("../connectors/sqlite");
+          try {
+            connector = getConnector(dbType);
+          } catch {}
 
           if (connector) {
             try {

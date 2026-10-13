@@ -108,3 +108,4 @@ export const INITIAL_FORM_DATA: ConnectionFormData = {
 
 export const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "database"];
 export const SQLITE_REQUIRED_FIELDS = ["name", "type", "database"];
+export const DUCKDB_REQUIRED_FIELDS = ["name", "type", "database"];

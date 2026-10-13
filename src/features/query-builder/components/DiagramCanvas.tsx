@@ -1,25 +1,11 @@
-import { Node, Edge } from "reactflow";
 import ReactFlow, { Background, BackgroundVariant, Controls } from "reactflow";
-import { Table2, X } from "lucide-react";
-import { TableNode } from "@/features/er-diagram/components";
+import { Table2, X, Trash2 } from "lucide-react";
+import { QueryTableNode } from "./QueryTableNode";
+import { DiagramCanvasProps } from "../types";
 
 const nodeTypes = {
-  table: TableNode,
+  table: QueryTableNode,
 };
-
-interface DiagramCanvasProps {
-  nodes: Node[];
-  edges: Edge[];
-  onNodesChange: (changes: any) => void;
-  onEdgesChange: (changes: any) => void;
-  onConnect: (connection: any) => void;
-  onRemoveTable: (nodeId: string) => void;
-  selectedEdge: any;
-  menuPosition: { x: number; y: number } | null;
-  onEdgeClick: (event: React.MouseEvent, edge: any) => void;
-  onUpdateJoinType: (joinType: "INNER" | "LEFT" | "RIGHT" | "FULL") => void;
-  onCloseMenu: () => void;
-}
 
 export function DiagramCanvas({
   nodes,
@@ -33,7 +19,15 @@ export function DiagramCanvas({
   onEdgeClick,
   onUpdateJoinType,
   onCloseMenu,
+  onDeleteEdge,
 }: DiagramCanvasProps) {
+  const sourceTable =
+    selectedEdge?.data?.sourceTable || selectedEdge?.source?.replace(/^table-/, "");
+  const targetTable =
+    selectedEdge?.data?.targetTable || selectedEdge?.target?.replace(/^table-/, "");
+  const sourceCol = selectedEdge?.data?.sourceColumn || "id";
+  const targetCol = selectedEdge?.data?.targetColumn || "id";
+
   return (
     <div className="flex-1 relative min-h-75">
       {/* Edge Join Type Menu */}
@@ -41,25 +35,58 @@ export function DiagramCanvas({
         <>
           <div className="fixed inset-0 z-40" onClick={onCloseMenu} />
           <div
-            className="fixed z-50 bg-popover/95 border border-border/60 rounded-lg shadow-xl p-1.5 min-w-25 backdrop-blur-xl"
+            className="fixed z-50 bg-popover/95 border border-border/60 rounded-lg shadow-xl p-2 min-w-44 backdrop-blur-xl"
             style={{ left: menuPosition.x, top: menuPosition.y }}
           >
-            <div className="text-[10px] font-medium text-muted-foreground mb-1 px-2">Join Type</div>
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase px-2 mb-1">
+              Join Condition
+            </div>
+            <div className="text-[11px] font-mono px-2 py-1 mb-1.5 bg-muted/50 rounded border border-border/40 text-foreground truncate">
+              {sourceTable}.{sourceCol} = {targetTable}.{targetCol}
+            </div>
+
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase px-2 mb-1">
+              Join Type
+            </div>
             {[
               { type: "INNER", color: "hsl(var(--primary))" },
               { type: "LEFT", color: "#10B981" },
               { type: "RIGHT", color: "#F59E0B" },
               { type: "FULL", color: "#8B5CF6" },
-            ].map(({ type, color }) => (
-              <button
-                key={type}
-                onClick={() => onUpdateJoinType(type as any)}
-                className="w-full text-left px-2 py-1 text-xs hover:bg-accent rounded flex items-center gap-2"
-              >
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-                {type}
-              </button>
-            ))}
+            ].map(({ type, color }) => {
+              const currentJoin = selectedEdge.data?.joinType || "INNER";
+              const isSelected = currentJoin === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => onUpdateJoinType(type as any)}
+                  className={`w-full text-left px-2 py-1 text-xs hover:bg-accent rounded flex items-center justify-between transition-colors ${
+                    isSelected
+                      ? "bg-accent/60 font-medium text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                    {type}
+                  </span>
+                  {isSelected && <span className="text-[10px] text-primary">✓</span>}
+                </button>
+              );
+            })}
+
+            {onDeleteEdge && (
+              <>
+                <div className="my-1 border-t border-border/40" />
+                <button
+                  onClick={() => onDeleteEdge(selectedEdge.id)}
+                  className="w-full text-left px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete Join
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

@@ -81,7 +81,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
   // Update tab results when query completes
   useEffect(() => {
-    if (hasExecutedQuery && !isExecuting && (queryResults.length > 0 || queryError)) {
+    if (hasExecutedQuery && !isExecuting) {
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId

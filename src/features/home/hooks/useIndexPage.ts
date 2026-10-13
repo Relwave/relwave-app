@@ -6,7 +6,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDatabases, useAddDatabase, usePrefetch } from "@/features/project/hooks/useDbQueries";
 import { projectKeys, useProjects } from "@/features/project/hooks/useProjectQueries";
-import { ConnectionFormData, REQUIRED_FIELDS, SQLITE_REQUIRED_FIELDS } from "@/features/home/types";
+import {
+  ConnectionFormData,
+  DUCKDB_REQUIRED_FIELDS,
+  REQUIRED_FIELDS,
+  SQLITE_REQUIRED_FIELDS,
+} from "@/features/home/types";
 import { useDatabaseStats } from "../../database/hooks/useDatabaseStats";
 import { useSelectedDbStats } from "../../database/hooks/useSelectedDbStats";
 import { databaseService } from "@/services/bridge/database";
@@ -101,7 +106,12 @@ export const useIndexPage = (bridgeReady: boolean) => {
 
   const handleAddDatabase = async (formData: ConnectionFormData) => {
     const isSQLite = formData.type === "sqlite";
-    const requiredFields = isSQLite ? SQLITE_REQUIRED_FIELDS : REQUIRED_FIELDS;
+    const isDuckDB = formData.type === "duckdb";
+    const requiredFields = isSQLite
+      ? SQLITE_REQUIRED_FIELDS
+      : isDuckDB
+        ? DUCKDB_REQUIRED_FIELDS
+        : REQUIRED_FIELDS;
     const missing = requiredFields.filter((field) => !formData[field as keyof typeof formData]);
 
     if (missing.length) {
@@ -145,10 +155,16 @@ export const useIndexPage = (bridgeReady: boolean) => {
         ...rest
       } = formData;
 
+      const isFileBasedDB = isSQLite || isDuckDB;
+
       const payload: any = {
         ...rest,
-        port: isSQLite ? 0 : parseInt(formData.port),
-        sslmode: isSQLite ? "disable" : formData.ssl ? formData.sslmode || "require" : "disable",
+        port: isFileBasedDB ? 0 : parseInt(formData.port),
+        sslmode: isFileBasedDB
+          ? "disable"
+          : formData.ssl
+            ? formData.sslmode || "require"
+            : "disable",
       };
 
       if (useSsh) {
