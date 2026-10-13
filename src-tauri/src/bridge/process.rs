@@ -12,6 +12,120 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
+pub mod job {
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Child;
+
+    type HANDLE = *mut std::ffi::c_void;
+    type BOOL = i32;
+    type DWORD = u32;
+
+    #[repr(C)]
+    struct JOBOBJECT_BASIC_LIMIT_INFORMATION {
+        per_process_user_time_limit: i64,
+        per_job_user_time_limit: i64,
+        limit_flags: DWORD,
+        minimum_working_set_size: usize,
+        maximum_working_set_size: usize,
+        active_process_limit: DWORD,
+        affinity: usize,
+        priority_class: DWORD,
+        scheduling_class: DWORD,
+    }
+
+    #[repr(C)]
+    struct IO_COUNTERS {
+        read_operation_count: u64,
+        write_operation_count: u64,
+        other_operation_count: u64,
+        read_transfer_count: u64,
+        write_transfer_count: u64,
+        other_transfer_count: u64,
+    }
+
+    #[repr(C)]
+    struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
+        basic_limit_information: JOBOBJECT_BASIC_LIMIT_INFORMATION,
+        io_info: IO_COUNTERS,
+        process_memory_limit: usize,
+        job_memory_limit: usize,
+        peak_process_memory_limit: usize,
+        peak_job_memory_limit: usize,
+    }
+
+    const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: DWORD = 0x2000;
+    const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: i32 = 9;
+
+    extern "system" {
+        fn CreateJobObjectW(lp_job_attributes: *mut std::ffi::c_void, lp_name: *const u16) -> HANDLE;
+        fn SetInformationJobObject(
+            h_job: HANDLE,
+            job_object_info_class: i32,
+            lp_job_object_info: *const std::ffi::c_void,
+            cb_job_object_info_length: DWORD,
+        ) -> BOOL;
+        fn AssignProcessToJobObject(h_job: HANDLE, h_process: HANDLE) -> BOOL;
+        fn CloseHandle(h_object: HANDLE) -> BOOL;
+        fn TerminateJobObject(h_job: HANDLE, u_exit_code: u32) -> BOOL;
+    }
+
+    struct JobHandle(HANDLE);
+    unsafe impl Send for JobHandle {}
+    unsafe impl Sync for JobHandle {}
+    impl Drop for JobHandle {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                unsafe {
+                    CloseHandle(self.0);
+                }
+            }
+        }
+    }
+
+    static CURRENT_JOB: std::sync::Mutex<Option<JobHandle>> = std::sync::Mutex::new(None);
+
+    pub fn assign_child_to_job(child: &Child) {
+        let mut guard = CURRENT_JOB.lock().unwrap();
+        if guard.is_none() {
+            let handle = unsafe { CreateJobObjectW(std::ptr::null_mut(), std::ptr::null()) };
+            if !handle.is_null() {
+                unsafe {
+                    let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+                    info.basic_limit_information.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                    SetInformationJobObject(
+                        handle,
+                        JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                        &info as *const _ as *const std::ffi::c_void,
+                        std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as DWORD,
+                    );
+                }
+                *guard = Some(JobHandle(handle));
+            }
+        }
+
+        if let Some(ref job) = *guard {
+            if !job.0.is_null() {
+                unsafe {
+                    AssignProcessToJobObject(job.0, child.as_raw_handle() as HANDLE);
+                }
+            }
+        }
+    }
+
+    pub fn terminate_job() {
+        if let Ok(mut guard) = CURRENT_JOB.lock() {
+            if let Some(job) = guard.take() {
+                if !job.0.is_null() {
+                    unsafe {
+                        TerminateJobObject(job.0, 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Wrapper for the bridge child process
 pub struct BridgeProcess(pub Arc<Mutex<Option<Child>>>);
 
@@ -27,6 +141,7 @@ fn try_spawn(program: &str, args: &[&str]) -> Result<Child, String> {
     for a in args {
         cmd.arg(a);
     }
+    cmd.env("RELWAVE_PARENT_PID", std::process::id().to_string());
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -39,14 +154,40 @@ fn try_spawn(program: &str, args: &[&str]) -> Result<Child, String> {
 }
 
 #[cfg(not(debug_assertions))]
-fn try_spawn_with_env(program: &str, args: &[&str], envs: &[(&str, &str)]) -> Result<Child, String> {
+fn try_spawn_with_env(
+    program: &str,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    working_dir: Option<&Path>,
+    extra_paths: &[&Path],
+) -> Result<Child, String> {
     let mut cmd = Command::new(program);
     for a in args {
         cmd.arg(a);
     }
+    cmd.env("RELWAVE_PARENT_PID", std::process::id().to_string());
     for (key, value) in envs {
         cmd.env(key, value);
     }
+
+    if let Some(wd) = working_dir {
+        cmd.current_dir(wd);
+    }
+
+    let mut path_entries = Vec::new();
+    for dir in extra_paths {
+        if let Some(s) = dir.to_str() {
+            path_entries.push(s.to_string());
+        }
+    }
+    if let Ok(sys_path) = std::env::var("PATH") {
+        path_entries.push(sys_path);
+    }
+    if !path_entries.is_empty() {
+        let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+        cmd.env("PATH", path_entries.join(separator));
+    }
+
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -107,6 +248,49 @@ fn find_sqlite_native_binding(app_handle: &AppHandle, base_dir: &Path) -> Option
             parent.join("Resources").join("better_sqlite3.node"),
             parent.join("_up_").join("better_sqlite3.node"),
             parent.join("_up_").join("resources").join("better_sqlite3.node"),
+        ]);
+    }
+
+    candidates.into_iter().find(|p| p.exists())
+}
+
+#[cfg(not(debug_assertions))]
+fn find_duckdb_native_dll(app_handle: &AppHandle, base_dir: &Path) -> Option<PathBuf> {
+    if let Ok(resolved) = app_handle
+        .path()
+        .resolve("duckdb.dll", BaseDirectory::Resource)
+    {
+        if resolved.exists() {
+            return Some(resolved);
+        }
+    }
+
+    if let Ok(resolved) = app_handle
+        .path()
+        .resolve("resources/duckdb.dll", BaseDirectory::Resource)
+    {
+        if resolved.exists() {
+            return Some(resolved);
+        }
+    }
+
+    let mut candidates = vec![
+        base_dir.join("duckdb.dll"),
+        base_dir.join("bridge").join("duckdb.dll"),
+        base_dir.join("resources").join("duckdb.dll"),
+        base_dir.join("Resources").join("duckdb.dll"),
+        base_dir.join("_up_").join("duckdb.dll"),
+        base_dir.join("_up_").join("bridge").join("duckdb.dll"),
+        base_dir.join("_up_").join("resources").join("duckdb.dll"),
+    ];
+
+    if let Some(parent) = base_dir.parent() {
+        candidates.extend([
+            parent.join("duckdb.dll"),
+            parent.join("resources").join("duckdb.dll"),
+            parent.join("Resources").join("duckdb.dll"),
+            parent.join("_up_").join("duckdb.dll"),
+            parent.join("_up_").join("resources").join("duckdb.dll"),
         ]);
     }
 
@@ -226,12 +410,33 @@ fn try_bundled_exe(app_handle: &AppHandle, resource_path: &Path) -> Option<Child
         if bridge_exe.exists() {
             if let Some(exe_str) = bridge_exe.to_str() {
                 let binding_path = find_sqlite_native_binding(app_handle, resource_path);
-                let result = if let Some(binding) = binding_path.as_ref().and_then(|p| p.to_str()) {
-                    try_spawn_with_env(exe_str, &[], &[("RELWAVE_SQLITE_NATIVE_BINDING", binding)])
-                } else {
-                    try_spawn(exe_str, &[])
-                };
-                if let Ok(c) = result {
+                let duckdb_path = find_duckdb_native_dll(app_handle, resource_path);
+                let exe_dir = bridge_exe.parent().unwrap_or(resource_path);
+
+                let mut envs: Vec<(&str, &str)> = Vec::new();
+                let binding_str;
+                if let Some(ref binding) = binding_path {
+                    if let Some(s) = binding.to_str() {
+                        binding_str = s;
+                        envs.push(("RELWAVE_SQLITE_NATIVE_BINDING", binding_str));
+                    }
+                }
+
+                let duckdb_dir_str;
+                let duckdb_dir = duckdb_path.as_ref().and_then(|p| p.parent());
+                if let Some(dir) = duckdb_dir {
+                    if let Some(s) = dir.to_str() {
+                        duckdb_dir_str = s;
+                        envs.push(("RELWAVE_DUCKDB_DLL_DIR", duckdb_dir_str));
+                    }
+                }
+
+                let mut extra_paths = vec![resource_path, exe_dir];
+                if let Some(dir) = duckdb_dir {
+                    extra_paths.push(dir);
+                }
+
+                if let Ok(c) = try_spawn_with_env(exe_str, &[], &envs, Some(exe_dir), &extra_paths) {
                     return Some(c);
                 }
             }
@@ -246,13 +451,35 @@ fn try_bundled_exe(app_handle: &AppHandle, resource_path: &Path) -> Option<Child
 
     if bridge_exe_up.exists() {
         if let Some(exe_str) = bridge_exe_up.to_str() {
-            let binding_path = find_sqlite_native_binding(app_handle, &resource_path.join("_up_"));
-            let result = if let Some(binding) = binding_path.as_ref().and_then(|p| p.to_str()) {
-                try_spawn_with_env(exe_str, &[], &[("RELWAVE_SQLITE_NATIVE_BINDING", binding)])
-            } else {
-                try_spawn(exe_str, &[])
-            };
-            if let Ok(c) = result {
+            let up_dir = resource_path.join("_up_");
+            let binding_path = find_sqlite_native_binding(app_handle, &up_dir);
+            let duckdb_path = find_duckdb_native_dll(app_handle, &up_dir);
+            let exe_dir = bridge_exe_up.parent().unwrap_or(&up_dir);
+
+            let mut envs: Vec<(&str, &str)> = Vec::new();
+            let binding_str;
+            if let Some(ref binding) = binding_path {
+                if let Some(s) = binding.to_str() {
+                    binding_str = s;
+                    envs.push(("RELWAVE_SQLITE_NATIVE_BINDING", binding_str));
+                }
+            }
+
+            let duckdb_dir_str;
+            let duckdb_dir = duckdb_path.as_ref().and_then(|p| p.parent());
+            if let Some(dir) = duckdb_dir {
+                if let Some(s) = dir.to_str() {
+                    duckdb_dir_str = s;
+                    envs.push(("RELWAVE_DUCKDB_DLL_DIR", duckdb_dir_str));
+                }
+            }
+
+            let mut extra_paths = vec![resource_path, &up_dir, exe_dir];
+            if let Some(dir) = duckdb_dir {
+                extra_paths.push(dir);
+            }
+
+            if let Ok(c) = try_spawn_with_env(exe_str, &[], &envs, Some(exe_dir), &extra_paths) {
                 return Some(c);
             }
         }
@@ -340,12 +567,33 @@ fn try_exe_dir_binary(app_handle: &AppHandle, exe_dir: &Path) -> Option<Child> {
                     exe_dir.to_path_buf()
                 };
                 let binding_path = find_sqlite_native_binding(app_handle, &binding_base);
-                let result = if let Some(binding) = binding_path.as_ref().and_then(|p| p.to_str()) {
-                    try_spawn_with_env(exe_str, &[], &[("RELWAVE_SQLITE_NATIVE_BINDING", binding)])
-                } else {
-                    try_spawn(exe_str, &[])
-                };
-                if let Ok(c) = result {
+                let duckdb_path = find_duckdb_native_dll(app_handle, &binding_base);
+                let work_dir = exe_path.parent().unwrap_or(exe_dir);
+
+                let mut envs: Vec<(&str, &str)> = Vec::new();
+                let binding_str;
+                if let Some(ref binding) = binding_path {
+                    if let Some(s) = binding.to_str() {
+                        binding_str = s;
+                        envs.push(("RELWAVE_SQLITE_NATIVE_BINDING", binding_str));
+                    }
+                }
+
+                let duckdb_dir_str;
+                let duckdb_dir = duckdb_path.as_ref().and_then(|p| p.parent());
+                if let Some(dir) = duckdb_dir {
+                    if let Some(s) = dir.to_str() {
+                        duckdb_dir_str = s;
+                        envs.push(("RELWAVE_DUCKDB_DLL_DIR", duckdb_dir_str));
+                    }
+                }
+
+                let mut extra_paths = vec![exe_dir, work_dir];
+                if let Some(dir) = duckdb_dir {
+                    extra_paths.push(dir);
+                }
+
+                if let Ok(c) = try_spawn_with_env(exe_str, &[], &envs, Some(work_dir), &extra_paths) {
                     return Some(c);
                 }
             }
@@ -407,6 +655,9 @@ fn try_pnpm_dev() -> Option<Child> {
 /// Spawn the bridge and connect stdout/stderr to Tauri events
 pub fn spawn_bridge(app_handle: AppHandle) -> Result<Child, String> {
     let mut child = spawn_bridge_process(&app_handle)?;
+
+    #[cfg(target_os = "windows")]
+    job::assign_child_to_job(&child);
 
     // Forward stdout to "bridge-stdout" events
     if let Some(stdout) = child.stdout.take() {
