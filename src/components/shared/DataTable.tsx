@@ -11,22 +11,45 @@ import { Database, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTimestamp } from "@/lib/utils";
 
+export interface DataTableColumnDef {
+  name: string;
+  type?: string;
+}
+
 interface DataTableProps {
   data: Array<Record<string, any>>;
+  columns?: Array<DataTableColumnDef | string>;
   maxHeight?: string;
   showRowNumbers?: boolean;
   onEditRow?: (row: Record<string, any>) => void;
   onDeleteRow?: (row: Record<string, any>) => void;
+  emptyMessage?: string;
 }
 
 export const DataTable = ({
   data,
+  columns: propColumns,
   maxHeight = "100%",
   showRowNumbers = true,
   onEditRow,
   onDeleteRow,
+  emptyMessage,
 }: DataTableProps) => {
-  if (!data || data.length === 0) {
+  // Normalize columns from either props or first row of data
+  const columns: DataTableColumnDef[] = (() => {
+    if (propColumns && propColumns.length > 0) {
+      return propColumns.map((col) => (typeof col === "string" ? { name: col } : col));
+    }
+    if (data && data.length > 0) {
+      return Object.keys(data[0]).map((name) => ({ name }));
+    }
+    return [];
+  })();
+
+  const isEmpty = !data || data.length === 0;
+
+  // If there is no data AND no columns defined, show generic placeholder
+  if (isEmpty && columns.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div className="rounded-full bg-muted/30 p-3 mb-3">
@@ -34,14 +57,15 @@ export const DataTable = ({
         </div>
         <p className="text-sm font-medium text-muted-foreground">No results found</p>
         <p className="text-xs text-muted-foreground/60 mt-1 max-w-55">
-          This table is empty or the query returned no data
+          {emptyMessage || "This table is empty or the query returned no data"}
         </p>
       </div>
     );
   }
 
-  const columns = Object.keys(data[0]);
+  const columnNames = columns.map((col) => col.name);
   const hasRowActions = onEditRow || onDeleteRow;
+  const colSpan = columnNames.length + (showRowNumbers ? 1 : 0) + (hasRowActions ? 1 : 0);
 
   const tableContent = (
     <Table>
@@ -54,10 +78,17 @@ export const DataTable = ({
           )}
           {columns.map((column) => (
             <TableHead
-              key={column}
+              key={column.name}
               className="text-xs font-semibold font-mono text-muted-foreground/80 whitespace-nowrap px-4 py-2.5 first:pl-4"
             >
-              {column}
+              <div className="flex items-center gap-1.5">
+                <span>{column.name}</span>
+                {column.type && (
+                  <span className="text-[10px] font-normal text-muted-foreground/60 px-1 py-0.2 rounded bg-muted/60">
+                    {column.type}
+                  </span>
+                )}
+              </div>
             </TableHead>
           ))}
           {hasRowActions && (
@@ -68,59 +99,76 @@ export const DataTable = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((row, index) => (
-          <TableRow
-            key={index}
-            className="group transition-colors hover:bg-accent/20 border-b border-border/10 last:border-0"
-          >
-            {showRowNumbers && (
-              <TableCell className="w-12 text-center text-[11px] tabular-nums text-muted-foreground/40 px-3 py-2 font-normal">
-                {index + 1}
-              </TableCell>
-            )}
-            {columns.map((column) => (
-              <TableCell
-                key={column}
-                className="font-mono text-xs whitespace-nowrap px-4 py-2.5 max-w-75 truncate"
-                title={row[column]?.toString() || "NULL"}
-              >
-                {row[column] !== null && row[column] !== undefined ? (
-                  formatCellValue(row[column], column)
-                ) : (
-                  <span className="text-muted-foreground/40 italic text-xs font-sans">null</span>
-                )}
-              </TableCell>
-            ))}
-            {hasRowActions && (
-              <TableCell className="w-24 px-2 py-1">
-                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {onEditRow && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-primary/10"
-                      onClick={() => onEditRow(row)}
-                      title="Edit row"
-                    >
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                    </Button>
-                  )}
-                  {onDeleteRow && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-destructive/10"
-                      onClick={() => onDeleteRow(row)}
-                      title="Delete row"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            )}
+        {isEmpty ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell
+              colSpan={colSpan}
+              className="h-36 text-center text-muted-foreground text-xs select-none"
+            >
+              <div className="flex flex-col items-center justify-center gap-1.5 py-6">
+                <Database className="h-5 w-5 text-muted-foreground/30 mb-1" />
+                <span className="font-medium text-muted-foreground/80 text-sm">Table is empty</span>
+                <span className="text-xs text-muted-foreground/60">
+                  0 rows • Defined with {columns.length} columns ({columnNames.join(", ")})
+                </span>
+              </div>
+            </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          data.map((row, index) => (
+            <TableRow
+              key={index}
+              className="group transition-colors hover:bg-accent/20 border-b border-border/10 last:border-0"
+            >
+              {showRowNumbers && (
+                <TableCell className="w-12 text-center text-[11px] tabular-nums text-muted-foreground/40 px-3 py-2 font-normal">
+                  {index + 1}
+                </TableCell>
+              )}
+              {columnNames.map((column) => (
+                <TableCell
+                  key={column}
+                  className="font-mono text-xs whitespace-nowrap px-4 py-2.5 max-w-75 truncate"
+                  title={row[column]?.toString() || "NULL"}
+                >
+                  {row[column] !== null && row[column] !== undefined ? (
+                    formatCellValue(row[column], column)
+                  ) : (
+                    <span className="text-muted-foreground/40 italic text-xs font-sans">null</span>
+                  )}
+                </TableCell>
+              ))}
+              {hasRowActions && (
+                <TableCell className="w-24 px-2 py-1">
+                  <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onEditRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-primary/10"
+                        onClick={() => onEditRow(row)}
+                        title="Edit row"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                      </Button>
+                    )}
+                    {onDeleteRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-destructive/10"
+                        onClick={() => onDeleteRow(row)}
+                        title="Delete row"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              )}
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );

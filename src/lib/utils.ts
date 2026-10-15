@@ -49,6 +49,7 @@ export function formatDbType(databaseType?: string) {
   if (databaseType === "mariadb") return "MariaDB";
   if (databaseType === "sqlite") return "SQLite";
   if (databaseType === "duckdb") return "DuckDB";
+  if (databaseType === "clickhouse") return "ClickHouse";
   return databaseType;
 }
 export function formatDuration(seconds: number) {

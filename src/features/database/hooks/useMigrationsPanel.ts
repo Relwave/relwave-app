@@ -1,8 +1,8 @@
 import { MigrationsData } from "@/features/database/types";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { migrationService } from "@/services/bridge/migration";
 import { useState } from "react";
+import { useInvalidateCache } from "@/features/project/hooks/useDbQueries";
 
 interface MigrationsPanelProps {
   migrations: MigrationsData;
@@ -12,7 +12,7 @@ interface MigrationsPanelProps {
 
 export function useMigrationsPanel({ migrations, baselined, dbId }: MigrationsPanelProps) {
   const { local, applied } = migrations;
-  const queryClient = useQueryClient();
+  const { invalidateDatabase } = useInvalidateCache();
   const [selectedMigration, setSelectedMigration] = useState<{
     version: string;
     name: string;
@@ -24,12 +24,7 @@ export function useMigrationsPanel({ migrations, baselined, dbId }: MigrationsPa
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }),
-        queryClient.invalidateQueries({ queryKey: ["tables", dbId] }),
-        queryClient.invalidateQueries({ queryKey: ["schema", dbId] }),
-        queryClient.invalidateQueries({ queryKey: ["schemaNames", dbId] }),
-      ]);
+      await invalidateDatabase(dbId);
       toast.success("Refreshed successfully");
     } finally {
       setIsRefreshing(false);
@@ -62,10 +57,7 @@ export function useMigrationsPanel({ migrations, baselined, dbId }: MigrationsPa
       toast.success("Migration applied successfully", {
         description: `Applied migration: ${name}`,
       });
-      // Invalidate migrations query to refresh
-      queryClient.invalidateQueries({ queryKey: ["migrations", dbId] });
-      queryClient.invalidateQueries({ queryKey: ["tables", dbId] });
-      queryClient.invalidateQueries({ queryKey: ["schema", dbId] });
+      await invalidateDatabase(dbId);
     } catch (error: any) {
       toast.error("Failed to apply migration", {
         description: error.message,
@@ -79,9 +71,7 @@ export function useMigrationsPanel({ migrations, baselined, dbId }: MigrationsPa
       toast.success("Migration rolled back successfully", {
         description: `Rolled back migration: ${name}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["migrations", dbId] });
-      queryClient.invalidateQueries({ queryKey: ["tables", dbId] });
-      queryClient.invalidateQueries({ queryKey: ["schema", dbId] });
+      await invalidateDatabase(dbId);
     } catch (error: any) {
       toast.error("Failed to rollback migration", {
         description: error.message,
@@ -95,7 +85,7 @@ export function useMigrationsPanel({ migrations, baselined, dbId }: MigrationsPa
       toast.success("Migration deleted successfully", {
         description: `Deleted migration: ${name}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["migrations", dbId] });
+      await invalidateDatabase(dbId);
     } catch (error: any) {
       toast.error("Failed to delete migration", {
         description: error.message,

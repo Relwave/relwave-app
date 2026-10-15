@@ -58,6 +58,7 @@ const DatabaseDetail = () => {
     tables,
     selectedTable,
     tableData,
+    tableColumns,
     totalRows,
     currentPage,
     pageSize,
@@ -153,6 +154,7 @@ const DatabaseDetail = () => {
             selectedSchema={selectedSchema}
             setSelectedSchema={setSelectedSchema}
             tableData={tableData}
+            tableColumns={tableColumns}
             totalRows={totalRows}
             currentPage={currentPage}
             pageSize={pageSize}

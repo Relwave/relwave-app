@@ -32,7 +32,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { parseConnectionUrl } from "@/lib/parseConnectionUrl";
+import { parseConnectionUrl, cleanClickHouseUrl, parseClickHouseUrl } from "@/lib/parseConnectionUrl";
 import { AddConnectionDialogProps, INITIAL_FORM_DATA, ConnectionFormData } from "../types";
 
 export function AddConnectionDialog({
@@ -51,8 +51,24 @@ export function AddConnectionDialog({
   useEffect(() => {
     if (open) {
       if (initialData) {
-        setFormData((prev) => ({ ...prev, ...INITIAL_FORM_DATA, ...initialData }));
-        if (isDiscoveredMode) {
+        const reconstructedUrl =
+          initialData.url ||
+          (initialData.type === "clickhouse" && initialData.host
+            ? `${initialData.ssl ? "https" : "http"}://${initialData.host}:${initialData.port || (initialData.ssl ? "8443" : "8123")}`
+            : "");
+
+        setFormData((prev) => ({
+          ...prev,
+          ...INITIAL_FORM_DATA,
+          ...initialData,
+          url: reconstructedUrl || initialData.url || "",
+        }));
+        if (
+          isDiscoveredMode ||
+          initialData.type === "clickhouse" ||
+          initialData.type === "sqlite" ||
+          initialData.type === "duckdb"
+        ) {
           setUseUrl(false);
         }
       } else {
@@ -62,7 +78,7 @@ export function AddConnectionDialog({
         setUseUrl(true);
       }
     }
-  }, [open, initialData]);
+  }, [open, initialData, isDiscoveredMode]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -72,6 +88,22 @@ export function AddConnectionDialog({
     setConnectionUrl(url);
     const parsed = parseConnectionUrl(url);
     if (parsed) {
+      if (parsed.type === "clickhouse") {
+        setUseUrl(false);
+        setFormData((prev) => ({
+          ...prev,
+          type: "clickhouse",
+          url: cleanClickHouseUrl(url),
+          host: parsed.host,
+          port: parsed.port,
+          user: parsed.user || "default",
+          password: parsed.password || prev.password,
+          database: parsed.database || "default",
+          ssl: parsed.ssl,
+          sslmode: parsed.sslmode,
+        }));
+        return;
+      }
       setFormData((prev) => ({
         ...prev,
         type: parsed.type,
@@ -87,6 +119,26 @@ export function AddConnectionDialog({
   };
 
   const handleSubmit = () => {
+    if (formData.type === "clickhouse") {
+      const parsed = parseClickHouseUrl(formData.url);
+      const cleanedUrl = cleanClickHouseUrl(formData.url);
+      onSubmit(
+        {
+          ...formData,
+          url: cleanedUrl,
+          host: parsed.host || formData.host || "localhost",
+          port: parsed.port || formData.port || (parsed.ssl ? "8443" : "8123"),
+          ssl: parsed.ssl,
+          sslmode: parsed.ssl ? "require" : "disable",
+          user: formData.user || parsed.user || "default",
+          password: formData.password || parsed.password || "",
+          database: formData.database || parsed.database || "default",
+        },
+        false,
+        cleanedUrl,
+      );
+      return;
+    }
     onSubmit(formData, useUrl, connectionUrl);
   };
 
@@ -100,7 +152,10 @@ export function AddConnectionDialog({
   };
 
   const isFileBasedDB = formData.type === "sqlite" || formData.type === "duckdb";
-  const showSslOption = formData.type === "postgresql" || formData.type === "mariadb";
+  const isClickHouse = formData.type === "clickhouse";
+  const showSslOption =
+    formData.type === "postgresql" ||
+    formData.type === "mariadb";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -122,12 +177,12 @@ export function AddConnectionDialog({
             {initialData ? "Edit Connection" : "New Connection"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Connect to PostgreSQL, MySQL, MariaDB, SQLite, or DuckDB
+            Connect to PostgreSQL, MySQL, MariaDB, SQLite, DuckDB, or ClickHouse
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {!isFileBasedDB && !isDiscoveredMode && (
+          {!isFileBasedDB && !isClickHouse && !isDiscoveredMode && (
             <Tabs value={useUrl ? "url" : "params"} onValueChange={(v) => setUseUrl(v === "url")}>
               <TabsList className="grid w-full grid-cols-2 h-9">
                 <TabsTrigger value="url" className="text-xs">
@@ -142,7 +197,7 @@ export function AddConnectionDialog({
             </Tabs>
           )}
 
-          {useUrl && !isFileBasedDB && (
+          {useUrl && !isFileBasedDB && !isClickHouse && (
             <div className="space-y-1.5">
               <Label className="text-xs">Connection URL</Label>
               <Input
@@ -194,6 +249,16 @@ export function AddConnectionDialog({
                       sshPrivateKeyPath: "",
                       sshPassphrase: "",
                     }));
+                  } else if (val === "clickhouse") {
+                    setUseUrl(false);
+                    setConnectionUrl("");
+                    setFormData((prev) => ({
+                      ...prev,
+                      type: val,
+                      user: prev.user || "default",
+                      database: prev.database || "default",
+                      useSsh: false,
+                    }));
                   }
                 }}
               >
@@ -206,6 +271,7 @@ export function AddConnectionDialog({
                   <SelectItem value="mariadb">MariaDB</SelectItem>
                   <SelectItem value="sqlite">SQLite</SelectItem>
                   <SelectItem value="duckdb">DuckDB</SelectItem>
+                  <SelectItem value="clickhouse">ClickHouse</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -252,6 +318,55 @@ export function AddConnectionDialog({
                   </Button>
                 </div>
               </div>
+            ) : isClickHouse ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">URL</Label>
+                  <Input
+                    placeholder="https://your-cluster.clickhouse.cloud:8443"
+                    value={formData.url || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleInputChange("url", val);
+                      const parsed = parseClickHouseUrl(val);
+                      setFormData((prev) => ({
+                        ...prev,
+                        url: val,
+                        host: parsed.host || prev.host,
+                        port: parsed.port || prev.port,
+                        ssl: parsed.ssl,
+                        user: prev.user || parsed.user || "default",
+                        database: prev.database || parsed.database || "default",
+                      }));
+                    }}
+                    readOnly={isDiscoveredMode}
+                    className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Username</Label>
+                  <Input
+                    placeholder="default"
+                    value={formData.user}
+                    onChange={(e) => handleInputChange("user", e.target.value)}
+                    readOnly={isDiscoveredMode}
+                    className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    readOnly={isDiscoveredMode}
+                    className={`h-9 text-sm ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""}`}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-3 gap-3">
@@ -269,7 +384,11 @@ export function AddConnectionDialog({
                     <Label className="text-xs">Port</Label>
                     <Input
                       placeholder={
-                        formData.type === "mysql" || formData.type === "mariadb" ? "3306" : "5432"
+                        formData.type === "mysql" || formData.type === "mariadb"
+                          ? "3306"
+                          : formData.type === "clickhouse"
+                            ? "8123"
+                            : "5432"
                       }
                       value={formData.port}
                       onChange={(e) => handleInputChange("port", e.target.value)}
@@ -283,7 +402,13 @@ export function AddConnectionDialog({
                   <div className="space-y-1.5">
                     <Label className="text-xs">Username</Label>
                     <Input
-                      placeholder={formData.type === "postgresql" ? "postgres" : "root"}
+                      placeholder={
+                        formData.type === "postgresql"
+                          ? "postgres"
+                          : formData.type === "clickhouse"
+                            ? "default"
+                            : "root"
+                      }
                       value={formData.user}
                       onChange={(e) => handleInputChange("user", e.target.value)}
                       readOnly={isDiscoveredMode}
@@ -306,7 +431,7 @@ export function AddConnectionDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Database</Label>
                   <Input
-                    placeholder="myapp"
+                    placeholder={formData.type === "clickhouse" ? "default" : "myapp"}
                     value={formData.database}
                     onChange={(e) => handleInputChange("database", e.target.value)}
                     readOnly={isDiscoveredMode}

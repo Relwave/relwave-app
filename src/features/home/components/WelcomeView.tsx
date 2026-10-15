@@ -24,6 +24,7 @@ const DB_COLORS: Record<string, { bg: string; text: string }> = {
   mariadb: { bg: "bg-teal-500/10", text: "text-teal-500" },
   sqlite: { bg: "bg-cyan-500/10", text: "text-cyan-500" },
   duckdb: { bg: "bg-yellow-500/10", text: "text-yellow-600" },
+  clickhouse: { bg: "bg-amber-500/10", text: "text-amber-500" },
 };
 
 function getDbColors(type: string) {

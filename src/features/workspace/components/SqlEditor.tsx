@@ -2,7 +2,7 @@ import { FC, useCallback } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql, PostgreSQL, MySQL } from "@codemirror/lang-sql";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { EditorView } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
 interface SqlEditorProps {
@@ -12,6 +12,7 @@ interface SqlEditorProps {
   placeholder?: string;
   minHeight?: string;
   dialect?: "postgresql" | "mysql";
+  onExecute?: () => void;
 }
 
 // Light theme customization
@@ -58,6 +59,7 @@ const SqlEditor: FC<SqlEditorProps> = ({
   placeholder = "-- Enter your SQL query here\nSELECT * FROM users;",
   minHeight = "200px",
   dialect = "postgresql",
+  onExecute,
 }) => {
   const { theme } = useTheme();
   const isDark =
@@ -80,6 +82,22 @@ const SqlEditor: FC<SqlEditorProps> = ({
     sql({ dialect: sqlDialect }),
     EditorView.lineWrapping,
     EditorView.editable.of(!disabled),
+    ...(onExecute
+      ? [
+          keymap.of([
+            {
+              key: "Mod-Enter",
+              run: () => {
+                if (!disabled) {
+                  onExecute();
+                  return true;
+                }
+                return false;
+              },
+            },
+          ]),
+        ]
+      : []),
     isDark ? darkThemeExtension : lightTheme,
   ];
 

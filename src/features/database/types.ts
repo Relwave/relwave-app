@@ -1,4 +1,4 @@
-export type DatabaseType = "postgresql" | "mysql" | "sqlite" | "duckdb";
+export type DatabaseType = "postgresql" | "mysql" | "sqlite" | "duckdb" | "clickhouse";
 
 export interface SSHConfig {
   host: string;
@@ -11,7 +11,7 @@ export interface SSHConfig {
 }
 
 export interface DiscoveredDatabase {
-  type: "postgresql" | "mysql" | "mariadb" | "sqlite" | "duckdb";
+  type: "postgresql" | "mysql" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
   host: string;
   port: number;
   source: "local" | "docker";
@@ -37,6 +37,7 @@ export interface DatabaseConnection {
   lastAccessedAt?: string;
   credentialId?: string;
   ssh?: SSHConfig;
+  url?: string;
 }
 
 export interface AddDatabaseParams {
@@ -52,6 +53,7 @@ export interface AddDatabaseParams {
   ssl?: boolean;
   sslmode?: string;
   ssh?: SSHConfig;
+  url?: string;
 }
 
 export interface UpdateDatabaseParams {
@@ -65,6 +67,7 @@ export interface UpdateDatabaseParams {
   notes?: string;
   tags?: string[];
   ssh?: SSHConfig;
+  url?: string;
 }
 
 export interface ConnectionTestResult {
@@ -202,7 +205,7 @@ export interface MonitoringActiveQuery {
 }
 
 export interface MonitoringSnapshot {
-  databaseType: "postgres" | "mysql" | "mariadb" | "duckdb";
+  databaseType: "postgres" | "mysql" | "mariadb" | "duckdb" | "clickhouse";
   sampledAt: string;
   health: {
     ok: boolean;

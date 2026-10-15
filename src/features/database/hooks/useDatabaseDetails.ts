@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import {
   useDatabase,
@@ -7,8 +7,9 @@ import {
   usePrefetch,
   useInvalidateCache,
   useSchemaNames,
+  useFullSchema,
 } from "@/features/project/hooks/useDbQueries";
-import { QueryProgress, SelectedTable, TableInfo, TableRow } from "@/features/database/types";
+import { QueryProgress, SelectedTable, TableInfo, TableRow, ColumnDetails } from "@/features/database/types";
 import { sessionService } from "@/services/bridge/session";
 import { queryService } from "@/services/bridge/query";
 import { analyticsService } from "@/services/analytics";
@@ -24,6 +25,7 @@ interface UseDatabaseDetailsReturn {
   tables: TableInfo[];
   selectedTable: SelectedTable | null;
   tableData: TableRow[];
+  tableColumns: ColumnDetails[];
   rowCount: number;
   totalRows: number;
   query: string;
@@ -31,6 +33,7 @@ interface UseDatabaseDetailsReturn {
   hasExecutedQuery: boolean;
   queryProgress: QueryProgress | null;
   queryError: string | null;
+  executionTime: number | null;
   isExecuting: boolean;
   isLoadingData: boolean;
   loading: boolean;
@@ -40,7 +43,7 @@ interface UseDatabaseDetailsReturn {
   pageSize: number;
   setQuery: (query: string) => void;
   handleTableSelect: (tableName: string, schemaName: string) => Promise<void>;
-  handleExecuteQuery: () => Promise<void>;
+  handleExecuteQuery: (sqlOverride?: string) => Promise<void>;
   handleCancelQuery: () => Promise<void>;
   fetchTables: () => Promise<void>;
   handlePageChange: (page: number) => Promise<void>;
@@ -105,6 +108,15 @@ export function useDatabaseDetails({
   // Cache invalidation
   const { invalidateTable, invalidateDatabase } = useInvalidateCache();
 
+  // Full schema for column metadata fallback
+  const { data: fullSchema } = useFullSchema(dbId);
+  const selectedTableColumns = useMemo(() => {
+    if (!fullSchema?.schemas || !selectedTable) return [];
+    const schema = fullSchema.schemas.find((s) => s.name === selectedTable.schema);
+    const table = schema?.tables?.find((t) => t.name === selectedTable.name);
+    return table?.columns || [];
+  }, [fullSchema, selectedTable]);
+
   // Derived state from table data query
   const tableData = tableDataResult?.rows || [];
   const rowCount = tableData.length;
@@ -118,8 +130,12 @@ export function useDatabaseDetails({
   const [queryResults, setQueryResults] = useState<TableRow[]>([]);
   const [queryRowCount, setQueryRowCount] = useState<number>(0);
   const [queryError, setQueryError] = useState<string | null>(null);
+  const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [hasExecutedQuery, setHasExecutedQuery] = useState(false);
   const [error, _setError] = useState<string | null>(null);
+
+  const querySessionIdRef = useRef<string | null>(null);
+  const lastExecutedSqlRef = useRef<string>("");
 
   // Combined loading state
   const loading = loadingTables || isLoadingTableData;
@@ -138,6 +154,7 @@ export function useDatabaseDetails({
       setQueryResults([]);
       setQueryRowCount(0);
       setQueryError(null);
+      setExecutionTime(null);
       // React Query will automatically fetch the data
     },
     [dbId, selectedTable, pageSize],
@@ -174,10 +191,11 @@ export function useDatabaseDetails({
   }, [dbId, selectedTable, invalidateTable]);
 
   const handleCancelQuery = useCallback(async () => {
-    if (!querySessionId) return;
+    const activeSession = querySessionIdRef.current || querySessionId;
+    if (!activeSession) return;
 
     try {
-      const cancelled = await sessionService.cancelSession(querySessionId);
+      const cancelled = await sessionService.cancelSession(activeSession);
       if (cancelled) {
         toast.info("Cancelling query...", { description: "Stopping query execution" });
       }
@@ -187,56 +205,67 @@ export function useDatabaseDetails({
     }
   }, [querySessionId]);
 
-  const handleExecuteQuery = useCallback(async () => {
-    if (!dbId || !query.trim()) {
-      toast.error("Invalid query", { description: "Please enter a SQL query to execute" });
-      return;
-    }
-
-    try {
-      if (querySessionId) {
-        toast.warning("Query already running", { description: "Cancelling previous query first." });
-        await handleCancelQuery();
+  const handleExecuteQuery = useCallback(
+    async (sqlOverride?: string) => {
+      const sqlToRun = (sqlOverride !== undefined ? sqlOverride : query).trim();
+      if (!dbId || !sqlToRun) {
+        toast.error("Invalid query", { description: "Please enter a SQL query to execute" });
+        return;
       }
 
-      setQueryResults([]);
-      setQueryRowCount(0);
-      setQueryProgress(null);
-      setQueryError(null);
-      setHasExecutedQuery(true);
-      setIsExecuting(true);
-      analyticsService.trackQueryExecuted();
+      try {
+        if (querySessionIdRef.current) {
+          toast.warning("Query already running", {
+            description: "Cancelling previous query first.",
+          });
+          await handleCancelQuery();
+        }
 
-      const sessionId = await sessionService.createSession();
-      setQuerySessionId(sessionId);
+        setQueryResults([]);
+        setQueryRowCount(0);
+        setQueryProgress(null);
+        setQueryError(null);
+        setExecutionTime(null);
+        setHasExecutedQuery(true);
+        setIsExecuting(true);
+        analyticsService.trackQueryExecuted();
 
-      toast.info("Executing query...", { description: "Query started, receiving results..." });
+        const sessionId = await sessionService.createSession();
+        querySessionIdRef.current = sessionId;
+        lastExecutedSqlRef.current = sqlToRun;
+        setQuerySessionId(sessionId);
 
-      await queryService.runQuery({
-        sessionId,
-        dbId,
-        sql: query,
-        batchSize: 1000,
-      });
-    } catch (err: any) {
-      console.error("Error executing query:", err);
-      setIsExecuting(false);
-      setQuerySessionId(null);
-      setQueryProgress(null);
-      toast.error("Query execution failed", { description: err.message });
-    }
-  }, [dbId, query, querySessionId, handleCancelQuery]);
+        toast.info("Executing query...", { description: "Query started, receiving results..." });
+
+        await queryService.runQuery({
+          sessionId,
+          dbId,
+          sql: sqlToRun,
+          batchSize: 1000,
+        });
+      } catch (err: any) {
+        console.error("Error executing query:", err);
+        querySessionIdRef.current = null;
+        setIsExecuting(false);
+        setQuerySessionId(null);
+        setQueryProgress(null);
+        setQueryError(err.message || String(err));
+        toast.error("Query execution failed", { description: err.message });
+      }
+    },
+    [dbId, query, handleCancelQuery],
+  );
 
   // Setup query result listeners
   useEffect(() => {
     const handleResult = (event: CustomEvent) => {
-      if (event.detail.sessionId !== querySessionId) return;
+      if (event.detail.sessionId !== querySessionIdRef.current) return;
       setQueryResults((prev) => [...prev, ...event.detail.rows]);
       setQueryRowCount((prev) => prev + event.detail.rows.length);
     };
 
     const handleProgress = (event: CustomEvent) => {
-      if (event.detail.sessionId !== querySessionId) return;
+      if (event.detail.sessionId !== querySessionIdRef.current) return;
       setQueryProgress({
         rows: event.detail.rowsSoFar,
         elapsed: Math.round(event.detail.elapsedMs / 1000),
@@ -244,13 +273,14 @@ export function useDatabaseDetails({
     };
 
     const handleDone = (event: CustomEvent) => {
-      if (event.detail.sessionId !== querySessionId) return;
+      if (event.detail.sessionId !== querySessionIdRef.current) return;
 
+      querySessionIdRef.current = null;
       setIsExecuting(false);
       setQuerySessionId(null);
       setQueryProgress(null);
 
-      const isDDL = query
+      const isDDL = lastExecutedSqlRef.current
         .trim()
         .toUpperCase()
         .match(/^(CREATE|DROP|ALTER|TRUNCATE)/);
@@ -259,11 +289,14 @@ export function useDatabaseDetails({
       }
 
       const { rows, timeMs, status } = event.detail;
+      const elapsedSec = timeMs !== undefined ? Number((timeMs / 1000).toFixed(2)) : null;
+      setExecutionTime(elapsedSec);
+
       const statusType = status === "success" ? "success" : "warning";
       const message =
         status === "success"
-          ? `Retrieved ${rows.toLocaleString()} rows in ${(timeMs / 1000).toFixed(2)}s`
-          : `Stopped after retrieving ${rows.toLocaleString()} rows.`;
+          ? `Retrieved ${(rows || 0).toLocaleString()} rows in ${(timeMs / 1000).toFixed(2)}s`
+          : `Stopped after retrieving ${(rows || 0).toLocaleString()} rows.`;
 
       toast[statusType](statusType === "success" ? "Query Complete" : "Query Cancelled", {
         description: message,
@@ -271,8 +304,9 @@ export function useDatabaseDetails({
     };
 
     const handleError = (event: CustomEvent) => {
-      if (event.detail.sessionId !== querySessionId) return;
+      if (event.detail.sessionId !== querySessionIdRef.current) return;
 
+      querySessionIdRef.current = null;
       setIsExecuting(false);
       setQuerySessionId(null);
       setQueryProgress(null);
@@ -300,7 +334,7 @@ export function useDatabaseDetails({
         window.removeEventListener(listener.name, listener.handler as EventListener);
       });
     };
-  }, [querySessionId]);
+  }, [dbId, invalidateDatabase]);
 
   // Auto-select first table when tables are loaded
   useEffect(() => {
@@ -325,6 +359,7 @@ export function useDatabaseDetails({
     tables,
     selectedTable,
     tableData: showQueryResults ? queryResults : tableData,
+    tableColumns: selectedTableColumns,
     queryResults,
     hasExecutedQuery,
     rowCount: showQueryResults ? queryRowCount : rowCount,
@@ -332,6 +367,7 @@ export function useDatabaseDetails({
     query,
     queryProgress,
     queryError,
+    executionTime,
     isExecuting,
     isLoadingData: isFetchingTableData,
     loading,

@@ -66,13 +66,19 @@ class DatabaseService {
     try {
       // Validate required fields
       const isFileBasedDB = params.type === "sqlite" || params.type === "duckdb";
+      const isClickHouse = params.type === "clickhouse";
       const required = isFileBasedDB
         ? ["name", "type", "database"]
-        : ["name", "type", "host", "port", "user", "database"];
+        : isClickHouse
+          ? ["name", "type"]
+          : ["name", "type", "host", "port", "user", "database"];
       for (const field of required) {
         if (!params[field as keyof AddDatabaseParams]) {
           throw new Error(`Missing required field: ${field}`);
         }
+      }
+      if (isClickHouse && !params.url && !params.host) {
+        throw new Error("Missing required field: url");
       }
       const result = await bridgeRequest("db.add", params);
       if (!result?.ok) {
@@ -303,9 +309,9 @@ class DatabaseService {
         tableName,
       });
       return (
-        result?.primaryKeys[0].column_name ||
-        result?.primaryKeys[0].COLUMN_NAME ||
-        result.primaryKeys[0] ||
+        result?.primaryKeys?.[0]?.column_name ||
+        result?.primaryKeys?.[0]?.COLUMN_NAME ||
+        (typeof result?.primaryKeys?.[0] === "string" ? result.primaryKeys[0] : "") ||
         ""
       );
     } catch (error: any) {

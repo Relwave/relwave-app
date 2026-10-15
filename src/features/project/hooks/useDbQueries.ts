@@ -354,11 +354,17 @@ export function useInvalidateCache() {
 
   return {
     invalidateDatabase: (dbId: string) => {
-      queryClient.invalidateQueries({ queryKey: ["tables", dbId] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.stats(dbId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.schemas(dbId) });
-      queryClient.invalidateQueries({ queryKey: ["fullSchema", dbId] }); // Also invalidate fullSchema
-      queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }); // Also invalidate migrations
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tables", dbId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.stats(dbId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.schemas(dbId) }),
+        queryClient.invalidateQueries({ queryKey: ["schemaNames", dbId] }),
+        queryClient.invalidateQueries({ queryKey: ["schema", dbId] }),
+        queryClient.invalidateQueries({ queryKey: ["fullSchema", dbId] }), // Also invalidate fullSchema
+        queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }), // Also invalidate migrations
+        queryClient.invalidateQueries({ queryKey: ["tableData", dbId] }),
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      ]);
     },
 
     /** Invalidate table-specific caches */

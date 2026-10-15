@@ -7,6 +7,7 @@ import { TableRow } from "@/features/database/types";
 interface ContentViewerPanelProps {
   selectedTable: string | null;
   tableData: TableRow[];
+  tableColumns?: Array<{ name: string; type?: string } | string>;
   totalRows: number;
   currentPage: number;
   pageSize: number;
@@ -28,6 +29,7 @@ interface ContentViewerPanelProps {
 export default function ContentViewerPanel({
   selectedTable,
   tableData,
+  tableColumns,
   totalRows,
   currentPage,
   pageSize,
@@ -132,7 +134,7 @@ export default function ContentViewerPanel({
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : tableData.length === 0 ? (
+        ) : tableData.length === 0 && (!tableColumns || tableColumns.length === 0) ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-muted-foreground">No data</p>
           </div>
@@ -140,6 +142,7 @@ export default function ContentViewerPanel({
           <div className="min-w-0 max-w-full p-4">
             <DataTable
               data={tableData}
+              columns={tableColumns}
               maxHeight="none"
               onEditRow={onEditRow}
               onDeleteRow={onDeleteRow}
