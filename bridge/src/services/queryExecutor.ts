@@ -56,6 +56,7 @@ export class QueryExecutor {
   public mariadb = getConnector(DBType.MARIADB) as typeof import("../connectors/mariadb");
   public sqlite = getConnector(DBType.SQLITE) as typeof import("../connectors/sqlite");
   public duckdb = getConnector(DBType.DUCKDB) as typeof import("../connectors/duckdb");
+  public clickhouse = getConnector(DBType.CLICKHOUSE) as typeof import("../connectors/clickhouse");
 
   async executeQuery(
     params: QueryParams,

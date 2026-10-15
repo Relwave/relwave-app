@@ -73,7 +73,7 @@ export type SchemaFile = {
   version: number; // bumped to 2
   projectId: string;
   databaseId: string;
-  dialect: "postgresql" | "mysql" | "sqlite" | "unknown";
+  dialect: "postgresql" | "mysql" | "sqlite" | "duckdb" | "clickhouse" | "unknown";
   schemas: SchemaSnapshot[];
   cachedAt: string;
   relwaveVersion: string;
