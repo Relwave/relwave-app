@@ -114,7 +114,7 @@ function resolveModelName(settings: AISettings): string {
     case "gemini":
       return settings.geminiModel ?? "gemini-1.5-flash";
     case "groq":
-      return settings.groqModel ?? "llama-3.3-70b-versatile";
+      return settings.groqModel ?? "openai/gpt-oss-20b";
     case "mistral":
       return settings.mistralModel ?? "mistral-small-latest";
     case "ollama":

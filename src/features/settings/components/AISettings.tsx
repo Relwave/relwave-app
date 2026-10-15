@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   Bot,
   Eye,
   EyeOff,
   CheckCircle2,
   XCircle,
+  AlertCircle,
+  AlertTriangle,
   Loader2,
   ChevronDown,
   Zap,
@@ -29,6 +31,7 @@ import {
   type AISettings as AISettingsData,
   loadAISettings,
   saveAISettings,
+  getCachedAISettings,
   aiService,
 } from "@/services/bridge/ai";
 
@@ -63,9 +66,11 @@ const MODEL_OPTIONS: Partial<Record<AIProviderName, ModelOption[]>> = {
     { value: "gemini-2.5-pro-preview-06-05", label: "Gemini 2.5 Pro", tier: "powerful" },
   ],
   groq: [
+    { value: "openai/gpt-oss-20b", label: "GPT-OSS 20B", tier: "fast" },
+    { value: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B", tier: "balanced" },
+    { value: "openai/gpt-oss-120b", label: "GPT-OSS 120B", tier: "powerful" },
     { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B", tier: "fast" },
     { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", tier: "balanced" },
-    { value: "moonshotai/kimi-k2-instruct", label: "Kimi K2", tier: "powerful" },
   ],
   mistral: [
     { value: "mistral-small-latest", label: "Mistral Small", tier: "fast" },
@@ -133,7 +138,7 @@ const PROVIDERS: ProviderMeta[] = [
   {
     name: "groq",
     label: "Groq",
-    defaultModelLabel: "Llama 3.3 70B",
+    defaultModelLabel: "GPT-OSS 20B",
     requiresKey: true,
     keyField: "groqApiKey",
     keyPlaceholder: "gsk_…",
@@ -188,7 +193,7 @@ const TIER_CONFIG: Record<ModelTier, { label: string; icon: typeof Zap; classNam
   },
 };
 
-function TierBadge({ tier }: { tier: ModelTier }) {
+const TierBadge = memo(function TierBadge({ tier }: { tier: ModelTier }) {
   const { label, icon: Icon, className } = TIER_CONFIG[tier];
   return (
     <span
@@ -201,11 +206,11 @@ function TierBadge({ tier }: { tier: ModelTier }) {
       {label}
     </span>
   );
-}
+});
 
 // ── Model selector ────────────────────────────────────────────────────────
 
-function ModelSelector({
+const ModelSelector = memo(function ModelSelector({
   provider,
   value,
   onChange,
@@ -283,13 +288,13 @@ function ModelSelector({
       </DropdownMenu>
     </div>
   );
-}
+});
 
 // ── Connection status ─────────────────────────────────────────────────────
 
-type ConnectionStatus = "idle" | "testing" | "ok" | "error";
+type ConnectionStatus = "idle" | "testing" | "ok" | "warning" | "error";
 
-function StatusBadge({ status, message }: { status: ConnectionStatus; message?: string }) {
+const StatusBadge = memo(function StatusBadge({ status }: { status: ConnectionStatus }) {
   if (status === "idle") return null;
   return (
     <div
@@ -297,20 +302,28 @@ function StatusBadge({ status, message }: { status: ConnectionStatus; message?: 
         "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full",
         status === "testing" && "text-muted-foreground bg-muted/50",
         status === "ok" && "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+        status === "warning" && "text-amber-600 dark:text-amber-400 bg-amber-500/10",
         status === "error" && "text-destructive bg-destructive/10",
       )}
     >
       {status === "testing" && <Loader2 className="h-3 w-3 animate-spin" />}
       {status === "ok" && <CheckCircle2 className="h-3 w-3" />}
+      {status === "warning" && <AlertTriangle className="h-3 w-3" />}
       {status === "error" && <XCircle className="h-3 w-3" />}
-      {status === "testing" ? "Testing…" : status === "ok" ? "Connected" : (message ?? "Failed")}
+      {status === "testing"
+        ? "Testing…"
+        : status === "ok"
+          ? "Connected"
+          : status === "warning"
+            ? "Notice"
+            : "Connection Failed"}
     </div>
   );
-}
+});
 
 // ── Password field ────────────────────────────────────────────────────────
 
-function SecretInput({
+const SecretInput = memo(function SecretInput({
   value,
   onChange,
   placeholder,
@@ -345,68 +358,107 @@ function SecretInput({
       </button>
     </div>
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────
 
 export default function AISettings() {
-  const [settings, setSettings] = useState<AISettingsData>({ defaultProvider: "ollama" });
-  const [isLoading, setIsLoading] = useState(true);
+  const cached = getCachedAISettings();
+  const [settings, setSettings] = useState<AISettingsData>(
+    () => cached ?? { defaultProvider: "ollama" },
+  );
+  const [isLoading, setIsLoading] = useState(() => !cached);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string | undefined>();
 
-  // Load from bridge (ai-settings.json) on mount
+  // Load from bridge (ai-settings.json) on mount or background refresh
   useEffect(() => {
+    let isMounted = true;
     loadAISettings().then((loaded) => {
-      setSettings(loaded);
-      setIsLoading(false);
+      if (isMounted) {
+        setSettings((prev) => (dirty ? prev : loaded));
+        setIsLoading(false);
+      }
     });
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [dirty]);
 
-  const activeProvider = PROVIDERS.find((p) => p.name === settings.defaultProvider) ?? PROVIDERS[0];
+  const activeProvider = useMemo(
+    () => PROVIDERS.find((p) => p.name === settings.defaultProvider) ?? PROVIDERS[0],
+    [settings.defaultProvider],
+  );
 
-  const update = (patch: Partial<AISettingsData>) => {
+  const update = useCallback((patch: Partial<AISettingsData>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
     setDirty(true);
     setStatus("idle");
-  };
+    setStatusMessage(undefined);
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     await saveAISettings(settings);
     setDirty(false);
     setStatus("idle");
-  };
+    setStatusMessage(undefined);
+  }, [settings]);
 
-  const handleTest = async () => {
+  const handleTest = useCallback(async () => {
     await saveAISettings(settings);
     setDirty(false);
     setStatus("testing");
     setStatusMessage(undefined);
-    const result = await aiService.testConnection(settings);
-    if (result.connected) {
-      setStatus("ok");
-    } else {
+    try {
+      const result = await aiService.testConnection(settings);
+      if (result.connected) {
+        if (result.warning) {
+          setStatus("warning");
+          setStatusMessage(result.warning);
+        } else {
+          setStatus("ok");
+          setStatusMessage(undefined);
+        }
+      } else {
+        setStatus("error");
+        setStatusMessage(result.message);
+      }
+    } catch (err) {
       setStatus("error");
-      setStatusMessage(result.message);
+      setStatusMessage(err instanceof Error ? err.message : String(err));
     }
-  };
+  }, [settings]);
 
   // Get the currently selected model label for the provider description
   const activeModelField = MODEL_FIELD[activeProvider.name];
   const activeModelValue = activeModelField
     ? (settings[activeModelField] as string | undefined)
     : undefined;
-  const activeModelOptions = MODEL_OPTIONS[activeProvider.name] ?? [];
-  const activeModelInfo =
-    activeModelOptions.find((o) => o.value === activeModelValue) ?? activeModelOptions[0];
+  const activeModelOptions = useMemo(
+    () => MODEL_OPTIONS[activeProvider.name] ?? [],
+    [activeProvider.name],
+  );
+  const activeModelInfo = useMemo(
+    () => activeModelOptions.find((o) => o.value === activeModelValue) ?? activeModelOptions[0],
+    [activeModelOptions, activeModelValue],
+  );
 
   // Which providers already have keys saved (excluding ollama which needs no key)
-  const configuredProviders = PROVIDERS.filter((p) => {
-    if (!p.requiresKey || !p.keyField) return false;
-    return !!(settings[p.keyField] as string | undefined)?.trim();
-  });
+  const configuredProviders = useMemo(
+    () =>
+      PROVIDERS.filter((p) => {
+        if (!p.requiresKey || !p.keyField) return false;
+        return !!(settings[p.keyField] as string | undefined)?.trim();
+      }),
+    [settings],
+  );
   const configuredCount = configuredProviders.length;
+
+  const otherProviders = useMemo(
+    () => PROVIDERS.filter((p) => p.name !== settings.defaultProvider && p.requiresKey),
+    [settings.defaultProvider],
+  );
 
   if (isLoading) {
     return (
@@ -592,7 +644,7 @@ export default function AISettings() {
 
         {/* Actions */}
         <div className="px-4 py-3 flex items-center justify-between gap-3">
-          <StatusBadge status={status} message={statusMessage} />
+          <StatusBadge status={status} />
           <div className="flex items-center gap-2 ml-auto">
             <Button
               variant="outline"
@@ -609,6 +661,32 @@ export default function AISettings() {
             </Button>
           </div>
         </div>
+
+        {/* Warning / Notice banner */}
+        {status === "warning" && statusMessage && (
+          <div className="px-4 py-3 bg-amber-500/10 border-t border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold leading-tight">Notice</p>
+              <p className="text-[11px] leading-relaxed text-amber-600/90 dark:text-amber-400/90 whitespace-pre-wrap">
+                {statusMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error banner */}
+        {status === "error" && statusMessage && (
+          <div className="px-4 py-3 bg-destructive/10 border-t border-destructive/20 flex items-start gap-2.5 text-xs text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold leading-tight">Connection Test Failed</p>
+              <p className="text-[11px] text-destructive/90 leading-relaxed whitespace-pre-wrap">
+                {statusMessage}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Configure other providers (collapsed) */}
@@ -618,9 +696,8 @@ export default function AISettings() {
           Configure other providers
         </summary>
         <div className="mt-3 rounded-lg border border-border/30 bg-card/30 divide-y divide-border/20">
-          {PROVIDERS.filter((p) => p.name !== settings.defaultProvider && p.requiresKey).map(
-            (provider) => {
-              const modelField = MODEL_FIELD[provider.name];
+          {otherProviders.map((provider) => {
+            const modelField = MODEL_FIELD[provider.name];
               const modelOptions = MODEL_OPTIONS[provider.name] ?? [];
               const selectedModel = modelField
                 ? (settings[modelField] as string | undefined)

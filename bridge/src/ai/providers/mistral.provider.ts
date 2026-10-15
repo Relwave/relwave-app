@@ -63,6 +63,15 @@ export class MistralProvider implements AIProvider {
   }
 
   async testConnection(): Promise<string> {
+    // 1. Verify credentials and network connectivity via models.list()
+    // This confirms the API key is genuine without consuming chat tokens or triggering chat RPM limits.
+    try {
+      await this.client.models.list();
+    } catch (err) {
+      throw classifyError(err, "mistral");
+    }
+
+    // 2. Test chat completion endpoint with the selected model
     try {
       await this.client.chat.complete({
         model: this.model,
@@ -71,7 +80,14 @@ export class MistralProvider implements AIProvider {
       });
       return "";
     } catch (err) {
-      throw classifyError(err, "mistral");
+      const classified = classifyError(err, "mistral");
+      if (classified.code === "RATE_LIMIT") {
+        return "Connected to Mistral (API key verified)! Note: Chat completions are currently rate-limited (code 1300). Free tier accounts have strict quotas (1 req/sec). Please wait a moment or check your plan at console.mistral.ai.";
+      }
+      if (classified.code === "INVALID_MODEL") {
+        return `Connected to Mistral (API key verified)! However, model '${this.model}' is not accessible on your account. Please select 'Mistral Small' or check console.mistral.ai.`;
+      }
+      throw classified;
     }
   }
 

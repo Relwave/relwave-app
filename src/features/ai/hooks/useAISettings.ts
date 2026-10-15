@@ -1,30 +1,39 @@
-import { loadAISettings, type AISettings } from "@/services/bridge/ai";
-import { useEffect, useState } from "react";
+import { loadAISettings, getCachedAISettings, type AISettings } from "@/services/bridge/ai";
+import { useEffect, useState, useCallback } from "react";
 
 const DEFAULT: AISettings = { defaultProvider: "openai" };
 
 /**
- * Reads AISettings from the bridge (ai-settings.json on disk).
- * Returns a stable object that is refreshed whenever the settings dialog saves.
- *
- * Because saving goes through the bridge and NOT localStorage, the old
- * StorageEvent trick no longer applies. Instead, callers that need fresh
- * settings after a save should re-mount or call `reload()`.
+ * Reads AISettings from the bridge (ai-settings.json on disk) with instant memory cache.
  */
 export function useAISettings(): { settings: AISettings; isLoading: boolean; reload: () => void } {
-  const [settings, setSettings] = useState<AISettings>(DEFAULT);
-  const [isLoading, setIsLoading] = useState(true);
+  const cached = getCachedAISettings();
+  const [settings, setSettings] = useState<AISettings>(cached ?? DEFAULT);
+  const [isLoading, setIsLoading] = useState(!cached);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    setIsLoading(true);
+    let active = true;
+    if (!cached) {
+      setIsLoading(true);
+    }
     loadAISettings().then((loaded) => {
-      setSettings(loaded);
-      setIsLoading(false);
+      if (active) {
+        setSettings(loaded);
+        setIsLoading(false);
+      }
     });
-  }, [tick]);
+    return () => {
+      active = false;
+    };
+  }, [tick, cached]);
 
-  const reload = () => setTick((t) => t + 1);
+  const reload = useCallback(() => {
+    loadAISettings({ forceRefresh: true }).then((loaded) => {
+      setSettings(loaded);
+    });
+    setTick((t) => t + 1);
+  }, []);
 
   return { settings, isLoading, reload };
 }
