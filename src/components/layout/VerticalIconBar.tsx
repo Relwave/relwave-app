@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Activity,
   Home,
@@ -9,10 +10,12 @@ import {
   Terminal,
   History,
   Sparkles,
+  Settings,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SettingsDialog } from "@/features/settings/components";
 
 export type PanelType =
   | "data"
@@ -46,6 +49,7 @@ export default function VerticalIconBar({
   onPanelChange,
 }: VerticalIconBarProps) {
   const location = useLocation();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const isGlobalActive = (path: string) => {
     if (path === "/") {
@@ -144,6 +148,27 @@ export default function VerticalIconBar({
           </div>
         </>
       )}
+
+      {/* Bottom Actions */}
+      <div className="mt-auto flex flex-col items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+              className="w-10 h-10 rounded-lg text-sidebar-foreground/62 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-150"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Settings</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </nav>
   );
 }

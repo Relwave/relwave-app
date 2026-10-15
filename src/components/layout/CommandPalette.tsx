@@ -41,6 +41,7 @@ import { useDatabases, useTables } from "@/features/project/hooks/useDbQueries";
 import { useProjects } from "@/features/project/hooks/useProjectQueries";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
+import { SettingsDialog } from "@/features/settings/components";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,6 +174,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -363,14 +365,23 @@ export function CommandPalette() {
                   label={page.label}
                   type="page"
                   query={search}
-                  onSelect={() =>
-                    runCommand(() => navigate(page.path), {
-                      id: page.path,
-                      type: "page",
-                      label: page.label,
-                      path: page.path,
-                    })
-                  }
+                  onSelect={() => {
+                    if (page.path === "/settings") {
+                      runCommand(() => setSettingsOpen(true), {
+                        id: page.path,
+                        type: "page",
+                        label: page.label,
+                        path: page.path,
+                      });
+                    } else {
+                      runCommand(() => navigate(page.path), {
+                        id: page.path,
+                        type: "page",
+                        label: page.label,
+                        path: page.path,
+                      });
+                    }
+                  }}
                 />
               ))}
             </Command.Group>
@@ -517,6 +528,7 @@ export function CommandPalette() {
           </div>
         </Command>
       </DialogContent>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Dialog>
   );
 }
