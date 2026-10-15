@@ -21,7 +21,6 @@ import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Settings,
-  Database,
   Table as TableIcon,
   Terminal,
   Home,
@@ -42,6 +41,7 @@ import { useProjects } from "@/features/project/hooks/useProjectQueries";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/features/settings/components";
+import { DatabaseLogo } from "@/lib/databases";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,7 @@ interface RecentItem {
   type: ItemType;
   label: string;
   path?: string;
+  dbType?: string;
   timestamp: number;
 }
 
@@ -255,11 +256,15 @@ export function CommandPalette() {
   const isSearching = search.trim().length > 0;
   const showRecent = !isSearching && recentItems.length > 0;
 
+  const activeDatabase = React.useMemo(() => {
+    if (!dbId) return null;
+    return databases.find((d) => d.id === dbId);
+  }, [dbId, databases]);
+
   const contextLabel = React.useMemo(() => {
     if (!dbId) return null;
-    const db = databases.find((d) => d.id === dbId);
-    return db ? db.name : dbId;
-  }, [dbId, databases]);
+    return activeDatabase ? activeDatabase.name : dbId;
+  }, [dbId, activeDatabase]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -293,11 +298,11 @@ export function CommandPalette() {
             {contextLabel && !isSearching && (
               <div
                 className={cn(
-                  "flex items-center gap-1 rounded border border-sidebar-border bg-sidebar/60 px-2 py-1",
+                  "flex items-center gap-1.5 rounded border border-sidebar-border bg-sidebar/60 px-2 py-1",
                   "font-mono text-[10.5px] text-muted-foreground/60 whitespace-nowrap",
                 )}
               >
-                <Database className="h-3 w-3" />
+                <DatabaseLogo type={activeDatabase?.type} className="w-3.5 h-3.5 shrink-0" />
                 {contextLabel}
               </div>
             )}
@@ -334,25 +339,33 @@ export function CommandPalette() {
                   />
                 }
               >
-                {recentItems.map((item) => (
-                  <CommandItem
-                    key={`recent-${item.id}`}
-                    valuePrefix="recent-"
-                    icon={
-                      item.type === "connection"
-                        ? Database
-                        : item.type === "project"
+                {recentItems.map((item) => {
+                  const itemDbType = item.dbType || databases.find((d) => d.id === item.id)?.type;
+                  return (
+                    <CommandItem
+                      key={`recent-${item.id}`}
+                      valuePrefix="recent-"
+                      iconNode={
+                        item.type === "connection" ? (
+                          <DatabaseLogo type={itemDbType} className="w-3.5 h-3.5 shrink-0" />
+                        ) : undefined
+                      }
+                      icon={
+                        item.type === "project"
                           ? FolderOpen
-                          : Home
-                    }
-                    label={item.label}
-                    type={item.type}
-                    query={search}
-                    onSelect={() => {
-                      if (item.path) runCommand(() => navigate(item.path!), item);
-                    }}
-                  />
-                ))}
+                          : item.type === "page"
+                            ? Home
+                            : undefined
+                      }
+                      label={item.label}
+                      type={item.type}
+                      query={search}
+                      onSelect={() => {
+                        if (item.path) runCommand(() => navigate(item.path!), item);
+                      }}
+                    />
+                  );
+                })}
               </Command.Group>
             )}
 
@@ -392,17 +405,18 @@ export function CommandPalette() {
                 {databases.map((db) => (
                   <CommandItem
                     key={db.id}
-                    icon={Database}
+                    iconNode={<DatabaseLogo type={db.type} className="w-3.5 h-3.5 shrink-0" />}
                     label={db.name}
                     type="connection"
                     query={search}
-                    meta={`${db.type} · ${db.host}`}
+                    meta={`${db.type} · ${db.host || (db as any).database || ""}`}
                     onSelect={() =>
                       runCommand(() => navigate(`/${db.id}`), {
                         id: db.id,
                         type: "connection",
                         label: db.name,
                         path: `/${db.id}`,
+                        dbType: db.type,
                       })
                     }
                   />
@@ -573,7 +587,8 @@ function GroupHeading({
 // ─── CommandItem ──────────────────────────────────────────────────────────────
 
 interface CommandItemProps {
-  icon: React.ElementType;
+  icon?: React.ElementType;
+  iconNode?: React.ReactNode;
   label: string;
   type: ItemType;
   query: string;
@@ -589,6 +604,7 @@ interface CommandItemProps {
 
 function CommandItem({
   icon: Icon,
+  iconNode,
   label,
   type,
   query,
@@ -612,10 +628,16 @@ function CommandItem({
       <div
         className={cn(
           "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border",
-          TYPE_COLORS[type],
+          type === "connection"
+            ? "border-sidebar-border/80 bg-background/50 shadow-2xs"
+            : TYPE_COLORS[type],
         )}
       >
-        <Icon className="h-3 w-3" />
+        {iconNode ? (
+          iconNode
+        ) : Icon ? (
+          <Icon className="h-3 w-3" />
+        ) : null}
       </div>
 
       {/* Label — IBM Plex Sans 450 (between regular and medium) */}
