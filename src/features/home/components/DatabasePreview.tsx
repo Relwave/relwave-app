@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DatabasePreviewProps } from "../types";
 import { DatabaseOverviewPanel } from "./DatabaseOverviewPanel";
+import { DatabaseLogo } from "@/lib/databases";
 import {
   useProjectByDatabaseId,
   useProjectSchema,
@@ -88,11 +89,11 @@ export function DatabasePreview({
           <div className="flex items-center gap-4">
             <div
               className={cn(
-                "h-14 w-14 rounded-lg flex items-center justify-center ring-1 ring-border/50 shadow-sm",
+                "h-14 w-14 rounded-lg flex items-center justify-center ring-1 ring-border/50 shadow-sm p-3",
                 getDbColors(database.type).bg,
               )}
             >
-              <Database className={cn("h-7 w-7", getDbColors(database.type).text)} />
+              <DatabaseLogo type={database.type} className="w-8 h-8" />
             </div>
             <div>
               <div className="mb-2">

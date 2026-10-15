@@ -17,6 +17,7 @@ import { useDbStats, useTables } from "@/features/project/hooks/useDbQueries";
 import { bytesToMBString } from "@/lib/bytesToMB";
 import { DatabaseConnection } from "@/features/database/types";
 import { useCountUp } from "../hooks/useCountUp";
+import { DatabaseLogo } from "@/lib/databases";
 
 const DB_COLORS: Record<string, { bg: string; text: string }> = {
   postgresql: { bg: "bg-blue-500/10", text: "text-blue-500" },
@@ -37,7 +38,7 @@ function ConnectionSizeItem({ db }: { db: DatabaseConnection }) {
   return (
     <div className="flex justify-between items-center py-2 px-3 hover:bg-accent/50 rounded-md transition-colors">
       <div className="flex items-center gap-2 overflow-hidden">
-        <Database className={cn("h-3.5 w-3.5 shrink-0", getDbColors(db.type).text)} />
+        <DatabaseLogo type={db.type} className="w-3.5 h-3.5 shrink-0" />
         <span className="text-sm font-medium truncate">{db.name}</span>
       </div>
       <span className="text-sm text-muted-foreground tabular-nums shrink-0 ml-4">
@@ -60,7 +61,7 @@ function ConnectionTablesList({ db }: { db: DatabaseConnection }) {
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("p-1.5 rounded-md", getDbColors(db.type).bg)}>
-          <Database className={cn("h-4 w-4", getDbColors(db.type).text)} />
+          <DatabaseLogo type={db.type} className="w-4 h-4" />
         </div>
         <h4 className="font-semibold text-sm">{db.name}</h4>
       </div>
@@ -291,11 +292,11 @@ export function WelcomeView({
                     >
                       <div
                         className={cn(
-                          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-border/50",
+                          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-border/50 p-2",
                           getDbColors(db.type).bg,
                         )}
                       >
-                        <Database className={cn("h-5 w-5", getDbColors(db.type).text)} />
+                        <DatabaseLogo type={db.type} className="w-5.5 h-5.5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{db.name}</p>
