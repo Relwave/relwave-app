@@ -24,7 +24,7 @@ RelWave uses a **Bridge Architecture** to balance performance, security, and dev
 ### Bridge (Node.js)
 
 - **Runtime:** Node.js (bundled via `pkg`)
-- **Database Drivers:** `pg` (PostgreSQL), `mysql2` (MySQL/MariaDB), `better-sqlite3` (SQLite), `@duckdb/node-api` (DuckDB)
+- **Database Drivers:** `pg` (PostgreSQL), `mysql2` (MySQL/MariaDB), `better-sqlite3` (SQLite), `@duckdb/node-api` (DuckDB), `@clickhouse/client` (ClickHouse)
 - **Version Control:** `simple-git`
 - **Logging:** `pino`
 - **Security:** `@napi-rs/keyring` for encrypted credential storage

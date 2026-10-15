@@ -2,7 +2,7 @@
 
 This document provides a comprehensive breakdown of all features and capabilities in RelWave. For installation and setup instructions, see the main [README](README.md).
 
-**Tech Stack:** Tauri + React 19 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3 + DuckDB
+**Tech Stack:** Tauri + React 19 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3 + DuckDB + ClickHouse
 
 ---
 
@@ -30,6 +30,18 @@ This document provides a comprehensive breakdown of all features and capabilitie
 | MariaDB    | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
 | SQLite     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
 | DuckDB     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
+| ClickHouse | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
+
+### ClickHouse-Specific Features
+
+- **Column-oriented analytical engine** — powered by `@clickhouse/client` over high-performance HTTP/HTTPS interface
+- **Flexible connection modes** — connect via standard HTTP (`8123`) or secure HTTPS/TLS (`8443`), with custom user credentials and databases
+- **URL & Parameter parsing** — parses `clickhouse://` and `clickhouses://` connection strings seamlessly
+- **Introspection & Key detection** — queries `system.tables`, `system.columns`, and `system.data_skipping_indices` with `ENGINE = MergeTree()` awareness and sorting/primary key recognition
+- **Cancelable streaming queries** — streams large analytical query result sets with `AbortController` support
+- **Lightweight mutations** — executes `ALTER TABLE ... UPDATE` and `ALTER TABLE ... DELETE` with synchronous mutation options (`mutations_sync = 1`)
+- **DDL & Schema migrations** — automated `schema_migrations` table tracking (`MergeTree() ORDER BY version`), table creations, and column migrations
+- **Local & Docker discovery** — automatically scans ports `8123`/`8124` and detects ClickHouse Docker containers
 
 ### DuckDB-Specific Features
 
