@@ -23,7 +23,13 @@ type ThroughputPoint = {
 
 function isMonitoringSupported(databaseType?: string) {
   const type = databaseType?.toLowerCase();
-  return type === "postgres" || type === "postgresql" || type === "mysql" || type === "mariadb";
+  return (
+    type === "postgres" ||
+    type === "postgresql" ||
+    type === "mysql" ||
+    type === "mariadb" ||
+    type === "clickhouse"
+  );
 }
 
 export function MonitoringPanel({ dbId, databaseName, databaseType }: MonitoringPanelProps) {

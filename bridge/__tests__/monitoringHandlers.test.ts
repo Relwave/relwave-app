@@ -91,6 +91,34 @@ describe("MonitoringHandlers", () => {
     });
   });
 
+  test("returns monitoring snapshot for a ClickHouse database", async () => {
+    const conn = { host: "127.0.0.1", port: 8123 };
+    const snapshot = {
+      databaseType: DBType.CLICKHOUSE,
+      sampledAt: "2026-05-16T00:00:00.000Z",
+      health: { ok: true, latencyMs: 5 },
+      connections: { active: 3, max: 100, usagePct: 3 },
+      throughput: { qps: 15, totalQueries: 5000 },
+      cacheHitRatio: 95.5,
+      activeQueries: [],
+    };
+
+    (dbService.getDatabaseConnection as any).mockResolvedValue({
+      conn,
+      dbType: DBType.CLICKHOUSE,
+    });
+    (monitoringService.getSnapshot as any).mockResolvedValue(snapshot);
+
+    await handlers.handleGetSnapshot({ id: "ch-1" }, 10);
+
+    expect(dbService.getDatabaseConnection).toHaveBeenCalledWith("ch-1");
+    expect(monitoringService.getSnapshot).toHaveBeenCalledWith("ch-1", conn, DBType.CLICKHOUSE);
+    expect(rpc.sendResponse).toHaveBeenCalledWith(10, {
+      ok: true,
+      data: snapshot,
+    });
+  });
+
   test("returns MONITORING_ERROR when snapshot generation fails", async () => {
     (dbService.getDatabaseConnection as any).mockResolvedValue({
       conn: {},

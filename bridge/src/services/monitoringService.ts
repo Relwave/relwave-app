@@ -3,8 +3,10 @@ import mysql, { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { DBType } from "../types";
 import { MySQLConfig } from "../types/mysql";
 import { PGConfig } from "../types/postgres";
+import { ClickHouseConfig } from "../types/clickhouse";
 import { createPoolConfig as createMySQLPoolConfig } from "../connectors/mysql";
 import { createPoolConfig as createMariaDBPoolConfig, MariaDBConfig } from "../connectors/mariadb";
+import { getClient as getClickHouseClient } from "../connectors/clickhouse";
 
 export interface MonitoringActiveQuery {
   id: string | number;
@@ -44,7 +46,7 @@ export class MonitoringService {
   private previousTotals = new Map<string, CounterSample>();
 
   async getSnapshot(dbId: string, conn: any, dbType: DBType): Promise<MonitoringSnapshot> {
-    if (![DBType.POSTGRES, DBType.MYSQL, DBType.MARIADB].includes(dbType)) {
+    if (![DBType.POSTGRES, DBType.MYSQL, DBType.MARIADB, DBType.CLICKHOUSE].includes(dbType)) {
       throw new Error(`Monitoring is not supported for ${dbType}`);
     }
 
@@ -54,6 +56,10 @@ export class MonitoringService {
 
     if (dbType === DBType.MYSQL || dbType === DBType.MARIADB) {
       return this.getMySQLLikeSnapshot(dbId, conn as MySQLConfig, dbType);
+    }
+
+    if (dbType === DBType.CLICKHOUSE) {
+      return this.getClickHouseSnapshot(dbId, conn as ClickHouseConfig);
     }
 
     throw new Error(`Monitoring is not supported for ${dbType}`);
@@ -220,6 +226,151 @@ export class MonitoringService {
     } finally {
       if (connection) connection.release();
       await pool.end().catch(() => undefined);
+    }
+  }
+
+  private async getClickHouseSnapshot(
+    dbId: string,
+    cfg: ClickHouseConfig,
+  ): Promise<MonitoringSnapshot> {
+    const startedAt = Date.now();
+    try {
+      const client = getClickHouseClient(cfg);
+      await client.query({ query: "SELECT 1;", format: "JSONEachRow" });
+      const latencyMs = Date.now() - startedAt;
+
+      const [metricsSettled, settingsSettled, eventsSettled, processesSettled] =
+        await Promise.allSettled([
+          client
+            .query({
+              query:
+                "SELECT metric, toInt64(value) AS value FROM system.metrics WHERE metric IN ('TCPConnection', 'HTTPConnection', 'Query');",
+              format: "JSONEachRow",
+            })
+            .then(
+              async (res) =>
+                (await res.json()) as Array<{ metric: string; value: string | number }>,
+            ),
+
+          client
+            .query({
+              query:
+                "SELECT value FROM system.settings WHERE name = 'max_concurrent_queries' LIMIT 1;",
+              format: "JSONEachRow",
+            })
+            .then(async (res) => (await res.json()) as Array<{ value: string | number }>),
+
+          client
+            .query({
+              query:
+                "SELECT event, toUInt64(value) AS value FROM system.events WHERE event IN ('Query', 'MarkCacheHits', 'MarkCacheMisses');",
+              format: "JSONEachRow",
+            })
+            .then(
+              async (res) =>
+                (await res.json()) as Array<{ event: string; value: string | number }>,
+            ),
+
+          client
+            .query({
+              query: `
+              SELECT
+                query_id AS id,
+                user,
+                query,
+                'running' AS state,
+                round(elapsed, 2) AS durationSeconds
+              FROM system.processes
+              WHERE is_cancelled = 0 AND query NOT LIKE '%system.processes%'
+              ORDER BY elapsed DESC
+              LIMIT 25;
+            `,
+              format: "JSONEachRow",
+            })
+            .then(
+              async (res) =>
+                (await res.json()) as Array<{
+                  id: string;
+                  user: string;
+                  query: string;
+                  state: string;
+                  durationSeconds: number;
+                }>,
+            ),
+        ]);
+
+      let active = 0;
+      if (metricsSettled.status === "fulfilled" && Array.isArray(metricsSettled.value)) {
+        for (const row of metricsSettled.value) {
+          if (row.metric === "TCPConnection" || row.metric === "HTTPConnection") {
+            active += Number(row.value ?? 0);
+          }
+        }
+      }
+      active = Math.max(1, active);
+
+      let max = 100;
+      if (
+        settingsSettled.status === "fulfilled" &&
+        Array.isArray(settingsSettled.value) &&
+        settingsSettled.value.length > 0
+      ) {
+        const parsedMax = Number(settingsSettled.value[0]?.value);
+        if (Number.isFinite(parsedMax) && parsedMax > 0) {
+          max = parsedMax;
+        }
+      }
+
+      let totalQueries = 0;
+      let markCacheHits = 0;
+      let markCacheMisses = 0;
+      let hasMarkCache = false;
+
+      if (eventsSettled.status === "fulfilled" && Array.isArray(eventsSettled.value)) {
+        for (const row of eventsSettled.value) {
+          if (row.event === "Query") {
+            totalQueries = Number(row.value ?? 0);
+          } else if (row.event === "MarkCacheHits") {
+            markCacheHits = Number(row.value ?? 0);
+            hasMarkCache = true;
+          } else if (row.event === "MarkCacheMisses") {
+            markCacheMisses = Number(row.value ?? 0);
+            hasMarkCache = true;
+          }
+        }
+      }
+
+      const totalCacheRequests = markCacheHits + markCacheMisses;
+      const cacheHitRatio =
+        hasMarkCache && totalCacheRequests > 0
+          ? Number(((markCacheHits / totalCacheRequests) * 100).toFixed(2))
+          : null;
+
+      const activeQueries: MonitoringActiveQuery[] =
+        processesSettled.status === "fulfilled" && Array.isArray(processesSettled.value)
+          ? processesSettled.value.map((row) => ({
+              id: String(row.id ?? ""),
+              user: String(row.user ?? ""),
+              query: String(row.query ?? ""),
+              state: String(row.state ?? "running"),
+              durationSeconds: Number(row.durationSeconds ?? 0),
+            }))
+          : [];
+
+      return {
+        databaseType: DBType.CLICKHOUSE,
+        sampledAt: new Date().toISOString(),
+        health: { ok: true, latencyMs },
+        connections: this.mapConnections(active, max),
+        throughput: {
+          qps: this.calculateRate(dbId, totalQueries),
+          totalQueries,
+        },
+        cacheHitRatio,
+        activeQueries,
+      };
+    } catch (error: any) {
+      return this.emptySnapshot(DBType.CLICKHOUSE, error?.message || String(error));
     }
   }
 

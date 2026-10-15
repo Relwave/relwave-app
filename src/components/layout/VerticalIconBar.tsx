@@ -39,7 +39,13 @@ const globalNavigationItems = [{ icon: Home, label: "Dashboard", path: "/" }];
 
 function supportsMonitoring(databaseType?: string) {
   const type = databaseType?.toLowerCase();
-  return type === "postgres" || type === "postgresql" || type === "mysql" || type === "mariadb";
+  return (
+    type === "postgres" ||
+    type === "postgresql" ||
+    type === "mysql" ||
+    type === "mariadb" ||
+    type === "clickhouse"
+  );
 }
 
 export default function VerticalIconBar({

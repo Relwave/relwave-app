@@ -171,4 +171,39 @@ describe("MonitoringWebSocketServer", () => {
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
     expect(clearIntervalSpy).not.toHaveBeenCalled();
   });
+
+  test("sends snapshots over websocket for clickhouse database", async () => {
+    server.start();
+    const wsServer = mockWebSocketServerInstances[0];
+    const socket = createMockSocket();
+
+    (dbService.getDatabaseConnection as any).mockResolvedValue({
+      conn: { host: "localhost", port: 8123 },
+      dbType: DBType.CLICKHOUSE,
+    });
+    (monitoringService.getSnapshot as any).mockResolvedValue({
+      databaseType: DBType.CLICKHOUSE,
+      sampledAt: "2026-05-16T00:00:00.000Z",
+      health: { ok: true, latencyMs: 8 },
+      connections: { active: 2, max: 100, usagePct: 2 },
+      throughput: { qps: 20, totalQueries: 500 },
+      cacheHitRatio: 90.0,
+      activeQueries: [],
+    });
+
+    await wsServer.emit("connection", socket, {
+      url: "/monitoring?dbId=ch-1",
+    } as any);
+
+    expect(dbService.getDatabaseConnection).toHaveBeenCalledWith("ch-1");
+    expect(monitoringService.getSnapshot).toHaveBeenCalledWith(
+      "ch-1",
+      { host: "localhost", port: 8123 },
+      DBType.CLICKHOUSE,
+    );
+    expect(JSON.parse(socket.send.mock.calls[0][0] as string)).toMatchObject({
+      type: "snapshot",
+      data: expect.objectContaining({ databaseType: DBType.CLICKHOUSE }),
+    });
+  });
 });
