@@ -98,7 +98,14 @@ export class MigrationHandlers {
 
   async handleGenerateDropMigration(params: any, id: number | string) {
     try {
-      const { dbId, schemaName, tableName, mode = "RESTRICT" } = params || {};
+      const {
+        dbId,
+        schemaName,
+        tableName,
+        mode = "RESTRICT",
+        columns: passedColumns,
+        foreignKeys: passedForeignKeys,
+      } = params || {};
 
       if (!dbId || !schemaName || !tableName) {
         return this.rpc.sendError(id, {
@@ -107,16 +114,68 @@ export class MigrationHandlers {
         });
       }
 
-      const { dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
-      // Generate migration file
+      let columns = passedColumns;
+      let foreignKeys = passedForeignKeys;
+
+      // 1. Introspect columns and foreign keys from live database before dropping
+      if (!columns || !Array.isArray(columns) || columns.length === 0) {
+        try {
+          const connector = getConnector(dbType) as any;
+          if (typeof connector.getTableDetails === "function") {
+            const tableDetails = await connector.getTableDetails(conn, schemaName, tableName);
+            if (tableDetails && tableDetails.length > 0) {
+              columns = tableDetails.map((col: any) => ({
+                name: col.name,
+                type: col.type,
+                not_nullable: Boolean(col.not_nullable),
+                default_value: col.default_value,
+                is_primary_key: Boolean(col.is_primary_key),
+              }));
+            }
+          }
+          if ((!foreignKeys || foreignKeys.length === 0) && typeof connector.listForeignKeys === "function") {
+            foreignKeys = await connector.listForeignKeys(conn, schemaName, tableName);
+          }
+        } catch (inspectErr) {
+          this.logger?.warn({ err: inspectErr }, "Could not inspect table before drop migration generation");
+        }
+      }
+
+      // 2. If table was already dropped or live inspection failed, fall back to project schema snapshot
+      if (!columns || columns.length === 0) {
+        try {
+          const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
+          if (project) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            const schemaGroup = schemaFile?.schemas?.find((s: any) => s.name === schemaName);
+            const tableSnap = schemaGroup?.tables?.find((t: any) => t.name === tableName);
+            if (tableSnap?.columns?.length) {
+              columns = tableSnap.columns.map((c: any) => ({
+                name: c.name,
+                type: c.type,
+                not_nullable: !c.nullable,
+                default_value: c.defaultValue,
+                is_primary_key: Boolean(c.isPrimaryKey),
+              }));
+            }
+          }
+        } catch (snapErr) {
+          this.logger?.warn({ err: snapErr }, "Could not load schema snapshot before drop migration generation");
+        }
+      }
+
+      // Generate migration file with reverse CREATE TABLE in downSQL
       const { generateDropTableMigration, writeMigrationFile } =
         await import("../utils/migrationGenerator");
       const migration = generateDropTableMigration({
         schemaName,
         tableName,
         mode,
+        columns,
+        foreignKeys,
         dbType,
       });
 
@@ -175,13 +234,28 @@ export class MigrationHandlers {
 
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
+          // Refresh schema from DB so project schema.json stays up-to-date with newly created tables/columns
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto.createHash("sha256").update(JSON.stringify(liveSchemas)).digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", { projectId: project.id, newHash: schemaHash });
+          } catch (schemaErr) {
+            this.logger?.warn({ err: schemaErr }, "Failed to auto-refresh project schema after migration apply");
+          }
+
           // Update Migration Lock first so it gets included in the git sync commit
           const appliedMigrations = await connector.listAppliedMigrations(conn);
 
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
 
-          const appliedVersions = appliedMigrations.map((m) => m.version);
+          const appliedVersions = appliedMigrations.map((m: any) => m.version);
           await writeMigrationLock(dbId, schemaHash, appliedVersions);
 
           const projectDir = await projectStoreInstance.resolveProjectDir(project.id);
@@ -193,6 +267,9 @@ export class MigrationHandlers {
                 "Git sync failed after migration apply",
               );
             }
+            try {
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
           }
         }
       } catch (syncErr) {
@@ -258,14 +335,37 @@ export class MigrationHandlers {
         const { writeMigrationLock } = await import("../services/migrationLock");
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto.createHash("sha256").update(JSON.stringify(liveSchemas)).digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", { projectId: project.id, newHash: schemaHash });
+          } catch (schemaErr) {
+            this.logger?.warn({ err: schemaErr }, "Failed to auto-refresh project schema after applyMigrations");
+          }
+
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
           const updatedApplied = await connector.listAppliedMigrations(conn);
           await writeMigrationLock(
             dbId,
             schemaHash,
             updatedApplied.map((m: any) => m.version),
           );
+
+          const projectDir = await projectStoreInstance.resolveProjectDir(project.id);
+          if (projectDir) {
+            try {
+              const { gitServiceInstance } = await import("../services/gitService");
+              await gitServiceInstance.syncMigrationFiles(projectDir);
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
+          }
         }
       } catch (syncErr) {
         this.logger?.error({ err: syncErr }, "Lock hook failed");
@@ -385,11 +485,25 @@ export class MigrationHandlers {
 
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto.createHash("sha256").update(JSON.stringify(liveSchemas)).digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", { projectId: project.id, newHash: schemaHash });
+          } catch (schemaErr) {
+            this.logger?.warn({ err: schemaErr }, "Failed to auto-refresh project schema after migration rollback");
+          }
+
           // Update Migration Lock first so it gets included in the git sync commit
           const appliedMigrations = await connector.listAppliedMigrations(conn);
 
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
 
           const appliedVersions = appliedMigrations.map((m) => m.version);
           await writeMigrationLock(dbId, schemaHash, appliedVersions);
@@ -403,6 +517,9 @@ export class MigrationHandlers {
                 "Git sync failed after migration rollback",
               );
             }
+            try {
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
           }
         }
       } catch (syncErr) {
