@@ -290,7 +290,9 @@ export async function listTables(
 
   const client = getClient(cfg);
   const query = schemaName ? CLICKHOUSE_LIST_TABLES_BY_SCHEMA : CLICKHOUSE_LIST_TABLES;
-  const query_params = schemaName ? { schema: schemaName } : undefined;
+  const query_params = schemaName
+    ? { target_schema: schemaName, schema: schemaName }
+    : undefined;
 
   const res = await client.query({
     query,
@@ -328,7 +330,12 @@ export async function listPrimaryKeys(
   const client = getClient(cfg);
   const res = await client.query({
     query: CLICKHOUSE_GET_PRIMARY_KEYS,
-    query_params: { schema, table },
+    query_params: {
+      target_schema: schema,
+      target_table: table,
+      schema,
+      table,
+    },
     format: "JSONEachRow",
   });
   const data = (await res.json()) as any[];
@@ -378,7 +385,12 @@ export async function listIndexes(
   try {
     const res = await client.query({
       query: CLICKHOUSE_GET_INDEXES,
-      query_params: { schema, table },
+      query_params: {
+        target_schema: schema,
+        target_table: table,
+        schema,
+        table,
+      },
       format: "JSONEachRow",
     });
     const data = (await res.json()) as any[];
@@ -498,7 +510,12 @@ export async function getTableDetails(
   const client = getClient(cfg);
   const res = await client.query({
     query: CLICKHOUSE_LIST_COLUMNS,
-    query_params: { schema, table },
+    query_params: {
+      target_schema: schema,
+      target_table: table,
+      schema,
+      table,
+    },
     format: "JSONEachRow",
   });
   const data = (await res.json()) as any[];
@@ -562,6 +579,14 @@ export async function getSchemaMetadataBatch(
     return entry;
   }
 
+  // Pre-seed tables if filterTables was explicitly provided
+  if (filterTables) {
+    for (const tbl of filterTables) {
+      getOrCreateTable(tbl);
+    }
+  }
+
+  // 1. Discover tables in target schema
   try {
     const tables = await listTables(cfg, schema);
     for (const t of tables) {
@@ -573,17 +598,33 @@ export async function getSchemaMetadataBatch(
     logger.warn({ err: err?.message, schema }, "ClickHouse getSchemaMetadataBatch listTables failed");
   }
 
+  // Fallback table discovery if empty and no specific table filter was provided
+  if (tablesMap.size === 0 && !filterTables) {
+    try {
+      const allTables = await listTables(cfg);
+      for (const t of allTables) {
+        if (!schema || t.schema === schema) {
+          getOrCreateTable(t.name);
+        }
+      }
+    } catch (err: any) {
+      logger.warn({ err: err?.message, schema }, "ClickHouse getSchemaMetadataBatch allTables fallback failed");
+    }
+  }
+
+  // 2. Batch fetch columns
   try {
     const colRes = await client.query({
       query: CLICKHOUSE_BATCH_LIST_COLUMNS,
-      query_params: { schema },
+      query_params: { target_schema: schema, schema },
       format: "JSONEachRow",
     });
     const colData = (await colRes.json()) as any[];
 
     for (const r of colData) {
-      if (filterTables && !filterTables.has(r.table)) continue;
-      const entry = getOrCreateTable(r.table);
+      const tbl = r.table || r["`table`"] || r.table_name;
+      if (!tbl || (filterTables && !filterTables.has(tbl))) continue;
+      const entry = getOrCreateTable(tbl);
       entry.columns.push({
         name: r.name,
         type: r.type,
@@ -598,36 +639,40 @@ export async function getSchemaMetadataBatch(
     logger.warn({ err: err?.message, schema }, "ClickHouse CLICKHOUSE_BATCH_LIST_COLUMNS failed");
   }
 
+  // 3. Batch fetch primary keys
   try {
     const pkRes = await client.query({
       query: CLICKHOUSE_BATCH_GET_PRIMARY_KEYS,
-      query_params: { schema },
+      query_params: { target_schema: schema, schema },
       format: "JSONEachRow",
     });
     const pkData = (await pkRes.json()) as any[];
 
     for (const r of pkData) {
-      if (filterTables && !filterTables.has(r.table)) continue;
-      const entry = getOrCreateTable(r.table);
+      const tbl = r.table || r["`table`"] || r.table_name;
+      if (!tbl || (filterTables && !filterTables.has(tbl))) continue;
+      const entry = getOrCreateTable(tbl);
       entry.primaryKeys.push({ column_name: r.column_name });
     }
   } catch (err: any) {
     logger.warn({ err: err?.message, schema }, "ClickHouse CLICKHOUSE_BATCH_GET_PRIMARY_KEYS failed");
   }
 
+  // 4. Batch fetch secondary indexes
   try {
     const idxRes = await client.query({
       query: CLICKHOUSE_BATCH_GET_INDEXES,
-      query_params: { schema },
+      query_params: { target_schema: schema, schema },
       format: "JSONEachRow",
     });
     const idxData = (await idxRes.json()) as any[];
 
     for (const r of idxData) {
-      if (filterTables && !filterTables.has(r.table)) continue;
-      const entry = getOrCreateTable(r.table);
+      const tbl = r.table || r["`table`"] || r.table_name;
+      if (!tbl || (filterTables && !filterTables.has(tbl))) continue;
+      const entry = getOrCreateTable(tbl);
       entry.indexes.push({
-        table_name: r.table,
+        table_name: tbl,
         index_name: r.index_name,
         column_name: r.column_name,
         is_unique: false,
@@ -639,7 +684,26 @@ export async function getSchemaMetadataBatch(
     logger.debug({ err: err?.message, schema }, "ClickHouse CLICKHOUSE_BATCH_GET_INDEXES skipped/failed");
   }
 
-  // Fallback: Ensure every table has columns and primary keys populated
+  // 5. Direct fallback: If tablesMap is still empty after batch queries, query system.tables directly
+  if (tablesMap.size === 0) {
+    try {
+      const directTablesRes = await client.query({
+        query: `SELECT name FROM system.tables WHERE database = {target_schema: String} ORDER BY name`,
+        query_params: { target_schema: schema, schema },
+        format: "JSONEachRow",
+      });
+      const directRows = (await directTablesRes.json()) as any[];
+      for (const row of directRows) {
+        if (!filterTables || filterTables.has(row.name)) {
+          getOrCreateTable(row.name);
+        }
+      }
+    } catch (err: any) {
+      logger.warn({ err: err?.message, schema }, "ClickHouse direct system.tables query failed");
+    }
+  }
+
+  // 6. Guaranteed population: Ensure every table in tablesMap has columns and primary keys populated
   for (const [tableName, entry] of tablesMap.entries()) {
     if (entry.columns.length === 0) {
       try {

@@ -8,8 +8,8 @@
 export const CLICKHOUSE_GET_PRIMARY_KEYS = `
   SELECT name AS column_name
   FROM system.columns
-  WHERE database = {schema: String}
-    AND table = {table: String}
+  WHERE database = {target_schema: String}
+    AND \`table\` = {target_table: String}
     AND (is_in_primary_key = 1 OR is_in_sorting_key = 1)
   ORDER BY position;
 `;
@@ -18,11 +18,11 @@ export const CLICKHOUSE_GET_PRIMARY_KEYS = `
  * Batch get primary keys for all tables in a schema.
  */
 export const CLICKHOUSE_BATCH_GET_PRIMARY_KEYS = `
-  SELECT table, name AS column_name
+  SELECT \`table\` AS \`table\`, name AS column_name
   FROM system.columns
-  WHERE database = {schema: String}
+  WHERE database = {target_schema: String}
     AND (is_in_primary_key = 1 OR is_in_sorting_key = 1)
-  ORDER BY table, position;
+  ORDER BY \`table\`, position;
 `;
 
 /**
@@ -34,8 +34,8 @@ export const CLICKHOUSE_GET_INDEXES = `
     expr AS column_name,
     type AS index_type
   FROM system.data_skipping_indices
-  WHERE database = {schema: String}
-    AND table = {table: String}
+  WHERE database = {target_schema: String}
+    AND \`table\` = {target_table: String}
   ORDER BY name;
 `;
 
@@ -44,11 +44,11 @@ export const CLICKHOUSE_GET_INDEXES = `
  */
 export const CLICKHOUSE_BATCH_GET_INDEXES = `
   SELECT
-    table,
+    \`table\` AS \`table\`,
     name AS index_name,
     expr AS column_name,
     type AS index_type
   FROM system.data_skipping_indices
-  WHERE database = {schema: String}
-  ORDER BY table, name;
+  WHERE database = {target_schema: String}
+  ORDER BY \`table\`, name;
 `;

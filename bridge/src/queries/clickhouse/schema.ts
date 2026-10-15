@@ -34,7 +34,7 @@ export const CLICKHOUSE_LIST_TABLES_BY_SCHEMA = `
     name,
     if(engine LIKE '%View%', 'VIEW', 'BASE TABLE') AS type
   FROM system.tables
-  WHERE database = {schema: String}
+  WHERE database = {target_schema: String}
   ORDER BY name;
 `;
 
@@ -51,7 +51,7 @@ export const CLICKHOUSE_LIST_COLUMNS = `
     is_in_sorting_key,
     comment
   FROM system.columns
-  WHERE database = {schema: String} AND table = {table: String}
+  WHERE database = {target_schema: String} AND \`table\` = {target_table: String}
   ORDER BY position;
 `;
 
@@ -61,7 +61,7 @@ export const CLICKHOUSE_LIST_COLUMNS = `
 export const CLICKHOUSE_BATCH_LIST_COLUMNS = `
   SELECT
     database AS schema,
-    table,
+    \`table\` AS \`table\`,
     name,
     type,
     if(type LIKE 'Nullable(%)', 0, 1) AS not_nullable,
@@ -70,6 +70,6 @@ export const CLICKHOUSE_BATCH_LIST_COLUMNS = `
     is_in_sorting_key,
     comment
   FROM system.columns
-  WHERE database = {schema: String}
-  ORDER BY table, position;
+  WHERE database = {target_schema: String}
+  ORDER BY \`table\`, position;
 `;
