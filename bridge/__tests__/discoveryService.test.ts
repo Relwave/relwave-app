@@ -382,9 +382,20 @@ describe("DiscoveryService", () => {
         defaultDatabase: "mysql",
       };
 
+      const clickhouseDb: DiscoveredDatabase = {
+        type: "clickhouse",
+        host: "localhost",
+        port: 8123,
+        source: "local",
+        suggestedName: "clickhouse-db",
+        defaultUser: "default",
+        defaultDatabase: "default",
+      };
+
       expect(pgDb.type).toBe("postgresql");
       expect(mysqlDb.type).toBe("mysql");
       expect(mariaDb.type).toBe("mariadb");
+      expect(clickhouseDb.type).toBe("clickhouse");
     });
   });
 
@@ -401,7 +412,7 @@ describe("DiscoveryService", () => {
 
       for (const db of result) {
         expect(db.type).toBeDefined();
-        expect(["postgresql", "mysql", "mariadb"]).toContain(db.type);
+        expect(["postgresql", "mysql", "mariadb", "clickhouse"]).toContain(db.type);
         expect(db.host).toBeDefined();
         expect(typeof db.port).toBe("number");
         expect(db.source).toBeDefined();
