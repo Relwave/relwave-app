@@ -17,25 +17,52 @@ interface SQLWorkspacePanelProps {
 
 const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
   const { data: bridgeReady } = useBridgeQuery();
+  const storageKey = `relwave_sql_tabs_${dbId}`;
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"tables" | "history">("tables");
 
-  // Query tabs state
-  const [tabs, setTabs] = useState<QueryTab[]>([
-    {
-      id: "1",
-      name: "Query 1",
-      query: "-- Write your SQL query here\nSELECT * FROM ",
-      results: [],
-      rowCount: 0,
-      error: null,
-      executionTime: null,
-      status: "idle",
-    },
-  ]);
-  const [activeTabId, setActiveTabId] = useState("1");
+  // Selection tracking in active editor
+  const [selectedText, setSelectedText] = useState("");
+
+  // Elapsed execution time stopwatch
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  // Query tabs state with localStorage persistence
+  const [tabs, setTabs] = useState<QueryTab[]>(() => {
+    try {
+      const saved = localStorage.getItem(`relwave_sql_tabs_${dbId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((t: any) => ({
+            id: t.id || "1",
+            name: t.name || "Query 1",
+            query: t.query || "-- Write your SQL query here\nSELECT * FROM ",
+            results: [],
+            rowCount: 0,
+            error: null,
+            executionTime: null,
+            status: "idle",
+          }));
+        }
+      }
+    } catch {}
+    return [
+      {
+        id: "1",
+        name: "Query 1",
+        query: "-- Write your SQL query here\nSELECT * FROM ",
+        results: [],
+        rowCount: 0,
+        error: null,
+        executionTime: null,
+        status: "idle",
+      },
+    ];
+  });
+  const [activeTabId, setActiveTabId] = useState(tabs[0]?.id || "1");
   const executingTabIdRef = useRef<string>(activeTabId);
   const wasExecutingRef = useRef<boolean>(false);
 
@@ -62,12 +89,34 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
     bridgeReady: bridgeReady ?? false,
   });
 
+  // Persist query tabs to localStorage
+  useEffect(() => {
+    try {
+      const toSave = tabs.map(({ id, name, query }) => ({ id, name, query }));
+      localStorage.setItem(storageKey, JSON.stringify(toSave));
+    } catch {}
+  }, [tabs, storageKey]);
+
+  // Live stopwatch when executing
+  useEffect(() => {
+    if (!isExecuting) {
+      setElapsedMs(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - start);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isExecuting]);
+
   // Sync with active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   useEffect(() => {
     if (activeTab) {
       setQuery(activeTab.query);
+      setSelectedText("");
     }
   }, [activeTabId]);
 
@@ -82,18 +131,23 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
     [activeTabId, setQuery],
   );
 
+  const handleRenameTab = useCallback((tabId: string, newName: string) => {
+    setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, name: newName } : t)));
+  }, []);
+
   const handleRunActiveQuery = useCallback(() => {
-    if (!activeTab?.query.trim() || isExecuting) return;
+    const queryToExecute = selectedText.trim() ? selectedText : activeTab?.query;
+    if (!queryToExecute?.trim() || isExecuting) return;
     const targetId = activeTabId;
     executingTabIdRef.current = targetId;
     wasExecutingRef.current = true;
     setTabs((prev) =>
       prev.map((tab) => (tab.id === targetId ? { ...tab, status: "running", error: null } : tab)),
     );
-    handleExecuteQuery(activeTab.query);
-  }, [activeTab?.query, isExecuting, activeTabId, handleExecuteQuery]);
+    handleExecuteQuery(queryToExecute);
+  }, [activeTab?.query, selectedText, isExecuting, activeTabId, handleExecuteQuery]);
 
-  // Keyboard shortcut Ctrl+Enter / Cmd+Enter to execute active query
+  // Keyboard shortcut Ctrl+Enter / Cmd+Enter to execute active query or selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -246,8 +300,10 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
         databaseName={databaseName || "Database"}
         isExecuting={isExecuting}
         queryProgress={queryProgress}
-        canExecute={!!activeTab?.query.trim()}
-        activeQuery={activeTab?.query}
+        canExecute={!!activeTab?.query.trim() || !!selectedText.trim()}
+        activeQuery={selectedText.trim() ? selectedText : activeTab?.query}
+        hasSelection={!!selectedText.trim()}
+        elapsedMs={elapsedMs}
         onExecute={handleRunActiveQuery}
         onCancel={handleCancelQuery}
         onNLQueryClick={() => setIsNLDialogOpen(true)}
@@ -274,6 +330,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
             onTabSelect={setActiveTabId}
             onTabClose={closeTab}
             onNewTab={addNewTab}
+            onTabRename={handleRenameTab}
           />
 
           {/* Split View: Editor + Results */}
@@ -284,6 +341,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                 value={activeTab?.query || ""}
                 onChange={updateActiveTabQuery}
                 onExecute={handleRunActiveQuery}
+                onSelectionChange={setSelectedText}
                 dialect={
                   databaseType === "mysql" || databaseType === "mariadb" ? "mysql" : "postgresql"
                 }

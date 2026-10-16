@@ -48,6 +48,26 @@ function supportsMonitoring(databaseType?: string) {
   );
 }
 
+export function getDatabasePanelItems(databaseType?: string): Array<{
+  icon: any;
+  label: string;
+  panel: PanelType;
+}> {
+  return [
+    { icon: Layers, label: "Data View", panel: "data" },
+    { icon: Terminal, label: "SQL Workspace", panel: "sql-workspace" },
+    { icon: Sparkles, label: "AI Workspace", panel: "ai-workspace" },
+    { icon: Search, label: "Query Builder", panel: "query-builder" },
+    { icon: GitBranch, label: "Schema Explorer", panel: "schema-explorer" },
+    { icon: Database, label: "ER Diagram", panel: "er-diagram" },
+    ...(supportsMonitoring(databaseType)
+      ? [{ icon: Activity, label: "Monitoring", panel: "monitoring" as PanelType }]
+      : []),
+    { icon: History, label: "Migrations", panel: "migrations" },
+    { icon: GitCommitHorizontal, label: "Git Status", panel: "git-status" },
+  ];
+}
+
 export default function VerticalIconBar({
   dbId,
   databaseType,
@@ -65,21 +85,7 @@ export default function VerticalIconBar({
   };
 
   // Database-specific panel items (only shown when dbId is provided)
-  const databasePanelItems: Array<{ icon: any; label: string; panel: PanelType }> = dbId
-    ? [
-        { icon: Layers, label: "Data View", panel: "data" },
-        { icon: Terminal, label: "SQL Workspace", panel: "sql-workspace" },
-        { icon: Sparkles, label: "AI Workspace", panel: "ai-workspace" },
-        { icon: Search, label: "Query Builder", panel: "query-builder" },
-        { icon: GitBranch, label: "Schema Explorer", panel: "schema-explorer" },
-        { icon: Database, label: "ER Diagram", panel: "er-diagram" },
-        ...(supportsMonitoring(databaseType)
-          ? [{ icon: Activity, label: "Monitoring", panel: "monitoring" as PanelType }]
-          : []),
-        { icon: History, label: "Migrations", panel: "migrations" },
-        { icon: GitCommitHorizontal, label: "Git Status", panel: "git-status" },
-      ]
-    : [];
+  const databasePanelItems = dbId ? getDatabasePanelItems(databaseType) : [];
 
   return (
     <nav className="fixed left-0 top-8 h-[calc(100vh-32px)] w-15 bg-sidebar/90 border-r border-sidebar-border z-40 flex flex-col items-center py-4 gap-2 backdrop-blur-xl shadow-[1px_0_0_rgba(255,255,255,0.03)_inset]">
@@ -122,9 +128,10 @@ export default function VerticalIconBar({
         <>
           <div className="w-8 h-px bg-sidebar-border my-2" />
           <div className="flex flex-col gap-2">
-            {databasePanelItems.map((item) => {
+            {databasePanelItems.map((item, index) => {
               const Icon = item.icon;
               const active = activePanel === item.panel;
+              const shortcut = index < 9 ? `Alt+${index + 1}` : undefined;
 
               return (
                 <Tooltip key={item.panel}>
@@ -145,8 +152,13 @@ export default function VerticalIconBar({
                       <Icon className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>{item.label}</p>
+                  <TooltipContent side="right" className="flex items-center gap-1.5 font-sans">
+                    <span>{item.label}</span>
+                    {shortcut && (
+                      <kbd className="px-1 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground rounded border border-border/50">
+                        {shortcut}
+                      </kbd>
+                    )}
                   </TooltipContent>
                 </Tooltip>
               );

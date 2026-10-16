@@ -13,6 +13,7 @@ interface SqlEditorProps {
   minHeight?: string;
   dialect?: "postgresql" | "mysql";
   onExecute?: () => void;
+  onSelectionChange?: (selectedText: string) => void;
 }
 
 // Light theme customization
@@ -60,6 +61,7 @@ const SqlEditor: FC<SqlEditorProps> = ({
   minHeight = "200px",
   dialect = "postgresql",
   onExecute,
+  onSelectionChange,
 }) => {
   const { theme } = useTheme();
   const isDark =
@@ -106,6 +108,13 @@ const SqlEditor: FC<SqlEditorProps> = ({
       <CodeMirror
         value={value}
         onChange={handleChange}
+        onUpdate={(viewUpdate) => {
+          if (onSelectionChange && (viewUpdate.selectionSet || viewUpdate.docChanged)) {
+            const { from, to } = viewUpdate.state.selection.main;
+            const selected = from !== to ? viewUpdate.state.sliceDoc(from, to) : "";
+            onSelectionChange(selected);
+          }
+        }}
         extensions={extensions}
         theme={isDark ? oneDark : "light"}
         placeholder={placeholder}

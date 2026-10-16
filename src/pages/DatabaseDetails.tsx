@@ -10,7 +10,7 @@ import { useProjectSync } from "@/features/project/hooks/useProjectSync";
 import { useProjectDir } from "@/features/project/hooks/useProjectQueries";
 import { useRowOperations } from "@/features/database/hooks/useRowOperations";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
-import VerticalIconBar from "@/components/layout/VerticalIconBar";
+import VerticalIconBar, { getDatabasePanelItems } from "@/components/layout/VerticalIconBar";
 import SlideOutPanel from "@/components/layout/SlideOutPanel";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
@@ -31,7 +31,7 @@ import AIWorkspacePanel from "@/features/database/components/AIWorkspacePanel";
 import { ShortcutsHelp } from "@/components/shared/ShortcutsHelp";
 import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
 import { MigrationSyncDialog } from "@/features/project/components/MigrationSyncDialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
   const { id: dbId } = useParams<{ id: string }>();
@@ -100,6 +100,37 @@ const DatabaseDetail = () => {
     useProjectSync(dbId, schemaData ?? undefined);
   const { data: projectDir } = useProjectDir(projectId);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
+
+  // Keyboard shortcut listener: Alt+1..9 switches active database panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in a form input or textarea
+      const target = e.target as HTMLElement | null;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Don't switch if a modal dialog is currently open
+      if (document.querySelector('[role="dialog"]')) {
+        return;
+      }
+
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const num = parseInt(e.key, 10);
+        if (!isNaN(num) && num >= 1 && num <= 9) {
+          const items = getDatabasePanelItems(databaseType);
+          const targetItem = items[num - 1];
+          if (targetItem) {
+            e.preventDefault();
+            setActivePanel(targetItem.panel);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [databaseType, setActivePanel]);
 
   // ---- Guards ----
   if (bridgeLoading || bridgeReady === undefined) return <BridgeLoader />;

@@ -96,13 +96,13 @@ function AppRoot() {
         <TooltipProvider>
           <DeveloperContextMenu>
             <Toaster />
-            <TitleBar />
-            <div className="pt-8">
-              <BrowserRouter>
+            <BrowserRouter>
+              <TitleBar />
+              <div className="pt-8">
                 <CommandPalette />
                 <AnimatedRoutes />
-              </BrowserRouter>
-            </div>
+              </div>
+            </BrowserRouter>
           </DeveloperContextMenu>
         </TooltipProvider>
       </QueryClientProvider>

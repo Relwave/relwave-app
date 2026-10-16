@@ -1,8 +1,10 @@
-import { RefreshCw, Plus, TrendingUp, Search, X, Loader2, Table } from "lucide-react";
+import { useState, useMemo } from "react";
+import { RefreshCw, Plus, TrendingUp, Search, X, Loader2, Table, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/shared/DataTable";
 import { TableRow } from "@/features/database/types";
+import { toast } from "sonner";
 
 interface ContentViewerPanelProps {
   selectedTable: string | null;
@@ -47,7 +49,46 @@ export default function ContentViewerPanel({
   isSearching,
   searchResultCount,
 }: ContentViewerPanelProps) {
+  const [sortColumn, setSortColumn] = useState<string | undefined>();
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   const totalPages = Math.ceil(totalRows / pageSize);
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortColumn(undefined);
+        setSortDirection("asc");
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedData = useMemo(() => {
+    if (!sortColumn || !tableData || tableData.length === 0) return tableData;
+    return [...tableData].sort((a, b) => {
+      const valA = a[sortColumn];
+      const valB = b[sortColumn];
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortDirection === "asc" ? valA - valB : valB - valA;
+      }
+      const cmp = String(valA).localeCompare(String(valB));
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [tableData, sortColumn, sortDirection]);
+
+  const handleCopyTableJSON = () => {
+    if (!tableData || tableData.length === 0) return;
+    navigator.clipboard.writeText(JSON.stringify(sortedData, null, 2));
+    toast.success(`Copied ${sortedData.length} rows as JSON`, { duration: 1500 });
+  };
 
   if (!selectedTable) {
     return (
@@ -69,9 +110,28 @@ export default function ContentViewerPanel({
             <h2 className="text-base font-semibold tracking-tight font-mono truncate">
               {selectedTable}
             </h2>
-            <p className="text-xs text-muted-foreground">{totalRows.toLocaleString()} rows</p>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {totalRows.toLocaleString()} rows
+              {sortColumn && (
+                <span className="ml-2 font-mono text-primary">
+                  (sorted by {sortColumn} {sortDirection})
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {tableData && tableData.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyTableJSON}
+                className="h-8 text-xs gap-1.5"
+                title="Copy current page as JSON"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copy JSON
+              </Button>
+            )}
             {onInsert && (
               <Button size="sm" variant="outline" onClick={onInsert} className="h-8 text-xs">
                 <Plus className="h-3.5 w-3.5 mr-1" />
@@ -84,7 +144,13 @@ export default function ContentViewerPanel({
                 Chart
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={onRefresh} className="h-8 w-8 p-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onRefresh}
+              className="h-8 w-8 p-0"
+              title="Refresh table data"
+            >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -101,7 +167,7 @@ export default function ContentViewerPanel({
                 value={searchTerm || ""}
                 onChange={(e) => onSearchChange(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onSearch?.()}
-                className="pl-8 pr-8 h-8 text-xs bg-background/70"
+                className="pl-8 pr-8 h-8 text-xs bg-background/70 font-mono"
               />
               {searchTerm && (
                 <button
@@ -122,7 +188,9 @@ export default function ContentViewerPanel({
               {isSearching ? "..." : "Search"}
             </Button>
             {typeof searchResultCount === "number" && searchTerm && (
-              <span className="text-xs text-muted-foreground">{searchResultCount} found</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {searchResultCount} found
+              </span>
             )}
           </div>
         )}
@@ -141,9 +209,12 @@ export default function ContentViewerPanel({
         ) : (
           <div className="min-w-0 max-w-full p-4">
             <DataTable
-              data={tableData}
+              data={sortedData}
               columns={tableColumns}
               maxHeight="none"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
               onEditRow={onEditRow}
               onDeleteRow={onDeleteRow}
             />
