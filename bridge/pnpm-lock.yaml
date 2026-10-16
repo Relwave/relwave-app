@@ -11,6 +11,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.100.1
         version: 0.100.1(zod@4.4.3)
+      '@clickhouse/client':
+        specifier: ^1.24.1
+        version: 1.24.1
       '@duckdb/node-api':
         specifier: 1.5.6-r.1
         version: 1.5.6-r.1
@@ -282,6 +285,10 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@clickhouse/client@1.24.1':
+    resolution: {integrity: sha512-1kjKJ4uuD4J9JlRU4CpwEGfecstvtoGreBorhh7CxgB7r7PL54DCLD6gajKZhLCri84XlyD3CUxEm6rYkKC+dA==}
+    engines: {node: '>=20'}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -2577,6 +2584,8 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@bcoe/v8-coverage@0.2.3': {}
+
+  '@clickhouse/client@1.24.1': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

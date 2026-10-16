@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AISettings,
   CheckForUpdates,
@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { loadAISettings } from "@/services/bridge/ai";
 
 type TabId = "general" | "ai" | "analytics" | "shortcuts" | "about";
 
@@ -34,6 +35,13 @@ export interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<TabId>("general");
+
+  // Pre-warm AI settings as soon as settings dialog opens so AI tab is instant
+  useEffect(() => {
+    if (open) {
+      loadAISettings().catch(() => {});
+    }
+  }, [open]);
 
   return (
     <Dialog modal={false} open={open} onOpenChange={onOpenChange}>

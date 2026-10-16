@@ -178,6 +178,7 @@ type DBMeta = {
   user: string;
   database: string;
   type?: string;
+  url?: string;
   credentialId?: string;
   notes?: string;
   tags?: string[];
@@ -507,6 +508,7 @@ export class DbStore {
     user: string;
     database: string;
     type?: string;
+    url?: string;
     ssl?: boolean;
     sslmode?: string;
     password?: string;
@@ -526,6 +528,7 @@ export class DbStore {
       user: payload.user,
       database: payload.database,
       type: payload.type,
+      url: payload.url,
       ssl: payload.ssl,
       sslmode: payload.sslmode,
       credentialId,

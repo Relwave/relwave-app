@@ -30,7 +30,7 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     title: "Database Detail",
     shortcuts: [
-      { keys: ["Ctrl", "Enter"], label: "Execute SQL Query" },
+      { keys: ["Ctrl", "Enter"], label: "Execute Query / Selection" },
       { keys: ["Ctrl", "S"], label: "Save Query / Changes" },
       { keys: ["Ctrl", "F"], label: "Find in Data / SQL" },
     ],
@@ -38,9 +38,10 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     title: "Navigation",
     shortcuts: [
-      { keys: ["Alt", "1"], label: "Go to Dashboard" },
-      { keys: ["Alt", "2"], label: "Go to Projects" },
-      { keys: ["Alt", "3"], label: "Go to Settings" },
+      { keys: ["Alt", "1"], label: "Data View" },
+      { keys: ["Alt", "2"], label: "SQL Workspace" },
+      { keys: ["Alt", "3"], label: "AI Workspace" },
+      { keys: ["Alt", "4..9"], label: "Panels (Query, Schema, ER...)" },
     ],
   },
 ];

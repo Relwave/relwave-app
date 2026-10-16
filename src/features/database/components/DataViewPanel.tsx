@@ -33,6 +33,7 @@ interface DataViewPanelProps {
 
   // Data
   tableData: any[];
+  tableColumns?: Array<{ name: string; type?: string } | string>;
   totalRows: number;
   currentPage: number;
   pageSize: number;
@@ -80,6 +81,7 @@ export const DataViewPanel = ({
   selectedSchema,
   setSelectedSchema,
   tableData,
+  tableColumns,
   totalRows,
   currentPage,
   pageSize,
@@ -222,6 +224,7 @@ export const DataViewPanel = ({
         <div className="flex-1 min-w-0 min-h-0 overflow-hidden rounded-lg border border-border/50 bg-card/50 shadow-sm">
           <ContentViewerPanel
             selectedTable={selectedTable?.name || null}
+            tableColumns={tableColumns}
             tableData={isSearchActive ? searchResults! : tableData}
             totalRows={isSearchActive ? searchResultCount || 0 : totalRows}
             currentPage={isSearchActive ? searchPage : currentPage}

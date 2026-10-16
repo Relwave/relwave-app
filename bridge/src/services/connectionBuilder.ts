@@ -1,6 +1,7 @@
 import { DBType, DatabaseConfig } from "../types";
 import { SQLiteConfig } from "../types/sqlite";
 import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
+import { parseClickHouseUrl } from "../utils/clickhouseUrl";
 import { sshTunnelServiceInstance, TunnelInfo } from "./sshTunnelService";
 
 export interface BuildResult {
@@ -32,13 +33,34 @@ export class ConnectionBuilder {
       };
     }
 
+    if (dbType === DBType.CLICKHOUSE) {
+      const rawTarget = db.url || db.host;
+      if (!rawTarget) {
+        throw new Error("ClickHouse connection requires a URL or host");
+      }
+      const parsed = parseClickHouseUrl(rawTarget);
+      return {
+        config: {
+          url: parsed.url,
+          host: db.host || parsed.host,
+          port: db.port || parsed.port,
+          user: db.user || "default",
+          password: pwd ?? undefined,
+          database: db.database || parsed.database || "default",
+          ssl: db.ssl !== undefined ? db.ssl : parsed.ssl,
+        } as any,
+      };
+    }
+
+    const defaultPort = dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432;
+
     const base: DatabaseConfig = {
       host: db.host,
-      port: db.port || (dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432),
-      user: db.user,
+      port: db.port || defaultPort,
+      user: db.user || "",
       password: pwd ?? undefined,
       ssl: db.ssl,
-      database: db.database,
+      database: db.database || "",
       ssh: db.ssh,
     };
 
@@ -76,5 +98,9 @@ export class ConnectionBuilder {
 
   static async buildDuckDBConnection(db: any): Promise<BuildResult> {
     return this.buildConnection(db, null, DBType.DUCKDB);
+  }
+
+  static async buildClickHouseConnection(db: any, pwd: string | null): Promise<BuildResult> {
+    return this.buildConnection(db, pwd, DBType.CLICKHOUSE);
   }
 }

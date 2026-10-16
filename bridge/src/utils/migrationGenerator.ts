@@ -33,7 +33,7 @@ export function generateCreateTableMigration(params: {
   tableName: string;
   columns: any[];
   foreignKeys?: any[];
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
 }): MigrationFile {
   const { schemaName, tableName, columns, foreignKeys = [], dbType } = params;
   const version = generateMigrationVersion();
@@ -44,30 +44,42 @@ export function generateCreateTableMigration(params: {
   const columnDefs = columns
     .map((col) => {
       let def = `  ${quoteIdent(col.name, dbType)} ${col.type}`;
-      if (col.not_nullable) def += " NOT NULL";
+      if (col.not_nullable && dbType !== "clickhouse") def += " NOT NULL";
       if (col.default_value) def += ` DEFAULT ${col.default_value}`;
-      if (col.is_primary_key) def += " PRIMARY KEY";
+      if (col.is_primary_key && dbType !== "clickhouse") def += " PRIMARY KEY";
       return def;
     })
     .join(",\n");
 
   // Build foreign key constraints
-  const fkDefs = foreignKeys.map((fk) => {
-    const onDelete = fk.on_delete || "NO ACTION";
-    const onUpdate = fk.on_update || "NO ACTION";
-    return `  CONSTRAINT ${quoteIdent(fk.constraint_name, dbType)} FOREIGN KEY (${quoteIdent(fk.source_column, dbType)}) REFERENCES ${quoteIdent(fk.target_schema, dbType)}.${quoteIdent(fk.target_table, dbType)}(${quoteIdent(fk.target_column, dbType)}) ON DELETE ${onDelete} ON UPDATE ${onUpdate}`;
-  });
+  const fkDefs =
+    dbType === "clickhouse"
+      ? []
+      : foreignKeys.map((fk) => {
+          const onDelete = fk.on_delete || "NO ACTION";
+          const onUpdate = fk.on_update || "NO ACTION";
+          return `  CONSTRAINT ${quoteIdent(fk.constraint_name, dbType)} FOREIGN KEY (${quoteIdent(fk.source_column, dbType)}) REFERENCES ${quoteIdent(fk.target_schema, dbType)}.${quoteIdent(fk.target_table, dbType)}(${quoteIdent(fk.target_column, dbType)}) ON DELETE ${onDelete} ON UPDATE ${onUpdate}`;
+        });
 
   const allDefs = [...[columnDefs], ...fkDefs].filter(Boolean).join(",\n");
 
-  // For MySQL/MariaDB, use database.table format (schemas are databases)
+  // For MySQL/MariaDB/ClickHouse, use database.table format (schemas are databases)
   // For Postgres, use schema.table format
   const tableRef = `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
   // Generate UP SQL
-  const upSQL = `CREATE TABLE ${tableRef} (
+  let upSQL = "";
+  if (dbType === "clickhouse") {
+    const pkCols = columns.filter((c) => c.is_primary_key).map((c) => quoteIdent(c.name, dbType));
+    const orderClause = pkCols.length > 0 ? pkCols.join(", ") : "tuple()";
+    upSQL = `CREATE TABLE ${tableRef} (
+${allDefs}
+) ENGINE = MergeTree() ORDER BY (${orderClause});`;
+  } else {
+    upSQL = `CREATE TABLE ${tableRef} (
 ${allDefs}
 );`;
+  }
 
   // Generate DOWN SQL
   const downSQL = `DROP TABLE ${tableRef};`;
@@ -88,7 +100,7 @@ export function generateAlterTableMigration(params: {
   schemaName: string;
   tableName: string;
   operations: any[];
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
 }): MigrationFile {
   const { schemaName, tableName, operations, dbType } = params;
   const version = generateMigrationVersion();
@@ -142,9 +154,19 @@ export function generateAlterTableMigration(params: {
         break;
 
       case "ALTER_TYPE":
-        upStatements.push(
-          `ALTER TABLE ${fullTableName} ${dbType === "postgres" ? "ALTER COLUMN" : "MODIFY"} ${quoteIdent(op.column_name, dbType)} ${dbType === "postgres" ? "TYPE " : ""}${op.new_type};`,
-        );
+        if (dbType === "postgres") {
+          upStatements.push(
+            `ALTER TABLE ${fullTableName} ALTER COLUMN ${quoteIdent(op.column_name, dbType)} TYPE ${op.new_type};`,
+          );
+        } else if (dbType === "clickhouse") {
+          upStatements.push(
+            `ALTER TABLE ${fullTableName} MODIFY COLUMN ${quoteIdent(op.column_name, dbType)} ${op.new_type};`,
+          );
+        } else {
+          upStatements.push(
+            `ALTER TABLE ${fullTableName} MODIFY ${quoteIdent(op.column_name, dbType)} ${op.new_type};`,
+          );
+        }
         downStatements.push(
           `-- WARNING: Cannot automatically reverse ALTER TYPE. Manual intervention required.`,
         );
@@ -242,10 +264,19 @@ export function generateAlterTableMigration(params: {
 export function generateDropTableMigration(params: {
   schemaName: string;
   tableName: string;
-  mode: "RESTRICT" | "DETACH_FKS" | "CASCADE";
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb";
+  mode?: "RESTRICT" | "DETACH_FKS" | "CASCADE";
+  columns?: any[];
+  foreignKeys?: any[];
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
 }): MigrationFile {
-  const { schemaName, tableName, mode, dbType } = params;
+  const {
+    schemaName,
+    tableName,
+    mode = "RESTRICT",
+    columns = [],
+    foreignKeys = [],
+    dbType,
+  } = params;
   const version = generateMigrationVersion();
   const name = `drop_${tableName}_table`;
   const filename = `${version}_${name}.sql`;
@@ -254,18 +285,33 @@ export function generateDropTableMigration(params: {
   const fullTableName = `${quoteIdent(schemaName, dbType)}.${quoteIdent(tableName, dbType)}`;
 
   let upSQL = "";
-  if (mode === "CASCADE") {
-    upSQL = `DROP TABLE ${fullTableName} CASCADE;`;
+  if (dbType === "clickhouse" || dbType === "sqlite") {
+    upSQL = `DROP TABLE IF EXISTS ${fullTableName};`;
+  } else if (mode === "CASCADE") {
+    upSQL = `DROP TABLE IF EXISTS ${fullTableName} CASCADE;`;
   } else if (mode === "DETACH_FKS") {
     upSQL = `-- First drop foreign key constraints, then drop table
 -- WARNING: FK constraint names need to be specified manually
-DROP TABLE ${fullTableName};`;
+DROP TABLE IF EXISTS ${fullTableName};`;
   } else {
-    upSQL = `DROP TABLE ${fullTableName};`;
+    upSQL = `DROP TABLE IF EXISTS ${fullTableName};`;
   }
 
-  const downSQL = `-- WARNING: Cannot automatically reverse DROP TABLE.
+  let downSQL = "";
+  if (columns && columns.length > 0) {
+    const createParams = {
+      schemaName,
+      tableName,
+      columns,
+      foreignKeys,
+      dbType,
+    };
+    const createMigration = generateCreateTableMigration(createParams);
+    downSQL = createMigration.upSQL;
+  } else {
+    downSQL = `-- WARNING: Cannot automatically reverse DROP TABLE.
 -- You must manually recreate the table with all its data, constraints, and indexes.`;
+  }
 
   return {
     version,
@@ -305,9 +351,9 @@ ${migration.downSQL}
  */
 function quoteIdent(
   name: string,
-  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb",
+  dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb" | "clickhouse",
 ): string {
-  if (dbType === "mysql" || dbType === "mariadb") {
+  if (dbType === "mysql" || dbType === "mariadb" || dbType === "clickhouse") {
     return `\`${name.replace(/`/g, "``")}\``;
   } else {
     return `"${name.replace(/"/g, '""')}"`;

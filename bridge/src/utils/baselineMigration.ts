@@ -4,7 +4,7 @@ import path from "path";
 import { SchemaFile } from "../services/projectStore";
 
 function quoteIdent(name: string, dbType: string): string {
-  if (dbType === "mysql" || dbType === "mariadb") {
+  if (dbType === "mysql" || dbType === "mariadb" || dbType === "clickhouse") {
     return `\`${name.replace(/`/g, "``")}\``;
   } else {
     return `"${name.replace(/"/g, '""')}"`;
@@ -102,18 +102,25 @@ export function generateBaselineSQL(snapshot: SchemaFile, version: string, name:
         return `  CONSTRAINT ${quoteIdent(fk.name, dbType)} FOREIGN KEY (${srcCols}) REFERENCES ${targetRef}(${tgtCols}) ON DELETE ${onDelete} ON UPDATE ${onUpdate}`;
       });
 
-      const allDefs = [...columnDefs, ...fkDefs].join(",\n");
+      if (dbType === "clickhouse") {
+        const pkCols = table.columns
+          .filter((c) => c.isPrimaryKey)
+          .map((c) => quoteIdent(c.name, dbType));
+        const orderClause = pkCols.length > 0 ? pkCols.join(", ") : "tuple()";
+        upSQL += `CREATE TABLE ${tableRef} (\n${columnDefs.join(",\n")}\n) ENGINE = MergeTree() ORDER BY (${orderClause});\n\n`;
+      } else {
+        const allDefs = [...columnDefs, ...fkDefs].join(",\n");
+        upSQL += `CREATE TABLE ${tableRef} (\n${allDefs}\n);\n\n`;
 
-      upSQL += `CREATE TABLE ${tableRef} (\n${allDefs}\n);\n\n`;
-
-      // Indexes
-      const indexesToCreate = table.indexes || [];
-      for (const idx of indexesToCreate) {
-        const idxCols = idx.columns.map((c) => quoteIdent(c, dbType)).join(", ");
-        const uniqueStr = idx.unique ? "UNIQUE " : "";
-        upSQL += `CREATE ${uniqueStr}INDEX ${quoteIdent(idx.name, dbType)} ON ${tableRef} (${idxCols});\n`;
+        // Indexes
+        const indexesToCreate = table.indexes || [];
+        for (const idx of indexesToCreate) {
+          const idxCols = idx.columns.map((c) => quoteIdent(c, dbType)).join(", ");
+          const uniqueStr = idx.unique ? "UNIQUE " : "";
+          upSQL += `CREATE ${uniqueStr}INDEX ${quoteIdent(idx.name, dbType)} ON ${tableRef} (${idxCols});\n`;
+        }
+        if (indexesToCreate.length > 0) upSQL += "\n";
       }
-      if (indexesToCreate.length > 0) upSQL += "\n";
     }
 
     // Views

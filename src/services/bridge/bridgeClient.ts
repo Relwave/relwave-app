@@ -346,6 +346,11 @@ function getTimeoutForMethod(method: string): number {
   // Ping should be fast
   if (method === "ping" || method === HEALTH_PING_METHOD) return 5000; // 5 seconds
 
+  // Local settings operations should be fast
+  if (method === "ai.loadSettings") return 3000; // 3 seconds
+  if (method === "ai.saveSettings") return 5000; // 5 seconds
+  if (method === "ai.testConnection") return 15000; // 15 seconds
+
   // Schema operations can be very slow on large databases
   if (method === "db.getSchema") return 180000; // 3 minutes
 

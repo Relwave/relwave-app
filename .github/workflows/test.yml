@@ -61,6 +61,22 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        env:
+          CLICKHOUSE_USER: testuser
+          CLICKHOUSE_PASSWORD: testpass
+          CLICKHOUSE_DB: testdb
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        ports:
+          - 8123:8123
+          - 9000:9000
+        options: >-
+          --health-cmd="wget -q --spider http://localhost:8123/ping || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     env:
       REAL_POSTGRES_HOST: localhost
       REAL_POSTGRES_PORT: 5432
@@ -92,6 +108,13 @@ jobs:
       REAL_MARIADB_PASSWORD: testpass
       REAL_MARIADB_DATABASE: testdb
       REAL_MARIADB_SSL: "false"
+
+      REAL_CLICKHOUSE_HOST: localhost
+      REAL_CLICKHOUSE_PORT: 8123
+      REAL_CLICKHOUSE_USER: testuser
+      REAL_CLICKHOUSE_PASSWORD: testpass
+      REAL_CLICKHOUSE_DATABASE: testdb
+      REAL_CLICKHOUSE_SSL: "false"
 
       # SQLite — no env vars needed; tests use a temp file
 
@@ -126,6 +149,10 @@ jobs:
       - name: Seed MariaDB database
         run: |
           mysql -h 127.0.0.1 -P 3307 -u root -prootpass testdb < bridge/scripts/seed-mariadb.sql
+
+      - name: Seed ClickHouse database
+        run: |
+          node bridge/scripts/seed-clickhouse.cjs
 
       - name: Run tests
         run: |

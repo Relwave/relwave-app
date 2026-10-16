@@ -425,6 +425,7 @@ export function ImportProjectDialog({
                       <SelectItem value="mariadb">MariaDB</SelectItem>
                       <SelectItem value="sqlite">SQLite</SelectItem>
                       <SelectItem value="duckdb">DuckDB</SelectItem>
+                      <SelectItem value="clickhouse">ClickHouse</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

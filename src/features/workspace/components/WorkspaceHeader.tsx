@@ -9,6 +9,8 @@ interface WorkspaceHeaderProps {
   queryProgress: { rows: number; elapsed: number } | null;
   canExecute: boolean;
   activeQuery?: string;
+  hasSelection?: boolean;
+  elapsedMs?: number;
   onExecute: () => void;
   onCancel: () => void;
   onNLQueryClick: () => void;
@@ -21,6 +23,8 @@ export function WorkspaceHeader({
   queryProgress,
   canExecute,
   activeQuery,
+  hasSelection = false,
+  elapsedMs = 0,
   onExecute,
   onCancel,
   onNLQueryClick,
@@ -37,11 +41,11 @@ export function WorkspaceHeader({
       <div className="flex items-center gap-2">
         {/* Execution status */}
         {isExecuting && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/65 px-3 py-1.5 rounded-md border border-border/50">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/65 px-3 py-1.5 rounded-md border border-border/50 font-mono">
             <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
             <span>{queryProgress?.rows || 0} rows</span>
             <span className="text-muted-foreground/50">•</span>
-            <span>{queryProgress?.elapsed || 0}s</span>
+            <span className="tabular-nums">{(elapsedMs / 1000).toFixed(1)}s</span>
           </div>
         )}
 
@@ -66,14 +70,28 @@ export function WorkspaceHeader({
 
         {/* Run/Stop buttons */}
         {isExecuting ? (
-          <Button size="sm" variant="destructive" onClick={onCancel} className="h-8 gap-1.5">
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={onCancel}
+            className="h-8 gap-1.5 font-mono"
+          >
             <Square className="h-3.5 w-3.5" />
-            Stop
+            Stop ({(elapsedMs / 1000).toFixed(1)}s)
           </Button>
         ) : (
-          <Button size="sm" onClick={onExecute} disabled={!canExecute} className="h-8 gap-1.5">
-            <Play className="h-3.5 w-3.5" />
-            Run Query
+          <Button
+            size="sm"
+            onClick={onExecute}
+            disabled={!canExecute}
+            className="h-8 gap-1.5"
+            title="Press Ctrl+Enter or Cmd+Enter to execute"
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+            {hasSelection ? "Run Selection" : "Run Query"}
+            <kbd className="hidden sm:inline-flex ml-1 px-1 py-0.2 text-[10px] bg-primary-foreground/20 rounded text-primary-foreground">
+              Ctrl+↵
+            </kbd>
           </Button>
         )}
       </div>

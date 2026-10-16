@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -20,15 +22,14 @@ import { Loader2, Settings, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlterTableOperation, CreateTableColumn } from "@/features/database/types";
 import { useAlterTableDialog } from "../hooks/useAlterTableDialog";
-
-const DATA_TYPES = [
-  { value: "INT", label: "Integer" },
-  { value: "BIGINT", label: "Big Integer" },
-  { value: "TEXT", label: "Text" },
-  { value: "BOOLEAN", label: "Boolean" },
-  { value: "TIMESTAMP", label: "Timestamp" },
-  { value: "JSON", label: "JSON" },
-];
+import { useDatabase } from "@/features/project/hooks/useDbQueries";
+import {
+  getDatabaseAcceptedDatatypes,
+  getAllAcceptedDatatypes,
+  getDefaultColumnType,
+  getDatabaseMeta,
+  DatabaseLogo,
+} from "@/lib/databases";
 
 const OPERATION_TYPES = [
   { value: "ADD_COLUMN", label: "Add Column" },
@@ -48,6 +49,7 @@ interface AlterTableDialogProps {
   schemaName: string;
   tableName: string;
   availableColumns: string[];
+  databaseType?: string;
   onSuccess?: () => void;
 }
 
@@ -58,8 +60,13 @@ export default function AlterTableDialog({
   schemaName,
   tableName,
   availableColumns,
+  databaseType,
   onSuccess,
 }: AlterTableDialogProps) {
+  const { data: database } = useDatabase(dbId);
+  const resolvedDbType = databaseType || database?.type;
+  const dbMeta = getDatabaseMeta(resolvedDbType);
+
   const {
     handleClose,
     handleSubmit,
@@ -73,6 +80,7 @@ export default function AlterTableDialog({
     dbId,
     schemaName,
     tableName,
+    databaseType: resolvedDbType,
     onSuccess,
     open,
     availableColumns,
@@ -83,7 +91,13 @@ export default function AlterTableDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Alter Table: {tableName}
+            <span>Alter Table: {tableName}</span>
+            {dbMeta && (
+              <span className="flex items-center gap-1.5 ml-1.5 px-2 py-0.5 rounded-md bg-muted/60 border border-border/40 text-xs font-normal text-muted-foreground">
+                <DatabaseLogo type={resolvedDbType} className="w-3.5 h-3.5" />
+                <span>{dbMeta.name}</span>
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             Modify the structure of table <span className="font-mono font-medium">{tableName}</span>{" "}
@@ -124,6 +138,7 @@ export default function AlterTableDialog({
                     operation={op}
                     index={index}
                     availableColumns={availableColumns}
+                    databaseType={resolvedDbType}
                     onUpdate={(newOp) => updateOperation(index, newOp)}
                     onRemove={() => removeOperation(index)}
                   />
@@ -162,6 +177,7 @@ interface OperationRowProps {
   operation: AlterTableOperation;
   index: number;
   availableColumns: string[];
+  databaseType?: string;
   onUpdate: (operation: AlterTableOperation) => void;
   onRemove: () => void;
 }
@@ -170,9 +186,12 @@ function OperationRow({
   operation,
   index,
   availableColumns,
+  databaseType,
   onUpdate,
   onRemove,
 }: OperationRowProps) {
+  const defaultType = getDefaultColumnType(databaseType);
+
   const updateType = (newType: string) => {
     // Create a new operation based on type
     let newOp: AlterTableOperation;
@@ -183,7 +202,7 @@ function OperationRow({
           type: "ADD_COLUMN",
           column: {
             name: "",
-            type: "TEXT",
+            type: defaultType,
             not_nullable: false,
             is_primary_key: false,
             default_value: "",
@@ -197,13 +216,13 @@ function OperationRow({
         newOp = { type: "RENAME_COLUMN", from: "", to: "" };
         break;
       case "ALTER_TYPE":
-        newOp = { type: "ALTER_TYPE", column_name: "", new_type: "TEXT" };
+        newOp = { type: "ALTER_TYPE", column_name: "", new_type: defaultType };
         break;
       case "SET_NOT_NULL":
-        newOp = { type: "SET_NOT_NULL", column_name: "", new_type: "TEXT" };
+        newOp = { type: "SET_NOT_NULL", column_name: "", new_type: defaultType };
         break;
       case "DROP_NOT_NULL":
-        newOp = { type: "DROP_NOT_NULL", column_name: "", new_type: "TEXT" };
+        newOp = { type: "DROP_NOT_NULL", column_name: "", new_type: defaultType };
         break;
       case "SET_DEFAULT":
         newOp = { type: "SET_DEFAULT", column_name: "", default_value: "" };
@@ -255,6 +274,7 @@ function OperationRow({
       {operation.type === "ADD_COLUMN" && (
         <AddColumnFields
           column={operation.column}
+          databaseType={databaseType}
           onChange={(column) => onUpdate({ ...operation, column })}
         />
       )}
@@ -310,21 +330,11 @@ function OperationRow({
           />
           <div className="space-y-1.5">
             <Label className="text-xs">New Type</Label>
-            <Select
+            <DataTypeSelect
               value={operation.new_type}
-              onValueChange={(new_type) => onUpdate({ ...operation, new_type })}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DATA_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              databaseType={databaseType}
+              onChange={(new_type) => onUpdate({ ...operation, new_type })}
+            />
           </div>
         </div>
       )}
@@ -339,21 +349,11 @@ function OperationRow({
           />
           <div className="space-y-1.5">
             <Label className="text-xs">Column Type</Label>
-            <Select
+            <DataTypeSelect
               value={operation.new_type}
-              onValueChange={(new_type) => onUpdate({ ...operation, new_type })}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {DATA_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              databaseType={databaseType}
+              onChange={(new_type) => onUpdate({ ...operation, new_type })}
+            />
             <p className="text-xs text-muted-foreground">
               MySQL requires type for NULL constraint changes
             </p>
@@ -394,12 +394,59 @@ function OperationRow({
 }
 
 // Helper Components
+function DataTypeSelect({
+  value,
+  onChange,
+  databaseType,
+}: {
+  value?: string;
+  onChange: (value: string) => void;
+  databaseType?: string;
+}) {
+  const acceptedDatatypes = getDatabaseAcceptedDatatypes(databaseType);
+  const allKnownTypes = getAllAcceptedDatatypes(databaseType);
+
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 text-sm">
+        <SelectValue placeholder="Select type" />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        {acceptedDatatypes.map((group) => (
+          <SelectGroup key={group.category}>
+            <SelectLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+              {group.category}
+            </SelectLabel>
+            {group.types.map((type) => (
+              <SelectItem key={type} value={type} className="font-mono text-xs">
+                {type}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+        {value && !allKnownTypes.some((t) => t.toLowerCase() === value.toLowerCase()) && (
+          <SelectGroup>
+            <SelectLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+              Custom
+            </SelectLabel>
+            <SelectItem value={value} className="font-mono text-xs">
+              {value}
+            </SelectItem>
+          </SelectGroup>
+        )}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function AddColumnFields({
   column,
   onChange,
+  databaseType,
 }: {
   column: CreateTableColumn;
   onChange: (column: CreateTableColumn) => void;
+  databaseType?: string;
 }) {
   return (
     <div className="space-y-3">
@@ -415,18 +462,11 @@ function AddColumnFields({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Type</Label>
-          <Select value={column.type} onValueChange={(type) => onChange({ ...column, type })}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DATA_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DataTypeSelect
+            value={column.type}
+            databaseType={databaseType}
+            onChange={(type) => onChange({ ...column, type })}
+          />
         </div>
       </div>
       <div className="space-y-1.5">

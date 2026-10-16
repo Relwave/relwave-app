@@ -11,12 +11,15 @@ import { Loader2, Table } from "lucide-react";
 import TableDesignerForm from "./TableDesignerForm";
 import AddIndexesDialog from "./AddIndexesDialog";
 import { useCreateTableDialog } from "../hooks/useCreateTableDialog";
+import { useDatabase } from "@/features/project/hooks/useDbQueries";
+import { DatabaseLogo, getDatabaseMeta } from "@/lib/databases";
 
 interface CreateTableDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dbId: string;
   schemaName: string;
+  databaseType?: string;
   onSuccess?: () => void;
 }
 
@@ -25,8 +28,13 @@ export default function CreateTableDialog({
   onOpenChange,
   dbId,
   schemaName,
+  databaseType,
   onSuccess,
 }: CreateTableDialogProps) {
+  const { data: database } = useDatabase(dbId);
+  const resolvedDbType = databaseType || database?.type;
+  const dbMeta = getDatabaseMeta(resolvedDbType);
+
   const {
     handleClose,
     handleIndexesSuccess,
@@ -46,6 +54,7 @@ export default function CreateTableDialog({
     onOpenChange,
     dbId,
     schemaName,
+    databaseType: resolvedDbType,
     onSuccess,
     open,
   });
@@ -57,7 +66,13 @@ export default function CreateTableDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Table className="h-5 w-5" />
-              Create New Table
+              <span>Create New Table</span>
+              {dbMeta && (
+                <span className="flex items-center gap-1.5 ml-1.5 px-2 py-0.5 rounded-md bg-muted/60 border border-border/40 text-xs font-normal text-muted-foreground">
+                  <DatabaseLogo type={resolvedDbType} className="w-3.5 h-3.5" />
+                  <span>{dbMeta.name}</span>
+                </span>
+              )}
             </DialogTitle>
             <DialogDescription>
               Create a new table in schema{" "}
@@ -74,6 +89,7 @@ export default function CreateTableDialog({
             onForeignKeysChange={setForeignKeys}
             currentSchema={schemaName}
             availableTables={availableTables}
+            databaseType={resolvedDbType}
           />
 
           <DialogFooter>
