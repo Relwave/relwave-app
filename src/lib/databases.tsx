@@ -5,6 +5,16 @@ import { Database } from "lucide-react";
 
 export type SupportedDatabaseType = DatabaseType | "mariadb";
 
+export interface DatatypeCategory {
+  category: string;
+  types: string[];
+}
+
+export interface ForeignKeySupport {
+  supported: boolean;
+  notes: string;
+}
+
 export interface DatabaseConfig {
   id: SupportedDatabaseType;
   type: SupportedDatabaseType;
@@ -21,6 +31,8 @@ export interface DatabaseConfig {
   fileExtensions?: string[];
   supportsSsl?: boolean;
   supportsSsh?: boolean;
+  foreignKeySupport: ForeignKeySupport;
+  acceptedDatatypes: DatatypeCategory[];
 }
 
 export const databases: DatabaseConfig[] = [
@@ -37,6 +49,25 @@ export const databases: DatabaseConfig[] = [
     supportsSsl: true,
     supportsSsh: true,
     deviconClass: "devicon-postgresql-plain colored",
+    foreignKeySupport: {
+      supported: true,
+      notes:
+        "Robust support including ON DELETE CASCADE, ON UPDATE, and deferred constraint checks.",
+    },
+    acceptedDatatypes: [
+      { category: "Integers", types: ["INT", "BIGINT", "SMALLINT", "SERIAL", "BIGSERIAL"] },
+      {
+        category: "Decimals and Floats",
+        types: ["NUMERIC", "DOUBLE PRECISION", "REAL", "DECIMAL"],
+      },
+      { category: "Text Strings", types: ["VARCHAR", "TEXT", "CHAR"] },
+      {
+        category: "Date and Time",
+        types: ["DATE", "TIMESTAMP", "TIMESTAMPTZ", "INTERVAL", "TIME"],
+      },
+      { category: "Boolean Flags", types: ["BOOLEAN"] },
+      { category: "Complex and Arrays", types: ["JSON", "JSONB", "UUID", "BYTEA", "ARRAY"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <path d="M93.809 92.112c.785-6.533.55-7.492 5.416-6.433l1.235.108c3.742.17 8.637-.602 11.513-1.938 6.191-2.873 9.861-7.668 3.758-6.409-13.924 2.873-14.881-1.842-14.881-1.842 14.703-21.815 20.849-49.508 15.543-56.287-14.47-18.489-39.517-9.746-39.936-9.52l-.134.025c-2.751-.571-5.83-.912-9.289-.968-6.301-.104-11.082 1.652-14.709 4.402 0 0-44.683-18.409-42.604 23.151.442 8.841 12.672 66.898 27.26 49.362 5.332-6.412 10.484-11.834 10.484-11.834 2.558 1.699 5.622 2.567 8.834 2.255l.249-.212c-.078.796-.044 1.575.099 2.497-3.757 4.199-2.653 4.936-10.166 6.482-7.602 1.566-3.136 4.355-.221 5.084 3.535.884 11.712 2.136 17.238-5.598l-.22.882c1.474 1.18 1.375 8.477 1.583 13.69.209 5.214.558 10.079 1.621 12.948 1.063 2.868 2.317 10.256 12.191 8.14 8.252-1.764 14.561-4.309 15.136-27.985"></path>
@@ -65,6 +96,18 @@ export const databases: DatabaseConfig[] = [
     supportsSsl: false,
     supportsSsh: true,
     deviconClass: "devicon-mysql-original colored",
+    foreignKeySupport: {
+      supported: true,
+      notes: "Enforced natively when using the default InnoDB transactional storage engine.",
+    },
+    acceptedDatatypes: [
+      { category: "Integers", types: ["INT", "BIGINT", "TINYINT", "SMALLINT", "MEDIUMINT"] },
+      { category: "Decimals and Floats", types: ["DECIMAL", "DOUBLE", "FLOAT"] },
+      { category: "Text Strings", types: ["VARCHAR", "TEXT", "CHAR", "MEDIUMTEXT", "LONGTEXT"] },
+      { category: "Date and Time", types: ["DATE", "DATETIME", "TIMESTAMP", "TIME"] },
+      { category: "Boolean Flags", types: ["BOOLEAN", "TINYINT(1)"] },
+      { category: "Complex and Arrays", types: ["JSON"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <path
@@ -87,6 +130,18 @@ export const databases: DatabaseConfig[] = [
     supportsSsl: true,
     supportsSsh: true,
     deviconClass: "devicon-mariadb-original colored",
+    foreignKeySupport: {
+      supported: true,
+      notes: "Enforced natively when using the default InnoDB transactional storage engine.",
+    },
+    acceptedDatatypes: [
+      { category: "Integers", types: ["INT", "BIGINT", "TINYINT", "SMALLINT", "MEDIUMINT"] },
+      { category: "Decimals and Floats", types: ["DECIMAL", "DOUBLE", "FLOAT"] },
+      { category: "Text Strings", types: ["VARCHAR", "TEXT", "CHAR", "MEDIUMTEXT", "LONGTEXT"] },
+      { category: "Date and Time", types: ["DATE", "DATETIME", "TIMESTAMP", "TIME"] },
+      { category: "Boolean Flags", types: ["BOOLEAN", "TINYINT(1)"] },
+      { category: "Complex and Arrays", types: ["JSON"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <path
@@ -105,6 +160,19 @@ export const databases: DatabaseConfig[] = [
     isFileBased: true,
     fileExtensions: ["db", "sqlite", "sqlite3", "s3db"],
     deviconClass: "devicon-sqlite-plain colored",
+    foreignKeySupport: {
+      supported: true,
+      notes:
+        "Syntax is supported but disabled by default. Must run 'PRAGMA foreign_keys = ON;' per session.",
+    },
+    acceptedDatatypes: [
+      { category: "Integers", types: ["INTEGER", "INT", "BIGINT", "SMALLINT", "TINYINT"] },
+      { category: "Decimals and Floats", types: ["REAL", "NUMERIC", "FLOAT", "DOUBLE"] },
+      { category: "Text Strings", types: ["TEXT", "VARCHAR", "CHAR", "CLOB"] },
+      { category: "Date and Time", types: ["DATETIME", "DATE", "TIMESTAMP"] },
+      { category: "Boolean Flags", types: ["BOOLEAN"] },
+      { category: "Complex and Arrays", types: ["BLOB", "JSON"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <defs>
@@ -145,6 +213,22 @@ export const databases: DatabaseConfig[] = [
     description: "Fast in-process columnar analytical SQL database file",
     isFileBased: true,
     fileExtensions: ["db", "duckdb", "ddb"],
+    foreignKeySupport: {
+      supported: true,
+      notes:
+        "Enforced during INSERT statements for data validation, but lacks cascading delete/update mechanisms.",
+    },
+    acceptedDatatypes: [
+      {
+        category: "Integers",
+        types: ["INT", "BIGINT", "HUGEINT", "SMALLINT", "TINYINT", "UTINYINT", "UINT", "UBIGINT"],
+      },
+      { category: "Decimals and Floats", types: ["DECIMAL", "DOUBLE", "FLOAT"] },
+      { category: "Text Strings", types: ["VARCHAR", "TEXT"] },
+      { category: "Date and Time", types: ["DATE", "TIMESTAMP", "TIME", "INTERVAL"] },
+      { category: "Boolean Flags", types: ["BOOLEAN"] },
+      { category: "Complex and Arrays", types: ["ARRAY", "LIST", "STRUCT", "MAP", "JSON", "UUID"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <path
@@ -170,6 +254,22 @@ export const databases: DatabaseConfig[] = [
     placeholderUrl: "http://default:password@localhost:8123/default",
     supportsSsl: true,
     supportsSsh: false,
+    foreignKeySupport: {
+      supported: false,
+      notes:
+        "Analytical column-store. Does not support relational constraints; structural relations rely entirely on JOINs.",
+    },
+    acceptedDatatypes: [
+      {
+        category: "Integers",
+        types: ["Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64"],
+      },
+      { category: "Decimals and Floats", types: ["Decimal", "Float32", "Float64"] },
+      { category: "Text Strings", types: ["String", "FixedString"] },
+      { category: "Date and Time", types: ["Date", "Date32", "DateTime", "DateTime64"] },
+      { category: "Boolean Flags", types: ["Bool"] },
+      { category: "Complex and Arrays", types: ["Array(T)", "Map(K, V)", "Tuple", "JSON", "UUID"] },
+    ],
     icon: (
       <svg viewBox="0 0 128 128">
         <path d="M0 0h128v128H0z" fill="#f9ff69"></path>
@@ -184,12 +284,61 @@ export const databases: DatabaseConfig[] = [
 
 export const SUPPORTED_DATABASES = databases;
 
+export const STANDARD_SQL_DATATYPES: DatatypeCategory[] = [
+  { category: "Integers", types: ["INT", "INTEGER", "BIGINT", "SMALLINT"] },
+  { category: "Decimals and Floats", types: ["DECIMAL", "FLOAT", "NUMERIC", "REAL"] },
+  { category: "Text Strings", types: ["VARCHAR", "CHAR", "TEXT"] },
+  { category: "Date and Time", types: ["DATE", "TIMESTAMP", "TIME"] },
+  { category: "Boolean Flags", types: ["BOOLEAN"] },
+  { category: "Complex and Arrays", types: ["ARRAY", "JSON"] },
+];
+
 export function getDatabaseMeta(typeOrName?: string | null): DatabaseConfig | undefined {
   if (!typeOrName) return undefined;
   const normalized = typeOrName.toLowerCase().trim();
   return databases.find(
     (db) => db.id === normalized || db.type === normalized || db.name.toLowerCase() === normalized,
   );
+}
+
+export function getDatabaseForeignKeySupport(typeOrName?: string | null): ForeignKeySupport {
+  const meta = getDatabaseMeta(typeOrName);
+  return (
+    meta?.foreignKeySupport ?? {
+      supported: true,
+      notes: "Fully supported natively as part of standard relational constraints.",
+    }
+  );
+}
+
+export function getDatabaseAcceptedDatatypes(typeOrName?: string | null): DatatypeCategory[] {
+  const meta = getDatabaseMeta(typeOrName);
+  const rawCategories = meta?.acceptedDatatypes ?? STANDARD_SQL_DATATYPES;
+  const seen = new Set<string>();
+
+  return rawCategories
+    .map((group) => ({
+      category: group.category,
+      types: group.types.filter((type) => {
+        const lower = type.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      }),
+    }))
+    .filter((group) => group.types.length > 0);
+}
+
+export function getAllAcceptedDatatypes(typeOrName?: string | null): string[] {
+  const categories = getDatabaseAcceptedDatatypes(typeOrName);
+  return categories.flatMap((cat) => cat.types);
+}
+
+export function getDefaultColumnType(typeOrName?: string | null): string {
+  const normalized = typeOrName?.toLowerCase().trim();
+  if (normalized === "clickhouse") return "String";
+  if (normalized === "sqlite") return "INTEGER";
+  return "VARCHAR";
 }
 
 export function getDatabaseIcon(typeOrName?: string | null): ReactNode | null {
