@@ -168,7 +168,7 @@ export default function VerticalIconBar({
       )}
 
       {/* Bottom Actions */}
-      <div className="mt-auto flex flex-col items-center gap-2">
+      <div className="mt-auto flex flex-col items-center gap-2 mb-6">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
