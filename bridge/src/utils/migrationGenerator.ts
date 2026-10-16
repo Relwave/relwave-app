@@ -70,9 +70,7 @@ export function generateCreateTableMigration(params: {
   // Generate UP SQL
   let upSQL = "";
   if (dbType === "clickhouse") {
-    const pkCols = columns
-      .filter((c) => c.is_primary_key)
-      .map((c) => quoteIdent(c.name, dbType));
+    const pkCols = columns.filter((c) => c.is_primary_key).map((c) => quoteIdent(c.name, dbType));
     const orderClause = pkCols.length > 0 ? pkCols.join(", ") : "tuple()";
     upSQL = `CREATE TABLE ${tableRef} (
 ${allDefs}
@@ -271,7 +269,14 @@ export function generateDropTableMigration(params: {
   foreignKeys?: any[];
   dbType: "mysql" | "postgres" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
 }): MigrationFile {
-  const { schemaName, tableName, mode = "RESTRICT", columns = [], foreignKeys = [], dbType } = params;
+  const {
+    schemaName,
+    tableName,
+    mode = "RESTRICT",
+    columns = [],
+    foreignKeys = [],
+    dbType,
+  } = params;
   const version = generateMigrationVersion();
   const name = `drop_${tableName}_table`;
   const filename = `${version}_${name}.sql`;

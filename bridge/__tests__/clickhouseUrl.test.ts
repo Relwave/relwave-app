@@ -11,11 +11,13 @@ describe("ClickHouse URL Utilities", () => {
 
     it("should strip markdown links", () => {
       expect(
-        cleanClickHouseUrl("[https://demo.clickhouse.cloud:8443](https://demo.clickhouse.cloud:8443)"),
+        cleanClickHouseUrl(
+          "[https://demo.clickhouse.cloud:8443](https://demo.clickhouse.cloud:8443)",
+        ),
       ).toBe("https://demo.clickhouse.cloud:8443");
-      expect(
-        cleanClickHouseUrl("[https://demo.clickhouse.cloud:8443]()"),
-      ).toBe("https://demo.clickhouse.cloud:8443");
+      expect(cleanClickHouseUrl("[https://demo.clickhouse.cloud:8443]()")).toBe(
+        "https://demo.clickhouse.cloud:8443",
+      );
     });
 
     it("should strip enclosing single/double quotes and backticks", () => {
@@ -40,18 +42,14 @@ describe("ClickHouse URL Utilities", () => {
       expect(cleanClickHouseUrl("clickhouse://demo.clickhouse.cloud:8443")).toBe(
         "https://demo.clickhouse.cloud:8443",
       );
-      expect(cleanClickHouseUrl("clickhouse://localhost:8123")).toBe(
-        "http://localhost:8123",
-      );
+      expect(cleanClickHouseUrl("clickhouse://localhost:8123")).toBe("http://localhost:8123");
     });
 
     it("should prepend https:// for clickhouse.cloud or port 8443 if no scheme provided", () => {
       expect(cleanClickHouseUrl("demo.clickhouse.cloud:8443")).toBe(
         "https://demo.clickhouse.cloud:8443",
       );
-      expect(cleanClickHouseUrl("demo.clickhouse.cloud")).toBe(
-        "https://demo.clickhouse.cloud",
-      );
+      expect(cleanClickHouseUrl("demo.clickhouse.cloud")).toBe("https://demo.clickhouse.cloud");
     });
 
     it("should prepend http:// for localhost:8123 if no scheme provided", () => {
@@ -67,9 +65,7 @@ describe("ClickHouse URL Utilities", () => {
 
   describe("parseClickHouseUrl", () => {
     it("should parse standard cloud url", () => {
-      const parsed = parseClickHouseUrl(
-        "https://of8remuy3t.ap-south-1.aws.clickhouse.cloud:8443",
-      );
+      const parsed = parseClickHouseUrl("https://of8remuy3t.ap-south-1.aws.clickhouse.cloud:8443");
       expect(parsed.host).toBe("of8remuy3t.ap-south-1.aws.clickhouse.cloud");
       expect(parsed.port).toBe(8443);
       expect(parsed.ssl).toBe(true);

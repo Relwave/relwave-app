@@ -1,8 +1,5 @@
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
-import {
-  ClickHouseConfig,
-  ClickHouseSchemaMetadataBatch,
-} from "../types/clickhouse";
+import { ClickHouseConfig, ClickHouseSchemaMetadataBatch } from "../types/clickhouse";
 export type { ClickHouseConfig, ClickHouseSchemaMetadataBatch };
 import {
   TableInfo,
@@ -34,10 +31,7 @@ import {
   CLICKHOUSE_GET_INDEXES,
   CLICKHOUSE_BATCH_GET_INDEXES,
 } from "../queries/clickhouse/constraints";
-import {
-  CLICKHOUSE_GET_DB_STATS,
-  CLICKHOUSE_GET_DB_SIZE,
-} from "../queries/clickhouse/stats";
+import { CLICKHOUSE_GET_DB_STATS, CLICKHOUSE_GET_DB_SIZE } from "../queries/clickhouse/stats";
 import { cleanClickHouseUrl } from "../utils/clickhouseUrl";
 import logger from "../services/logger";
 
@@ -97,7 +91,12 @@ class ClickHouseCacheManager {
     const entry = this.primaryKeysCache.get(this.getTableKey(cfg, schema, table));
     return this.isValid(entry) ? entry!.data : null;
   }
-  setPrimaryKeys(cfg: ClickHouseConfig, schema: string, table: string, data: PrimaryKeyInfo[]): void {
+  setPrimaryKeys(
+    cfg: ClickHouseConfig,
+    schema: string,
+    table: string,
+    data: PrimaryKeyInfo[],
+  ): void {
     this.primaryKeysCache.set(this.getTableKey(cfg, schema, table), {
       data,
       timestamp: Date.now(),
@@ -133,7 +132,12 @@ class ClickHouseCacheManager {
     const entry = this.tableDetailsCache.get(this.getTableKey(cfg, schema, table));
     return this.isValid(entry) ? entry!.data : null;
   }
-  setTableDetails(cfg: ClickHouseConfig, schema: string, table: string, data: ColumnDetail[]): void {
+  setTableDetails(
+    cfg: ClickHouseConfig,
+    schema: string,
+    table: string,
+    data: ColumnDetail[],
+  ): void {
     this.tableDetailsCache.set(this.getTableKey(cfg, schema, table), {
       data,
       timestamp: Date.now(),
@@ -281,18 +285,13 @@ export async function testConnection(
   }
 }
 
-export async function listTables(
-  cfg: ClickHouseConfig,
-  schemaName?: string,
-): Promise<TableInfo[]> {
+export async function listTables(cfg: ClickHouseConfig, schemaName?: string): Promise<TableInfo[]> {
   const cached = clickhouseCache.getTableList(cfg, schemaName);
   if (cached) return cached;
 
   const client = getClient(cfg);
   const query = schemaName ? CLICKHOUSE_LIST_TABLES_BY_SCHEMA : CLICKHOUSE_LIST_TABLES;
-  const query_params = schemaName
-    ? { target_schema: schemaName, schema: schemaName }
-    : undefined;
+  const query_params = schemaName ? { target_schema: schemaName, schema: schemaName } : undefined;
 
   const res = await client.query({
     query,
@@ -446,7 +445,7 @@ export async function getDBStats(cfg: ClickHouseConfig): Promise<DBStats> {
       total_tables = Number(statsData[0].total_tables) || 0;
       total_rows = Number(statsData[0].total_rows) || 0;
     }
-  } catch { }
+  } catch {}
 
   try {
     const sizeRes = await client.query({
@@ -458,7 +457,7 @@ export async function getDBStats(cfg: ClickHouseConfig): Promise<DBStats> {
     if (sizeData.length > 0) {
       total_db_size_mb = Number(sizeData[0].total_db_size_mb) || 0;
     }
-  } catch { }
+  } catch {}
 
   const stats: DBStats = {
     total_tables,
@@ -595,7 +594,10 @@ export async function getSchemaMetadataBatch(
       }
     }
   } catch (err: any) {
-    logger.warn({ err: err?.message, schema }, "ClickHouse getSchemaMetadataBatch listTables failed");
+    logger.warn(
+      { err: err?.message, schema },
+      "ClickHouse getSchemaMetadataBatch listTables failed",
+    );
   }
 
   // Fallback table discovery if empty and no specific table filter was provided
@@ -608,7 +610,10 @@ export async function getSchemaMetadataBatch(
         }
       }
     } catch (err: any) {
-      logger.warn({ err: err?.message, schema }, "ClickHouse getSchemaMetadataBatch allTables fallback failed");
+      logger.warn(
+        { err: err?.message, schema },
+        "ClickHouse getSchemaMetadataBatch allTables fallback failed",
+      );
     }
   }
 
@@ -655,7 +660,10 @@ export async function getSchemaMetadataBatch(
       entry.primaryKeys.push({ column_name: r.column_name });
     }
   } catch (err: any) {
-    logger.warn({ err: err?.message, schema }, "ClickHouse CLICKHOUSE_BATCH_GET_PRIMARY_KEYS failed");
+    logger.warn(
+      { err: err?.message, schema },
+      "ClickHouse CLICKHOUSE_BATCH_GET_PRIMARY_KEYS failed",
+    );
   }
 
   // 4. Batch fetch secondary indexes
@@ -681,7 +689,10 @@ export async function getSchemaMetadataBatch(
       });
     }
   } catch (err: any) {
-    logger.debug({ err: err?.message, schema }, "ClickHouse CLICKHOUSE_BATCH_GET_INDEXES skipped/failed");
+    logger.debug(
+      { err: err?.message, schema },
+      "ClickHouse CLICKHOUSE_BATCH_GET_INDEXES skipped/failed",
+    );
   }
 
   // 5. Direct fallback: If tablesMap is still empty after batch queries, query system.tables directly
@@ -837,11 +848,7 @@ export async function createTable(
     })
     .join(",\n  ");
 
-  const pkCols = Array.isArray(primaryKey)
-    ? primaryKey
-    : primaryKey
-      ? [primaryKey]
-      : [];
+  const pkCols = Array.isArray(primaryKey) ? primaryKey : primaryKey ? [primaryKey] : [];
   const orderClause = pkCols.length > 0 ? pkCols.map((c) => `\`${c}\``).join(", ") : "tuple()";
   const ifNotExistsClause = ifNotExists ? "IF NOT EXISTS " : "";
 
@@ -1132,7 +1139,7 @@ export async function rollbackMigration(
 
   if (stmts.length === 0) {
     throw new Error(
-      `Cannot rollback migration "${migration.name}": no executable SQL found in DOWN section.`
+      `Cannot rollback migration "${migration.name}": no executable SQL found in DOWN section.`,
     );
   }
 
@@ -1190,7 +1197,11 @@ export async function updateRow(
         .join(" AND ");
     }
     updates = primaryKeyValueOrRow || {};
-  } else if (typeof primaryKeyColumnOrObj === "string" && primaryKeyValueOrRow && typeof primaryKeyValueOrRow === "object") {
+  } else if (
+    typeof primaryKeyColumnOrObj === "string" &&
+    primaryKeyValueOrRow &&
+    typeof primaryKeyValueOrRow === "object"
+  ) {
     updates = primaryKeyValueOrRow;
     whereClause = `\`${primaryKeyColumnOrObj}\` = ${formatValue(rowData)}`;
   }
@@ -1203,9 +1214,7 @@ export async function updateRow(
     throw new Error("Primary key condition required for update");
   }
 
-  const sets = updateEntries
-    .map(([col, val]) => `\`${col}\` = ${formatValue(val)}`)
-    .join(", ");
+  const sets = updateEntries.map(([col, val]) => `\`${col}\` = ${formatValue(val)}`).join(", ");
 
   await client.command({
     query: `ALTER TABLE \`${schemaName}\`.\`${tableName}\` UPDATE ${sets} WHERE ${whereClause}`,
@@ -1292,9 +1301,7 @@ export async function searchTable(
       return fetchTableData(cfg, schemaName, tableName, pageSize, page);
     }
 
-    whereConditions = textCols
-      .map((c) => `\`${c.name}\` ILIKE '%${escapedTerm}%'`)
-      .join(" OR ");
+    whereConditions = textCols.map((c) => `\`${c.name}\` ILIKE '%${escapedTerm}%'`).join(" OR ");
   }
 
   const countRes = await client.query({

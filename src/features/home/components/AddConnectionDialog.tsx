@@ -63,8 +63,9 @@ export function AddConnectionDialog({
         const reconstructedUrl =
           initialData.url ||
           (initialData.type === "clickhouse" && initialData.host
-            ? `${initialData.ssl ? "https" : "http"}://${initialData.host}:${initialData.port || (initialData.ssl ? "8443" : "8123")
-            }`
+            ? `${initialData.ssl ? "https" : "http"}://${initialData.host}:${
+                initialData.port || (initialData.ssl ? "8443" : "8123")
+              }`
             : "");
 
         setFormData((prev) => ({
@@ -304,8 +305,9 @@ export function AddConnectionDialog({
                     if (isClickHouse && !isUrlMode && !formData.url) {
                       setFormData((prev) => ({
                         ...prev,
-                        url: `${prev.ssl ? "https" : "http"}://${prev.host || "localhost"}:${prev.port || (prev.ssl ? "8443" : "8123")
-                          }`,
+                        url: `${prev.ssl ? "https" : "http"}://${prev.host || "localhost"}:${
+                          prev.port || (prev.ssl ? "8443" : "8123")
+                        }`,
                       }));
                     }
                   }}
@@ -363,8 +365,9 @@ export function AddConnectionDialog({
                       value={formData.database}
                       onChange={(e) => handleInputChange("database", e.target.value)}
                       readOnly={isDiscoveredMode}
-                      className={`h-9 text-sm font-mono flex-1 ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                        }`}
+                      className={`h-9 text-sm font-mono flex-1 ${
+                        isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                      }`}
                     />
                     <Button
                       type="button"
@@ -422,8 +425,9 @@ export function AddConnectionDialog({
                           }));
                         }}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm font-mono ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                   ) : (
@@ -439,13 +443,15 @@ export function AddConnectionDialog({
                             setFormData((prev) => ({
                               ...prev,
                               host: val,
-                              url: `${prev.ssl ? "https" : "http"}://${val || "localhost"}:${prev.port || (prev.ssl ? "8443" : "8123")
-                                }`,
+                              url: `${prev.ssl ? "https" : "http"}://${val || "localhost"}:${
+                                prev.port || (prev.ssl ? "8443" : "8123")
+                              }`,
                             }));
                           }}
                           readOnly={isDiscoveredMode}
-                          className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                            }`}
+                          className={`h-9 text-sm font-mono ${
+                            isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                          }`}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -459,13 +465,15 @@ export function AddConnectionDialog({
                             setFormData((prev) => ({
                               ...prev,
                               port: val,
-                              url: `${prev.ssl ? "https" : "http"}://${prev.host || "localhost"}:${val || (prev.ssl ? "8443" : "8123")
-                                }`,
+                              url: `${prev.ssl ? "https" : "http"}://${prev.host || "localhost"}:${
+                                val || (prev.ssl ? "8443" : "8123")
+                              }`,
                             }));
                           }}
                           readOnly={isDiscoveredMode}
-                          className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                            }`}
+                          className={`h-9 text-sm font-mono ${
+                            isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                          }`}
                         />
                       </div>
                     </div>
@@ -479,8 +487,9 @@ export function AddConnectionDialog({
                         value={formData.user}
                         onChange={(e) => handleInputChange("user", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm font-mono ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -491,8 +500,9 @@ export function AddConnectionDialog({
                         value={formData.password}
                         onChange={(e) => handleInputChange("password", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                   </div>
@@ -504,8 +514,9 @@ export function AddConnectionDialog({
                       value={formData.database}
                       onChange={(e) => handleInputChange("database", e.target.value)}
                       readOnly={isDiscoveredMode}
-                      className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                        }`}
+                      className={`h-9 text-sm font-mono ${
+                        isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                      }`}
                     />
                   </div>
 
@@ -526,8 +537,9 @@ export function AddConnectionDialog({
                               : prev.port === "8443"
                                 ? "8123"
                                 : prev.port,
-                            url: `${isSsl ? "https" : "http"}://${prev.host || "localhost"}:${isSsl ? (prev.port === "8123" ? "8443" : prev.port) : prev.port
-                              }`,
+                            url: `${isSsl ? "https" : "http"}://${prev.host || "localhost"}:${
+                              isSsl ? (prev.port === "8123" ? "8443" : prev.port) : prev.port
+                            }`,
                           }));
                         }}
                       />
@@ -548,8 +560,9 @@ export function AddConnectionDialog({
                         value={formData.host}
                         onChange={(e) => handleInputChange("host", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm font-mono ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -559,8 +572,9 @@ export function AddConnectionDialog({
                         value={formData.port}
                         onChange={(e) => handleInputChange("port", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm font-mono ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                   </div>
@@ -573,8 +587,9 @@ export function AddConnectionDialog({
                         value={formData.user}
                         onChange={(e) => handleInputChange("user", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm font-mono ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -585,8 +600,9 @@ export function AddConnectionDialog({
                         value={formData.password}
                         onChange={(e) => handleInputChange("password", e.target.value)}
                         readOnly={isDiscoveredMode}
-                        className={`h-9 text-sm ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                          }`}
+                        className={`h-9 text-sm ${
+                          isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                        }`}
                       />
                     </div>
                   </div>
@@ -598,8 +614,9 @@ export function AddConnectionDialog({
                       value={formData.database}
                       onChange={(e) => handleInputChange("database", e.target.value)}
                       readOnly={isDiscoveredMode}
-                      className={`h-9 text-sm font-mono ${isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
-                        }`}
+                      className={`h-9 text-sm font-mono ${
+                        isDiscoveredMode ? "opacity-60 bg-muted cursor-not-allowed" : ""
+                      }`}
                     />
                   </div>
 

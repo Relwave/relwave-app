@@ -59,7 +59,8 @@ export function cleanClickHouseUrl(raw?: string): string {
     url = "https://" + url.slice("clickhouses://".length);
   } else if (url.startsWith("clickhouse://")) {
     const rest = url.slice("clickhouse://".length);
-    const isSsl = rest.includes(":8443") || rest.includes(":443") || rest.includes("clickhouse.cloud");
+    const isSsl =
+      rest.includes(":8443") || rest.includes(":443") || rest.includes("clickhouse.cloud");
     url = (isSsl ? "https://" : "http://") + rest;
   }
 
@@ -227,8 +228,7 @@ export function buildConnectionUrl(params: {
     return `${params.type}:///${encodeSqlitePathSegments(params.database)}`;
   }
   const isClickHouseSsl =
-    params.type === "clickhouse" &&
-    (params.sslmode === "require" || params.port === "8443");
+    params.type === "clickhouse" && (params.sslmode === "require" || params.port === "8443");
   const protocol =
     params.type === "mysql"
       ? "mysql"

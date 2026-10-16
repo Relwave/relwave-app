@@ -297,9 +297,7 @@ export class DiscoveryService {
       return {
         user: envVars.get("CLICKHOUSE_USER") || envVars.get("CLICKHOUSE_DEFAULT_USER") || "default",
         password:
-          envVars.get("CLICKHOUSE_PASSWORD") ||
-          envVars.get("CLICKHOUSE_DEFAULT_PASSWORD") ||
-          "",
+          envVars.get("CLICKHOUSE_PASSWORD") || envVars.get("CLICKHOUSE_DEFAULT_PASSWORD") || "",
         database: envVars.get("CLICKHOUSE_DB") || "default",
       };
     } else {

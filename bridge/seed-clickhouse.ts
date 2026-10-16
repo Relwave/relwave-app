@@ -58,9 +58,7 @@ function parseArgs(): {
   drop: boolean;
 } {
   const args = process.argv.slice(2);
-  let url =
-    process.env.CLICKHOUSE_URL ||
-    "https://of8remuy3t.ap-south-1.aws.clickhouse.cloud:8443";
+  let url = process.env.CLICKHOUSE_URL || "https://of8remuy3t.ap-south-1.aws.clickhouse.cloud:8443";
   let username = process.env.CLICKHOUSE_USER || "default";
   let password = process.env.CLICKHOUSE_PASSWORD || "HpD2b9hQ5KW.3";
   let database = process.env.CLICKHOUSE_DATABASE || "default";
@@ -125,11 +123,7 @@ async function main() {
   const { url, username, password, database, scale, drop } = parseArgs();
   const config = SCALE_PRESETS[scale] || SCALE_PRESETS.medium;
   const totalPlanned =
-    config.users +
-    config.products +
-    config.orders +
-    config.events +
-    config.metrics;
+    config.users + config.products + config.orders + config.events + config.metrics;
 
   console.log("\n=======================================================");
   console.log("   RelWave ClickHouse Benchmark & Seed Generator");

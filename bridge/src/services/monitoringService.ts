@@ -267,8 +267,7 @@ export class MonitoringService {
               format: "JSONEachRow",
             })
             .then(
-              async (res) =>
-                (await res.json()) as Array<{ event: string; value: string | number }>,
+              async (res) => (await res.json()) as Array<{ event: string; value: string | number }>,
             ),
 
           client

@@ -118,7 +118,11 @@ describe("ClickhouseCacheManager", () => {
     });
 
     it("should clear all caches on clearAll", () => {
-      clickhouseCache.setTableList(mockConnection, [{ schema: "testdb", name: "users", type: "BASE TABLE" }], "testdb");
+      clickhouseCache.setTableList(
+        mockConnection,
+        [{ schema: "testdb", name: "users", type: "BASE TABLE" }],
+        "testdb",
+      );
       clickhouseCache.clearAll();
       expect(clickhouseCache.getTableList(mockConnection, "testdb")).toBeNull();
     });

@@ -62,8 +62,7 @@ export class DatabaseService {
     const isFileBasedDB = ["sqlite", "duckdb"].includes(
       (payload.type as string | undefined)?.toLowerCase() || "",
     );
-    const isClickHouse =
-      (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
+    const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
     const required = isFileBasedDB
       ? ["name", "database", "type"]
       : isClickHouse
@@ -123,8 +122,7 @@ export class DatabaseService {
     const isFileBasedDB = ["sqlite", "duckdb"].includes(
       (payload.type as string | undefined)?.toLowerCase() || "",
     );
-    const isClickHouse =
-      (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
+    const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
 
     // Extract SSH credentials
     const sshPwd = payload.ssh?.password;

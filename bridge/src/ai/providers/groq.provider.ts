@@ -13,7 +13,6 @@ import {
   parseChartRecommendation,
 } from "../prompts/chart-recommendation";
 
-
 const DEFAULT_MODEL = "openai/gpt-oss-20b";
 const FALLBACK_MODELS = [
   "openai/gpt-oss-20b",
@@ -88,7 +87,14 @@ export class GroqProvider implements AIProvider {
     let availableChatModels: string[] = [];
     try {
       const modelsRes = await this.client.models.list();
-      const nonChatKeywords = ["whisper", "prompt-guard", "orpheus", "safeguard", "vision", "embed"];
+      const nonChatKeywords = [
+        "whisper",
+        "prompt-guard",
+        "orpheus",
+        "safeguard",
+        "vision",
+        "embed",
+      ];
       availableChatModels = (modelsRes.data ?? [])
         .map((m) => m.id)
         .filter((id) => !nonChatKeywords.some((kw) => id.toLowerCase().includes(kw)));
@@ -118,4 +124,3 @@ export class GroqProvider implements AIProvider {
     return this.complete(system, user);
   }
 }
-

@@ -633,11 +633,7 @@ function CommandItem({
             : TYPE_COLORS[type],
         )}
       >
-        {iconNode ? (
-          iconNode
-        ) : Icon ? (
-          <Icon className="h-3 w-3" />
-        ) : null}
+        {iconNode ? iconNode : Icon ? <Icon className="h-3 w-3" /> : null}
       </div>
 
       {/* Label — IBM Plex Sans 450 (between regular and medium) */}

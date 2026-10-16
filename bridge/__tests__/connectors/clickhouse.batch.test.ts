@@ -207,7 +207,9 @@ describe("ClickHouse getSchemaMetadataBatch unit tests", () => {
       }
 
       // Fallback single table column queries:
-      if (q.includes("WHERE database = {target_schema: String} AND `table` = {target_table: String}")) {
+      if (
+        q.includes("WHERE database = {target_schema: String} AND `table` = {target_table: String}")
+      ) {
         return {
           json: async () => [
             {
@@ -273,7 +275,13 @@ describe("ClickHouse getSchemaMetadataBatch unit tests", () => {
           json: async () => [
             { table: "student", name: "id", type: "UInt32", not_nullable: 1, is_in_primary_key: 1 },
             { table: "persons", name: "id", type: "UInt32", not_nullable: 1, is_in_primary_key: 1 },
-            { table: "TestTable", name: "id", type: "UInt32", not_nullable: 1, is_in_primary_key: 1 },
+            {
+              table: "TestTable",
+              name: "id",
+              type: "UInt32",
+              not_nullable: 1,
+              is_in_primary_key: 1,
+            },
           ],
         };
       }

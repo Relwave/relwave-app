@@ -52,10 +52,7 @@ export class ConnectionBuilder {
       };
     }
 
-    const defaultPort =
-      dbType === DBType.MYSQL || dbType === DBType.MARIADB
-        ? 3306
-        : 5432;
+    const defaultPort = dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432;
 
     const base: DatabaseConfig = {
       host: db.host,

@@ -88,9 +88,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
     executingTabIdRef.current = targetId;
     wasExecutingRef.current = true;
     setTabs((prev) =>
-      prev.map((tab) =>
-        tab.id === targetId ? { ...tab, status: "running", error: null } : tab,
-      ),
+      prev.map((tab) => (tab.id === targetId ? { ...tab, status: "running", error: null } : tab)),
     );
     handleExecuteQuery(activeTab.query);
   }, [activeTab?.query, isExecuting, activeTabId, handleExecuteQuery]);
@@ -287,9 +285,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
                 onChange={updateActiveTabQuery}
                 onExecute={handleRunActiveQuery}
                 dialect={
-                  databaseType === "mysql" || databaseType === "mariadb"
-                    ? "mysql"
-                    : "postgresql"
+                  databaseType === "mysql" || databaseType === "mariadb" ? "mysql" : "postgresql"
                 }
                 disabled={isExecuting}
                 minHeight="100%"

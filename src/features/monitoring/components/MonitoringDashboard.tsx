@@ -81,8 +81,8 @@ export function MonitoringDashboard({
             data.databaseType === "clickhouse"
               ? "Mark Cache"
               : data.databaseType === "postgres"
-              ? "Cache Hit"
-              : "Buffer Hit"
+                ? "Cache Hit"
+                : "Buffer Hit"
           }
           value={data.cacheHitRatio === null ? "N/A" : `${formatNumber(data.cacheHitRatio)}%`}
           detail={data.databaseType === "clickhouse" ? "Mark cache efficiency" : "Read efficiency"}

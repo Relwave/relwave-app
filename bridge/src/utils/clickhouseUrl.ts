@@ -20,7 +20,8 @@ export function cleanClickHouseUrl(raw?: string): string {
     url = "https://" + url.slice("clickhouses://".length);
   } else if (url.startsWith("clickhouse://")) {
     const rest = url.slice("clickhouse://".length);
-    const isSsl = rest.includes(":8443") || rest.includes(":443") || rest.includes("clickhouse.cloud");
+    const isSsl =
+      rest.includes(":8443") || rest.includes(":443") || rest.includes("clickhouse.cloud");
     url = (isSsl ? "https://" : "http://") + rest;
   }
 

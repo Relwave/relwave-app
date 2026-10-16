@@ -698,50 +698,49 @@ export default function AISettings() {
         <div className="mt-3 rounded-lg border border-border/30 bg-card/30 divide-y divide-border/20">
           {otherProviders.map((provider) => {
             const modelField = MODEL_FIELD[provider.name];
-              const modelOptions = MODEL_OPTIONS[provider.name] ?? [];
-              const selectedModel = modelField
-                ? (settings[modelField] as string | undefined)
-                : undefined;
-              const selectedModelInfo =
-                modelOptions.find((o) => o.value === selectedModel) ?? modelOptions[0];
-              return (
-                <div key={provider.name} className="px-4 py-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor={`ai-other-${provider.name}`}
-                      className="text-[11px] font-semibold flex items-center gap-2"
+            const modelOptions = MODEL_OPTIONS[provider.name] ?? [];
+            const selectedModel = modelField
+              ? (settings[modelField] as string | undefined)
+              : undefined;
+            const selectedModelInfo =
+              modelOptions.find((o) => o.value === selectedModel) ?? modelOptions[0];
+            return (
+              <div key={provider.name} className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor={`ai-other-${provider.name}`}
+                    className="text-[11px] font-semibold flex items-center gap-2"
+                  >
+                    {provider.label}
+                    {selectedModelInfo && <TierBadge tier={selectedModelInfo.tier} />}
+                  </Label>
+                  {provider.docsUrl && (
+                    <a
+                      href={provider.docsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground flex items-center gap-1"
                     >
-                      {provider.label}
-                      {selectedModelInfo && <TierBadge tier={selectedModelInfo.tier} />}
-                    </Label>
-                    {provider.docsUrl && (
-                      <a
-                        href={provider.docsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground flex items-center gap-1"
-                      >
-                        Get key <ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    )}
-                  </div>
-                  <SecretInput
-                    id={`ai-other-${provider.name}`}
-                    value={(settings[provider.keyField!] as string) ?? ""}
-                    onChange={(v) => update({ [provider.keyField!]: v })}
-                    placeholder={provider.keyPlaceholder}
-                  />
-                  {modelField && modelOptions.length > 0 && (
-                    <ModelSelector
-                      provider={provider.name}
-                      value={selectedModel}
-                      onChange={(model) => update({ [modelField]: model })}
-                    />
+                      Get key <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
                   )}
                 </div>
-              );
-            },
-          )}
+                <SecretInput
+                  id={`ai-other-${provider.name}`}
+                  value={(settings[provider.keyField!] as string) ?? ""}
+                  onChange={(v) => update({ [provider.keyField!]: v })}
+                  placeholder={provider.keyPlaceholder}
+                />
+                {modelField && modelOptions.length > 0 && (
+                  <ModelSelector
+                    provider={provider.name}
+                    value={selectedModel}
+                    onChange={(model) => update({ [modelField]: model })}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </details>
     </div>

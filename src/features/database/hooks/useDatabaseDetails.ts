@@ -9,7 +9,13 @@ import {
   useSchemaNames,
   useFullSchema,
 } from "@/features/project/hooks/useDbQueries";
-import { QueryProgress, SelectedTable, TableInfo, TableRow, ColumnDetails } from "@/features/database/types";
+import {
+  QueryProgress,
+  SelectedTable,
+  TableInfo,
+  TableRow,
+  ColumnDetails,
+} from "@/features/database/types";
 import { sessionService } from "@/services/bridge/session";
 import { queryService } from "@/services/bridge/query";
 import { analyticsService } from "@/services/analytics";
