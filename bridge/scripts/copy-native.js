@@ -156,3 +156,53 @@ fs.copyFileSync(src, dest);
 console.log("Copied better_sqlite3.node");
 console.log("    from:", src);
 console.log("    to:  ", dest);
+
+// DuckDB native bindings copy logic
+try {
+  // Assuming pnpm hoisting or node_modules layout, we can find the node-bindings package
+  // We'll search in node_modules recursively for duckdb.node and duckdb.dll
+  const bridgeNodeModules = path.join(repoRoot, "bridge", "node_modules");
+
+  const findDuckDBFiles = (dir, filesObj) => {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name !== ".bin" && entry.name !== ".cache") {
+        findDuckDBFiles(path.join(dir, entry.name), filesObj);
+      } else if (entry.isFile()) {
+        if (entry.name === "duckdb.node" && !filesObj.node) {
+          filesObj.node = path.join(dir, entry.name);
+        } else if (entry.name === "duckdb.dll" && !filesObj.dll) {
+          filesObj.dll = path.join(dir, entry.name);
+        }
+      }
+    }
+  };
+
+  const duckdbFiles = { node: null, dll: null };
+  findDuckDBFiles(bridgeNodeModules, duckdbFiles);
+
+  if (duckdbFiles.dll) {
+    const dllDest = path.join(repoRoot, "src-tauri", "resources", "duckdb.dll");
+    fs.copyFileSync(duckdbFiles.dll, dllDest);
+    console.log("Copied duckdb.dll");
+    console.log("    from:", duckdbFiles.dll);
+    console.log("    to:  ", dllDest);
+  } else {
+    // If not on Windows or duckdb.dll not found, ensure placeholder exists for Tauri bundler
+    const dllDest = path.join(repoRoot, "src-tauri", "resources", "duckdb.dll");
+    if (!fs.existsSync(dllDest)) {
+      fs.writeFileSync(dllDest, "");
+    }
+  }
+
+  if (duckdbFiles.node) {
+    const nodeDest = path.join(repoRoot, "src-tauri", "resources", "duckdb.node");
+    fs.copyFileSync(duckdbFiles.node, nodeDest);
+    console.log("Copied duckdb.node");
+    console.log("    from:", duckdbFiles.node);
+    console.log("    to:  ", nodeDest);
+  }
+} catch (error) {
+  console.warn("WARNING: Failed to find/copy DuckDB native bindings.", error.message);
+}

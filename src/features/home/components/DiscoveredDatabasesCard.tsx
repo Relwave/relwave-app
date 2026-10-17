@@ -32,6 +32,16 @@ const DB_TYPE_COLORS = {
     text: "text-cyan-500",
     border: "border-cyan-500/20",
   },
+  duckdb: {
+    bg: "bg-yellow-500/10",
+    text: "text-yellow-600",
+    border: "border-yellow-500/20",
+  },
+  clickhouse: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-500",
+    border: "border-amber-500/20",
+  },
 };
 
 export function DiscoveredDatabasesCard({

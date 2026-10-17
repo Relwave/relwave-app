@@ -59,10 +59,15 @@ export class DatabaseService {
   }
 
   async addDatabase(payload: Record<string, any>) {
-    const isSQLite = (payload.type as string | undefined)?.toLowerCase().includes("sqlite");
-    const required = isSQLite
+    const isFileBasedDB = ["sqlite", "duckdb"].includes(
+      (payload.type as string | undefined)?.toLowerCase() || "",
+    );
+    const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
+    const required = isFileBasedDB
       ? ["name", "database", "type"]
-      : ["name", "host", "port", "user", "database", "type"];
+      : isClickHouse
+        ? ["name", "type"]
+        : ["name", "host", "port", "user", "database", "type"];
     for (const field of required) {
       if (!payload[field]) throw new Error(`Missing required field: ${field}`);
     }
@@ -75,11 +80,27 @@ export class DatabaseService {
       delete payload.ssh.passphrase;
     }
 
-    if (isSQLite) {
+    if (isFileBasedDB) {
+      // NOTE: ConnectionBuilder.buildSQLiteConnection works for duckdb paths too
       const { config } = await ConnectionBuilder.buildSQLiteConnection(payload);
       payload = {
         ...payload,
         database: (config as any).path,
+      };
+    } else if (isClickHouse) {
+      if (!payload.url && !payload.host) {
+        throw new Error("Missing required field: url");
+      }
+      const { parseClickHouseUrl } = await import("../utils/clickhouseUrl");
+      const parsed = parseClickHouseUrl(payload.url || payload.host);
+      payload = {
+        ...payload,
+        url: parsed.url,
+        host: payload.host || parsed.host,
+        port: payload.port || parsed.port,
+        user: payload.user || "default",
+        database: payload.database || parsed.database || "default",
+        ssl: payload.ssl !== undefined ? payload.ssl : parsed.ssl,
       };
     }
 
@@ -98,7 +119,10 @@ export class DatabaseService {
 
   async updateDatabase(id: string, payload: Record<string, any>) {
     if (!id) throw new Error("Missing id");
-    const isSQLite = (payload.type as string | undefined)?.toLowerCase().includes("sqlite");
+    const isFileBasedDB = ["sqlite", "duckdb"].includes(
+      (payload.type as string | undefined)?.toLowerCase() || "",
+    );
+    const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
 
     // Extract SSH credentials
     const sshPwd = payload.ssh?.password;
@@ -108,12 +132,29 @@ export class DatabaseService {
       delete payload.ssh.passphrase;
     }
 
-    if (isSQLite || typeof payload.database === "string") {
+    if (isClickHouse && (payload.url || payload.host)) {
+      const { parseClickHouseUrl } = await import("../utils/clickhouseUrl");
+      const parsed = parseClickHouseUrl(payload.url || payload.host);
+      payload = {
+        ...payload,
+        url: parsed.url,
+        host: payload.host || parsed.host,
+        port: payload.port || parsed.port,
+        database: payload.database || parsed.database || "default",
+        ssl: payload.ssl !== undefined ? payload.ssl : parsed.ssl,
+      };
+    }
+    if (payload.ssh) {
+      delete payload.ssh.password;
+      delete payload.ssh.passphrase;
+    }
+
+    if (isFileBasedDB || typeof payload.database === "string") {
       const current = await dbStoreInstance.getDB(id);
-      const currentIsSQLite = (current?.type as string | undefined)
-        ?.toLowerCase()
-        .includes("sqlite");
-      if (currentIsSQLite || isSQLite) {
+      const currentIsFileBasedDB = ["sqlite", "duckdb"].includes(
+        (current?.type as string | undefined)?.toLowerCase() || "",
+      );
+      if (currentIsFileBasedDB || isFileBasedDB) {
         const { config } = await ConnectionBuilder.buildSQLiteConnection({
           ...current,
           ...payload,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { useDatabaseDetails } from "@/features/database/hooks/useDatabaseDetails";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -17,25 +17,54 @@ interface SQLWorkspacePanelProps {
 
 const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
   const { data: bridgeReady } = useBridgeQuery();
+  const storageKey = `relwave_sql_tabs_${dbId}`;
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"tables" | "history">("tables");
 
-  // Query tabs state
-  const [tabs, setTabs] = useState<QueryTab[]>([
-    {
-      id: "1",
-      name: "Query 1",
-      query: "-- Write your SQL query here\nSELECT * FROM ",
-      results: [],
-      rowCount: 0,
-      error: null,
-      executionTime: null,
-      status: "idle",
-    },
-  ]);
-  const [activeTabId, setActiveTabId] = useState("1");
+  // Selection tracking in active editor
+  const [selectedText, setSelectedText] = useState("");
+
+  // Elapsed execution time stopwatch
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  // Query tabs state with localStorage persistence
+  const [tabs, setTabs] = useState<QueryTab[]>(() => {
+    try {
+      const saved = localStorage.getItem(`relwave_sql_tabs_${dbId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((t: any) => ({
+            id: t.id || "1",
+            name: t.name || "Query 1",
+            query: t.query || "-- Write your SQL query here\nSELECT * FROM ",
+            results: [],
+            rowCount: 0,
+            error: null,
+            executionTime: null,
+            status: "idle",
+          }));
+        }
+      }
+    } catch {}
+    return [
+      {
+        id: "1",
+        name: "Query 1",
+        query: "-- Write your SQL query here\nSELECT * FROM ",
+        results: [],
+        rowCount: 0,
+        error: null,
+        executionTime: null,
+        status: "idle",
+      },
+    ];
+  });
+  const [activeTabId, setActiveTabId] = useState(tabs[0]?.id || "1");
+  const executingTabIdRef = useRef<string>(activeTabId);
+  const wasExecutingRef = useRef<boolean>(false);
 
   // Query history
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
@@ -44,20 +73,42 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
   const {
     databaseName,
+    databaseType,
     tables,
     queryProgress,
     queryError,
+    executionTime,
     isExecuting,
     setQuery,
     handleExecuteQuery,
     handleCancelQuery,
     queryResults,
-    hasExecutedQuery,
     rowCount,
   } = useDatabaseDetails({
     dbId,
     bridgeReady: bridgeReady ?? false,
   });
+
+  // Persist query tabs to localStorage
+  useEffect(() => {
+    try {
+      const toSave = tabs.map(({ id, name, query }) => ({ id, name, query }));
+      localStorage.setItem(storageKey, JSON.stringify(toSave));
+    } catch {}
+  }, [tabs, storageKey]);
+
+  // Live stopwatch when executing
+  useEffect(() => {
+    if (!isExecuting) {
+      setElapsedMs(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - start);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isExecuting]);
 
   // Sync with active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -65,6 +116,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
   useEffect(() => {
     if (activeTab) {
       setQuery(activeTab.query);
+      setSelectedText("");
     }
   }, [activeTabId]);
 
@@ -79,34 +131,71 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
     [activeTabId, setQuery],
   );
 
-  // Update tab results when query completes
+  const handleRenameTab = useCallback((tabId: string, newName: string) => {
+    setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, name: newName } : t)));
+  }, []);
+
+  const handleRunActiveQuery = useCallback(() => {
+    const queryToExecute = selectedText.trim() ? selectedText : activeTab?.query;
+    if (!queryToExecute?.trim() || isExecuting) return;
+    const targetId = activeTabId;
+    executingTabIdRef.current = targetId;
+    wasExecutingRef.current = true;
+    setTabs((prev) =>
+      prev.map((tab) => (tab.id === targetId ? { ...tab, status: "running", error: null } : tab)),
+    );
+    handleExecuteQuery(queryToExecute);
+  }, [activeTab?.query, selectedText, isExecuting, activeTabId, handleExecuteQuery]);
+
+  // Keyboard shortcut Ctrl+Enter / Cmd+Enter to execute active query or selection
   useEffect(() => {
-    if (hasExecutedQuery && !isExecuting && (queryResults.length > 0 || queryError)) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleRunActiveQuery();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleRunActiveQuery]);
+
+  // Update tab results when query transitions from running to finished
+  useEffect(() => {
+    if (isExecuting) {
+      wasExecutingRef.current = true;
+      return;
+    }
+
+    if (wasExecutingRef.current && !isExecuting) {
+      wasExecutingRef.current = false;
+      const targetTabId = executingTabIdRef.current || activeTabId;
+
+      let executedQuery = "";
       setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === activeTabId
-            ? {
-                ...tab,
-                results: queryResults,
-                rowCount: rowCount,
-                error: queryError,
-                status: queryError ? "error" : "success",
-                executionTime: queryProgress?.elapsed || null,
-              }
-            : tab,
-        ),
+        prev.map((tab) => {
+          if (tab.id === targetTabId) {
+            executedQuery = tab.query;
+            return {
+              ...tab,
+              results: queryResults,
+              rowCount: rowCount,
+              error: queryError,
+              status: queryError ? "error" : "success",
+              executionTime: executionTime,
+            };
+          }
+          return tab;
+        }),
       );
 
-      // Add to history
-      if (activeTab?.query.trim() && !queryError) {
+      if (executedQuery.trim() && !queryError) {
         setQueryHistory((prev) => {
-          // Avoid duplicating the exact same query consecutively
-          if (prev.length > 0 && prev[0].query === activeTab.query) {
+          if (prev.length > 0 && prev[0].query === executedQuery) {
             return prev;
           }
           return [
             {
-              query: activeTab.query,
+              query: executedQuery,
               timestamp: new Date(),
               rowCount: rowCount,
               success: true,
@@ -116,16 +205,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
         });
       }
     }
-  }, [isExecuting, hasExecutedQuery, queryResults, rowCount, queryError]);
-
-  // Update tab status when executing
-  useEffect(() => {
-    if (isExecuting) {
-      setTabs((prev) =>
-        prev.map((tab) => (tab.id === activeTabId ? { ...tab, status: "running" } : tab)),
-      );
-    }
-  }, [isExecuting, activeTabId]);
+  }, [isExecuting, queryResults, rowCount, queryError, executionTime, activeTabId]);
 
   const addNewTab = useCallback(() => {
     const newId = Date.now().toString();
@@ -162,10 +242,21 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
 
   const insertTableQuery = useCallback(
     (tableName: string, schema: string) => {
-      const newQuery = `SELECT * FROM "${schema}"."${tableName}" LIMIT 100;`;
+      let newQuery = "";
+      if (databaseType === "sqlite") {
+        newQuery = `SELECT * FROM "${tableName}" LIMIT 100;`;
+      } else if (
+        databaseType === "mysql" ||
+        databaseType === "mariadb" ||
+        databaseType === "clickhouse"
+      ) {
+        newQuery = `SELECT * FROM \`${schema}\`.\`${tableName}\` LIMIT 100;`;
+      } else {
+        newQuery = `SELECT * FROM "${schema}"."${tableName}" LIMIT 100;`;
+      }
       updateActiveTabQuery(newQuery);
     },
-    [updateActiveTabQuery],
+    [databaseType, updateActiveTabQuery],
   );
 
   const loadFromHistory = useCallback(
@@ -209,9 +300,11 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
         databaseName={databaseName || "Database"}
         isExecuting={isExecuting}
         queryProgress={queryProgress}
-        canExecute={!!activeTab?.query.trim()}
-        activeQuery={activeTab?.query}
-        onExecute={handleExecuteQuery}
+        canExecute={!!activeTab?.query.trim() || !!selectedText.trim()}
+        activeQuery={selectedText.trim() ? selectedText : activeTab?.query}
+        hasSelection={!!selectedText.trim()}
+        elapsedMs={elapsedMs}
+        onExecute={handleRunActiveQuery}
         onCancel={handleCancelQuery}
         onNLQueryClick={() => setIsNLDialogOpen(true)}
       />
@@ -237,6 +330,7 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
             onTabSelect={setActiveTabId}
             onTabClose={closeTab}
             onNewTab={addNewTab}
+            onTabRename={handleRenameTab}
           />
 
           {/* Split View: Editor + Results */}
@@ -246,6 +340,11 @@ const SQLWorkspacePanel = ({ dbId }: SQLWorkspacePanelProps) => {
               <SqlEditor
                 value={activeTab?.query || ""}
                 onChange={updateActiveTabQuery}
+                onExecute={handleRunActiveQuery}
+                onSelectionChange={setSelectedText}
+                dialect={
+                  databaseType === "mysql" || databaseType === "mariadb" ? "mysql" : "postgresql"
+                }
                 disabled={isExecuting}
                 minHeight="100%"
                 placeholder="-- Enter your SQL query and press Run (or Ctrl+Enter)"

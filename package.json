@@ -1,7 +1,7 @@
 {
   "name": "relwave",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,9 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "bridge:copy-native": "npm --prefix bridge run copy:native",
-    "bridge:package": "node scripts/package-bridge.mjs"
+    "bridge:package": "node scripts/package-bridge.mjs",
+    "seed:duckdb": "npm --prefix bridge run seed:duckdb",
+    "seed:clickhouse": "npm --prefix bridge run seed:clickhouse"
   },
   "dependencies": {
     "@aptabase/tauri": "github:aptabase/tauri-plugin-aptabase",

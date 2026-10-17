@@ -1,8 +1,15 @@
 import { Maximize2, Minus, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useLocation, Link } from "react-router-dom";
 import BridgeStatus from "./BridgeStatus";
+import { useDatabase } from "@/features/project/hooks/useDbQueries";
+import { DatabaseLogo } from "@/lib/databases";
 
 const TitleBar = () => {
+  const location = useLocation();
+  const dbId = location.pathname !== "/" ? location.pathname.split("/")[1] : undefined;
+  const { data: database } = useDatabase(dbId);
+
   const handleMinimize = async () => {
     try {
       const appWindow = getCurrentWindow();
@@ -24,6 +31,12 @@ const TitleBar = () => {
   const handleClose = async () => {
     try {
       const appWindow = getCurrentWindow();
+      // Hide window immediately for instant feedback (guarded in try-catch)
+      try {
+        await appWindow.hide();
+      } catch {
+        // Proceed even if hide has an issue
+      }
       await appWindow.close();
     } catch (error) {
       console.error("Failed to close:", error);
@@ -38,7 +51,21 @@ const TitleBar = () => {
       {/* App Title - Left */}
       <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-full">
         <div className="w-3 h-3 rounded-full bg-linear-to-br from-primary/80 to-primary" />
-        <span className="text-xs font-medium text-muted-foreground">RelWave</span>
+        <Link
+          to="/"
+          className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          RelWave
+        </Link>
+        {database && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/40">
+            <span>/</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted/40 border border-border/30 text-[11px] font-medium text-foreground">
+              <DatabaseLogo type={database.type} className="w-3.5 h-3.5" />
+              <span className="max-w-[140px] truncate">{database.name}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bridge Status - Center */}

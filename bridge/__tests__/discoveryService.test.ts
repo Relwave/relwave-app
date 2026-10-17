@@ -34,6 +34,16 @@ describe("DiscoveryService", () => {
       expect(name).not.toContain("-3306");
     });
 
+    test("should not add port suffix for default ClickHouse port", () => {
+      const name = service.generateFunName("clickhouse", 8123);
+      expect(name).not.toContain("-8123");
+    });
+
+    test("should add port suffix for non-default ClickHouse port", () => {
+      const name = service.generateFunName("clickhouse", 8124);
+      expect(name).toMatch(/^[a-z]+-[a-z]+-8124$/);
+    });
+
     test("should add port suffix for non-default MySQL port", () => {
       const name = service.generateFunName("mysql", 3307);
       expect(name).toMatch(/^[a-z]+-[a-z]+-3307$/);
@@ -54,7 +64,7 @@ describe("DiscoveryService", () => {
     // Access private method via prototype for testing
     const extractCredentials = (
       svc: DiscoveryService,
-      dbType: "postgresql" | "mysql" | "mariadb",
+      dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse",
       envVars: Map<string, string>,
     ) => {
       return (svc as any).extractCredentialsFromEnv(dbType, envVars);
@@ -181,6 +191,45 @@ describe("DiscoveryService", () => {
         expect(result.password).toBe("mysqlrootpass");
       });
     });
+
+    describe("ClickHouse", () => {
+      test("should extract ClickHouse credentials with CLICKHOUSE_USER", () => {
+        const envVars = new Map<string, string>([
+          ["CLICKHOUSE_USER", "chuser"],
+          ["CLICKHOUSE_PASSWORD", "chpass"],
+          ["CLICKHOUSE_DB", "analytics"],
+        ]);
+
+        const result = extractCredentials(service, "clickhouse", envVars);
+
+        expect(result.user).toBe("chuser");
+        expect(result.password).toBe("chpass");
+        expect(result.database).toBe("analytics");
+      });
+
+      test("should fall back to CLICKHOUSE_DEFAULT_USER and CLICKHOUSE_DEFAULT_PASSWORD", () => {
+        const envVars = new Map<string, string>([
+          ["CLICKHOUSE_DEFAULT_USER", "defaultadmin"],
+          ["CLICKHOUSE_DEFAULT_PASSWORD", "secret123"],
+        ]);
+
+        const result = extractCredentials(service, "clickhouse", envVars);
+
+        expect(result.user).toBe("defaultadmin");
+        expect(result.password).toBe("secret123");
+        expect(result.database).toBe("default");
+      });
+
+      test("should use defaults when ClickHouse env vars are missing", () => {
+        const envVars = new Map<string, string>();
+
+        const result = extractCredentials(service, "clickhouse", envVars);
+
+        expect(result.user).toBe("default");
+        expect(result.password).toBe("");
+        expect(result.database).toBe("default");
+      });
+    });
   });
 
   describe("getDefaultPort (private)", () => {
@@ -198,6 +247,10 @@ describe("DiscoveryService", () => {
 
     test("should return 3306 for mariadb", () => {
       expect(getDefaultPort(service, "mariadb")).toBe(3306);
+    });
+
+    test("should return 8123 for clickhouse", () => {
+      expect(getDefaultPort(service, "clickhouse")).toBe(8123);
     });
 
     test("should return 0 for unknown type", () => {
@@ -222,6 +275,10 @@ describe("DiscoveryService", () => {
       expect(getDefaultUser(service, "mariadb")).toBe("root");
     });
 
+    test("should return default for clickhouse", () => {
+      expect(getDefaultUser(service, "clickhouse")).toBe("default");
+    });
+
     test("should return empty string for unknown type", () => {
       expect(getDefaultUser(service, "unknown")).toBe("");
     });
@@ -242,6 +299,10 @@ describe("DiscoveryService", () => {
 
     test("should return mysql for mariadb", () => {
       expect(getDefaultDatabase(service, "mariadb")).toBe("mysql");
+    });
+
+    test("should return default for clickhouse", () => {
+      expect(getDefaultDatabase(service, "clickhouse")).toBe("default");
     });
 
     test("should return empty string for unknown type", () => {
@@ -321,9 +382,20 @@ describe("DiscoveryService", () => {
         defaultDatabase: "mysql",
       };
 
+      const clickhouseDb: DiscoveredDatabase = {
+        type: "clickhouse",
+        host: "localhost",
+        port: 8123,
+        source: "local",
+        suggestedName: "clickhouse-db",
+        defaultUser: "default",
+        defaultDatabase: "default",
+      };
+
       expect(pgDb.type).toBe("postgresql");
       expect(mysqlDb.type).toBe("mysql");
       expect(mariaDb.type).toBe("mariadb");
+      expect(clickhouseDb.type).toBe("clickhouse");
     });
   });
 
@@ -340,7 +412,7 @@ describe("DiscoveryService", () => {
 
       for (const db of result) {
         expect(db.type).toBeDefined();
-        expect(["postgresql", "mysql", "mariadb"]).toContain(db.type);
+        expect(["postgresql", "mysql", "mariadb", "clickhouse"]).toContain(db.type);
         expect(db.host).toBeDefined();
         expect(typeof db.port).toBe("number");
         expect(db.source).toBeDefined();

@@ -77,9 +77,15 @@ export function MonitoringDashboard({
         />
         <MetricCard
           icon={DatabaseZap}
-          label={data.databaseType === "postgres" ? "Cache Hit" : "Buffer Hit"}
+          label={
+            data.databaseType === "clickhouse"
+              ? "Mark Cache"
+              : data.databaseType === "postgres"
+                ? "Cache Hit"
+                : "Buffer Hit"
+          }
           value={data.cacheHitRatio === null ? "N/A" : `${formatNumber(data.cacheHitRatio)}%`}
-          detail="Read efficiency"
+          detail={data.databaseType === "clickhouse" ? "Mark cache efficiency" : "Read efficiency"}
         />
       </div>
 

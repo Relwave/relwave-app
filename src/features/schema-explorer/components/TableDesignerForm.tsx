@@ -4,24 +4,22 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Link2 } from "lucide-react";
+import { Trash2, Plus, Link2, Info } from "lucide-react";
 import { CreateTableColumn, ForeignKeyConstraint } from "@/features/database/types";
+import {
+  getDatabaseAcceptedDatatypes,
+  getDatabaseForeignKeySupport,
+  getAllAcceptedDatatypes,
+} from "@/lib/databases";
 import ForeignKeyRow from "./ForeignKeyRow";
 import useTableDesignerForm from "../hooks/useTableDesignerForm";
-
-const DATA_TYPES = [
-  { value: "INT", label: "Integer" },
-  { value: "BIGINT", label: "Big Integer" },
-  { value: "TEXT", label: "Text" },
-  { value: "BOOLEAN", label: "Boolean" },
-  { value: "TIMESTAMP", label: "Timestamp" },
-  { value: "JSON", label: "JSON" },
-];
 
 interface TableDesignerFormProps {
   tableName: string;
@@ -32,6 +30,7 @@ interface TableDesignerFormProps {
   onForeignKeysChange: (foreignKeys: ForeignKeyConstraint[]) => void;
   currentSchema: string;
   availableTables: Array<{ schema: string; name: string }>;
+  databaseType?: string;
 }
 
 export default function TableDesignerForm({
@@ -43,7 +42,12 @@ export default function TableDesignerForm({
   onForeignKeysChange,
   currentSchema,
   availableTables,
+  databaseType,
 }: TableDesignerFormProps) {
+  const acceptedDatatypes = getDatabaseAcceptedDatatypes(databaseType);
+  const foreignKeySupport = getDatabaseForeignKeySupport(databaseType);
+  const allKnownTypes = getAllAcceptedDatatypes(databaseType);
+
   const {
     addColumn,
     addForeignKey,
@@ -60,6 +64,7 @@ export default function TableDesignerForm({
     foreignKeys,
     currentSchema,
     availableTables,
+    databaseType,
   });
   return (
     <div className="space-y-6">
@@ -147,14 +152,29 @@ export default function TableDesignerForm({
                       value={column.type}
                       onValueChange={(value) => updateColumn(index, "type", value)}
                     >
-                      <SelectTrigger id={`col-type-${index}`} className="h-9 text-sm">
-                        <SelectValue />
+                      <SelectTrigger id={`col-type-${index}`} className="h-9 text-sm font-mono">
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {DATA_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
+                      <SelectContent className="max-h-60">
+                        {column.type &&
+                          !allKnownTypes.some(
+                            (t) => t.toLowerCase() === column.type.toLowerCase(),
+                          ) && (
+                            <SelectItem value={column.type} className="font-mono text-xs">
+                              {column.type} (custom)
+                            </SelectItem>
+                          )}
+                        {acceptedDatatypes.map((group) => (
+                          <SelectGroup key={group.category}>
+                            <SelectLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 bg-muted/40">
+                              {group.category}
+                            </SelectLabel>
+                            {group.types.map((type) => (
+                              <SelectItem key={type} value={type} className="font-mono text-xs">
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>
@@ -222,40 +242,59 @@ export default function TableDesignerForm({
             <Link2 className="h-4 w-4 text-muted-foreground" />
             <Label className="text-sm font-medium">Foreign Keys</Label>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addForeignKey}
-            className="h-8 gap-1.5"
-            disabled={columns.length === 0}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Foreign Key
-          </Button>
+          {foreignKeySupport.supported && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addForeignKey}
+              className="h-8 gap-1.5"
+              disabled={columns.length === 0}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Foreign Key
+            </Button>
+          )}
         </div>
 
-        {foreignKeys.length === 0 ? (
-          <div className="border border-dashed border-border/50 rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No foreign keys defined. Add columns first, then define relationships.
-            </p>
+        {!foreignKeySupport.supported ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-xs flex items-start gap-3">
+            <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-semibold text-foreground">
+                Foreign Key Constraints Not Supported
+              </span>
+              <p className="text-muted-foreground">{foreignKeySupport.notes}</p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-3 max-h-75 overflow-y-auto pr-2">
-            {foreignKeys.map((fk, index) => (
-              <ForeignKeyRow
-                key={index}
-                foreignKey={fk}
-                index={index}
-                onUpdate={updateForeignKey}
-                onRemove={removeForeignKey}
-                availableColumns={columns.map((col) => col.name).filter(Boolean)}
-                availableTables={availableTables}
-                currentSchema={currentSchema}
-              />
-            ))}
-          </div>
+          <>
+            {foreignKeySupport.notes && (
+              <p className="text-xs text-muted-foreground/80 italic">{foreignKeySupport.notes}</p>
+            )}
+            {foreignKeys.length === 0 ? (
+              <div className="border border-dashed border-border/50 rounded-lg p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No foreign keys defined. Add columns first, then define relationships.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-75 overflow-y-auto pr-2">
+                {foreignKeys.map((fk, index) => (
+                  <ForeignKeyRow
+                    key={index}
+                    foreignKey={fk}
+                    index={index}
+                    onUpdate={updateForeignKey}
+                    onRemove={removeForeignKey}
+                    availableColumns={columns.map((col) => col.name).filter(Boolean)}
+                    availableTables={availableTables}
+                    currentSchema={currentSchema}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -4,12 +4,14 @@ import { migrationService } from "@/services/bridge/migration";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useInvalidateCache } from "@/features/project/hooks/useDbQueries";
+import { getDatabaseForeignKeySupport, getDatabaseMeta } from "@/lib/databases";
 
 interface CreateTableDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dbId: string;
   schemaName: string;
+  databaseType?: string;
   onSuccess?: () => void;
 }
 
@@ -17,6 +19,7 @@ export function useCreateTableDialog({
   onOpenChange,
   dbId,
   schemaName,
+  databaseType,
   onSuccess,
   open,
 }: CreateTableDialogProps) {
@@ -92,12 +95,31 @@ export function useCreateTableDialog({
       return false;
     }
 
+    // Check for empty column types
+    const emptyTypes = columns.filter((col) => !col.type?.trim());
+    if (emptyTypes.length > 0) {
+      toast.error("All columns must have a data type specified");
+      return false;
+    }
+
     // Check for duplicate column names
     const names = columns.map((col) => col.name.toLowerCase());
     const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
     if (duplicates.length > 0) {
       toast.error(`Duplicate column name: ${duplicates[0]}`);
       return false;
+    }
+
+    // Validate foreign key support
+    if (foreignKeys.length > 0) {
+      const fkSupport = getDatabaseForeignKeySupport(databaseType);
+      if (!fkSupport.supported) {
+        const dbName = getDatabaseMeta(databaseType)?.name || "This database";
+        toast.error(`${dbName} does not support foreign key constraints`, {
+          description: fkSupport.notes,
+        });
+        return false;
+      }
     }
 
     // Validate foreign keys

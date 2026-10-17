@@ -1,6 +1,7 @@
 import { Rpc } from "../types";
 import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
+import { getConnector } from "../services/connectorRegistry";
 import { Logger } from "pino";
 import path from "path";
 import fs from "fs";
@@ -97,7 +98,14 @@ export class MigrationHandlers {
 
   async handleGenerateDropMigration(params: any, id: number | string) {
     try {
-      const { dbId, schemaName, tableName, mode = "RESTRICT" } = params || {};
+      const {
+        dbId,
+        schemaName,
+        tableName,
+        mode = "RESTRICT",
+        columns: passedColumns,
+        foreignKeys: passedForeignKeys,
+      } = params || {};
 
       if (!dbId || !schemaName || !tableName) {
         return this.rpc.sendError(id, {
@@ -106,16 +114,77 @@ export class MigrationHandlers {
         });
       }
 
-      const { dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
-      // Generate migration file
+      let columns = passedColumns;
+      let foreignKeys = passedForeignKeys;
+
+      // 1. Introspect columns and foreign keys from live database before dropping
+      if (!columns || !Array.isArray(columns) || columns.length === 0) {
+        try {
+          const connector = getConnector(dbType) as any;
+          if (typeof connector.getTableDetails === "function") {
+            const tableDetails = await connector.getTableDetails(conn, schemaName, tableName);
+            if (tableDetails && tableDetails.length > 0) {
+              columns = tableDetails.map((col: any) => ({
+                name: col.name,
+                type: col.type,
+                not_nullable: Boolean(col.not_nullable),
+                default_value: col.default_value,
+                is_primary_key: Boolean(col.is_primary_key),
+              }));
+            }
+          }
+          if (
+            (!foreignKeys || foreignKeys.length === 0) &&
+            typeof connector.listForeignKeys === "function"
+          ) {
+            foreignKeys = await connector.listForeignKeys(conn, schemaName, tableName);
+          }
+        } catch (inspectErr) {
+          this.logger?.warn(
+            { err: inspectErr },
+            "Could not inspect table before drop migration generation",
+          );
+        }
+      }
+
+      // 2. If table was already dropped or live inspection failed, fall back to project schema snapshot
+      if (!columns || columns.length === 0) {
+        try {
+          const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
+          if (project) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            const schemaGroup = schemaFile?.schemas?.find((s: any) => s.name === schemaName);
+            const tableSnap = schemaGroup?.tables?.find((t: any) => t.name === tableName);
+            if (tableSnap?.columns?.length) {
+              columns = tableSnap.columns.map((c: any) => ({
+                name: c.name,
+                type: c.type,
+                not_nullable: !c.nullable,
+                default_value: c.defaultValue,
+                is_primary_key: Boolean(c.isPrimaryKey),
+              }));
+            }
+          }
+        } catch (snapErr) {
+          this.logger?.warn(
+            { err: snapErr },
+            "Could not load schema snapshot before drop migration generation",
+          );
+        }
+      }
+
+      // Generate migration file with reverse CREATE TABLE in downSQL
       const { generateDropTableMigration, writeMigrationFile } =
         await import("../utils/migrationGenerator");
       const migration = generateDropTableMigration({
         schemaName,
         tableName,
         mode,
+        columns,
+        foreignKeys,
         dbType,
       });
 
@@ -163,15 +232,8 @@ export class MigrationHandlers {
 
       const migrationFilePath = path.join(migrationsDir, migrationFile);
 
-      if (dbType === "mysql") {
-        await this.queryExecutor.mysql.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "postgres") {
-        await this.queryExecutor.postgres.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "mariadb") {
-        await this.queryExecutor.mariadb.applyMigration(conn, migrationFilePath);
-      } else if (dbType === "sqlite") {
-        await this.queryExecutor.sqlite.applyMigration(conn, migrationFilePath);
-      }
+      const connector = getConnector(dbType) as any;
+      await connector.applyMigration(conn, migrationFilePath);
 
       // Hook syncMigrationFiles
       try {
@@ -181,22 +243,37 @@ export class MigrationHandlers {
 
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
-          // Update Migration Lock first so it gets included in the git sync commit
-          let appliedMigrations: any[] = [];
-          if (dbType === "mysql") {
-            appliedMigrations = await require("../connectors/mysql").listAppliedMigrations(conn);
-          } else if (dbType === "postgres") {
-            appliedMigrations = await require("../connectors/postgres").listAppliedMigrations(conn);
-          } else if (dbType === "mariadb") {
-            appliedMigrations = await require("../connectors/mariadb").listAppliedMigrations(conn);
-          } else if (dbType === "sqlite") {
-            appliedMigrations = await require("../connectors/sqlite").listAppliedMigrations(conn);
+          // Refresh schema from DB so project schema.json stays up-to-date with newly created tables/columns
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto
+              .createHash("sha256")
+              .update(JSON.stringify(liveSchemas))
+              .digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", {
+              projectId: project.id,
+              newHash: schemaHash,
+            });
+          } catch (schemaErr) {
+            this.logger?.warn(
+              { err: schemaErr },
+              "Failed to auto-refresh project schema after migration apply",
+            );
           }
 
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          // Update Migration Lock first so it gets included in the git sync commit
+          const appliedMigrations = await connector.listAppliedMigrations(conn);
 
-          const appliedVersions = appliedMigrations.map((m) => m.version);
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
+
+          const appliedVersions = appliedMigrations.map((m: any) => m.version);
           await writeMigrationLock(dbId, schemaHash, appliedVersions);
 
           const projectDir = await projectStoreInstance.resolveProjectDir(project.id);
@@ -208,6 +285,9 @@ export class MigrationHandlers {
                 "Git sync failed after migration apply",
               );
             }
+            try {
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
           }
         }
       } catch (syncErr) {
@@ -249,12 +329,7 @@ export class MigrationHandlers {
       const { loadLocalMigrations } = await import("../utils/baselineMigration");
       const localMigrations = await loadLocalMigrations(migrationsDir);
 
-      let connector: any;
-      if (dbType === "mysql") connector = require("../connectors/mysql");
-      else if (dbType === "postgres") connector = require("../connectors/postgres");
-      else if (dbType === "mariadb") connector = require("../connectors/mariadb");
-      else if (dbType === "sqlite") connector = require("../connectors/sqlite");
-
+      const connector = getConnector(dbType) as any;
       const appliedMigrations = await connector.listAppliedMigrations(conn);
       const appliedSet = new Set(appliedMigrations.map((m: any) => m.version));
 
@@ -270,14 +345,7 @@ export class MigrationHandlers {
           throw new Error(`Migration file not found for version: ${migration.version}`);
 
         const migrationFilePath = path.join(migrationsDir, migrationFile);
-        if (dbType === "mysql")
-          await this.queryExecutor.mysql.applyMigration(conn, migrationFilePath);
-        else if (dbType === "postgres")
-          await this.queryExecutor.postgres.applyMigration(conn, migrationFilePath);
-        else if (dbType === "mariadb")
-          await this.queryExecutor.mariadb.applyMigration(conn, migrationFilePath);
-        else if (dbType === "sqlite")
-          await this.queryExecutor.sqlite.applyMigration(conn, migrationFilePath);
+        await connector.applyMigration(conn, migrationFilePath);
       }
 
       try {
@@ -285,14 +353,46 @@ export class MigrationHandlers {
         const { writeMigrationLock } = await import("../services/migrationLock");
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto
+              .createHash("sha256")
+              .update(JSON.stringify(liveSchemas))
+              .digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", {
+              projectId: project.id,
+              newHash: schemaHash,
+            });
+          } catch (schemaErr) {
+            this.logger?.warn(
+              { err: schemaErr },
+              "Failed to auto-refresh project schema after applyMigrations",
+            );
+          }
+
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
           const updatedApplied = await connector.listAppliedMigrations(conn);
           await writeMigrationLock(
             dbId,
             schemaHash,
             updatedApplied.map((m: any) => m.version),
           );
+
+          const projectDir = await projectStoreInstance.resolveProjectDir(project.id);
+          if (projectDir) {
+            try {
+              const { gitServiceInstance } = await import("../services/gitService");
+              await gitServiceInstance.syncMigrationFiles(projectDir);
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
+          }
         }
       } catch (syncErr) {
         this.logger?.error({ err: syncErr }, "Lock hook failed");
@@ -338,11 +438,7 @@ export class MigrationHandlers {
       const { generateBaselineSQL } = await import("../utils/baselineMigration");
       const baselineSQL = generateBaselineSQL(snapshot, Date.now().toString(), "apply_snapshot");
 
-      let connector: any;
-      if (dbType === "mysql") connector = require("../connectors/mysql");
-      else if (dbType === "postgres") connector = require("../connectors/postgres");
-      else if (dbType === "mariadb") connector = require("../connectors/mariadb");
-      else if (dbType === "sqlite") connector = require("../connectors/sqlite");
+      const connector = getConnector(dbType) as any;
 
       // For full snapshot apply, we assume DB is empty or we should drop it.
       // A full implementation would drop tables here.
@@ -353,13 +449,7 @@ export class MigrationHandlers {
       const baselinePath = path.join(migrationsDir, `${versionStr}_apply_snapshot.sql`);
       fs.writeFileSync(baselinePath, baselineSQL, "utf8");
 
-      if (dbType === "mysql") await this.queryExecutor.mysql.applyMigration(conn, baselinePath);
-      else if (dbType === "postgres")
-        await this.queryExecutor.postgres.applyMigration(conn, baselinePath);
-      else if (dbType === "mariadb")
-        await this.queryExecutor.mariadb.applyMigration(conn, baselinePath);
-      else if (dbType === "sqlite")
-        await this.queryExecutor.sqlite.applyMigration(conn, baselinePath);
+      await connector.applyMigration(conn, baselinePath);
 
       if (fs.existsSync(baselinePath)) fs.unlinkSync(baselinePath);
 
@@ -411,16 +501,8 @@ export class MigrationHandlers {
 
       const migrationFilePath = path.join(migrationsDir, migrationFile);
 
-      // Rollback migration
-      if (dbType === "mysql") {
-        await this.queryExecutor.mysql.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "postgres") {
-        await this.queryExecutor.postgres.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "mariadb") {
-        await this.queryExecutor.mariadb.rollbackMigration(conn, version, migrationFilePath);
-      } else if (dbType === "sqlite") {
-        await this.queryExecutor.sqlite.rollbackMigration(conn, version, migrationFilePath);
-      }
+      const connector = getConnector(dbType) as any;
+      await connector.rollbackMigration(conn, version, migrationFilePath);
 
       // Hook syncMigrationFiles and Lock Update
       try {
@@ -430,20 +512,34 @@ export class MigrationHandlers {
 
         const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
         if (project) {
-          // Update Migration Lock first so it gets included in the git sync commit
-          let appliedMigrations: any[] = [];
-          if (dbType === "mysql") {
-            appliedMigrations = await require("../connectors/mysql").listAppliedMigrations(conn);
-          } else if (dbType === "postgres") {
-            appliedMigrations = await require("../connectors/postgres").listAppliedMigrations(conn);
-          } else if (dbType === "mariadb") {
-            appliedMigrations = await require("../connectors/mariadb").listAppliedMigrations(conn);
-          } else if (dbType === "sqlite") {
-            appliedMigrations = await require("../connectors/sqlite").listAppliedMigrations(conn);
+          let schemaHash = "";
+          try {
+            const dbSchema = (await this.queryExecutor.listSchemas(conn, dbType)) as any;
+            const liveSchemas = dbSchema?.schemas || [];
+            const crypto = await import("crypto");
+            schemaHash = crypto
+              .createHash("sha256")
+              .update(JSON.stringify(liveSchemas))
+              .digest("hex");
+            await projectStoreInstance.saveSchema(project.id, liveSchemas, schemaHash, dbType);
+            this.rpc?.sendNotification?.("project.schema_changed", {
+              projectId: project.id,
+              newHash: schemaHash,
+            });
+          } catch (schemaErr) {
+            this.logger?.warn(
+              { err: schemaErr },
+              "Failed to auto-refresh project schema after migration rollback",
+            );
           }
 
-          const schemaFile = await projectStoreInstance.getSchema(project.id);
-          const schemaHash = (schemaFile as any)?.schemaHash || "";
+          // Update Migration Lock first so it gets included in the git sync commit
+          const appliedMigrations = await connector.listAppliedMigrations(conn);
+
+          if (!schemaHash) {
+            const schemaFile = await projectStoreInstance.getSchema(project.id);
+            schemaHash = (schemaFile as any)?.schemaHash || "";
+          }
 
           const appliedVersions = appliedMigrations.map((m) => m.version);
           await writeMigrationLock(dbId, schemaHash, appliedVersions);
@@ -457,6 +553,9 @@ export class MigrationHandlers {
                 "Git sync failed after migration rollback",
               );
             }
+            try {
+              await gitServiceInstance.syncSchemaFile(projectDir);
+            } catch {}
           }
         }
       } catch (syncErr) {

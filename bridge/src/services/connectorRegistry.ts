@@ -11,18 +11,24 @@ import * as postgresConnector from "../connectors/postgres";
 import * as mysqlConnector from "../connectors/mysql";
 import * as mariadbConnector from "../connectors/mariadb";
 import * as sqliteConnector from "../connectors/sqlite";
+import * as duckdbConnector from "../connectors/duckdb";
+import * as clickhouseConnector from "../connectors/clickhouse";
 
 export type Connector =
   | typeof postgresConnector
   | typeof mysqlConnector
   | typeof mariadbConnector
-  | typeof sqliteConnector;
+  | typeof sqliteConnector
+  | typeof duckdbConnector
+  | typeof clickhouseConnector;
 
 const registry: Record<DBType, Connector> = {
   [DBType.POSTGRES]: postgresConnector,
   [DBType.MYSQL]: mysqlConnector,
   [DBType.MARIADB]: mariadbConnector,
   [DBType.SQLITE]: sqliteConnector,
+  [DBType.DUCKDB]: duckdbConnector,
+  [DBType.CLICKHOUSE]: clickhouseConnector,
 };
 
 /**

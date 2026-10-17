@@ -14,6 +14,7 @@ import { UpdateNotification } from "./components/shared/UpdateNotification";
 import { WhatsNewDialog } from "./components/shared/WhatsNewDialog";
 import TitleBar from "./components/layout/TitleBar";
 import { CommandPalette } from "./components/layout/CommandPalette";
+import { themeVariants, defaultVariant } from "@/lib/themes";
 
 const queryClient = new QueryClient();
 
@@ -26,10 +27,11 @@ function ThemeVariantInitializer() {
   useEffect(() => {
     // Initialize theme variant from localStorage on mount
     const savedVariant = localStorage.getItem("relwave-theme-variant");
-    if (savedVariant) {
+    if (savedVariant && savedVariant in themeVariants) {
       document.documentElement.setAttribute("data-theme-variant", savedVariant);
     } else {
-      document.documentElement.setAttribute("data-theme-variant", "blue");
+      document.documentElement.setAttribute("data-theme-variant", defaultVariant);
+      localStorage.setItem("relwave-theme-variant", defaultVariant);
     }
   }, []);
   return null;
@@ -96,13 +98,13 @@ function AppRoot() {
         <TooltipProvider>
           <DeveloperContextMenu>
             <Toaster />
-            <TitleBar />
-            <div className="pt-8">
-              <BrowserRouter>
+            <BrowserRouter>
+              <TitleBar />
+              <div className="pt-8">
                 <CommandPalette />
                 <AnimatedRoutes />
-              </BrowserRouter>
-            </div>
+              </div>
+            </BrowserRouter>
           </DeveloperContextMenu>
         </TooltipProvider>
       </QueryClientProvider>

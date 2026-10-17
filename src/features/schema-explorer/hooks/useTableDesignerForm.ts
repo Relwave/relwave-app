@@ -1,4 +1,5 @@
 import { CreateTableColumn, ForeignKeyConstraint } from "@/features/database/types";
+import { getDefaultColumnType } from "@/lib/databases";
 
 interface TableDesignerFormProps {
   tableName: string;
@@ -9,6 +10,7 @@ interface TableDesignerFormProps {
   onForeignKeysChange: (foreignKeys: ForeignKeyConstraint[]) => void;
   currentSchema: string;
   availableTables: Array<{ schema: string; name: string }>;
+  databaseType?: string;
 }
 
 export default function useTableDesignerForm({
@@ -18,11 +20,13 @@ export default function useTableDesignerForm({
   foreignKeys,
   onForeignKeysChange,
   currentSchema,
+  databaseType,
 }: TableDesignerFormProps) {
   const addColumn = () => {
+    const defaultType = getDefaultColumnType(databaseType);
     const newColumn: CreateTableColumn = {
       name: "",
-      type: "TEXT",
+      type: defaultType,
       not_nullable: false,
       is_primary_key: false,
       default_value: "",

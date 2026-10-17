@@ -117,40 +117,74 @@ const LS_LEGACY_KEY = "relwave:ai-settings";
 
 const DEFAULT_SETTINGS: AISettings = { defaultProvider: "ollama" };
 
+let cachedAISettings: AISettings | null = null;
+let pendingLoadPromise: Promise<AISettings> | null = null;
+
 /**
- * Load AI settings from the bridge (reads ai-settings.json on disk).
+ * Synchronous accessor for currently in-memory cached AI settings.
+ * Returns null if settings haven't been loaded yet.
+ */
+export function getCachedAISettings(): AISettings | null {
+  return cachedAISettings;
+}
+
+/**
+ * Load AI settings from memory cache or the bridge (reads ai-settings.json on disk).
  * Falls back to empty defaults if the file doesn't exist yet.
  * Also performs a one-time migration of any settings previously saved in localStorage.
+ *
+ * Concurrent calls are deduplicated into a single in-flight promise.
  */
-export async function loadAISettings(): Promise<AISettings> {
-  try {
-    const result = await bridgeRequest("ai.loadSettings", {});
-    const fromFile = (result?.data ?? {}) as Partial<AISettings>;
-
-    // If nothing is on disk yet, check localStorage for a legacy migration
-    if (!fromFile.defaultProvider) {
-      const migrated = migrateFromLocalStorage();
-      if (migrated) {
-        // Persist the migrated settings to disk right away
-        await saveAISettings(migrated);
-        return migrated;
-      }
-      return { ...DEFAULT_SETTINGS };
-    }
-
-    return { ...DEFAULT_SETTINGS, ...fromFile };
-  } catch {
-    // Bridge unavailable (e.g. during Vite standalone dev) — degrade gracefully
-    return migrateFromLocalStorage() ?? { ...DEFAULT_SETTINGS };
+export async function loadAISettings(options?: { forceRefresh?: boolean }): Promise<AISettings> {
+  if (cachedAISettings && !options?.forceRefresh) {
+    return cachedAISettings;
   }
+
+  if (pendingLoadPromise && !options?.forceRefresh) {
+    return pendingLoadPromise;
+  }
+
+  pendingLoadPromise = (async () => {
+    try {
+      const result = await bridgeRequest("ai.loadSettings", {}, 3000);
+      const fromFile = (result?.data ?? {}) as Partial<AISettings>;
+
+      // If nothing is on disk yet, check localStorage for a legacy migration
+      if (!fromFile.defaultProvider) {
+        const migrated = migrateFromLocalStorage();
+        if (migrated) {
+          cachedAISettings = migrated;
+          saveAISettings(migrated).catch(() => {});
+          return migrated;
+        }
+        cachedAISettings = { ...DEFAULT_SETTINGS };
+        return cachedAISettings;
+      }
+
+      cachedAISettings = { ...DEFAULT_SETTINGS, ...fromFile };
+      return cachedAISettings;
+    } catch {
+      // Bridge unavailable or timed out — return cached, migrated, or default settings
+      if (!cachedAISettings) {
+        cachedAISettings = migrateFromLocalStorage() ?? { ...DEFAULT_SETTINGS };
+      }
+      return cachedAISettings;
+    } finally {
+      pendingLoadPromise = null;
+    }
+  })();
+
+  return pendingLoadPromise;
 }
 
 /**
  * Save AI settings to disk via the bridge (writes ai-settings.json).
+ * Updates in-memory cache immediately (optimistic update).
  */
 export async function saveAISettings(settings: AISettings): Promise<void> {
+  cachedAISettings = { ...settings };
   try {
-    await bridgeRequest("ai.saveSettings", { settings });
+    await bridgeRequest("ai.saveSettings", { settings }, 5000);
   } catch {
     // Fallback: keep a copy in localStorage so settings aren’t totally lost
     localStorage.setItem(LS_LEGACY_KEY, JSON.stringify(settings));
@@ -182,12 +216,24 @@ class AIService {
   /**
    * Test whether the configured provider is reachable.
    */
-  async testConnection(settings: AISettings): Promise<{ connected: boolean; message?: string }> {
+  async testConnection(settings: AISettings): Promise<{
+    connected: boolean;
+    warning?: string;
+    code?: string;
+    message?: string;
+  }> {
     try {
-      await bridgeRequest("ai.testConnection", { settings });
+      const result = await bridgeRequest("ai.testConnection", { settings });
+      if (result?.data?.connected !== undefined) {
+        return result.data;
+      }
       return { connected: true };
     } catch (err: any) {
-      return { connected: false, message: err?.message ?? String(err) };
+      return {
+        connected: false,
+        code: err?.code ?? "UNKNOWN",
+        message: err?.message ?? String(err),
+      };
     }
   }
 

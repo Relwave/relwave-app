@@ -40,13 +40,26 @@ export class AIHandlers {
   async handleTestConnection(params: AITestConnectionParams, id: number | string) {
     try {
       const provider = this.aiService.resolveProvider(params.settings);
-      await provider.testConnection();
-      this.rpc.sendResponse(id, { ok: true, data: { connected: true } });
+      const warning = await provider.testConnection();
+      this.rpc.sendResponse(id, {
+        ok: true,
+        data: {
+          connected: true,
+          warning: warning || undefined,
+        },
+      });
     } catch (err) {
       this.logger?.warn({ err }, "ai.testConnection failed");
       const msg = err instanceof AIError ? err.originalMessage : String(err);
       const code = err instanceof AIError ? err.code : "UNKNOWN";
-      this.rpc.sendError(id, { code, message: msg });
+      this.rpc.sendResponse(id, {
+        ok: true,
+        data: {
+          connected: false,
+          code,
+          message: msg,
+        },
+      });
     }
   }
 
@@ -284,7 +297,7 @@ export class AIHandlers {
 
   // ── Settings persistence (reads/writes ai-settings.json) ──────────────
 
-  async handleLoadSettings(_params: unknown, id: number | string) {
+  handleLoadSettings(_params: unknown, id: number | string) {
     try {
       ensureDir(CONFIG_FOLDER);
       if (!fsSync.existsSync(AI_SETTINGS_FILE)) {
@@ -292,7 +305,7 @@ export class AIHandlers {
         this.rpc.sendResponse(id, { ok: true, data: {} });
         return;
       }
-      const raw = await fs.readFile(AI_SETTINGS_FILE, "utf-8");
+      const raw = fsSync.readFileSync(AI_SETTINGS_FILE, "utf-8");
       const settings = JSON.parse(raw) as AISettings;
       this.rpc.sendResponse(id, { ok: true, data: settings });
     } catch (err: any) {
@@ -302,13 +315,17 @@ export class AIHandlers {
     }
   }
 
-  async handleSaveSettings(params: { settings: AISettings }, id: number | string) {
+  handleSaveSettings(params: { settings: AISettings }, id: number | string) {
     try {
       ensureDir(CONFIG_FOLDER);
-      await fs.writeFile(AI_SETTINGS_FILE, JSON.stringify(params.settings, null, 2), "utf-8");
+      fsSync.writeFileSync(AI_SETTINGS_FILE, JSON.stringify(params.settings, null, 2), "utf-8");
       // On non-Windows platforms, restrict file permissions (contains API keys)
       if (process.platform !== "win32") {
-        await fs.chmod(AI_SETTINGS_FILE, 0o600);
+        try {
+          fsSync.chmodSync(AI_SETTINGS_FILE, 0o600);
+        } catch {
+          // ignore chmod errors on unsupported filesystems
+        }
       }
       this.rpc.sendResponse(id, { ok: true, data: { saved: true } });
     } catch (err: any) {

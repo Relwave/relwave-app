@@ -76,6 +76,7 @@ export interface ConnectionFormData {
   database: string;
   sslmode: string;
   ssl: boolean;
+  url?: string;
   useSsh: boolean;
   sshHost: string;
   sshPort: string;
@@ -96,6 +97,7 @@ export const INITIAL_FORM_DATA: ConnectionFormData = {
   database: "",
   sslmode: "",
   ssl: false,
+  url: "",
   useSsh: false,
   sshHost: "",
   sshPort: "22",
@@ -108,3 +110,5 @@ export const INITIAL_FORM_DATA: ConnectionFormData = {
 
 export const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "database"];
 export const SQLITE_REQUIRED_FIELDS = ["name", "type", "database"];
+export const DUCKDB_REQUIRED_FIELDS = ["name", "type", "database"];
+export const CLICKHOUSE_REQUIRED_FIELDS = ["name", "type", "url"];

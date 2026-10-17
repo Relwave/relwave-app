@@ -188,11 +188,11 @@ export function ImportProjectDialog({
     let createdDbId: string | null = null;
 
     try {
-      const isSQLite = dbForm.type === "sqlite";
+      const isFileBasedDB = dbForm.type === "sqlite" || dbForm.type === "duckdb";
 
       // 1. Validate port (skip for SQLite)
       let port = 0;
-      if (!isSQLite) {
+      if (!isFileBasedDB) {
         port = parseInt(dbForm.port, 10);
         if (isNaN(port) || port < 1 || port > 65535) {
           setError("Invalid port number. Must be between 1 and 65535.");
@@ -205,12 +205,12 @@ export function ImportProjectDialog({
       const db = await databaseService.addDatabase({
         name: dbForm.name,
         type: dbForm.type,
-        host: isSQLite ? "" : dbForm.host,
+        host: isFileBasedDB ? "" : dbForm.host,
         port,
-        user: isSQLite ? "" : dbForm.user,
-        password: isSQLite ? "" : dbForm.password,
+        user: isFileBasedDB ? "" : dbForm.user,
+        password: isFileBasedDB ? "" : dbForm.password,
         database: dbForm.database,
-        ssl: isSQLite ? false : dbForm.ssl,
+        ssl: isFileBasedDB ? false : dbForm.ssl,
       });
       createdDbId = db.id;
 
@@ -244,7 +244,7 @@ export function ImportProjectDialog({
   };
 
   const isDbFormValid =
-    dbForm.type === "sqlite"
+    dbForm.type === "sqlite" || dbForm.type === "duckdb"
       ? dbForm.name && dbForm.type && dbForm.database
       : dbForm.name && dbForm.type && dbForm.host && dbForm.port && dbForm.user && dbForm.database;
 
@@ -353,7 +353,7 @@ export function ImportProjectDialog({
 
             {/* Connection Form */}
             <div className="space-y-3">
-              {dbForm.type !== "sqlite" && (
+              {dbForm.type !== "sqlite" && dbForm.type !== "duckdb" && (
                 <Tabs
                   value={useUrl ? "url" : "params"}
                   onValueChange={(v) => setUseUrl(v === "url")}
@@ -371,7 +371,7 @@ export function ImportProjectDialog({
                 </Tabs>
               )}
 
-              {useUrl && dbForm.type !== "sqlite" && (
+              {useUrl && dbForm.type !== "sqlite" && dbForm.type !== "duckdb" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Connection URL</Label>
                   <Input
@@ -424,13 +424,15 @@ export function ImportProjectDialog({
                       <SelectItem value="mysql">MySQL</SelectItem>
                       <SelectItem value="mariadb">MariaDB</SelectItem>
                       <SelectItem value="sqlite">SQLite</SelectItem>
+                      <SelectItem value="duckdb">DuckDB</SelectItem>
+                      <SelectItem value="clickhouse">ClickHouse</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               )}
 
               {!useUrl &&
-                (dbForm.type === "sqlite" ? (
+                (dbForm.type === "sqlite" || dbForm.type === "duckdb" ? (
                   <div className="space-y-1.5">
                     <Label className="text-xs">Database File</Label>
                     <div className="flex gap-2">
@@ -447,9 +449,18 @@ export function ImportProjectDialog({
                         className="h-9 px-3"
                         onClick={async () => {
                           const selected = await open({
-                            title: "Select SQLite Database",
+                            title:
+                              dbForm.type === "duckdb"
+                                ? "Select DuckDB Database"
+                                : "Select SQLite Database",
                             filters: [
-                              { name: "SQLite", extensions: ["db", "sqlite", "sqlite3", "s3db"] },
+                              {
+                                name: dbForm.type === "duckdb" ? "DuckDB" : "SQLite",
+                                extensions:
+                                  dbForm.type === "duckdb"
+                                    ? ["db", "duckdb", "ddb"]
+                                    : ["db", "sqlite", "sqlite3", "s3db"],
+                              },
                             ],
                           });
                           if (selected) handleDbInputChange("database", selected as string);

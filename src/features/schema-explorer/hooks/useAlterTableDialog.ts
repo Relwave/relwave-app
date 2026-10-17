@@ -3,6 +3,7 @@ import { migrationService } from "@/services/bridge/migration";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useInvalidateCache } from "@/features/project/hooks/useDbQueries";
+import { getDefaultColumnType } from "@/lib/databases";
 
 interface AlterTableDialogProps {
   open: boolean;
@@ -11,6 +12,7 @@ interface AlterTableDialogProps {
   schemaName: string;
   tableName: string;
   availableColumns: string[];
+  databaseType?: string;
   onSuccess?: () => void;
 }
 
@@ -20,6 +22,7 @@ export function useAlterTableDialog({
   dbId,
   schemaName,
   tableName,
+  databaseType,
   onSuccess,
 }: AlterTableDialogProps) {
   const [operations, setOperations] = useState<AlterTableOperation[]>([]);
@@ -44,12 +47,13 @@ export function useAlterTableDialog({
   };
 
   const addOperation = () => {
+    const defaultType = getDefaultColumnType(databaseType);
     // Default to ADD_COLUMN
     const newOp: AlterTableOperation = {
       type: "ADD_COLUMN",
       column: {
         name: "",
-        type: "TEXT",
+        type: defaultType,
         not_nullable: false,
         is_primary_key: false,
         default_value: "",
@@ -83,12 +87,24 @@ export function useAlterTableDialog({
           toast.error(`Operation ${i + 1}: Column name is required`);
           return;
         }
+        if (!op.column.type?.trim()) {
+          toast.error(`Operation ${i + 1}: Column data type is required`);
+          return;
+        }
+      } else if (op.type === "ALTER_TYPE") {
+        if (!op.column_name?.trim()) {
+          toast.error(`Operation ${i + 1}: Column name is required`);
+          return;
+        }
+        if (!op.new_type?.trim()) {
+          toast.error(`Operation ${i + 1}: New column type is required`);
+          return;
+        }
       } else if (
         op.type === "DROP_COLUMN" ||
         op.type === "SET_NOT_NULL" ||
         op.type === "DROP_NOT_NULL" ||
-        op.type === "DROP_DEFAULT" ||
-        op.type === "ALTER_TYPE"
+        op.type === "DROP_DEFAULT"
       ) {
         if (!op.column_name?.trim()) {
           toast.error(`Operation ${i + 1}: Column name is required`);

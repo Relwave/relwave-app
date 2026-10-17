@@ -8,7 +8,7 @@
 
 _RelWave brings the power of native Git versioning, visual ER diagrams, and seamless schema management into one blazingly fast desktop application. Built for developers who demand more._
 
-[![Version](https://img.shields.io/badge/version-1.1.0-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-1f2937?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
@@ -40,7 +40,7 @@ _RelWave brings the power of native Git versioning, visual ER diagrams, and seam
       <b>Native Core</b>
       <br />
       <br />
-      Direct connections via native drivers. Zero browser overhead. Pure speed.
+      Direct connections via native drivers (PostgreSQL, MySQL, SQLite, DuckDB, ClickHouse). Zero browser overhead. Pure speed.
     </td>
     <td align="center" width="25%">
       <br />
@@ -133,7 +133,7 @@ RelWave uses a **three-layer bridge architecture**. React owns the user experien
 
 <img width="1565" height="518" alt="image" src="https://github.com/user-attachments/assets/defdc3b7-7555-40ac-bf97-b1cb9420b325" />
 
-The request path is **React UI -> Tauri command -> Node.js JSON-RPC handler -> service -> database, Git, local storage, monitoring, or LLM provider**. Responses return through the same boundary in reverse. Long-running SQL queries additionally stream `query.result`, `query.progress`, and `query.done` notifications back to the React client. The Node.js bridge contains the database connectors, Git service, AI services, monitoring services, project stores, credential access, and SSH tunnel handling.
+The request path is **React UI -> Tauri command -> Node.js JSON-RPC handler -> service -> database, Git, local storage, monitoring, or LLM provider**. Responses return through the same boundary in reverse. Long-running SQL queries additionally stream `query.result`, `query.progress`, and `query.done` notifications back to the React client. The Node.js bridge contains the database connectors (PostgreSQL, MySQL/MariaDB, SQLite, DuckDB, ClickHouse), Git service, AI services, monitoring services, project stores, credential access, and SSH tunnel handling.
 
 <br />
 

@@ -14,6 +14,8 @@ export * from "./common";
 export * from "./mysql";
 export * from "./postgres";
 export * from "./sqlite";
+export * from "./duckdb";
+export * from "./clickhouse";
 export * from "./ai";
 export { SSHConfig } from "./common";
 
@@ -22,6 +24,8 @@ export enum DBType {
   MYSQL = "mysql",
   MARIADB = "mariadb",
   SQLITE = "sqlite",
+  DUCKDB = "duckdb",
+  CLICKHOUSE = "clickhouse",
 }
 
 export type Rpc = {
@@ -38,6 +42,7 @@ export interface DatabaseConfig {
   ssl?: boolean;
   database: string;
   ssh?: SSHConfig;
+  url?: string;
 }
 
 export interface QueryParams {

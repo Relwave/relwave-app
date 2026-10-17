@@ -154,7 +154,7 @@ function DraggableConnectionItem({
             <div className="flex-1 min-w-0 pr-6 ml-1">
               <p className="text-sm font-medium truncate">{db.name}</p>
               <p className="text-[10px] text-muted-foreground truncate font-mono flex items-center gap-1">
-                {db.type} • {db.type === "sqlite" ? db.database : db.host}
+                {db.type} • {db.type === "sqlite" || db.type === "duckdb" ? db.database : db.host}
                 {db.ssh && (
                   <Shield className="h-2.5 w-2.5 text-blue-400 shrink-0" aria-label="SSH tunnel" />
                 )}
@@ -404,14 +404,14 @@ export function ConnectionList({
           <h2 className="scroll-m-20 pb-1 text-xl font-semibold tracking-tight first:mt-0">
             Connections
           </h2>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => setNewGroupOpen(true)}
                   >
                     <FolderPlus className="h-4 w-4" />
@@ -422,11 +422,17 @@ export function ConnectionList({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
             {onImportClick && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onImportClick}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={onImportClick}
+                    >
                       <FolderInput className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -436,9 +442,42 @@ export function ConnectionList({
                 </Tooltip>
               </TooltipProvider>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddClick}>
-              <Plus className="h-4 w-4" />
-            </Button>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={onAddClick}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Add Connection</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    <SettingsIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Settings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         <div className="relative">
@@ -603,7 +642,7 @@ export function ConnectionList({
 
       {/* Quick Stats Footer */}
       <div className="p-3 border-t border-border/50 bg-background/55">
-        <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="grid grid-cols-2 gap-2">
           <Card className="text-center p-2 rounded-md premium-card shadow-sm">
             <CardContent className="px-2 pb-0">
               <CardTitle className="text-lg font-bold tabular-nums font-mono leading-none mb-1">
@@ -624,16 +663,6 @@ export function ConnectionList({
               </CardDescription>
             </CardContent>
           </Card>
-        </div>
-        <div className="flex justify-start">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSettingsOpen(true)}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 

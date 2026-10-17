@@ -1,4 +1,5 @@
 // bridge/src/index.ts
+import "./bootstrap";
 import { JsonStdio } from "./jsonRpc";
 import logger from "./services/logger";
 import { registerDbHandlers } from "./jsonRpcHandler";
@@ -31,6 +32,7 @@ logger.info(
   `RELWAVE_SQLITE_NATIVE_BINDING: ${process.env.RELWAVE_SQLITE_NATIVE_BINDING ?? "(not set)"}`,
 );
 logger.info(`BETTER_SQLITE3_BINDING: ${process.env.BETTER_SQLITE3_BINDING ?? "(not set)"}`);
+logger.info(`RELWAVE_DUCKDB_DLL_DIR: ${process.env.RELWAVE_DUCKDB_DLL_DIR ?? "(not set)"}`);
 
 // Send initial ready notification
 rpc.sendNotification("bridge.ready", { pid: process.pid });
@@ -71,10 +73,23 @@ rpc.on("request", async (req: any) => {
 });
 
 // Graceful shutdown
+let isShuttingDown = false;
 function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   logger.info(`Bridge received ${signal} — shutting down`);
-  sessions.destroy();
-  connectionPool.destroy();
+  try {
+    sessions.destroy();
+  } catch (e) {
+    logger.error({ e }, "Error destroying sessions");
+  }
+  try {
+    connectionPool.destroy();
+  } catch (e) {
+    logger.error({ e }, "Error destroying connection pool");
+  }
+  // Hard exit fallback in case anything hangs in event loop
+  setTimeout(() => process.exit(0), 100).unref();
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
@@ -89,3 +104,21 @@ rpc.on("error", (err: any) => {
   logger.error({ err }, "JSON-RPC stream error — shutting down");
   shutdown("RPC_ERROR");
 });
+
+// Parent process watchdog: if parent process (RelWave/Tauri) dies, bridge exits immediately
+const parentPidStr = process.env.RELWAVE_PARENT_PID;
+const parentPid = parentPidStr ? parseInt(parentPidStr, 10) : process.ppid;
+if (parentPid && parentPid > 0 && parentPid !== process.pid) {
+  logger.info({ parentPid }, "Watching parent process");
+  const watchdog = setInterval(() => {
+    try {
+      // process.kill(pid, 0) tests if the process exists.
+      // Throws ESRCH when parent has exited.
+      process.kill(parentPid, 0);
+    } catch {
+      logger.info({ parentPid }, "Parent process has exited — shutting down bridge");
+      shutdown("PARENT_EXITED");
+    }
+  }, 1000);
+  watchdog.unref();
+}

@@ -92,7 +92,7 @@ export class MonitoringWebSocketServer {
 
       try {
         const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-        if (![DBType.POSTGRES, DBType.MYSQL, DBType.MARIADB].includes(dbType)) {
+        if (![DBType.POSTGRES, DBType.MYSQL, DBType.MARIADB, DBType.CLICKHOUSE].includes(dbType)) {
           socket.send(
             JSON.stringify({
               type: "unsupported",
