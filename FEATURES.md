@@ -86,10 +86,10 @@ The main landing page for managing database connections. Features a clean, IDE-i
 **Auto-Discovery**
 
 - Automatically discover databases running on the local machine
-- TCP port scanning for PostgreSQL (5432–5434) and MySQL (3306–3308)
+- TCP port scanning for PostgreSQL (`5432–5434`), MySQL / MariaDB (`3306–3308`), and ClickHouse (`8123`, `8124`)
 - SQLite & DuckDB file-based connections (no host/port — uses native file browser)
-- Docker container detection with image recognition
-- Docker credential extraction — reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MYSQL_ROOT_PASSWORD`, etc. from container environment variables
+- Docker container detection with image recognition (PostgreSQL, MySQL, MariaDB, and ClickHouse)
+- Docker credential extraction — reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`, etc. from container environment variables
 - One-click add with pre-filled connection details
 - Auto-generated connection names
 - Visual indicators for database source (local or Docker)
@@ -139,8 +139,13 @@ Detailed view for individual database operations with a split-panel layout.
 - Table name and row count header
 - Quick action buttons: Insert, Chart, Export, Refresh
 - Search bar for filtering table data
-- DataTable component with:
-  - Row numbers column
+- **Interactive Data Grid** component with:
+  - Row numbers column with sticky positioning
+  - **Keyboard cell navigation** — navigate seamlessly across cells using `ArrowUp`, `ArrowDown`, `ArrowLeft`, and `ArrowRight`
+  - **Inline cell editing** — press `Enter` or double-click to start editing directly in-cell; `Escape` cancels edits, `Enter` commits changes
+  - **Clipboard support** — press `Ctrl+C` (or `Cmd+C`) to copy cell content to clipboard
+  - **Multi-row selection** — select continuous row ranges via `Shift+Click` or toggle non-contiguous rows with `Ctrl/Cmd+Click`
+  - **Content-aware column auto-sizing** — auto-fit columns based on content and header widths
   - Enhanced data type formatting (booleans as colored pills, numbers in indigo, dates in violet, JSON in amber, NULL as muted badges)
   - Edit and delete actions on row hover
   - Empty state with messaging
@@ -298,22 +303,29 @@ Comprehensive database schema visualization and management.
 - Index information
 - Foreign key relationships
 
-**Table Operations**
+**Table Operations & Table Designer**
 
-- Create Table — define columns with types, NOT NULL, primary key, defaults; auto-generate migrations
-- Alter Table — add, drop, rename columns; change types; modify constraints; auto-generate migrations
-- Drop Table — safe deletion with confirmation, cascade/restrict options; auto-generate migrations
+- **Create Table** — intuitive visual designer to define columns, types, NOT NULL, primary keys, defaults, and auto-increment; generates clean DDL migrations
+- **Engine-Specific Datatype Catalogs** — curated, engine-compliant datatype categories preventing invalid DDL:
+  - _PostgreSQL_: `INT`, `BIGINT`, `SERIAL`, `VARCHAR`, `TEXT`, `BOOLEAN`, `TIMESTAMP`, `JSONB`, `UUID`, etc.
+  - _MySQL / MariaDB_: `INT`, `BIGINT`, `VARCHAR`, `TEXT`, `DATETIME`, `DECIMAL`, `JSON`, `TINYINT(1)`, etc.
+  - _SQLite_: Strict adherence to SQLite dynamic type affinity (`INTEGER`, `TEXT`, `REAL`, `BLOB`, `NUMERIC`)
+  - _DuckDB_: `HUGEINT`, `UBIGINT`, `TIMESTAMP_TZ`, `DECIMAL`, `UUID`, `VARCHAR`, `DOUBLE`, etc.
+  - _ClickHouse_: `UInt8`–`UInt256`, `Int8`–`Int256`, `Float32`/`Float64`, `String`, `FixedString`, `Date32`, `DateTime64`, `LowCardinality`, `Array`, `Map`
+- **Engine-Aware Foreign Key Enforcement** — automatically detects engine constraint capabilities; allows foreign keys and cascade rules (`CASCADE`, `SET NULL`, `RESTRICT`) for relational engines, while gracefully disabling and hiding foreign key configurations for engines that do not support them (e.g. ClickHouse)
+- **Alter Table** — add, drop, rename columns; change types; modify constraints; auto-generate migrations
+- **Drop Table** — safe deletion with confirmation, cascade/restrict options; auto-generate migrations
 
 **Index Management**
 
 - Create indexes with multiple columns
-- Specify index type (B-tree, Hash, etc.)
+- Specify index type (B-tree, Hash, data skipping indexes, etc.)
 - Set unique constraints
 - View existing indexes
 
 **Foreign Key Management**
 
-- Create foreign key relationships
+- Create foreign key relationships across supported engines
 - Reference columns across tables
 - Set cascade rules (CASCADE, SET NULL, RESTRICT)
 - Visual foreign key indicators
@@ -337,14 +349,13 @@ Interactive entity-relationship diagram visualization.
 ### 7. Settings
 
 - Light, dark, and system-preference (auto) modes
-  **Accent Colors**
-- Multiple color variants: Blue (default), Purple, Green, Pink, Orange, and more
-- Visual color preview with live UI element updates
-- Persistent preferences
+- **6 Curated Accent Themes** — Blue (default), Slate, Green, Purple, Orange, and Rose
+- Visual color preview with live UI element updates and swatch pickers
+- Persistent preferences via `localStorage`
 
 **Preview**
 
-- Live preview of buttons, text, and border colors with the selected theme
+- Live preview of buttons, text, badges, and border colors with the selected theme
 
 ---
 
@@ -465,9 +476,16 @@ The application supports a flexible, multi-provider AI architecture:
 - shadcn ChartContainer integration
 - Responsive sizing
 
-### Data Table
+### Data Table & Grid
 
-- Row numbers column
+- Row numbers column with sticky layout
+- **Spreadsheet-style keyboard navigation**:
+  - Full keyboard cell traversal (`ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`)
+  - Direct inline cell editing (`Enter` or double-click)
+  - Cancel edits with `Escape`
+  - Quick cell copying (`Ctrl+C` / `Cmd+C`)
+  - Multi-row selection with `Shift+Click` (range) and `Ctrl/Cmd+Click` (toggle)
+  - Content-aware column auto-sizing based on cell content and header width
 - Type-aware cell formatting:
   - Booleans displayed as colored pills (green/red)
   - Numbers in indigo
@@ -503,6 +521,8 @@ SELECT 1;
 ### 2. Database-Level Monitoring (Metrics & Request Counts)
 
 - PostgreSQL exposes statistics via `pg_stat_database` and `pg_stat_activity` for live query and transaction counts.
+- MySQL and MariaDB expose server status counters via `SHOW GLOBAL STATUS`.
+- ClickHouse exposes real-time server telemetry via `system.events` and `system.metrics`.
 
 Postgres example — total transactions:
 
@@ -516,6 +536,12 @@ MySQL/MariaDB example — queries counter:
 
 ```sql
 SHOW GLOBAL STATUS LIKE 'Queries';
+```
+
+ClickHouse example — queries counter:
+
+```sql
+SELECT toUInt64(value) AS total_queries FROM system.events WHERE event = 'Query';
 ```
 
 ### 3. Active Connections (Gauge)
@@ -535,11 +561,18 @@ SHOW GLOBAL STATUS LIKE 'Threads_connected';
 SHOW VARIABLES LIKE 'max_connections';
 ```
 
+ClickHouse:
+
+```sql
+SELECT metric, toInt64(value) AS value FROM system.metrics WHERE metric IN ('TCPConnection', 'HTTPConnection', 'Query');
+SELECT value FROM system.settings WHERE name = 'max_concurrent_queries' LIMIT 1;
+```
+
 ### 4. Database Throughput / QPS (Time-Series)
 
-- Track total transaction counters over time and compute deltas to derive requests-per-second.
+- Track total transaction and query counters over time and compute deltas to derive requests-per-second.
 
-Example calculation: sample the `total_transactions` value every N seconds and compute `(current - previous) / N`.
+Example calculation: sample the total query count value every N seconds and compute `(current - previous) / N`.
 
 ### 5. Cache Hit Ratio (Health Percentage)
 
@@ -558,6 +591,36 @@ WHERE datname = 'your_db_name';
 
 MySQL/MariaDB (InnoDB buffer pool): fetch `Innodb_buffer_pool_read_requests` and `Innodb_buffer_pool_reads` and compute:
 $$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_reads}}{\text{Innodb\_buffer\_pool\_read\_requests}} \right) \times 100$$
+
+ClickHouse (Mark Cache efficiency): fetch `MarkCacheHits` and `MarkCacheMisses` from `system.events` and compute:
+$$\text{Mark Cache Efficiency} = \left( \frac{\text{MarkCacheHits}}{\text{MarkCacheHits} + \text{MarkCacheMisses}} \right) \times 100$$
+
+SQL example:
+
+```sql
+SELECT event, toUInt64(value) AS value FROM system.events WHERE event IN ('MarkCacheHits', 'MarkCacheMisses');
+```
+
+### 6. Active Running Queries
+
+RelWave inspects currently executing queries in real time to diagnose slow operations and blocked sessions:
+
+- **PostgreSQL**: queried from `pg_stat_activity` filtered by `state != 'idle'`.
+- **MySQL / MariaDB**: queried from `information_schema.processlist`.
+- **ClickHouse**: queried directly from `system.processes` with `query_id`, `user`, `query`, and `elapsed` duration in seconds:
+
+```sql
+SELECT
+  query_id AS id,
+  user,
+  query,
+  'running' AS state,
+  round(elapsed, 2) AS durationSeconds
+FROM system.processes
+WHERE is_cancelled = 0 AND query NOT LIKE '%system.processes%'
+ORDER BY elapsed DESC
+LIMIT 25;
+```
 
 ### Implementation Tips
 
@@ -578,11 +641,12 @@ $$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_re
 - Native minimize, maximize, and close buttons
 - Proper z-index layering
 
--**Vertical Icon Bar**
+**Vertical Icon Bar**
 
 - Fixed 60px left sidebar with navigation icons
 - Pages: Home, Settings, SQL Workspace, Query Builder, Schema Explorer, ER Diagram, Monitoring
 - Active state indicators and tooltip labels
+- Elevated Settings dialog trigger with optimized bottom-margin spacing for ergonomics
 
 **Slide-Out Panels**
 
@@ -595,22 +659,30 @@ $$\text{Buffer Pool Hit Ratio} = \left( 1 - \frac{\text{Innodb\_buffer\_pool\_re
 - Toggle to collapse/expand with smooth width transition
 - Persistent state across sessions
 
+**Command Palette (`Ctrl+K` / `Cmd+K`)**
+
+- Fast fuzzy jump to any table, connection, query, or project
+- Native SVG database brand logos for PostgreSQL, MySQL, MariaDB, SQLite, DuckDB, and ClickHouse
+- Keyboard-accessible action shortcuts
+
 ### Database Engine Colors
 
-| Engine     | Color  |
-| ---------- | ------ |
-| PostgreSQL | Blue   |
-| MySQL      | Orange |
-| MariaDB    | Purple |
-| SQLite     | Cyan   |
-| DuckDB     | Amber  |
+| Engine     | Color  | Theme Class       |
+| ---------- | ------ | ----------------- |
+| PostgreSQL | Blue   | `text-blue-500`   |
+| MySQL      | Orange | `text-orange-500` |
+| MariaDB    | Teal   | `text-teal-500`   |
+| SQLite     | Cyan   | `text-cyan-500`   |
+| DuckDB     | Yellow | `text-yellow-600` |
+| ClickHouse | Amber  | `text-amber-500`  |
 
 ### Theming
 
 - Dark and light mode with seamless switching
-- CSS variable-based color system
-- Multiple accent color variants
-- Persistent preferences via localStorage
+- CSS variable-based color system with modern OKLCH color gamuts
+- **6 Curated Accent Variants**: Blue, Slate, Green, Purple, Orange, and Rose
+- Live swatch preview and instant UI component adaptation
+- Persistent preferences via `localStorage`
 
 ### Loading and Feedback
 
@@ -682,12 +754,18 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ## Cross-Platform Support
 
-### Desktop (Tauri)
+### Supported Platforms
+
+- **Windows**: Native installer (`.exe` via NSIS) and standalone portable desktop executable
+- **Linux**: Native Debian package (`.deb`) and portable `AppImage` distributions
+- **macOS**: Planned for upcoming releases
+
+### Desktop Architecture (Tauri 2)
 
 - Custom 32px title bar with draggable area and window controls
 - **Instant window close responsiveness** — TitleBar close action executes an immediate `window.hide()` while background bridge process teardown completes asynchronously
 - **Kernel-level orphan process prevention** — Windows `JobObject` / `TerminateJobObject` integration in the Rust backend guarantees that all bridge child processes are immediately terminated on exit, preventing background locks on `.db` files
-- **Native binary packaging** — Bundles both `better-sqlite3` and `duckdb.dll` native binaries directly into production NSIS/MSI distributions
+- **Native binary packaging** — Bundles both `better-sqlite3` and `duckdb.dll` native binaries directly into production distributions
 - All pages use `h-[calc(100vh-32px)]` for proper layout
 - Fixed elements offset with `top-8` (32px)
 - Z-index layering: title bar (z-100), panels (z-50), sidebar (z-40)
@@ -715,6 +793,6 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ---
 
-**Last Updated:** June 2026
+**Last Updated:** October 2026 (v1.2.0)
 
 This document is maintained alongside the application and updated with each release.

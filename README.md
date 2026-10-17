@@ -8,7 +8,7 @@
 
 _RelWave brings the power of native Git versioning, visual ER diagrams, and seamless schema management into one blazingly fast desktop application. Built for developers who demand more._
 
-[![Version](https://img.shields.io/badge/version-1.1.0-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-0066ff?style=for-the-badge&logo=semver)](https://github.com/Relwave/relwave-app/releases)
 [![License](https://img.shields.io/badge/license-MIT-00cc66?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-1f2937?style=for-the-badge&logo=windows)](https://github.com/Relwave/relwave-app/releases)
 [![Tauri](https://img.shields.io/badge/built%20with-Tauri-FFC131?style=for-the-badge&logo=tauri)](https://tauri.app/)
