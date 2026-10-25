@@ -1,6 +1,12 @@
 import { ConnectionBuilder } from "./connectionBuilder";
 import { DBTypeDetector } from "../utils/dbTypeDetector";
 import { DBType } from "../types";
+import {
+  isMongoUri,
+  extractMongoCredentials,
+  sanitizeMongoUri,
+  normalizeMongoUriMeta,
+} from "../utils/mongoUri";
 import { dbStoreInstance } from "./dbStore"; // always use the singleton
 import { connectionPool } from "./connectionPool";
 import { keyringServiceInstance } from "./keyringService";
@@ -63,9 +69,10 @@ export class DatabaseService {
       (payload.type as string | undefined)?.toLowerCase() || "",
     );
     const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
+    const isMongo = (payload.type as string | undefined)?.toLowerCase() === "mongodb";
     const required = isFileBasedDB
       ? ["name", "database", "type"]
-      : isClickHouse
+      : isClickHouse || isMongo
         ? ["name", "type"]
         : ["name", "host", "port", "user", "database", "type"];
     for (const field of required) {
@@ -102,6 +109,32 @@ export class DatabaseService {
         database: payload.database || parsed.database || "default",
         ssl: payload.ssl !== undefined ? payload.ssl : parsed.ssl,
       };
+    } else if (isMongo) {
+      if (!payload.url && !payload.host) {
+        throw new Error("Missing required field: url");
+      }
+      if (payload.url && isMongoUri(payload.url)) {
+        // Extract any embedded credentials into the AES store and persist a
+        // credential-free (sanitized) URI instead. dbStore.addDB encrypts
+        // payload.password and stores the sanitized url at rest.
+        const creds = extractMongoCredentials(payload.url);
+        const meta = normalizeMongoUriMeta(payload.url);
+        payload = {
+          ...payload,
+          url: sanitizeMongoUri(payload.url),
+          host: payload.host || meta.host,
+          port: payload.port || meta.port,
+          user: payload.user || meta.user,
+          database: payload.database || meta.database,
+          authSource: payload.authSource ?? meta.authSource,
+          replicaSet: payload.replicaSet ?? meta.replicaSet,
+        };
+        if (creds.password) {
+          payload = { ...payload, password: creds.password };
+        }
+      } else {
+        payload = { ...payload, port: payload.port || 27017, database: payload.database || "" };
+      }
     }
 
     const res = await dbStoreInstance.addDB(payload as Parameters<typeof dbStoreInstance.addDB>[0]);
@@ -123,6 +156,7 @@ export class DatabaseService {
       (payload.type as string | undefined)?.toLowerCase() || "",
     );
     const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
+    const isMongo = (payload.type as string | undefined)?.toLowerCase() === "mongodb";
 
     // Extract SSH credentials
     const sshPwd = payload.ssh?.password;
@@ -143,6 +177,15 @@ export class DatabaseService {
         database: payload.database || parsed.database || "default",
         ssl: payload.ssl !== undefined ? payload.ssl : parsed.ssl,
       };
+    }
+    if (isMongo && payload.url && isMongoUri(payload.url)) {
+      // Keep persisted mongo URIs credential-free on update too. An explicitly
+      // supplied password wins over one embedded in the URI.
+      const creds = extractMongoCredentials(payload.url);
+      payload = { ...payload, url: sanitizeMongoUri(payload.url) };
+      if (creds.password && payload.password === undefined) {
+        payload = { ...payload, password: creds.password };
+      }
     }
     if (payload.ssh) {
       delete payload.ssh.password;

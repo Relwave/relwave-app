@@ -1,11 +1,13 @@
 import { DBType, DatabaseConfig } from "../types";
 import { SQLiteConfig } from "../types/sqlite";
+import { MongoConfig } from "../types/mongo";
 import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
 import { parseClickHouseUrl } from "../utils/clickhouseUrl";
+import { buildMongoConnectionUri } from "../utils/mongoUri";
 import { sshTunnelServiceInstance, TunnelInfo } from "./sshTunnelService";
 
 export interface BuildResult {
-  config: DatabaseConfig | SQLiteConfig;
+  config: DatabaseConfig | SQLiteConfig | MongoConfig;
   tunnel?: TunnelInfo;
 }
 
@@ -50,6 +52,21 @@ export class ConnectionBuilder {
           ssl: db.ssl !== undefined ? db.ssl : parsed.ssl,
         } as any,
       };
+    }
+
+    if (dbType === DBType.MONGODB) {
+      // The persisted URI is credential-free; the runtime password is re-injected
+      // here (in memory only) via the sanitized URI + decrypted pwd.
+      const uri = buildMongoConnectionUri(db, pwd);
+      const config: MongoConfig = {
+        uri,
+        database: db.database,
+        authSource: db.authSource,
+        replicaSet: db.replicaSet,
+        tls: db.tls,
+        directConnection: db.directConnection,
+      };
+      return { config };
     }
 
     const defaultPort = dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432;

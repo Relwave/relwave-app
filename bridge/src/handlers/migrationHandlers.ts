@@ -27,6 +27,12 @@ export class MigrationHandlers {
       }
 
       const { dbType } = await this.dbService.getDatabaseConnection(dbId);
+      if (dbType === "mongodb") {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Migrations are not supported for MongoDB databases",
+        });
+      }
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
       // Generate migration file
@@ -68,6 +74,12 @@ export class MigrationHandlers {
       }
 
       const { dbType } = await this.dbService.getDatabaseConnection(dbId);
+      if (dbType === "mongodb") {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Migrations are not supported for MongoDB databases",
+        });
+      }
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
       // Generate migration file
@@ -115,6 +127,12 @@ export class MigrationHandlers {
       }
 
       const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      if (dbType === "mongodb") {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Migrations are not supported for MongoDB databases",
+        });
+      }
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
       let columns = passedColumns;

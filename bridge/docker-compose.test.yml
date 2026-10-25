@@ -67,6 +67,19 @@ services:
       timeout: 5s
       retries: 5
 
+  mongodb:
+    image: mongo:7
+    environment:
+      # Runs without auth so the credential-free integration test can connect.
+      MONGO_INITDB_DATABASE: testdb
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   ssh-server:
     image: linuxserver/openssh-server
     environment:
