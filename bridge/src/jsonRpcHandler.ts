@@ -70,6 +70,12 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "query.updateRow", (p, id) => queryHandlers.handleUpdateRow(p, id));
   rpcRegister(rpc, "query.deleteRow", (p, id) => queryHandlers.handleDeleteRow(p, id));
   rpcRegister(rpc, "query.searchTable", (p, id) => queryHandlers.handleSearchTable(p, id));
+  // M2: MongoDB document engine (docs/MONGODB_M2_SPEC.md §13)
+  rpcRegister(rpc, "query.fetchDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
+  rpcRegister(rpc, "query.insertDocument", (p, id) => queryHandlers.handleInsertDocument(p, id));
+  rpcRegister(rpc, "query.updateDocument", (p, id) => queryHandlers.handleUpdateDocument(p, id));
+  rpcRegister(rpc, "query.deleteDocument", (p, id) => queryHandlers.handleDeleteDocument(p, id));
+  rpcRegister(rpc, "query.runAggregation", (p, id) => queryHandlers.handleRunAggregation(p, id));
 
   // ==========================================
   // DATABASE CRUD HANDLERS

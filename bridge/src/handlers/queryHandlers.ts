@@ -3,6 +3,7 @@ import { DatabaseService } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
 import { SessionManager } from "../sessionManager";
 import { getConnector } from "../services/connectorRegistry";
+import { MongoApiError, mapMongoError } from "../connectors/mongo";
 import { Logger } from "pino";
 
 export class QueryHandlers {
@@ -334,6 +335,121 @@ export class QueryHandlers {
     } catch (e: any) {
       this.logger.error({ e }, "searchTable failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+    }
+  }
+
+  // ---- M2: MongoDB document engine handlers (docs/MONGODB_M2_SPEC.md §13) ----
+
+  /** Map a MongoApiError (or driver error) to the stable M2 error envelope. */
+  private sendMongoError(id: number | string, e: unknown): void {
+    const mapped =
+      e instanceof MongoApiError ? { code: e.code, message: e.message } : mapMongoError(e);
+    this.logger.error({ err: e, code: mapped.code }, "MongoDB document operation failed");
+    this.rpc.sendError(id, { code: mapped.code, message: mapped.message });
+  }
+
+  async handleFetchDocuments(params: any, id: number | string) {
+    try {
+      const { dbId, collection, filter, sort, projection, page, pageSize } = params || {};
+      if (!dbId || !collection) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId or collection",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.findDocuments(conn, dbType, {
+        collection,
+        filter,
+        sort,
+        projection,
+        page,
+        pageSize,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleInsertDocument(params: any, id: number | string) {
+    try {
+      const { dbId, collection, document } = params || {};
+      if (!dbId || !collection || !document) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, or document",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.insertDocument(conn, dbType, { collection, document });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleUpdateDocument(params: any, id: number | string) {
+    try {
+      const { dbId, collection, filter, update, options } = params || {};
+      if (!dbId || !collection || !filter || !update) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, filter, or update",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.updateDocument(conn, dbType, {
+        collection,
+        filter,
+        update,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleDeleteDocument(params: any, id: number | string) {
+    try {
+      const { dbId, collection, filter, options } = params || {};
+      if (!dbId || !collection || !filter) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, or filter",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.deleteDocument(conn, dbType, {
+        collection,
+        filter,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleRunAggregation(params: any, id: number | string) {
+    try {
+      const { dbId, collection, pipeline, options } = params || {};
+      if (!dbId || !collection || !pipeline) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, or pipeline",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.runAggregation(conn, dbType, {
+        collection,
+        pipeline,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
     }
   }
 }

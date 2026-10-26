@@ -1,6 +1,20 @@
 import { DBType, Rpc, QueryParams } from "../types";
 import { getConnector } from "./connectorRegistry";
 import logger from "./logger";
+import { mongoConnector, MongoApiError } from "../connectors/mongo";
+import {
+  MongoConfig,
+  MongoFindRequest,
+  MongoFindResult,
+  MongoInsertRequest,
+  MongoInsertResult,
+  MongoUpdateRequest,
+  MongoUpdateResult,
+  MongoDeleteRequest,
+  MongoDeleteResult,
+  MongoAggregationRequest,
+  MongoAggregationResult,
+} from "../types/mongo";
 
 // Concurrency limit for parallel processing
 const PARALLEL_LIMIT = 5;
@@ -168,5 +182,77 @@ export class QueryExecutor {
         : (conn as any).database;
 
     return { name: dbName, schemas: finalSchemas.filter(Boolean) };
+  }
+
+  // ---- M2: MongoDB document engine (docs/MONGODB_M2_SPEC.md §13) ----
+
+  async findDocuments(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoFindRequest,
+  ): Promise<MongoFindResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.findDocuments(conn, req);
+  }
+
+  async insertDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoInsertRequest,
+  ): Promise<MongoInsertResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.insertDocument(conn, req);
+  }
+
+  async updateDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoUpdateRequest,
+  ): Promise<MongoUpdateResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.updateDocument(conn, req);
+  }
+
+  async deleteDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoDeleteRequest,
+  ): Promise<MongoDeleteResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.deleteDocument(conn, req);
+  }
+
+  async runAggregation(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoAggregationRequest,
+  ): Promise<MongoAggregationResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "runAggregation requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.runAggregation(conn, req);
   }
 }
