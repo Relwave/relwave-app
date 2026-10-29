@@ -31,6 +31,8 @@ import AIWorkspacePanel from "@/features/database/components/AIWorkspacePanel";
 import { ShortcutsHelp } from "@/components/shared/ShortcutsHelp";
 import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
 import { MigrationSyncDialog } from "@/features/project/components/MigrationSyncDialog";
+import { getDatabaseKind } from "@/lib/databases";
+import { MongoDataViewPanel } from "@/features/mongodb/components/MongoDataViewPanel";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -89,15 +91,17 @@ const DatabaseDetail = () => {
     databaseName: databaseName || "database",
   });
 
+  const isNosql = getDatabaseKind(databaseType) === "nosql";
+
   // Migrations
-  const { data: migrationsResponse } = useMigrations(dbId);
+  const { data: migrationsResponse } = useMigrations(isNosql ? undefined : dbId);
   const migrationsData = migrationsResponse?.migrations || { local: [], applied: [] };
   const baselined = migrationsResponse?.baselined || false;
 
   // Project sync
-  const { data: schemaData, refetch: refetchSchema } = useFullSchema(dbId);
+  const { data: schemaData, refetch: refetchSchema } = useFullSchema(isNosql ? undefined : dbId);
   const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } =
-    useProjectSync(dbId, schemaData ?? undefined);
+    useProjectSync(isNosql ? undefined : dbId, isNosql ? undefined : (schemaData ?? undefined));
   const { data: projectDir } = useProjectDir(projectId);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
@@ -139,6 +143,10 @@ const DatabaseDetail = () => {
 
   // ---- Panel router ----
   const renderPanel = () => {
+    if (isNosql) {
+      return <MongoDataViewPanel dbId={dbId!} databaseName={databaseName || ""} />;
+    }
+
     switch (activePanel) {
       case "sql-workspace":
         return <SQLWorkspacePanel key={`sql-${dbId}`} dbId={dbId || ""} />;

@@ -452,4 +452,42 @@ export class QueryHandlers {
       this.sendMongoError(id, e);
     }
   }
+
+  async handleListCollections(params: any, id: number | string) {
+    try {
+      const { dbId } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.listCollections(conn, dbType, params);
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleGetInferredSchema(params: any, id: number | string) {
+    try {
+      const { dbId, collection, sampleSize, maxDepth } = params || {};
+      if (!dbId || !collection) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId or collection",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.inferCollectionSchema(conn, dbType, {
+        collection,
+        sampleSize,
+        maxDepth,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
 }

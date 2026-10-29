@@ -8,9 +8,9 @@
  * only at runtime from the sanitized URI + the decrypted password, and is never
  * written back.
  *
- * WHATWG `URL` parses `mongodb://` and `mongodb+srv://` authorities correctly
- * (credentials, host, port, path, and query options), so it is used as the
- * parser. All returned strings are JSON-safe and free of plaintext passwords
+ * Uses a zero-dependency parser that safely handles single-host, mongodb+srv://,
+ * and multi-host comma-separated seedlists (which WHATWG URL rejects with ERR_INVALID_URL).
+ * All returned strings are JSON-safe and free of plaintext passwords
  * unless explicitly re-injecting at runtime.
  */
 
@@ -25,6 +25,7 @@ export function isMongoUri(raw?: string): boolean {
 
 type MongoUriComponents = {
   scheme: "mongodb" | "mongodb+srv";
+  hosts: string;
   host: string;
   port?: number;
   user?: string;
@@ -36,32 +37,120 @@ type MongoUriComponents = {
 /** Parse a MongoDB URI into its components (password decoded). */
 function parseMongoUriComponents(raw: string): MongoUriComponents {
   const trimmed = raw.trim();
-  const u = new URL(trimmed);
-  const scheme: "mongodb" | "mongodb+srv" = trimmed.toLowerCase().startsWith("mongodb+srv://")
-    ? "mongodb+srv"
-    : "mongodb";
-  const user = u.username ? decodeURIComponent(u.username) : undefined;
-  const password = u.password ? decodeURIComponent(u.password) : undefined;
-  const host = u.hostname;
-  const port = u.port ? Number(u.port) : undefined;
-  const database =
-    u.pathname && u.pathname !== "/"
-      ? decodeURIComponent(u.pathname.replace(/^\//, ""))
-      : undefined;
-  const options = u.search ? u.search.slice(1) : "";
-  return { scheme, host, port, user, password, database, options };
+  const isSrv = trimmed.toLowerCase().startsWith("mongodb+srv://");
+  const scheme: "mongodb" | "mongodb+srv" = isSrv ? "mongodb+srv" : "mongodb";
+  const prefix = isSrv ? "mongodb+srv://" : "mongodb://";
+  const rest = trimmed.toLowerCase().startsWith(prefix)
+    ? trimmed.slice(prefix.length)
+    : trimmed.replace(/^mongodb(\+srv)?:\/\//i, "");
+
+  const queryIndex = rest.indexOf("?");
+  const hashIndex = rest.indexOf("#");
+  let endOfPathIndex = rest.length;
+  if (queryIndex !== -1) endOfPathIndex = queryIndex;
+  if (hashIndex !== -1 && (queryIndex === -1 || hashIndex < queryIndex)) {
+    endOfPathIndex = hashIndex;
+  }
+
+  const authorityAndPath = rest.slice(0, endOfPathIndex);
+  let options = "";
+  if (queryIndex !== -1) {
+    if (hashIndex !== -1 && hashIndex > queryIndex) {
+      options = rest.slice(queryIndex + 1, hashIndex);
+    } else {
+      options = rest.slice(queryIndex + 1);
+    }
+  }
+
+  const slashIndex = authorityAndPath.indexOf("/");
+  const authority = slashIndex !== -1 ? authorityAndPath.slice(0, slashIndex) : authorityAndPath;
+  const rawDb = slashIndex !== -1 ? authorityAndPath.slice(slashIndex + 1) : "";
+  let database: string | undefined = undefined;
+  if (rawDb) {
+    try {
+      database = decodeURIComponent(rawDb);
+    } catch {
+      database = rawDb;
+    }
+  }
+
+  let user: string | undefined;
+  let password: string | undefined;
+  let hosts = authority;
+
+  const atIndex = authority.lastIndexOf("@");
+  if (atIndex !== -1) {
+    const creds = authority.slice(0, atIndex);
+    hosts = authority.slice(atIndex + 1);
+    const colonIndex = creds.indexOf(":");
+    if (colonIndex !== -1) {
+      const rawUser = creds.slice(0, colonIndex);
+      const rawPass = creds.slice(colonIndex + 1);
+      try {
+        user = decodeURIComponent(rawUser);
+      } catch {
+        user = rawUser;
+      }
+      try {
+        password = decodeURIComponent(rawPass);
+      } catch {
+        password = rawPass;
+      }
+    } else {
+      try {
+        user = decodeURIComponent(creds);
+      } catch {
+        user = creds;
+      }
+    }
+    if (user === "") user = undefined;
+    if (password === "") password = undefined;
+  }
+
+  let host = "";
+  let port: number | undefined;
+
+  const firstHost = hosts.split(",")[0].trim();
+  if (firstHost.startsWith("[")) {
+    const closeBracket = firstHost.indexOf("]");
+    if (closeBracket !== -1) {
+      host = firstHost.slice(1, closeBracket);
+      const after = firstHost.slice(closeBracket + 1);
+      if (after.startsWith(":")) {
+        const p = Number(after.slice(1));
+        if (!isNaN(p)) port = p;
+      }
+    } else {
+      host = firstHost;
+    }
+  } else {
+    const colonIndex = firstHost.lastIndexOf(":");
+    if (colonIndex !== -1) {
+      host = firstHost.slice(0, colonIndex);
+      const p = Number(firstHost.slice(colonIndex + 1));
+      if (!isNaN(p)) port = p;
+    } else {
+      host = firstHost;
+    }
+  }
+
+  return { scheme, hosts, host, port, user, password, database, options };
 }
 
 /** Rebuild a MongoDB URI string from components. */
 function buildMongoUriString(c: MongoUriComponents, includePassword: boolean): string {
   let auth = "";
-  if (c.user) auth += encodeURIComponent(c.user);
-  if (includePassword && c.password) auth += ":" + encodeURIComponent(c.password);
-  if (auth) auth += "@";
-  const portPart = c.port ? `:${c.port}` : "";
+  if (c.user) {
+    auth += encodeURIComponent(c.user);
+    if (includePassword && c.password) {
+      auth += ":" + encodeURIComponent(c.password);
+    }
+    auth += "@";
+  }
+  const hosts = c.hosts || (c.host ? (c.port ? `${c.host}:${c.port}` : c.host) : "");
   const path = c.database ? `/${encodeURIComponent(c.database)}` : "";
   const qs = c.options ? `?${c.options}` : "";
-  return `${c.scheme}://${auth}${c.host}${portPart}${path}${qs}`;
+  return `${c.scheme}://${auth}${hosts}${path}${qs}`;
 }
 
 type MongoUriOptions = { authSource?: string; replicaSet?: string };

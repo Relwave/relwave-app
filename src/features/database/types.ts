@@ -1,4 +1,4 @@
-export type DatabaseType = "postgresql" | "mysql" | "sqlite" | "duckdb" | "clickhouse";
+export type DatabaseType = "postgresql" | "mysql" | "sqlite" | "duckdb" | "clickhouse" | "mongodb";
 
 export interface SSHConfig {
   host: string;
@@ -11,7 +11,7 @@ export interface SSHConfig {
 }
 
 export interface DiscoveredDatabase {
-  type: "postgresql" | "mysql" | "mariadb" | "sqlite" | "duckdb" | "clickhouse";
+  type: "postgresql" | "mysql" | "mariadb" | "sqlite" | "duckdb" | "clickhouse" | "mongodb";
   host: string;
   port: number;
   source: "local" | "docker";

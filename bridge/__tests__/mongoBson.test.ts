@@ -77,7 +77,7 @@ describe("serializeMongoValue", () => {
     const value = serializeMongoValue({
       _id: new ObjectId(),
       when: new Date(),
-      big: Long.fromNumber(9007199254740993),
+      big: Long.fromString("9007199254740993"),
       dec: new Decimal128("3.14"),
       raw: Buffer.from("bytes"),
       missing: undefined,

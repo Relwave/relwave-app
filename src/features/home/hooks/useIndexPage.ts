@@ -10,9 +10,10 @@ import {
   ConnectionFormData,
   DUCKDB_REQUIRED_FIELDS,
   CLICKHOUSE_REQUIRED_FIELDS,
+  MONGODB_REQUIRED_FIELDS,
   REQUIRED_FIELDS,
   SQLITE_REQUIRED_FIELDS,
-} from "@/features/home/types";
+} from "../types";
 import { useDatabaseStats } from "../../database/hooks/useDatabaseStats";
 import { useSelectedDbStats } from "../../database/hooks/useSelectedDbStats";
 import { databaseService } from "@/services/bridge/database";
@@ -109,6 +110,7 @@ export const useIndexPage = (bridgeReady: boolean) => {
     const isSQLite = formData.type === "sqlite";
     const isDuckDB = formData.type === "duckdb";
     const isClickHouse = formData.type === "clickhouse";
+    const isMongo = formData.type === "mongodb";
 
     if (isClickHouse) {
       if (!formData.user) formData.user = "default";
@@ -121,7 +123,9 @@ export const useIndexPage = (bridgeReady: boolean) => {
         ? DUCKDB_REQUIRED_FIELDS
         : isClickHouse
           ? CLICKHOUSE_REQUIRED_FIELDS
-          : REQUIRED_FIELDS;
+          : isMongo
+            ? (formData.url ? ["name", "type"] : MONGODB_REQUIRED_FIELDS)
+            : REQUIRED_FIELDS;
     const missing = requiredFields.filter((field) => !formData[field as keyof typeof formData]);
 
     if (missing.length) {
@@ -168,11 +172,14 @@ export const useIndexPage = (bridgeReady: boolean) => {
       const isFileBasedDB = isSQLite || isDuckDB;
       const port = isFileBasedDB
         ? 0
-        : parseInt(formData.port) || (isClickHouse ? (formData.ssl ? 8443 : 8123) : 5432);
+        : parseInt(formData.port) || (isClickHouse ? (formData.ssl ? 8443 : 8123) : isMongo ? 27017 : 5432);
+
+      const resolvedUrl = (isMongo || isClickHouse) ? (formData.url || undefined) : formData.url;
 
       const payload: any = {
         ...rest,
         port,
+        url: resolvedUrl,
         sslmode: isFileBasedDB
           ? "disable"
           : formData.ssl

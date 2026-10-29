@@ -42,6 +42,11 @@ const DB_TYPE_COLORS = {
     text: "text-amber-500",
     border: "border-amber-500/20",
   },
+  mongodb: {
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-500",
+    border: "border-emerald-500/20",
+  },
 };
 
 export function DiscoveredDatabasesCard({

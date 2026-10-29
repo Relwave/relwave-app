@@ -72,6 +72,7 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "query.searchTable", (p, id) => queryHandlers.handleSearchTable(p, id));
   // M2: MongoDB document engine (docs/MONGODB_M2_SPEC.md §13)
   rpcRegister(rpc, "query.fetchDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
+  rpcRegister(rpc, "query.findDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
   rpcRegister(rpc, "query.insertDocument", (p, id) => queryHandlers.handleInsertDocument(p, id));
   rpcRegister(rpc, "query.updateDocument", (p, id) => queryHandlers.handleUpdateDocument(p, id));
   rpcRegister(rpc, "query.deleteDocument", (p, id) => queryHandlers.handleDeleteDocument(p, id));
@@ -93,6 +94,8 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "db.listTables", (p, id) => databaseHandlers.handleListTables(p, id));
   rpcRegister(rpc, "db.getSchema", (p, id) => databaseHandlers.handleGetSchema(p, id));
   rpcRegister(rpc, "db.listSchemas", (p, id) => databaseHandlers.handleListSchemas(p, id));
+  rpcRegister(rpc, "db.listCollections", (p, id) => queryHandlers.handleListCollections(p, id));
+  rpcRegister(rpc, "db.getInferredSchema", (p, id) => queryHandlers.handleGetInferredSchema(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS

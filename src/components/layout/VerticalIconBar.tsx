@@ -16,6 +16,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SettingsDialog } from "@/features/settings/components";
+import { getDatabaseKind } from "@/lib/databases";
 
 export type PanelType =
   | "data"
@@ -53,6 +54,10 @@ export function getDatabasePanelItems(databaseType?: string): Array<{
   label: string;
   panel: PanelType;
 }> {
+  if (getDatabaseKind(databaseType) === "nosql") {
+    return [{ icon: Layers, label: "Data View", panel: "data" }];
+  }
+
   return [
     { icon: Layers, label: "Data View", panel: "data" },
     { icon: Terminal, label: "SQL Workspace", panel: "sql-workspace" },

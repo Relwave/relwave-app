@@ -74,20 +74,62 @@ export type SerializedMongoDocument = { [key: string]: MongoWireValue };
 
 export type MongoCollectionInfo = { name: string; type: "collection" | "view" };
 
-export type MongoInferredField = {
-  path: string;
-  bsonType: string;
-  presentInPct: number;
-  sampleCount: number;
-  nested?: MongoInferredField[];
-};
+export type MongoBsonType =
+  | "objectId"
+  | "string"
+  | "number"
+  | "long"
+  | "decimal"
+  | "timestamp"
+  | "binary"
+  | "date"
+  | "bool"
+  | "null"
+  | "array"
+  | "object"
+  | "undefined";
 
-export type MongoInferredSchema = {
+export interface MongoInferSchemaRequest {
   collection: string;
+  sampleSize?: number; // default 100, clamped [1, 1000]
+  maxDepth?: number; // default 8, clamped [1, 16]
+}
+
+export interface MongoInferredField {
+  path: string;
+  bsonType: MongoBsonType;
+  types: MongoBsonType[];
+  numericKinds?: Array<"int" | "double">;
+  depth: number;
+  parentPath?: string;
+  isArray: boolean;
+  isNested: boolean;
+  count: number;
+  nullCount: number;
+  sampleSize: number;
+  presencePct: number;
+  nullable: boolean;
+  optional: boolean;
+  typeConflicts: Array<{ bsonType: MongoBsonType; count: number }>;
+  arrayElementTypes?: MongoBsonType[];
+  sampleValue?: EJSONDocument | MongoWireValue;
+  maxChildDepth?: number;
+  truncated?: boolean;
+}
+
+export interface MongoCollectionSchema {
+  collection: string;
+  sampleSize: number;
+  totalDocs: number;
+  inferredAt: string;
+  fieldCount: number;
+  nestedFieldCount: number;
+  arrayFieldCount: number;
   fields: MongoInferredField[];
-  sampled: number;
-  totalDocs?: number;
-};
+  sampleDocuments: SerializedMongoDocument[];
+}
+export type MongoInferredSchema = MongoCollectionSchema;
+export type MongoCollectionListItem = MongoCollectionInfo;
 
 /**
  * Result of parsing a MongoDB URI that may embed credentials.
@@ -261,3 +303,10 @@ export const MAX_DOCUMENT_SIZE_BYTES = 16 * 1024 * 1024;
 export const DEFAULT_OP_TIMEOUT_MS = 30000;
 export const MAX_OP_TIMEOUT_MS = 120000;
 export const MAX_INSERT_DOCUMENTS = 1;
+
+// M3 schema inference limits (docs/MONGODB_M3_SPEC.md §4.6)
+export const MAX_SAMPLE_SIZE = 1000;
+export const MAX_INFERENCE_DEPTH = 16;
+export const MAX_INFERRED_FIELDS = 5000;
+export const DEFAULT_SAMPLE_SIZE = 100;
+export const DEFAULT_MAX_DEPTH = 8;

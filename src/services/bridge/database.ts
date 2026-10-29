@@ -10,6 +10,7 @@ import {
   SSHConfig,
   UpdateDatabaseParams,
 } from "@/features/database/types";
+import { MongoCollectionInfo, MongoCollectionSchema } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
 class DatabaseService {
@@ -67,11 +68,14 @@ class DatabaseService {
       // Validate required fields
       const isFileBasedDB = params.type === "sqlite" || params.type === "duckdb";
       const isClickHouse = params.type === "clickhouse";
+      const isMongo = params.type === "mongodb";
       const required = isFileBasedDB
         ? ["name", "type", "database"]
         : isClickHouse
           ? ["name", "type"]
-          : ["name", "type", "host", "port", "user", "database"];
+          : isMongo
+            ? (params.url ? ["name", "type"] : ["name", "type", "host", "port"])
+            : ["name", "type", "host", "port", "user", "database"];
       for (const field of required) {
         if (!params[field as keyof AddDatabaseParams]) {
           throw new Error(`Missing required field: ${field}`);
@@ -592,6 +596,44 @@ class DatabaseService {
     } catch (error: any) {
       console.error("Failed to discover databases:", error);
       return []; // Return empty array on error, don't throw
+    }
+  }
+
+  /**
+   * List collections in a MongoDB database (db.listCollections)
+   */
+  async listMongoCollections(dbId: string): Promise<{ collections: MongoCollectionInfo[] }> {
+    try {
+      if (!dbId) throw new Error("Database ID is required");
+      const result = await bridgeRequest("db.listCollections", { dbId });
+      return result?.data || { collections: [] };
+    } catch (error: any) {
+      console.error("Failed to list MongoDB collections:", error);
+      throw new Error(`Failed to list collections: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get inferred schema for a MongoDB collection (db.getInferredSchema)
+   */
+  async getMongoInferredSchema(
+    dbId: string,
+    collection: string,
+    sampleSize?: number,
+    maxDepth?: number,
+  ): Promise<MongoCollectionSchema> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.getInferredSchema", {
+        dbId,
+        collection,
+        sampleSize,
+        maxDepth,
+      });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to get inferred MongoDB schema:", error);
+      throw new Error(`Failed to get inferred schema: ${error.message}`);
     }
   }
 }

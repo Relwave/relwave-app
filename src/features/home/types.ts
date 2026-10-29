@@ -112,3 +112,4 @@ export const REQUIRED_FIELDS = ["name", "type", "host", "port", "user", "databas
 export const SQLITE_REQUIRED_FIELDS = ["name", "type", "database"];
 export const DUCKDB_REQUIRED_FIELDS = ["name", "type", "database"];
 export const CLICKHOUSE_REQUIRED_FIELDS = ["name", "type", "url"];
+export const MONGODB_REQUIRED_FIELDS = ["name", "type", "host", "port"];

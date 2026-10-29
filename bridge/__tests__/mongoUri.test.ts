@@ -109,4 +109,43 @@ describe("mongoUri", () => {
   test("buildMongoConnectionUri throws when neither uri nor host is present", () => {
     expect(() => buildMongoConnectionUri({}, "pw")).toThrow(/requires a url/i);
   });
+
+  test("parses multi-host replica set URI without throwing ERR_INVALID_URL", () => {
+    const uri =
+      "mongodb://user:secret@host1:27017,host2:27017,host3:27017/testdb?replicaSet=rs0&authSource=admin";
+    expect(() => extractMongoCredentials(uri)).not.toThrow();
+    const meta = normalizeMongoUriMeta(uri);
+    expect(meta.host).toBe("host1");
+    expect(meta.port).toBe(27017);
+    expect(meta.user).toBe("user");
+    expect(meta.database).toBe("testdb");
+    expect(meta.replicaSet).toBe("rs0");
+    expect(meta.authSource).toBe("admin");
+  });
+
+  test("multi-host credentials extraction and sanitization", () => {
+    const uri =
+      "mongodb://user:secret@host1:27017,host2:27017,host3:27017/testdb?replicaSet=rs0&authSource=admin";
+    const creds = extractMongoCredentials(uri);
+    expect(creds.user).toBe("user");
+    expect(creds.password).toBe("secret");
+
+    const sanitized = sanitizeMongoUri(uri);
+    expect(sanitized).toBe(
+      "mongodb://user@host1:27017,host2:27017,host3:27017/testdb?replicaSet=rs0&authSource=admin",
+    );
+    expect(sanitized).not.toContain("secret");
+    expect(sanitized).toContain("host1:27017,host2:27017,host3:27017");
+    expect(sanitized).toContain("replicaSet=rs0");
+    expect(sanitized).toContain("authSource=admin");
+  });
+
+  test("re-injects password into sanitized multi-host URI with buildMongoConnectionUri", () => {
+    const sanitized =
+      "mongodb://user@host1:27017,host2:27017,host3:27017/testdb?replicaSet=rs0&authSource=admin";
+    const reconstructed = buildMongoConnectionUri({ url: sanitized }, "secretPass");
+    expect(reconstructed).toBe(
+      "mongodb://user:secretPass@host1:27017,host2:27017,host3:27017/testdb?replicaSet=rs0&authSource=admin",
+    );
+  });
 });

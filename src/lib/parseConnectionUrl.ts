@@ -15,6 +15,82 @@ export interface ParsedConnectionUrl {
   database: string;
   ssl: boolean;
   sslmode: string;
+  originalUri?: string;
+}
+
+export function parseMongoUrl(url: string): ParsedConnectionUrl | null {
+  const originalUri = url.trim();
+  const isSrv = originalUri.startsWith("mongodb+srv://");
+  const prefix = isSrv ? "mongodb+srv://" : "mongodb://";
+  const rest = originalUri.slice(prefix.length);
+
+  const queryIndex = rest.indexOf("?");
+  const hashIndex = rest.indexOf("#");
+  let endOfPathIndex = rest.length;
+  if (queryIndex !== -1) endOfPathIndex = queryIndex;
+  if (hashIndex !== -1 && (queryIndex === -1 || hashIndex < queryIndex)) endOfPathIndex = hashIndex;
+
+  const authorityAndPath = rest.slice(0, endOfPathIndex);
+  const queryString = queryIndex !== -1 ? rest.slice(queryIndex) : "";
+
+  const slashIndex = authorityAndPath.indexOf("/");
+  let authority = slashIndex !== -1 ? authorityAndPath.slice(0, slashIndex) : authorityAndPath;
+  let database = slashIndex !== -1 ? authorityAndPath.slice(slashIndex + 1) : "";
+  try {
+    database = decodeURIComponent(database);
+  } catch {}
+
+  let user = "";
+  let password = "";
+  const atIndex = authority.lastIndexOf("@");
+  if (atIndex !== -1) {
+    const userInfo = authority.slice(0, atIndex);
+    authority = authority.slice(atIndex + 1);
+    const colonIndex = userInfo.indexOf(":");
+    if (colonIndex !== -1) {
+      user = userInfo.slice(0, colonIndex);
+      password = userInfo.slice(colonIndex + 1);
+    } else {
+      user = userInfo;
+    }
+    try {
+      user = decodeURIComponent(user);
+    } catch {}
+    try {
+      password = decodeURIComponent(password);
+    } catch {}
+  }
+
+  let host = authority;
+  let port = isSrv ? "" : "27017";
+
+  if (!isSrv && !authority.includes(",")) {
+    const colonIndex = authority.lastIndexOf(":");
+    if (colonIndex !== -1) {
+      host = authority.slice(0, colonIndex);
+      port = authority.slice(colonIndex + 1) || "27017";
+    }
+  } else if (!isSrv && authority.includes(",")) {
+    const firstHost = authority.split(",")[0];
+    const colonIndex = firstHost.lastIndexOf(":");
+    if (colonIndex !== -1) {
+      port = firstHost.slice(colonIndex + 1) || "27017";
+    }
+  }
+
+  const ssl = isSrv || /[?&](?:ssl|tls)=true/i.test(queryString);
+
+  return {
+    type: "mongodb",
+    host,
+    port: port || (isSrv ? "27017" : "27017"),
+    user,
+    password,
+    database,
+    ssl,
+    sslmode: "",
+    originalUri,
+  };
 }
 
 function normalizeSqlitePathFromUrl(parsed: URL): string {
@@ -121,13 +197,24 @@ export function parseClickHouseUrl(raw?: string): {
 export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
   try {
     // Trim whitespace
-    url = url.trim();
+    const trimmed = url.trim();
 
     // Handle empty string
-    if (!url) return null;
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith("mongodb://") || trimmed.startsWith("mongodb+srv://")) {
+      return parseMongoUrl(trimmed);
+    }
+
+    const isExplicitOther =
+      trimmed.startsWith("postgres://") ||
+      trimmed.startsWith("postgresql://") ||
+      trimmed.startsWith("mysql://") ||
+      trimmed.startsWith("sqlite://") ||
+      trimmed.startsWith("duckdb://");
 
     // Parse the URL
-    const parsed = new URL(cleanClickHouseUrl(url));
+    const parsed = new URL(isExplicitOther ? trimmed : cleanClickHouseUrl(trimmed));
 
     // Determine database type from protocol
     let type = "";
@@ -170,6 +257,7 @@ export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
         database: dbPath,
         ssl: false,
         sslmode: "",
+        originalUri: trimmed,
       };
     }
 
@@ -205,6 +293,7 @@ export function parseConnectionUrl(url: string): ParsedConnectionUrl | null {
       database,
       ssl,
       sslmode,
+      originalUri: trimmed,
     };
   } catch {
     // Invalid URL format
@@ -223,7 +312,25 @@ export function buildConnectionUrl(params: {
   password: string;
   database: string;
   sslmode?: string;
+  ssl?: boolean;
+  originalUri?: string;
 }): string {
+  if (params.type === "mongodb") {
+    if (params.originalUri) {
+      return params.originalUri;
+    }
+    const auth = params.user
+      ? params.password
+        ? `${encodeURIComponent(params.user)}:${encodeURIComponent(params.password)}@`
+        : `${encodeURIComponent(params.user)}@`
+      : "";
+    const host = params.host || "localhost";
+    const port = params.port ? `:${params.port}` : ":27017";
+    const db = params.database ? `/${encodeURIComponent(params.database)}` : "";
+    const sslQuery = params.ssl ? "?tls=true" : "";
+    return `mongodb://${auth}${host}${port}${db}${sslQuery}`;
+  }
+
   if (params.type === "sqlite" || params.type === "duckdb") {
     return `${params.type}:///${encodeSqlitePathSegments(params.database)}`;
   }

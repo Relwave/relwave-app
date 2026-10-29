@@ -4,6 +4,9 @@ import logger from "./logger";
 import { mongoConnector, MongoApiError } from "../connectors/mongo";
 import {
   MongoConfig,
+  MongoCollectionInfo,
+  MongoInferSchemaRequest,
+  MongoCollectionSchema,
   MongoFindRequest,
   MongoFindResult,
   MongoInsertRequest,
@@ -254,5 +257,34 @@ export class QueryExecutor {
       );
     }
     return mongoConnector.runAggregation(conn, req);
+  }
+
+  async listCollections(
+    conn: MongoConfig,
+    dbType: DBType,
+    _req?: { collectionFilter?: string },
+  ): Promise<{ collections: MongoCollectionInfo[] }> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "listCollections requires a MongoDB connection",
+      );
+    }
+    const collections = await mongoConnector.listCollections(conn);
+    return { collections };
+  }
+
+  async inferCollectionSchema(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoInferSchemaRequest,
+  ): Promise<MongoCollectionSchema> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "inferCollectionSchema requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.inferCollectionSchema(conn, req);
   }
 }

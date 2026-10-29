@@ -38,6 +38,7 @@ interface DataTableProps {
   sortColumn?: string;
   sortDirection?: "asc" | "desc";
   onSort?: (column: string) => void;
+  renderCell?: (value: any, column: string, row: Record<string, any>) => React.ReactNode;
 }
 
 export const DataTable = ({
@@ -51,6 +52,7 @@ export const DataTable = ({
   sortColumn,
   sortDirection,
   onSort,
+  renderCell,
 }: DataTableProps) => {
   const [copiedCellKey, setCopiedCellKey] = useState<string | null>(null);
 
@@ -199,7 +201,9 @@ export const DataTable = ({
                     }
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <div className="truncate flex-1">{formatCellValue(val, column)}</div>
+                      <div className="truncate flex-1">
+                        {renderCell ? renderCell(val, column, row) : formatCellValue(val, column)}
+                      </div>
                       {hasValue && (
                         <button
                           onClick={(e) => handleCellCopy(val, cellKey, e)}

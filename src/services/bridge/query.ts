@@ -1,4 +1,5 @@
 import { RunQueryParams, TableRow } from "@/features/database/types";
+import { MongoFindRequest, MongoFindResult } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
 class QueryService {
@@ -57,6 +58,22 @@ class QueryService {
     } catch (error: any) {
       console.error("Failed to fetch table data:", error);
       throw new Error(`Failed to fetch table data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Fetches MongoDB documents with pagination, sorting, and filtering support (query.findDocuments).
+   */
+  async fetchMongoDocuments(req: MongoFindRequest): Promise<MongoFindResult> {
+    try {
+      if (!req.dbId || !req.collection) {
+        throw new Error("Database ID and collection name are required.");
+      }
+      const result = await bridgeRequest("query.findDocuments", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to fetch MongoDB documents:", error);
+      throw new Error(`Failed to fetch MongoDB documents: ${error.message}`);
     }
   }
 }

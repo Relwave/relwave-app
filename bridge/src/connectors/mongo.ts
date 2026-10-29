@@ -27,6 +27,10 @@ import {
   MongoConfig,
   MongoCollectionInfo,
   MongoCollectionStats,
+  MongoBsonType,
+  MongoInferSchemaRequest,
+  MongoCollectionSchema,
+  MongoInferredField,
   EJSONDocument,
   EJsonValue,
   MongoFindRequest,
@@ -54,16 +58,25 @@ import {
   MAX_DOCUMENT_SIZE_BYTES,
   DEFAULT_OP_TIMEOUT_MS,
   MAX_OP_TIMEOUT_MS,
+  MAX_SAMPLE_SIZE,
+  MAX_INFERENCE_DEPTH,
+  MAX_INFERRED_FIELDS,
+  DEFAULT_SAMPLE_SIZE,
+  DEFAULT_MAX_DEPTH,
 } from "../types/mongo";
 import { TableInfo, DBStats, SchemaInfo } from "../types/common";
 import { CacheEntry } from "../types/cache";
 import logger from "../services/logger";
 import {
+  serializeMongoDocument,
+  serializeMongoValue,
   serializeMongoEJSONDocument,
   serializeMongoFilter,
   serializeMongoUpdateOperand,
   serializeMongoPipelineStage,
   mongoBSONtoEJSON,
+  bsonTypeOf,
+  bsonNumericKind,
 } from "./mongoBson";
 
 // ---------------------------------------------------------------------------
@@ -83,6 +96,7 @@ function safeMongoError(err: unknown): string {
 const CACHE_TTL = 30_000;
 const STATS_CACHE_TTL = 10_000;
 const DOC_PAGE_TTL = 5_000; // M2 opt-in document-page cache (spec §14)
+const SCHEMA_CACHE_TTL = 300_000; // M3 inferred schema cache (5 min, spec §4.4, §9)
 
 class MongoCacheManager {
   private tableListCache = new Map<string, CacheEntry<TableInfo[]>>();
@@ -90,6 +104,11 @@ class MongoCacheManager {
   // M2 collection-scoped caches (spec §14)
   private collectionStatsCache = new Map<string, CacheEntry<MongoCollectionStats>>();
   private docPageCache = new Map<string, CacheEntry<EJSONDocument[]>>();
+  // M3 inferred schema cache
+  private inferredSchemaCache = new Map<
+    string,
+    CacheEntry<MongoCollectionSchema> & { connHash: string; collection: string }
+  >();
 
   private getConfigKey(cfg: MongoConfig): string {
     return `${cfg.uri || ""}:${cfg.database || ""}`;
@@ -99,6 +118,19 @@ class MongoCacheManager {
   private getConnHash(cfg: MongoConfig): string {
     return createHash("sha256")
       .update(cfg.uri || "")
+      .digest("hex");
+  }
+
+  private getSchemaCacheKey(
+    cfg: MongoConfig,
+    collection: string,
+    sampleSize: number,
+    maxDepth: number,
+  ): string {
+    return createHash("sha256")
+      .update(
+        `${this.getConnHash(cfg)}:${cfg.database || ""}:${collection}:${sampleSize}:${maxDepth}`,
+      )
       .digest("hex");
   }
 
@@ -156,12 +188,45 @@ class MongoCacheManager {
     });
   }
 
+  getInferredSchema(
+    cfg: MongoConfig,
+    collection: string,
+    sampleSize: number,
+    maxDepth: number,
+  ): MongoCollectionSchema | null {
+    const key = this.getSchemaCacheKey(cfg, collection, sampleSize, maxDepth);
+    const entry = this.inferredSchemaCache.get(key);
+    return this.isValid(entry) ? entry!.data : null;
+  }
+
+  setInferredSchema(
+    cfg: MongoConfig,
+    collection: string,
+    sampleSize: number,
+    maxDepth: number,
+    data: MongoCollectionSchema,
+  ): void {
+    const key = this.getSchemaCacheKey(cfg, collection, sampleSize, maxDepth);
+    this.inferredSchemaCache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl: SCHEMA_CACHE_TTL,
+      connHash: this.getConnHash(cfg),
+      collection,
+    });
+  }
+
   /** Evict a collection's stats + all its cached document pages (called on mutation). */
   clearCollectionCache(cfg: MongoConfig, collection: string): void {
     this.collectionStatsCache.delete(`${this.getConfigKey(cfg)}:${collection}`);
     const connHash = this.getConnHash(cfg);
     for (const k of Array.from(this.docPageCache.keys())) {
       if (k.startsWith(`${connHash}:`)) this.docPageCache.delete(k);
+    }
+    for (const [k, v] of Array.from(this.inferredSchemaCache.entries())) {
+      if (v.connHash === connHash && v.collection === collection) {
+        this.inferredSchemaCache.delete(k);
+      }
     }
   }
 
@@ -178,6 +243,11 @@ class MongoCacheManager {
     for (const k of Array.from(this.docPageCache.keys())) {
       if (k.startsWith(`${connHash}:`)) this.docPageCache.delete(k);
     }
+    for (const [k, v] of Array.from(this.inferredSchemaCache.entries())) {
+      if (v.connHash === connHash) {
+        this.inferredSchemaCache.delete(k);
+      }
+    }
   }
 
   clearAll(): void {
@@ -185,6 +255,7 @@ class MongoCacheManager {
     this.dbStatsCache.clear();
     this.collectionStatsCache.clear();
     this.docPageCache.clear();
+    this.inferredSchemaCache.clear();
   }
 }
 
@@ -565,6 +636,196 @@ function clampTimeout(ms?: number): number {
   return Math.min(base, MAX_OP_TIMEOUT_MS);
 }
 
+// ---- M3 Clamping Helpers (docs/MONGODB_M3_SPEC.md §4.4, §4.6) ----
+
+export function clampInferSampleSize(size?: number): number {
+  if (typeof size !== "number" || isNaN(size)) return DEFAULT_SAMPLE_SIZE;
+  return Math.min(Math.max(1, Math.floor(size)), MAX_SAMPLE_SIZE);
+}
+
+export function clampInferMaxDepth(depth?: number): number {
+  if (typeof depth !== "number" || isNaN(depth)) return DEFAULT_MAX_DEPTH;
+  return Math.min(Math.max(1, Math.floor(depth)), MAX_INFERENCE_DEPTH);
+}
+
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    !Array.isArray(v) &&
+    !(v instanceof Date) &&
+    !Buffer.isBuffer(v) &&
+    !(v instanceof Uint8Array) &&
+    !(v as any)._bsontype
+  );
+}
+
+interface FieldAccumulatorStats {
+  path: string;
+  depth: number;
+  parentPath?: string;
+  isArray: boolean;
+  isNested: boolean;
+  count: number;
+  nullCount: number;
+  typeCounts: Map<MongoBsonType, number>;
+  numericKinds: Set<"int" | "double">;
+  arrayElementTypes: Set<MongoBsonType>;
+  sampleValue?: EJSONDocument | any;
+  maxChildDepth?: number;
+  truncated?: boolean;
+}
+
+/**
+ * Pure statistical accumulator over driver-native documents for schema inference.
+ * Never makes network or driver calls (docs/MONGODB_M3_SPEC.md §4.4).
+ */
+export class FieldAccumulator {
+  private fieldMap = new Map<string, FieldAccumulatorStats>();
+
+  constructor(
+    public readonly sampleSize: number,
+    public readonly maxDepth: number,
+  ) {}
+
+  ingest(doc: Document | Record<string, unknown>, parentPath = "", depth = 0): void {
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) return;
+
+    for (const [key, value] of Object.entries(doc)) {
+      if (key === "_bsontype") continue;
+
+      const path = parentPath ? `${parentPath}.${key}` : key;
+
+      if (!this.fieldMap.has(path)) {
+        if (this.fieldMap.size >= MAX_INFERRED_FIELDS) {
+          if (parentPath && this.fieldMap.has(parentPath)) {
+            this.fieldMap.get(parentPath)!.truncated = true;
+          }
+          continue;
+        }
+        this.fieldMap.set(path, {
+          path,
+          depth,
+          parentPath: parentPath || undefined,
+          isArray: false,
+          isNested: false,
+          count: 0,
+          nullCount: 0,
+          typeCounts: new Map<MongoBsonType, number>(),
+          numericKinds: new Set<"int" | "double">(),
+          arrayElementTypes: new Set<MongoBsonType>(),
+        });
+      }
+
+      const stats = this.fieldMap.get(path)!;
+
+      if (parentPath) {
+        let p: string | undefined = parentPath;
+        while (p) {
+          const ancestor = this.fieldMap.get(p);
+          if (ancestor) {
+            ancestor.maxChildDepth = Math.max(ancestor.maxChildDepth ?? 0, depth);
+            p = ancestor.parentPath;
+          } else {
+            break;
+          }
+        }
+      }
+
+      const bType = bsonTypeOf(value);
+      stats.typeCounts.set(bType, (stats.typeCounts.get(bType) || 0) + 1);
+
+      if (value !== undefined) {
+        stats.count++;
+      }
+      if (value === null) {
+        stats.nullCount++;
+      }
+
+      if (stats.sampleValue === undefined && value !== undefined && value !== null) {
+        stats.sampleValue = serializeMongoValue(value);
+      }
+
+      if (bType === "number") {
+        const numKind = bsonNumericKind(value);
+        if (numKind) {
+          stats.numericKinds.add(numKind);
+        }
+      }
+
+      if (Array.isArray(value)) {
+        stats.isArray = true;
+        for (const item of value) {
+          stats.arrayElementTypes.add(bsonTypeOf(item));
+        }
+      } else if (isPlainRecord(value)) {
+        stats.isNested = true;
+        if (depth < this.maxDepth) {
+          this.ingest(value, path, depth + 1);
+        } else {
+          stats.truncated = true;
+        }
+      }
+    }
+  }
+
+  toFields(): MongoInferredField[] {
+    const fields: MongoInferredField[] = [];
+
+    for (const stats of this.fieldMap.values()) {
+      const sortedTypes = Array.from(stats.typeCounts.entries()).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        if (a[0] === "null" || a[0] === "undefined") return 1;
+        if (b[0] === "null" || b[0] === "undefined") return -1;
+        return a[0].localeCompare(b[0]);
+      });
+
+      const dominantType = sortedTypes.length > 0 ? sortedTypes[0][0] : "null";
+      const types = sortedTypes.map(([t]) => t);
+
+      const typeConflicts =
+        types.length > 1 ? sortedTypes.map(([bsonType, count]) => ({ bsonType, count })) : [];
+
+      const presencePct =
+        this.sampleSize > 0 ? Math.round((stats.count / this.sampleSize) * 1000) / 10 : 0;
+
+      const field: MongoInferredField = {
+        path: stats.path,
+        bsonType: dominantType,
+        types,
+        numericKinds:
+          stats.numericKinds.size > 0
+            ? (Array.from(stats.numericKinds).sort() as Array<"int" | "double">)
+            : undefined,
+        depth: stats.depth,
+        parentPath: stats.parentPath,
+        isArray: stats.isArray,
+        isNested: stats.isNested,
+        count: stats.count,
+        nullCount: stats.nullCount,
+        sampleSize: this.sampleSize,
+        presencePct,
+        nullable: stats.nullCount > 0,
+        optional: stats.count < this.sampleSize,
+        typeConflicts,
+        arrayElementTypes: stats.isArray ? Array.from(stats.arrayElementTypes).sort() : undefined,
+        sampleValue: stats.sampleValue,
+        maxChildDepth: stats.maxChildDepth,
+        truncated: stats.truncated ? true : undefined,
+      };
+
+      fields.push(field);
+    }
+
+    fields.sort((a, b) => {
+      if (a.depth !== b.depth) return a.depth - b.depth;
+      return a.path.localeCompare(b.path);
+    });
+
+    return fields;
+  }
+}
+
 function isEmptyObject(obj: unknown): boolean {
   return (
     typeof obj === "object" && obj !== null && !Array.isArray(obj) && Object.keys(obj).length === 0
@@ -897,6 +1158,73 @@ export class MongoConnector {
       stageCount: stages.length,
       executionTimeMs: Date.now() - started,
     };
+  }
+
+  async listCollections(config: MongoConfig): Promise<MongoCollectionInfo[]> {
+    return listCollections(config);
+  }
+
+  async inferCollectionSchema(
+    config: MongoConfig,
+    req: MongoInferSchemaRequest,
+  ): Promise<MongoCollectionSchema> {
+    assertCollectionName(req.collection);
+    const sampleSize = clampInferSampleSize(req.sampleSize);
+    const maxDepth = clampInferMaxDepth(req.maxDepth);
+
+    const cached = mongodbCache.getInferredSchema(config, req.collection, sampleSize, maxDepth);
+    if (cached) {
+      return cached;
+    }
+
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+
+    const nativeDocs = (await withMongoTimeout(timeout, (signal) =>
+      coll
+        .find({}, { signal, maxTimeMS: timeout, limit: sampleSize, ...PRESERVE_BSON_TYPES })
+        .toArray(),
+    )) as Array<Document | Record<string, unknown>>;
+
+    const actualSampleSize = nativeDocs.length;
+    const acc = new FieldAccumulator(actualSampleSize, maxDepth);
+    for (const doc of nativeDocs) {
+      acc.ingest(doc, "", 0);
+    }
+    const fields = acc.toFields();
+
+    let totalDocs = 0;
+    try {
+      totalDocs = await coll.estimatedDocumentCount({ maxTimeMS: timeout });
+    } catch {
+      try {
+        totalDocs = await coll.countDocuments({}, { maxTimeMS: timeout });
+      } catch {
+        totalDocs = actualSampleSize;
+      }
+    }
+
+    const sampleDocuments = nativeDocs
+      .slice(0, 5)
+      .map((d) => serializeMongoDocument(d as Document));
+
+    const schema: MongoCollectionSchema = {
+      collection: req.collection,
+      sampleSize: actualSampleSize,
+      totalDocs,
+      inferredAt: new Date().toISOString(),
+      fieldCount: fields.length,
+      nestedFieldCount: fields.filter((f) => f.depth > 0).length,
+      arrayFieldCount: fields.filter((f) => f.isArray).length,
+      fields,
+      sampleDocuments,
+    };
+
+    if (config.cacheDocuments !== false) {
+      mongodbCache.setInferredSchema(config, req.collection, sampleSize, maxDepth, schema);
+    }
+
+    return schema;
   }
 }
 

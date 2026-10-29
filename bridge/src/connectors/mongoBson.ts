@@ -20,6 +20,7 @@ import type {
   MongoWireBinary,
   EJsonValue,
   EJSONDocument,
+  MongoBsonType,
 } from "../types/mongo";
 
 type WithBsontype = { _bsontype?: string };
@@ -143,6 +144,67 @@ export function serializeMongoDocument(doc: Document): SerializedMongoDocument {
     out[key] = serializeMongoValue(item);
   }
   return out;
+}
+
+// ===========================================================================
+// M3 — BSON Type Inference helpers (pure, docs/MONGODB_M3_SPEC.md §4.2)
+// ===========================================================================
+
+/**
+ * Determine the canonical BSON type of a value without requiring a live driver.
+ * Never throws; unknown BSON types fall back to "object".
+ */
+export function bsonTypeOf(value: unknown): MongoBsonType {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+
+  const kind = typeof value;
+  if (kind === "string") return "string";
+  if (kind === "boolean") return "bool";
+  if (kind === "number") return "number";
+
+  if (Array.isArray(value)) return "array";
+
+  const bsontype = (value as WithBsontype)?._bsontype;
+  if (bsontype) {
+    switch (bsontype) {
+      case "ObjectId":
+        return "objectId";
+      case "Int32":
+      case "Double":
+        return "number";
+      case "Long":
+        return "long";
+      case "Decimal128":
+        return "decimal";
+      case "Timestamp":
+        return "timestamp";
+      case "Binary":
+        return "binary";
+      default:
+        break;
+    }
+  }
+
+  if (value instanceof Date) return "date";
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) return "binary";
+
+  if (kind === "object") return "object";
+
+  return "object";
+}
+
+/**
+ * Determine the numeric kind ("int" | "double") for numeric values.
+ */
+export function bsonNumericKind(value: unknown): "int" | "double" | undefined {
+  const bsontype = (value as WithBsontype)?._bsontype;
+  if (bsontype === "Int32") return "int";
+  if (bsontype === "Double") return "double";
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? "int" : "double";
+  }
+  return undefined;
 }
 
 // ===========================================================================
