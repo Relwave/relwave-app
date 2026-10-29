@@ -10,7 +10,11 @@ import {
   SSHConfig,
   UpdateDatabaseParams,
 } from "@/features/database/types";
-import { MongoCollectionInfo, MongoCollectionSchema } from "@/features/mongodb/types";
+import {
+  MongoCollectionInfo,
+  MongoCollectionSchema,
+  MongoCreateCollectionOptions,
+} from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
 class DatabaseService {
@@ -634,6 +638,35 @@ class DatabaseService {
     } catch (error: any) {
       console.error("Failed to get inferred MongoDB schema:", error);
       throw new Error(`Failed to get inferred schema: ${error.message}`);
+    }
+  }
+
+  async createMongoCollection(
+    dbId: string,
+    collection: string,
+    options?: MongoCreateCollectionOptions,
+  ): Promise<{ ok: boolean; collection: string }> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.createCollection", { dbId, collection, options });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to create MongoDB collection:", error);
+      throw new Error(`Failed to create MongoDB collection: ${error.message}`);
+    }
+  }
+
+  async dropMongoCollection(
+    dbId: string,
+    collection: string,
+  ): Promise<{ ok: boolean; collection: string }> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.dropCollection", { dbId, collection });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to drop MongoDB collection:", error);
+      throw new Error(`Failed to drop MongoDB collection: ${error.message}`);
     }
   }
 }

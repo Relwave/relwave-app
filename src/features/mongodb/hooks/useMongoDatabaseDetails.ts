@@ -12,6 +12,13 @@ export function useMongoDatabaseDetails(dbId: string) {
   const [appliedFilter, setAppliedFilter] = useState<EJSONDocument | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<"documents" | "schema">("documents");
 
+  // M4 Mutation Dialog States
+  const [isInsertDialogOpen, setIsInsertDialogOpen] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<EJSONDocument | null>(null);
+  const [deletingDocument, setDeletingDocument] = useState<EJSONDocument | null>(null);
+  const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
+  const [droppingCollection, setDroppingCollection] = useState<string | null>(null);
+
   const {
     data: collectionsData,
     isLoading: collectionsLoading,
@@ -84,6 +91,20 @@ export function useMongoDatabaseDetails(dbId: string) {
     setPage(1);
   }, []);
 
+  const handleCollectionCreated = useCallback((name: string) => {
+    refetchCollections();
+    handleSelectCollection(name);
+  }, [refetchCollections, handleSelectCollection]);
+
+  const handleCollectionDropped = useCallback((name: string) => {
+    refetchCollections();
+    if (selectedCollection === name) {
+      const remaining = collections.filter((c) => c.name !== name);
+      setSelectedCollection(remaining.length > 0 ? remaining[0].name : null);
+      setPage(1);
+    }
+  }, [refetchCollections, selectedCollection, collections]);
+
   return {
     collections,
     collectionsLoading,
@@ -113,5 +134,18 @@ export function useMongoDatabaseDetails(dbId: string) {
     documentsError,
     refetchDocuments,
     refetchCollections,
+    // M4 Mutation Dialog States & Handlers
+    isInsertDialogOpen,
+    setIsInsertDialogOpen,
+    editingDocument,
+    setEditingDocument,
+    deletingDocument,
+    setDeletingDocument,
+    isCreateCollectionOpen,
+    setIsCreateCollectionOpen,
+    droppingCollection,
+    setDroppingCollection,
+    handleCollectionCreated,
+    handleCollectionDropped,
   };
 }

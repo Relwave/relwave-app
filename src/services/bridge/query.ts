@@ -1,5 +1,16 @@
 import { RunQueryParams, TableRow } from "@/features/database/types";
-import { MongoFindRequest, MongoFindResult } from "@/features/mongodb/types";
+import {
+  MongoFindRequest,
+  MongoFindResult,
+  MongoInsertRequest,
+  MongoInsertResult,
+  MongoUpdateRequest,
+  MongoUpdateResult,
+  MongoReplaceRequest,
+  MongoReplaceResult,
+  MongoDeleteRequest,
+  MongoDeleteResult,
+} from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
 class QueryService {
@@ -74,6 +85,70 @@ class QueryService {
     } catch (error: any) {
       console.error("Failed to fetch MongoDB documents:", error);
       throw new Error(`Failed to fetch MongoDB documents: ${error.message}`);
+    }
+  }
+
+  /**
+   * Inserts a single MongoDB document (query.insertDocument).
+   */
+  async insertMongoDocument(req: MongoInsertRequest): Promise<MongoInsertResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.document) {
+        throw new Error("Database ID, collection, and document are required.");
+      }
+      const result = await bridgeRequest("query.insertDocument", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to insert MongoDB document:", error);
+      throw new Error(`Failed to insert MongoDB document: ${error.message}`);
+    }
+  }
+
+  /**
+   * Updates a MongoDB document with operators ($set/$unset) (query.updateDocument).
+   */
+  async updateMongoDocument(req: MongoUpdateRequest): Promise<MongoUpdateResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.filter || !req.update) {
+        throw new Error("Database ID, collection, filter, and update are required.");
+      }
+      const result = await bridgeRequest("query.updateDocument", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to update MongoDB document:", error);
+      throw new Error(`Failed to update MongoDB document: ${error.message}`);
+    }
+  }
+
+  /**
+   * Replaces an entire MongoDB document retaining _id (query.replaceDocument).
+   */
+  async replaceMongoDocument(req: MongoReplaceRequest): Promise<MongoReplaceResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.filter || !req.replacement) {
+        throw new Error("Database ID, collection, filter, and replacement are required.");
+      }
+      const result = await bridgeRequest("query.replaceDocument", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to replace MongoDB document:", error);
+      throw new Error(`Failed to replace MongoDB document: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deletes a MongoDB document (query.deleteDocument).
+   */
+  async deleteMongoDocument(req: MongoDeleteRequest): Promise<MongoDeleteResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.filter) {
+        throw new Error("Database ID, collection, and filter are required.");
+      }
+      const result = await bridgeRequest("query.deleteDocument", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to delete MongoDB document:", error);
+      throw new Error(`Failed to delete MongoDB document: ${error.message}`);
     }
   }
 }

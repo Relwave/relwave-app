@@ -77,3 +77,105 @@ export interface MongoFindResult {
   totalPages: number;
   hasMore: boolean;
 }
+
+// ==========================================
+// M4 — Mutation Types
+// ==========================================
+
+export interface MongoInsertRequest {
+  dbId: string;
+  collection: string;
+  document: EJSONDocument;
+}
+
+export interface MongoInsertResult {
+  collection: string;
+  insertedId: any;
+  document: EJSONDocument;
+}
+
+export interface MongoUpdateOptions {
+  upsert?: boolean;
+  multi?: boolean;
+  returnDocument?: "before" | "after";
+}
+
+export interface MongoUpdateRequest {
+  dbId: string;
+  collection: string;
+  filter: EJSONDocument;
+  update: EJSONDocument;
+  options?: MongoUpdateOptions;
+}
+
+export interface MongoUpdateResult {
+  collection: string;
+  matchedCount: number;
+  modifiedCount: number;
+  upsertedId?: any;
+  updatedDocument?: EJSONDocument;
+}
+
+export interface MongoReplaceOptions {
+  upsert?: boolean;
+  returnDocument?: "before" | "after";
+}
+
+export interface MongoReplaceRequest {
+  dbId: string;
+  collection: string;
+  filter: EJSONDocument;
+  replacement: EJSONDocument;
+  options?: MongoReplaceOptions;
+}
+
+export interface MongoReplaceResult {
+  collection: string;
+  matchedCount: number;
+  modifiedCount: number;
+  upsertedId?: any;
+  updatedDocument?: EJSONDocument;
+}
+
+export interface MongoDeleteOptions {
+  multi?: boolean;
+}
+
+export interface MongoDeleteRequest {
+  dbId: string;
+  collection: string;
+  filter: EJSONDocument;
+  options?: MongoDeleteOptions;
+}
+
+export interface MongoDeleteResult {
+  collection: string;
+  deletedCount: number;
+}
+
+export interface MongoCreateCollectionOptions {
+  capped?: boolean;
+  size?: number;
+  max?: number;
+}
+
+export interface MongoCreateCollectionRequest {
+  dbId: string;
+  collection: string;
+  options?: MongoCreateCollectionOptions;
+}
+
+export interface MongoCreateCollectionResult {
+  ok: boolean;
+  collection: string;
+}
+
+export interface MongoDropCollectionRequest {
+  dbId: string;
+  collection: string;
+}
+
+export interface MongoDropCollectionResult {
+  ok: boolean;
+  collection: string;
+}

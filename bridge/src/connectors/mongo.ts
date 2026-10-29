@@ -41,6 +41,12 @@ import {
   MongoUpdateResult,
   MongoDeleteRequest,
   MongoDeleteResult,
+  MongoReplaceRequest,
+  MongoReplaceResult,
+  MongoCreateCollectionRequest,
+  MongoCreateCollectionResult,
+  MongoDropCollectionRequest,
+  MongoDropCollectionResult,
   MongoAggregationRequest,
   MongoAggregationResult,
   MongoSortSpec,
@@ -256,6 +262,10 @@ class MongoCacheManager {
     this.collectionStatsCache.clear();
     this.docPageCache.clear();
     this.inferredSchemaCache.clear();
+  }
+
+  flushConnection(cfg: MongoConfig): void {
+    this.clearForConnection(cfg);
   }
 }
 
@@ -486,6 +496,48 @@ function assertCollectionName(collection: unknown): asserts collection is string
   }
   if (collection.includes(".")) {
     throw new MongoApiError("MONGO_INVALID_FILTER", "collection name cannot contain '.'");
+  }
+}
+
+export function assertNewCollectionName(collection: unknown): asserts collection is string {
+  if (typeof collection !== "string" || collection.length === 0) {
+    throw new MongoApiError("MONGO_VALIDATION_ERROR", "collection must be a non-empty string");
+  }
+  if (collection.length > 120) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not exceed 120 characters",
+    );
+  }
+  if (collection.includes("$") || collection.includes("\0")) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not contain '$' or null bytes",
+    );
+  }
+  if (collection.startsWith("system.")) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not start with 'system.'",
+    );
+  }
+  const VALID_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
+  if (!VALID_NAME_REGEX.test(collection)) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      `collection name '${collection}' is invalid; must start with a letter or underscore and contain only alphanumeric, underscores, or hyphens`,
+    );
+  }
+}
+
+export function assertNoOperatorKeys(doc: Record<string, any>): void {
+  for (const key of Object.keys(doc)) {
+    if (key.startsWith("$")) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "replacement document must not contain top-level operator keys",
+      );
+    }
   }
 }
 
@@ -1098,6 +1150,86 @@ export class MongoConnector {
     };
   }
 
+  async replaceDocument(
+    config: MongoConfig,
+    req: MongoReplaceRequest,
+  ): Promise<MongoReplaceResult> {
+    assertCollectionName(req.collection);
+    assertNonEmptyFilter(req.filter);
+    if (
+      typeof req.replacement !== "object" ||
+      req.replacement === null ||
+      Array.isArray(req.replacement)
+    ) {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "replacement document must be an object");
+    }
+    assertNoOperatorKeys(req.replacement);
+    assertSize(req.replacement, MAX_DOCUMENT_SIZE_BYTES, "replacement");
+
+    if (req.replacement._id !== undefined && req.filter._id !== undefined) {
+      if (canonicalJSON(req.replacement._id) !== canonicalJSON(req.filter._id)) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "Cannot change _id of a document");
+      }
+    }
+
+    const bsonFilter = serializeMongoFilter(req.filter);
+    const doc = serializeMongoEJSONDocument(req.replacement);
+    const upsert = req.options?.upsert ?? false;
+    const returnDocument = req.options?.returnDocument ?? "after";
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+
+    const result = await withMongoTimeout(timeout, async (signal) => {
+      let updatedDocument: EJSONDocument | undefined;
+      if (returnDocument === "before") {
+        const before = await coll.findOne(bsonFilter, {
+          signal,
+          maxTimeMS: timeout,
+          ...PRESERVE_BSON_TYPES,
+        });
+        updatedDocument = before ? (mongoBSONtoEJSON(before) as EJSONDocument) : undefined;
+      }
+      const replaceOptions = {
+        maxTimeMS: timeout,
+        upsert,
+      };
+      const r = await coll.replaceOne(bsonFilter, doc, replaceOptions);
+      if (returnDocument !== "before") {
+        try {
+          const after = await coll.findOne(bsonFilter, {
+            signal,
+            maxTimeMS: timeout,
+            ...PRESERVE_BSON_TYPES,
+          });
+          updatedDocument = after ? (mongoBSONtoEJSON(after) as EJSONDocument) : undefined;
+        } catch (readErr) {
+          logger.warn(
+            { collection: req.collection, err: readErr },
+            "mongo replaceDocument follow-up read failed; returning counts only",
+          );
+        }
+      }
+      return { r, updatedDocument };
+    });
+
+    const upsertedRaw = result.r.upsertedId;
+    const upsertedId =
+      upsertedRaw && Object.keys(upsertedRaw).length > 0
+        ? (mongoBSONtoEJSON(Object.values(upsertedRaw)[0]) as EJsonValue)
+        : upsertedRaw
+          ? (mongoBSONtoEJSON(upsertedRaw) as EJsonValue)
+          : undefined;
+
+    mongodbCache.clearCollectionCache(config, req.collection);
+    return {
+      collection: req.collection,
+      matchedCount: result.r.matchedCount,
+      modifiedCount: result.r.modifiedCount,
+      upsertedId,
+      updatedDocument: result.updatedDocument,
+    };
+  }
+
   async deleteDocument(config: MongoConfig, req: MongoDeleteRequest): Promise<MongoDeleteResult> {
     assertCollectionName(req.collection);
     assertNonEmptyFilter(req.filter);
@@ -1225,6 +1357,60 @@ export class MongoConnector {
     }
 
     return schema;
+  }
+
+  async createCollection(
+    config: MongoConfig,
+    req: MongoCreateCollectionRequest,
+  ): Promise<MongoCreateCollectionResult> {
+    assertNewCollectionName(req.collection);
+    if (req.options?.capped) {
+      const { size, max } = req.options;
+      if (typeof size !== "number" || !Number.isInteger(size) || size < 4096) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "Capped collection size must be an integer >= 4096 bytes",
+        );
+      }
+      if (max !== undefined && (typeof max !== "number" || !Number.isInteger(max) || max <= 0)) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "Capped collection max must be a positive integer",
+        );
+      }
+    }
+    const db = selectDb(config);
+    const timeout = clampTimeout();
+    await withMongoTimeout(timeout, () => db.createCollection(req.collection, req.options as any));
+    mongodbCache.flushConnection(config);
+    return { ok: true, collection: req.collection };
+  }
+
+  async dropCollection(
+    config: MongoConfig,
+    req: MongoDropCollectionRequest,
+  ): Promise<MongoDropCollectionResult> {
+    if (typeof req.collection === "string" && req.collection.startsWith("system.")) {
+      throw new MongoApiError("MONGO_FORBIDDEN", "Cannot drop system collection");
+    }
+    assertCollectionName(req.collection);
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+    let dropped: boolean = true;
+    try {
+      dropped = await withMongoTimeout(timeout, () => coll.drop());
+    } catch (err: any) {
+      if (err?.codeName === "NamespaceNotFound" || err?.code === 26) {
+        throw new MongoApiError("MONGO_NOT_FOUND", `Collection '${req.collection}' does not exist`);
+      }
+      throw err;
+    }
+    if (dropped === false) {
+      throw new MongoApiError("MONGO_NOT_FOUND", `Collection '${req.collection}' does not exist`);
+    }
+    mongodbCache.clearCollectionCache(config, req.collection);
+    mongodbCache.flushConnection(config);
+    return { ok: true, collection: req.collection };
   }
 }
 

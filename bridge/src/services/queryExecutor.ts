@@ -15,6 +15,12 @@ import {
   MongoUpdateResult,
   MongoDeleteRequest,
   MongoDeleteResult,
+  MongoReplaceRequest,
+  MongoReplaceResult,
+  MongoCreateCollectionRequest,
+  MongoCreateCollectionResult,
+  MongoDropCollectionRequest,
+  MongoDropCollectionResult,
   MongoAggregationRequest,
   MongoAggregationResult,
 } from "../types/mongo";
@@ -229,6 +235,48 @@ export class QueryExecutor {
       );
     }
     return mongoConnector.updateDocument(conn, req);
+  }
+
+  async replaceDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoReplaceRequest,
+  ): Promise<MongoReplaceResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.replaceDocument(conn, req);
+  }
+
+  async createCollection(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoCreateCollectionRequest,
+  ): Promise<MongoCreateCollectionResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Collection operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.createCollection(conn, req);
+  }
+
+  async dropCollection(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoDropCollectionRequest,
+  ): Promise<MongoDropCollectionResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Collection operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.dropCollection(conn, req);
   }
 
   async deleteDocument(

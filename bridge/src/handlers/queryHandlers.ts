@@ -490,4 +490,65 @@ export class QueryHandlers {
       this.sendMongoError(id, e);
     }
   }
+
+  async handleReplaceDocument(params: any, id: number | string) {
+    try {
+      const { dbId, collection, filter, replacement, options } = params || {};
+      if (!dbId || !collection || !filter || !replacement) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, filter, or replacement",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.replaceDocument(conn, dbType, {
+        collection,
+        filter,
+        replacement,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleCreateCollection(params: any, id: number | string) {
+    try {
+      const { dbId, collection, options } = params || {};
+      if (!dbId || !collection) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId or collection",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.createCollection(conn, dbType, {
+        collection,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleDropCollection(params: any, id: number | string) {
+    try {
+      const { dbId, collection } = params || {};
+      if (!dbId || !collection) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId or collection",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.dropCollection(conn, dbType, {
+        collection,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
 }

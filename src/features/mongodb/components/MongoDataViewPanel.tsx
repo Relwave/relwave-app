@@ -3,6 +3,11 @@ import { useMongoDatabaseDetails } from "../hooks/useMongoDatabaseDetails";
 import { MongoCollectionsSidebar } from "./MongoCollectionsSidebar";
 import { MongoDocumentViewer } from "./MongoDocumentViewer";
 import { MongoSchemaPanel } from "./MongoSchemaPanel";
+import { MongoInsertDocumentDialog } from "./MongoInsertDocumentDialog";
+import { MongoEditDocumentDialog } from "./MongoEditDocumentDialog";
+import { MongoDeleteDocumentDialog } from "./MongoDeleteDocumentDialog";
+import { MongoCreateCollectionDialog } from "./MongoCreateCollectionDialog";
+import { MongoDropCollectionDialog } from "./MongoDropCollectionDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, GitBranch, Database } from "lucide-react";
 
@@ -32,6 +37,18 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
     isLoadingDocuments,
     refetchDocuments,
     refetchCollections,
+    isInsertDialogOpen,
+    setIsInsertDialogOpen,
+    editingDocument,
+    setEditingDocument,
+    deletingDocument,
+    setDeletingDocument,
+    isCreateCollectionOpen,
+    setIsCreateCollectionOpen,
+    droppingCollection,
+    setDroppingCollection,
+    handleCollectionCreated,
+    handleCollectionDropped,
   } = useMongoDatabaseDetails(dbId);
 
   return (
@@ -89,6 +106,8 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
           onSelectCollection={setSelectedCollection}
           isLoading={collectionsLoading}
           onRefresh={refetchCollections}
+          onCreateCollection={() => setIsCreateCollectionOpen(true)}
+          onDropCollection={(name) => setDroppingCollection(name)}
         />
 
         <div className="flex-1 flex overflow-hidden">
@@ -116,12 +135,60 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
               onResetFilter={resetFilter}
               isFilterApplied={!!appliedFilter}
               onRefresh={refetchDocuments}
+              onInsertDocument={() => setIsInsertDialogOpen(true)}
+              onEditDocument={(doc) => setEditingDocument(doc)}
+              onDeleteDocument={(doc) => setDeletingDocument(doc)}
             />
           ) : (
             <MongoSchemaPanel dbId={dbId} collection={selectedCollection} />
           )}
         </div>
       </div>
+
+      {/* M4 Mutation Modals */}
+      {selectedCollection && (
+        <>
+          <MongoInsertDocumentDialog
+            open={isInsertDialogOpen}
+            onOpenChange={setIsInsertDialogOpen}
+            dbId={dbId}
+            collection={selectedCollection}
+          />
+          <MongoEditDocumentDialog
+            open={!!editingDocument}
+            onOpenChange={(open) => !open && setEditingDocument(null)}
+            dbId={dbId}
+            collection={selectedCollection}
+            document={editingDocument}
+            onRefreshView={refetchDocuments}
+          />
+          <MongoDeleteDocumentDialog
+            open={!!deletingDocument}
+            onOpenChange={(open) => !open && setDeletingDocument(null)}
+            dbId={dbId}
+            collection={selectedCollection}
+            document={deletingDocument}
+            onRefreshView={refetchDocuments}
+          />
+        </>
+      )}
+
+      <MongoCreateCollectionDialog
+        open={isCreateCollectionOpen}
+        onOpenChange={setIsCreateCollectionOpen}
+        dbId={dbId}
+        onCollectionCreated={handleCollectionCreated}
+      />
+
+      {droppingCollection && (
+        <MongoDropCollectionDialog
+          open={!!droppingCollection}
+          onOpenChange={(open) => !open && setDroppingCollection(null)}
+          dbId={dbId}
+          collection={droppingCollection}
+          onCollectionDropped={handleCollectionDropped}
+        />
+      )}
     </div>
   );
 }

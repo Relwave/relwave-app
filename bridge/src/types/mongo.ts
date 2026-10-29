@@ -266,6 +266,55 @@ export interface MongoDeleteResult {
   deletedCount: number;
 }
 
+// --- replaceDocument (spec §5.2.1) ---
+
+export interface MongoReplaceOptions {
+  upsert?: boolean;
+  returnDocument?: "before" | "after";
+}
+
+export interface MongoReplaceRequest {
+  collection: string;
+  filter: EJSONDocument;
+  replacement: EJSONDocument;
+  options?: MongoReplaceOptions;
+}
+
+export interface MongoReplaceResult {
+  collection: string;
+  matchedCount: number;
+  modifiedCount: number;
+  upsertedId?: EJsonValue;
+  updatedDocument?: EJSONDocument;
+}
+
+// --- collection lifecycle (spec §5.2.2 / §5.2.3) ---
+
+export interface MongoCreateCollectionOptions {
+  capped?: boolean;
+  size?: number; // bytes (min 4096)
+  max?: number;  // max documents (positive integer)
+}
+
+export interface MongoCreateCollectionRequest {
+  collection: string;
+  options?: MongoCreateCollectionOptions;
+}
+
+export interface MongoCreateCollectionResult {
+  ok: boolean;
+  collection: string;
+}
+
+export interface MongoDropCollectionRequest {
+  collection: string;
+}
+
+export interface MongoDropCollectionResult {
+  ok: boolean;
+  collection: string;
+}
+
 // --- runAggregation (spec §5.6) ---
 
 export interface MongoAggregationOptions {

@@ -75,6 +75,7 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "query.findDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
   rpcRegister(rpc, "query.insertDocument", (p, id) => queryHandlers.handleInsertDocument(p, id));
   rpcRegister(rpc, "query.updateDocument", (p, id) => queryHandlers.handleUpdateDocument(p, id));
+  rpcRegister(rpc, "query.replaceDocument", (p, id) => queryHandlers.handleReplaceDocument(p, id));
   rpcRegister(rpc, "query.deleteDocument", (p, id) => queryHandlers.handleDeleteDocument(p, id));
   rpcRegister(rpc, "query.runAggregation", (p, id) => queryHandlers.handleRunAggregation(p, id));
 
@@ -96,6 +97,8 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "db.listSchemas", (p, id) => databaseHandlers.handleListSchemas(p, id));
   rpcRegister(rpc, "db.listCollections", (p, id) => queryHandlers.handleListCollections(p, id));
   rpcRegister(rpc, "db.getInferredSchema", (p, id) => queryHandlers.handleGetInferredSchema(p, id));
+  rpcRegister(rpc, "db.createCollection", (p, id) => queryHandlers.handleCreateCollection(p, id));
+  rpcRegister(rpc, "db.dropCollection", (p, id) => queryHandlers.handleDropCollection(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS

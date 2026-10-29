@@ -20,6 +20,7 @@ import {
   ChevronsRight,
   RefreshCw,
   Database,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +43,9 @@ export function MongoDocumentViewer({
   onResetFilter,
   isFilterApplied,
   onRefresh,
+  onInsertDocument,
+  onEditDocument,
+  onDeleteDocument,
 }: {
   collection: string;
   documents: EJSONDocument[];
@@ -61,6 +65,9 @@ export function MongoDocumentViewer({
   onResetFilter: () => void;
   isFilterApplied: boolean;
   onRefresh: () => void;
+  onInsertDocument?: () => void;
+  onEditDocument?: (doc: EJSONDocument) => void;
+  onDeleteDocument?: (doc: EJSONDocument) => void;
 }) {
   const [copiedAll, setCopiedAll] = useState(false);
 
@@ -101,6 +108,18 @@ export function MongoDocumentViewer({
         />
 
         <div className="flex items-center gap-2">
+          {onInsertDocument && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onInsertDocument}
+              className="h-9 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Insert Document
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -156,6 +175,8 @@ export function MongoDocumentViewer({
             sortColumn={sortField || undefined}
             sortDirection={sortDirection === 1 ? "asc" : sortDirection === -1 ? "desc" : undefined}
             onSort={onSort}
+            onEditRow={onEditDocument ? (row) => onEditDocument(row) : undefined}
+            onDeleteRow={onDeleteDocument ? (row) => onDeleteDocument(row) : undefined}
             renderCell={(val, col, row) => <MongoDocumentCell value={val} column={col} row={row} />}
           />
         )}
