@@ -14,6 +14,7 @@ import {
   MongoMqlExecuteResult,
   MongoExplainRequest,
   MongoExplainResult,
+  MongoAggregateMqlResult,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
@@ -185,6 +186,30 @@ class QueryService {
     } catch (error: any) {
       console.error("Failed to explain MQL operation:", error);
       throw new Error(`Failed to explain MQL operation: ${error.message}`);
+    }
+  }
+
+  /**
+   * Runs an aggregation pipeline on a MongoDB collection (query.runAggregation).
+   */
+  async runAggregation(req: {
+    dbId: string;
+    collection: string;
+    pipeline: any[];
+    options?: { maxTimeMS?: number; allowDiskUse?: boolean; batchSize?: number };
+  }): Promise<MongoAggregateMqlResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.pipeline) {
+        throw new Error("Database ID, collection name, and pipeline are required.");
+      }
+      const result = await bridgeRequest("query.runAggregation", req);
+      return {
+        operation: "aggregate",
+        ...result?.data,
+      };
+    } catch (error: any) {
+      console.error("Failed to run aggregation:", error);
+      throw new Error(`Failed to run aggregation: ${error.message}`);
     }
   }
 }

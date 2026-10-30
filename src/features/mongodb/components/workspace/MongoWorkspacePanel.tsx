@@ -104,7 +104,6 @@ export function MongoWorkspacePanel({
     setIsHistoryOpen(false);
     executeMqlMutation.reset();
     explainMqlMutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbId]);
 
   // Sync initial collection or reset if connection dbId changes
