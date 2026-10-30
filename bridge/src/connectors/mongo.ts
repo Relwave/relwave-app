@@ -21,7 +21,7 @@
  * sanitized and the raw config is never logged.
  */
 
-import { MongoClient, Collection, FindOptions, AggregateOptions } from "mongodb";
+import { MongoClient, Collection, FindOptions, AggregateOptions, Document } from "mongodb";
 import { createHash } from "crypto";
 import {
   MongoConfig,
@@ -52,6 +52,14 @@ import {
   MongoSortSpec,
   MongoProjection,
   MongoPageCacheKey,
+  MongoFindOpPayload,
+  MongoAggregateOpPayload,
+  MongoCountOpPayload,
+  MongoDistinctOpPayload,
+  MongoMqlExecuteRequest,
+  MongoMqlExecuteResult,
+  MongoExplainRequest,
+  MongoExplainResult,
   MAX_PAGE_SIZE,
   MAX_PAGE,
   DEFAULT_PAGE_SIZE,
@@ -61,6 +69,8 @@ import {
   MAX_AGG_STAGES,
   MAX_AGG_STAGE_SIZE_BYTES,
   MAX_AGG_RESULTS,
+  MAX_DISTINCT_VALUES,
+  MAX_EXPRESSION_DEPTH,
   MAX_DOCUMENT_SIZE_BYTES,
   DEFAULT_OP_TIMEOUT_MS,
   MAX_OP_TIMEOUT_MS,
@@ -490,12 +500,24 @@ export class MongoApiError extends Error {
   }
 }
 
-function assertCollectionName(collection: unknown): asserts collection is string {
+export function assertCollectionName(collection: unknown): asserts collection is string {
   if (typeof collection !== "string" || collection.length === 0) {
     throw new MongoApiError("MONGO_VALIDATION_ERROR", "collection must be a non-empty string");
   }
-  if (collection.includes(".")) {
-    throw new MongoApiError("MONGO_INVALID_FILTER", "collection name cannot contain '.'");
+  if (Buffer.byteLength(collection, "utf8") > 120) {
+    throw new MongoApiError("MONGO_VALIDATION_ERROR", "collection name must not exceed 120 bytes");
+  }
+  if (collection.includes("$") || collection.includes("\0")) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not contain '$' or null bytes",
+    );
+  }
+  if (collection.startsWith("system.")) {
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not start with 'system.'",
+    );
   }
 }
 
@@ -635,38 +657,164 @@ function assertOperatorDocument(update: EJSONDocument): void {
   }
 }
 
-function validatePipeline(pipeline: EJSONDocument[]): EJSONDocument[] {
-  if (!Array.isArray(pipeline) || pipeline.length === 0) {
-    throw new MongoApiError("MONGO_INVALID_PIPELINE", "pipeline must be a non-empty array");
+export const FORBIDDEN_PIPELINE_STAGES = new Set(["$out", "$merge"]);
+export const FORBIDDEN_EXPRESSION_OPS = new Set(["$function", "$accumulator", "$where"]);
+
+/**
+ * Recursively scans an object or array for forbidden expression operators ($function, $accumulator, $where).
+ */
+export function assertSafeExpressions(value: unknown, depth = 0): void {
+  if (depth > MAX_EXPRESSION_DEPTH) {
+    throw new MongoApiError(
+      "MONGO_LIMIT_EXCEEDED",
+      `Expression nesting exceeds maximum depth of ${MAX_EXPRESSION_DEPTH}`,
+    );
+  }
+  if (!value || typeof value !== "object") return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      assertSafeExpressions(item, depth + 1);
+    }
+    return;
+  }
+
+  for (const [key, val] of Object.entries(value)) {
+    if (FORBIDDEN_EXPRESSION_OPS.has(key)) {
+      throw new MongoApiError(
+        "MONGO_FORBIDDEN_OPERATOR",
+        `Operator '${key}' is forbidden (server-side JavaScript execution is not permitted)`,
+      );
+    }
+    assertSafeExpressions(val, depth + 1);
+  }
+}
+
+/**
+ * Recursively validates aggregation pipeline stages and nested sub-pipelines.
+ * Permits empty pipelines aggregate([]) as valid read operations.
+ */
+export function assertReadOnlyPipeline(pipeline: unknown[], depth = 0): void {
+  if (depth > MAX_EXPRESSION_DEPTH) {
+    throw new MongoApiError(
+      "MONGO_LIMIT_EXCEEDED",
+      `Pipeline nesting exceeds maximum depth of ${MAX_EXPRESSION_DEPTH}`,
+    );
+  }
+  if (!Array.isArray(pipeline)) {
+    throw new MongoApiError("MONGO_INVALID_PIPELINE", "Pipeline must be an array");
+  }
+  // Empty pipeline is valid in MongoDB; returns all documents
+  if (pipeline.length === 0) {
+    return;
   }
   if (pipeline.length > MAX_AGG_STAGES) {
-    throw new MongoApiError("MONGO_LIMIT_EXCEEDED", `pipeline exceeds ${MAX_AGG_STAGES} stages`);
+    throw new MongoApiError("MONGO_LIMIT_EXCEEDED", `Pipeline exceeds ${MAX_AGG_STAGES} stages`);
   }
+
   for (const stage of pipeline) {
     if (typeof stage !== "object" || stage === null || Array.isArray(stage)) {
-      throw new MongoApiError("MONGO_INVALID_PIPELINE", "each pipeline stage must be an object");
+      throw new MongoApiError(
+        "MONGO_INVALID_PIPELINE",
+        "Each pipeline stage must be a non-null object",
+      );
     }
     const keys = Object.keys(stage);
     if (keys.length !== 1) {
       throw new MongoApiError(
         "MONGO_INVALID_PIPELINE",
-        "each pipeline stage must have exactly one key",
+        "Each pipeline stage must have exactly one operator key",
       );
     }
-    const name = keys[0];
-    if (!name.startsWith("$")) {
-      throw new MongoApiError("MONGO_INVALID_PIPELINE", `invalid stage name '${name}'`);
+    const stageName = keys[0];
+    if (!stageName.startsWith("$")) {
+      throw new MongoApiError(
+        "MONGO_INVALID_PIPELINE",
+        `Invalid stage name '${stageName}'; must begin with '$'`,
+      );
     }
-    if (name === "$out" || name === "$merge") {
+    if (FORBIDDEN_PIPELINE_STAGES.has(stageName)) {
       throw new MongoApiError(
         "MONGO_WRITE_STAGE_FORBIDDEN",
-        `write stage '${name}' is not allowed (read-only engine)`,
+        `Stage '${stageName}' is forbidden in read-only aggregation queries`,
       );
     }
-    assertSize(stage, MAX_AGG_STAGE_SIZE_BYTES, "pipeline stage");
+
+    assertSize(stage, MAX_AGG_STAGE_SIZE_BYTES, `Pipeline stage ${stageName}`);
+
+    // Scan all expressions inside this stage for forbidden operators
+    const stageBody = (stage as Record<string, any>)[stageName];
+    assertSafeExpressions(stageBody, depth + 1);
+
+    // Recurse into known nested sub-pipeline containers
+    if (
+      stageName === "$lookup" &&
+      stageBody &&
+      typeof stageBody === "object" &&
+      !Array.isArray(stageBody)
+    ) {
+      if (stageBody.pipeline !== undefined) {
+        if (!Array.isArray(stageBody.pipeline)) {
+          throw new MongoApiError("MONGO_INVALID_PIPELINE", "$lookup.pipeline must be an array");
+        }
+        assertReadOnlyPipeline(stageBody.pipeline, depth + 1);
+      }
+    }
+    if (
+      stageName === "$unionWith" &&
+      stageBody &&
+      typeof stageBody === "object" &&
+      !Array.isArray(stageBody)
+    ) {
+      if (stageBody.pipeline !== undefined) {
+        if (!Array.isArray(stageBody.pipeline)) {
+          throw new MongoApiError("MONGO_INVALID_PIPELINE", "$unionWith.pipeline must be an array");
+        }
+        assertReadOnlyPipeline(stageBody.pipeline, depth + 1);
+      }
+    }
+    if (stageName === "$facet") {
+      if (typeof stageBody !== "object" || stageBody === null || Array.isArray(stageBody)) {
+        throw new MongoApiError(
+          "MONGO_INVALID_PIPELINE",
+          "$facet stage specification must be an object",
+        );
+      }
+      for (const [facetName, facetPipeline] of Object.entries(stageBody)) {
+        if (!Array.isArray(facetPipeline)) {
+          throw new MongoApiError(
+            "MONGO_INVALID_PIPELINE",
+            `$facet pipeline for '${facetName}' must be an array`,
+          );
+        }
+        assertReadOnlyPipeline(facetPipeline as EJSONDocument[], depth + 1);
+      }
+    }
   }
+}
+
+export function validatePipeline(pipeline: unknown[]): unknown[] {
+  assertReadOnlyPipeline(pipeline);
   return pipeline;
 }
+
+export function clampMqlTimeout(ms: number | undefined, defaultMs: number, maxMs = 60000): number {
+  if (ms === undefined || ms === null) {
+    return defaultMs;
+  }
+  if (typeof ms !== "number" || !Number.isFinite(ms) || !Number.isInteger(ms) || ms <= 0) {
+    throw new MongoApiError("MONGO_VALIDATION_ERROR", "maxTimeMS must be a positive integer");
+  }
+  return Math.min(Math.max(1, ms), maxMs);
+}
+
+export const WHITELIST_READ_OPS = new Set([
+  "find",
+  "aggregate",
+  "countDocuments",
+  "estimatedDocumentCount",
+  "distinct",
+]);
 
 function clampPageSize(pageSize: number | undefined): number {
   const n =
@@ -1021,6 +1169,12 @@ export class MongoConnector {
         `page ${page} exceeds the maximum of ${MAX_PAGE} (use sort by _id + range for deeper pagination)`,
       );
     }
+    if (
+      req.filter !== undefined &&
+      (typeof req.filter !== "object" || req.filter === null || Array.isArray(req.filter))
+    ) {
+      throw new MongoApiError("MONGO_INVALID_FILTER", "filter must be an object");
+    }
     const filter: EJSONDocument = req.filter ?? {};
     assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
     const sort = validateSort(req.sort);
@@ -1257,31 +1411,44 @@ export class MongoConnector {
     req: MongoAggregationRequest,
   ): Promise<MongoAggregationResult> {
     assertCollectionName(req.collection);
-    const stages = validatePipeline(req.pipeline).map((stage) =>
-      serializeMongoPipelineStage(stage),
-    );
-    const timeout = clampTimeout(req.options?.maxTimeMS);
-    const allowDiskUse = req.options?.allowDiskUse ?? false;
+    assertReadOnlyPipeline(req.pipeline);
+    const stages = (req.pipeline || []).map((stage) => serializeMongoPipelineStage(stage));
+    const timeout = clampMqlTimeout(req.options?.maxTimeMS, 10000, 60000);
+    const allowDiskUse =
+      typeof req.options?.allowDiskUse === "boolean" ? req.options.allowDiskUse : false;
     const coll = selectCollection(config, req.collection);
 
     const started = Date.now();
-    const nativeDocs = await withMongoTimeout(timeout, (signal) => {
+    const nativeDocs: Document[] = [];
+    await withMongoTimeout(timeout, async (signal) => {
       const options: AggregateOptions & { signal?: AbortSignal } = {
         signal,
         maxTimeMS: timeout,
         allowDiskUse,
         ...PRESERVE_BSON_TYPES,
       };
-      if (typeof req.options?.batchSize === "number") options.batchSize = req.options.batchSize;
-      return coll.aggregate(stages, options).toArray();
+      if (
+        typeof req.options?.batchSize === "number" &&
+        Number.isInteger(req.options.batchSize) &&
+        req.options.batchSize > 0
+      ) {
+        options.batchSize = req.options.batchSize;
+      }
+      const cursor = coll.aggregate(stages, options);
+      try {
+        for await (const doc of cursor) {
+          nativeDocs.push(doc);
+          if (nativeDocs.length > MAX_AGG_RESULTS) {
+            throw new MongoApiError(
+              "MONGO_LIMIT_EXCEEDED",
+              `aggregation returned more than ${MAX_AGG_RESULTS} documents (max ${MAX_AGG_RESULTS}); add a $limit stage`,
+            );
+          }
+        }
+      } finally {
+        await cursor.close().catch(() => {});
+      }
     });
-
-    if (nativeDocs.length > MAX_AGG_RESULTS) {
-      throw new MongoApiError(
-        "MONGO_LIMIT_EXCEEDED",
-        `aggregation returned ${nativeDocs.length} documents (max ${MAX_AGG_RESULTS}); add a $limit stage`,
-      );
-    }
 
     const documents = nativeDocs.map((d) => mongoBSONtoEJSON(d) as EJSONDocument);
     return {
@@ -1290,6 +1457,17 @@ export class MongoConnector {
       stageCount: stages.length,
       executionTimeMs: Date.now() - started,
     };
+  }
+
+  async executeMql(
+    config: MongoConfig,
+    req: MongoMqlExecuteRequest,
+  ): Promise<MongoMqlExecuteResult> {
+    return executeMql(config, req);
+  }
+
+  async explainMql(config: MongoConfig, req: MongoExplainRequest): Promise<MongoExplainResult> {
+    return explainMql(config, req);
   }
 
   async listCollections(config: MongoConfig): Promise<MongoCollectionInfo[]> {
@@ -1415,3 +1593,393 @@ export class MongoConnector {
 }
 
 export const mongoConnector = new MongoConnector();
+
+// ===========================================================================
+// M5 — MQL Query Workspace & Read-Only Engine (docs/MONGODB_M5_SPEC.md §3, §5)
+// ===========================================================================
+
+export async function executeMql(
+  config: MongoConfig,
+  req: MongoMqlExecuteRequest,
+): Promise<MongoMqlExecuteResult> {
+  const op = req?.op;
+  const opName = (op as any)?.operation;
+
+  if (!opName || !WHITELIST_READ_OPS.has(opName)) {
+    throw new MongoApiError(
+      "MONGO_FORBIDDEN_OPERATION",
+      `Operation '${opName || "unknown"}' is forbidden in read-only query workspace. Use RelWave document mutation actions.`,
+    );
+  }
+
+  assertCollectionName(req.collection);
+  const coll = selectCollection(config, req.collection);
+  const started = Date.now();
+
+  switch (op.operation) {
+    case "find": {
+      const payload: MongoFindOpPayload = op.payload ?? { filter: {} };
+      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "find payload must be an object");
+      }
+      if (
+        payload.filter !== undefined &&
+        (typeof payload.filter !== "object" ||
+          payload.filter === null ||
+          Array.isArray(payload.filter))
+      ) {
+        throw new MongoApiError("MONGO_INVALID_FILTER", "filter must be an object");
+      }
+      const filter: EJSONDocument = payload.filter ?? {};
+      assertSafeExpressions(filter);
+      assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
+
+      const sort = validateSort(payload.sort);
+      const projection = validateProjection(payload.projection);
+
+      if (payload.skip !== undefined) {
+        if (
+          typeof payload.skip !== "number" ||
+          !Number.isFinite(payload.skip) ||
+          !Number.isInteger(payload.skip) ||
+          payload.skip < 0
+        ) {
+          throw new MongoApiError("MONGO_VALIDATION_ERROR", "skip must be a non-negative integer");
+        }
+      }
+
+      let limit = DEFAULT_PAGE_SIZE;
+      if (typeof payload.limit === "number" && Number.isFinite(payload.limit)) {
+        const floored = Math.floor(payload.limit);
+        if (floored >= 1) {
+          limit = Math.min(floored, MAX_PAGE_SIZE);
+        }
+      }
+
+      const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+      const bsonFilter = serializeMongoFilter(filter);
+
+      const nativeDocs = await withMongoTimeout(timeout, (signal) => {
+        const options: FindOptions & { signal?: AbortSignal } = {
+          signal,
+          maxTimeMS: timeout,
+          limit,
+          ...PRESERVE_BSON_TYPES,
+        };
+        if (sort) options.sort = sort;
+        if (projection) options.projection = projection;
+        if (payload.skip !== undefined) options.skip = payload.skip;
+        return coll.find(bsonFilter, options).toArray();
+      });
+
+      const documents = nativeDocs.map((d) => mongoBSONtoEJSON(d) as EJSONDocument);
+      return {
+        operation: "find",
+        collection: req.collection,
+        documents,
+        totalReturned: documents.length,
+        executionTimeMs: Date.now() - started,
+      };
+    }
+
+    case "aggregate": {
+      const payload: MongoAggregateOpPayload = op.payload;
+      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "aggregate payload must be an object");
+      }
+      assertReadOnlyPipeline(payload.pipeline);
+      const stages = (payload.pipeline || []).map((stage) => serializeMongoPipelineStage(stage));
+      const timeout = clampMqlTimeout(req.options?.maxTimeMS, 10000, 60000);
+      const allowDiskUse = typeof payload.allowDiskUse === "boolean" ? payload.allowDiskUse : false;
+
+      const nativeDocs: Document[] = [];
+      await withMongoTimeout(timeout, async (signal) => {
+        const options: AggregateOptions & { signal?: AbortSignal } = {
+          signal,
+          maxTimeMS: timeout,
+          allowDiskUse,
+          ...PRESERVE_BSON_TYPES,
+        };
+        if (
+          typeof payload.batchSize === "number" &&
+          Number.isInteger(payload.batchSize) &&
+          payload.batchSize > 0
+        ) {
+          options.batchSize = payload.batchSize;
+        }
+        const cursor = coll.aggregate(stages, options);
+        try {
+          for await (const doc of cursor) {
+            nativeDocs.push(doc);
+            if (nativeDocs.length > MAX_AGG_RESULTS) {
+              throw new MongoApiError(
+                "MONGO_LIMIT_EXCEEDED",
+                `aggregation returned more than ${MAX_AGG_RESULTS} documents (max ${MAX_AGG_RESULTS}); add a $limit stage`,
+              );
+            }
+          }
+        } finally {
+          await cursor.close().catch(() => {});
+        }
+      });
+
+      const documents = nativeDocs.map((d) => mongoBSONtoEJSON(d) as EJSONDocument);
+      return {
+        operation: "aggregate",
+        collection: req.collection,
+        documents,
+        stageCount: stages.length,
+        executionTimeMs: Date.now() - started,
+      };
+    }
+
+    case "countDocuments": {
+      const payload: MongoCountOpPayload = op.payload ?? {};
+      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "countDocuments payload must be an object",
+        );
+      }
+      if (
+        payload.filter !== undefined &&
+        (typeof payload.filter !== "object" ||
+          payload.filter === null ||
+          Array.isArray(payload.filter))
+      ) {
+        throw new MongoApiError("MONGO_INVALID_FILTER", "filter must be an object");
+      }
+      const filter: EJSONDocument = payload.filter ?? {};
+      assertSafeExpressions(filter);
+      assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
+
+      if (payload.skip !== undefined) {
+        if (
+          typeof payload.skip !== "number" ||
+          !Number.isFinite(payload.skip) ||
+          !Number.isInteger(payload.skip) ||
+          payload.skip < 0
+        ) {
+          throw new MongoApiError("MONGO_VALIDATION_ERROR", "skip must be a non-negative integer");
+        }
+      }
+
+      if (payload.limit !== undefined) {
+        if (
+          typeof payload.limit !== "number" ||
+          !Number.isFinite(payload.limit) ||
+          !Number.isInteger(payload.limit) ||
+          payload.limit < 0
+        ) {
+          throw new MongoApiError("MONGO_VALIDATION_ERROR", "limit must be a non-negative integer");
+        }
+      }
+
+      const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+      const bsonFilter = serializeMongoFilter(filter);
+
+      const count = await withMongoTimeout(timeout, (signal) => {
+        const options: { maxTimeMS?: number; signal?: AbortSignal; skip?: number; limit?: number } =
+          {
+            maxTimeMS: timeout,
+            signal,
+          };
+        if (payload.skip !== undefined) options.skip = payload.skip;
+        if (payload.limit !== undefined) options.limit = payload.limit;
+        return coll.countDocuments(bsonFilter, options);
+      });
+
+      return {
+        operation: "countDocuments",
+        collection: req.collection,
+        count,
+        executionTimeMs: Date.now() - started,
+      };
+    }
+
+    case "estimatedDocumentCount": {
+      if (
+        op.payload !== undefined &&
+        (typeof op.payload !== "object" ||
+          op.payload === null ||
+          Array.isArray(op.payload) ||
+          Object.keys(op.payload).length > 0)
+      ) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "estimatedDocumentCount does not accept a filter; payload must be empty or undefined. Use countDocuments for filtered counts.",
+        );
+      }
+      const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+
+      const count = await withMongoTimeout(timeout, (signal) =>
+        coll.estimatedDocumentCount({ maxTimeMS: timeout, signal } as any),
+      );
+
+      return {
+        operation: "estimatedDocumentCount",
+        collection: req.collection,
+        count,
+        executionTimeMs: Date.now() - started,
+      };
+    }
+
+    case "distinct": {
+      const payload: MongoDistinctOpPayload = op.payload;
+      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "distinct payload must be an object");
+      }
+      if (typeof payload.field !== "string" || payload.field.trim().length === 0) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "field must be a non-empty string");
+      }
+      if (
+        payload.filter !== undefined &&
+        (typeof payload.filter !== "object" ||
+          payload.filter === null ||
+          Array.isArray(payload.filter))
+      ) {
+        throw new MongoApiError("MONGO_INVALID_FILTER", "filter must be an object");
+      }
+      const filter: EJSONDocument = payload.filter ?? {};
+      assertSafeExpressions(filter);
+      assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
+
+      const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+      const bsonFilter = serializeMongoFilter(filter);
+
+      let rawValues = await withMongoTimeout(timeout, (signal) =>
+        coll.distinct(payload.field, bsonFilter, { maxTimeMS: timeout, signal } as any),
+      );
+
+      if (rawValues.length > MAX_DISTINCT_VALUES) {
+        rawValues = rawValues.slice(0, MAX_DISTINCT_VALUES);
+      }
+
+      const values = rawValues.map((v) => mongoBSONtoEJSON(v) as EJsonValue);
+      return {
+        operation: "distinct",
+        collection: req.collection,
+        field: payload.field,
+        values,
+        count: values.length,
+        executionTimeMs: Date.now() - started,
+      };
+    }
+  }
+}
+
+export async function explainMql(
+  config: MongoConfig,
+  req: MongoExplainRequest,
+): Promise<MongoExplainResult> {
+  const target = req?.target;
+  const op = (target as any)?.operation;
+
+  if (op !== "find" && op !== "aggregate") {
+    throw new MongoApiError(
+      "MONGO_FORBIDDEN_OPERATION",
+      "Explain is only supported for 'find' and 'aggregate' operations",
+    );
+  }
+
+  assertCollectionName(req.collection);
+  const coll = selectCollection(config, req.collection);
+
+  const verbosity = req.verbosity || "queryPlanner";
+  if (!["queryPlanner", "executionStats", "allPlansExecution"].includes(verbosity)) {
+    throw new MongoApiError("MONGO_VALIDATION_ERROR", `Invalid explain verbosity '${verbosity}'`);
+  }
+
+  const defaultTimeout =
+    verbosity === "queryPlanner" ? 5000 : verbosity === "executionStats" ? 10000 : 15000;
+  const timeout = clampMqlTimeout(req.options?.maxTimeMS, defaultTimeout, 60000);
+  const started = Date.now();
+
+  let raw: any;
+  if (target.operation === "find") {
+    if (
+      target.filter !== undefined &&
+      (typeof target.filter !== "object" || target.filter === null || Array.isArray(target.filter))
+    ) {
+      throw new MongoApiError("MONGO_INVALID_FILTER", "filter must be an object");
+    }
+    const filter: EJSONDocument = target.filter ?? {};
+    assertSafeExpressions(filter);
+    assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
+
+    const sort = validateSort(target.sort);
+    const projection = validateProjection(target.projection);
+
+    if (target.skip !== undefined) {
+      if (
+        typeof target.skip !== "number" ||
+        !Number.isFinite(target.skip) ||
+        !Number.isInteger(target.skip) ||
+        target.skip < 0
+      ) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "skip must be a non-negative integer");
+      }
+    }
+
+    const bsonFilter = serializeMongoFilter(filter);
+    const cursor = coll.find(bsonFilter, { maxTimeMS: timeout, ...PRESERVE_BSON_TYPES });
+    if (sort) cursor.sort(sort);
+    if (projection) cursor.project(projection);
+    if (target.skip !== undefined) cursor.skip(target.skip);
+    if (typeof target.limit === "number" && Number.isFinite(target.limit)) {
+      const floored = Math.floor(target.limit);
+      if (floored >= 1) cursor.limit(Math.min(floored, MAX_PAGE_SIZE));
+    }
+
+    raw = await withMongoTimeout(timeout, () => cursor.explain(verbosity));
+  } else {
+    // aggregate
+    assertReadOnlyPipeline(target.pipeline);
+    const stages = (target.pipeline || []).map((stage) => serializeMongoPipelineStage(stage));
+    const cursor = coll.aggregate(stages, {
+      maxTimeMS: timeout,
+      allowDiskUse: target.allowDiskUse ?? false,
+      ...PRESERVE_BSON_TYPES,
+    });
+
+    raw = await withMongoTimeout(timeout, () => cursor.explain(verbosity));
+  }
+
+  const rawObj = (raw || {}) as Record<string, any>;
+  const queryPlanner = rawObj.queryPlanner || {
+    plannerVersion: 1,
+    namespace: `${config.database || ""}.${req.collection}`,
+    indexFilterSet: false,
+    winningPlan: rawObj.stages ? { stages: rawObj.stages } : rawObj.winningPlan || {},
+  };
+
+  const executionStats = rawObj.executionStats
+    ? {
+        executionSuccess: rawObj.executionStats.executionSuccess ?? true,
+        nReturned: rawObj.executionStats.nReturned ?? 0,
+        executionTimeMillis: rawObj.executionStats.executionTimeMillis ?? 0,
+        totalKeysExamined: rawObj.executionStats.totalKeysExamined ?? 0,
+        totalDocsExamined: rawObj.executionStats.totalDocsExamined ?? 0,
+        executionStages: rawObj.executionStats.executionStages || {},
+        allPlansExecution: rawObj.executionStats.allPlansExecution,
+      }
+    : undefined;
+
+  const serverInfo = rawObj.serverInfo
+    ? {
+        host: rawObj.serverInfo.host,
+        port: rawObj.serverInfo.port,
+        version: rawObj.serverInfo.version,
+      }
+    : undefined;
+
+  return {
+    collection: req.collection,
+    operation: target.operation,
+    queryPlanner,
+    executionStats,
+    serverInfo,
+    rawExplain: (mongoBSONtoEJSON(raw) as Record<string, unknown>) || {},
+    executionTimeMs: Date.now() - started,
+  };
+}

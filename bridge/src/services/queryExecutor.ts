@@ -23,6 +23,10 @@ import {
   MongoDropCollectionResult,
   MongoAggregationRequest,
   MongoAggregationResult,
+  MongoMqlExecuteRequest,
+  MongoMqlExecuteResult,
+  MongoExplainRequest,
+  MongoExplainResult,
 } from "../types/mongo";
 
 // Concurrency limit for parallel processing
@@ -334,5 +338,33 @@ export class QueryExecutor {
       );
     }
     return mongoConnector.inferCollectionSchema(conn, req);
+  }
+
+  async executeMql(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoMqlExecuteRequest,
+  ): Promise<MongoMqlExecuteResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "executeMql requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.executeMql(conn, req);
+  }
+
+  async explainMql(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoExplainRequest,
+  ): Promise<MongoExplainResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "explainMql requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.explainMql(conn, req);
   }
 }

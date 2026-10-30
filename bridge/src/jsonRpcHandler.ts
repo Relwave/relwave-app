@@ -78,6 +78,9 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "query.replaceDocument", (p, id) => queryHandlers.handleReplaceDocument(p, id));
   rpcRegister(rpc, "query.deleteDocument", (p, id) => queryHandlers.handleDeleteDocument(p, id));
   rpcRegister(rpc, "query.runAggregation", (p, id) => queryHandlers.handleRunAggregation(p, id));
+  // M5: MongoDB MQL Workspace & Read-Only Engine (docs/MONGODB_M5_SPEC.md §5)
+  rpcRegister(rpc, "query.executeMql", (p, id) => queryHandlers.handleExecuteMql(p, id));
+  rpcRegister(rpc, "query.explainMql", (p, id) => queryHandlers.handleExplainMql(p, id));
 
   // ==========================================
   // DATABASE CRUD HANDLERS

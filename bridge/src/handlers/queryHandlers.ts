@@ -551,4 +551,47 @@ export class QueryHandlers {
       this.sendMongoError(id, e);
     }
   }
+
+  async handleExecuteMql(params: any, id: number | string) {
+    try {
+      const { dbId, collection, op, options } = params || {};
+      if (!dbId || !collection || !op) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, or op",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.executeMql(conn, dbType, {
+        collection,
+        op,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
+
+  async handleExplainMql(params: any, id: number | string) {
+    try {
+      const { dbId, collection, target, verbosity, options } = params || {};
+      if (!dbId || !collection || !target) {
+        return this.rpc.sendError(id, {
+          code: "MONGO_VALIDATION_ERROR",
+          message: "Missing dbId, collection, or target",
+        });
+      }
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const data = await this.queryExecutor.explainMql(conn, dbType, {
+        collection,
+        target,
+        verbosity,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e) {
+      this.sendMongoError(id, e);
+    }
+  }
 }

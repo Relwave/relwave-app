@@ -12,6 +12,7 @@ import {
   MongoApiError,
   mapMongoError,
   withMongoTimeout,
+  assertReadOnlyPipeline,
 } from "../../src/connectors/mongo";
 import type {
   MongoConfig,
@@ -102,6 +103,17 @@ describe("M2 request validation (rejects before touching the driver)", () => {
     ).rejects.toMatchObject({ code: "MONGO_VALIDATION_ERROR" });
   });
 
+  test("findDocuments rejects a non-object filter", async () => {
+    for (const bad of ["str", 123, true, [1, 2]]) {
+      await expect(
+        mongoConnector.findDocuments(dummy, { collection: "c", filter: bad as any }),
+      ).rejects.toMatchObject({
+        code: "MONGO_INVALID_FILTER",
+        message: "filter must be an object",
+      });
+    }
+  });
+
   test("findDocuments rejects an oversized filter", async () => {
     const big: EJSONDocument = { big: "x".repeat(9000) };
     await expect(
@@ -151,10 +163,8 @@ describe("M2 request validation (rejects before touching the driver)", () => {
     ).rejects.toMatchObject({ code: "MONGO_BULK_OP_FORBIDDEN" });
   });
 
-  test("runAggregation rejects an empty pipeline", async () => {
-    await expect(
-      mongoConnector.runAggregation(dummy, { collection: "c", pipeline: [] }),
-    ).rejects.toMatchObject({ code: "MONGO_INVALID_PIPELINE" });
+  test("runAggregation accepts an empty pipeline without error", () => {
+    expect(() => assertReadOnlyPipeline([])).not.toThrow();
   });
 
   test("runAggregation rejects a write stage ($out)", async () => {

@@ -293,7 +293,7 @@ export interface MongoReplaceResult {
 export interface MongoCreateCollectionOptions {
   capped?: boolean;
   size?: number; // bytes (min 4096)
-  max?: number;  // max documents (positive integer)
+  max?: number; // max documents (positive integer)
 }
 
 export interface MongoCreateCollectionRequest {
@@ -338,16 +338,19 @@ export interface MongoAggregationResult {
 
 // --- Safety / limit constants (spec §10) ---
 
-export const MAX_PAGE_SIZE = 1000;
+// --- Canonical Page Constants (M5 Spec §5.1) ---
+export const DEFAULT_PAGE_SIZE = 50;
+export const MAX_PAGE_SIZE = 100;
 export const MAX_PAGE = 10;
-export const MAX_SKIP = MAX_PAGE_SIZE * MAX_PAGE; // 10000
-export const DEFAULT_PAGE_SIZE = 100;
+export const MAX_SKIP = MAX_PAGE_SIZE * MAX_PAGE; // 1000
 export const MAX_FILTER_SIZE_BYTES = 8 * 1024;
 export const MAX_SORT_FIELDS = 32;
 export const MAX_PROJECTION_FIELDS = 256;
 export const MAX_AGG_STAGES = 64;
 export const MAX_AGG_STAGE_SIZE_BYTES = 16 * 1024;
-export const MAX_AGG_RESULTS = 10000;
+export const MAX_AGG_RESULTS = 1000;
+export const MAX_DISTINCT_VALUES = 10000;
+export const MAX_EXPRESSION_DEPTH = 15;
 export const MAX_DOCUMENT_SIZE_BYTES = 16 * 1024 * 1024;
 export const DEFAULT_OP_TIMEOUT_MS = 30000;
 export const MAX_OP_TIMEOUT_MS = 120000;
@@ -359,3 +362,137 @@ export const MAX_INFERENCE_DEPTH = 16;
 export const MAX_INFERRED_FIELDS = 5000;
 export const DEFAULT_SAMPLE_SIZE = 100;
 export const DEFAULT_MAX_DEPTH = 8;
+
+// --- M5 MQL Workspace & Builder Types (docs/MONGODB_M5_SPEC.md §5) ---
+
+export interface MongoFindOpPayload {
+  filter: EJSONDocument;
+  projection?: Record<string, 0 | 1>;
+  sort?: Record<string, 1 | -1>;
+  skip?: number;
+  limit?: number; // Clamped between 1 and MAX_PAGE_SIZE (100); defaults to DEFAULT_PAGE_SIZE (50)
+}
+
+export interface MongoAggregateOpPayload {
+  pipeline: EJSONDocument[];
+  allowDiskUse?: boolean;
+  batchSize?: number;
+}
+
+export interface MongoCountOpPayload {
+  filter?: EJSONDocument;
+  skip?: number;
+  limit?: number;
+}
+
+export type MongoEstimatedCountOpPayload = Record<string, never> | undefined;
+
+export interface MongoDistinctOpPayload {
+  field: string;
+  filter?: EJSONDocument;
+}
+
+// --- Tagged Union Request ---
+
+export type MongoMqlOperation =
+  | { operation: "find"; payload: MongoFindOpPayload }
+  | { operation: "aggregate"; payload: MongoAggregateOpPayload }
+  | { operation: "countDocuments"; payload: MongoCountOpPayload }
+  | { operation: "estimatedDocumentCount"; payload?: MongoEstimatedCountOpPayload }
+  | { operation: "distinct"; payload: MongoDistinctOpPayload };
+
+export interface MongoMqlExecuteRequest {
+  dbId?: string;
+  collection: string;
+  op: MongoMqlOperation;
+  options?: {
+    maxTimeMS?: number;
+  };
+}
+
+// --- Typed Results ---
+
+export interface MongoMqlBaseResult {
+  collection: string;
+  executionTimeMs: number;
+}
+
+export interface MongoFindMqlResult extends MongoMqlBaseResult {
+  operation: "find";
+  documents: EJSONDocument[];
+  totalReturned: number;
+}
+
+export interface MongoAggregateMqlResult extends MongoMqlBaseResult {
+  operation: "aggregate";
+  documents: EJSONDocument[];
+  stageCount: number;
+}
+
+export interface MongoCountMqlResult extends MongoMqlBaseResult {
+  operation: "countDocuments" | "estimatedDocumentCount";
+  count: number;
+}
+
+export interface MongoDistinctMqlResult extends MongoMqlBaseResult {
+  operation: "distinct";
+  field: string;
+  values: EJsonValue[];
+  count: number;
+}
+
+export type MongoMqlExecuteResult =
+  MongoFindMqlResult | MongoAggregateMqlResult | MongoCountMqlResult | MongoDistinctMqlResult;
+
+export type MongoExplainTarget =
+  | {
+      operation: "find";
+      filter: EJSONDocument;
+      projection?: Record<string, 0 | 1>;
+      sort?: Record<string, 1 | -1>;
+      skip?: number;
+      limit?: number;
+    }
+  | {
+      operation: "aggregate";
+      pipeline: EJSONDocument[];
+      allowDiskUse?: boolean;
+    };
+
+export interface MongoExplainRequest {
+  dbId?: string;
+  collection: string;
+  target: MongoExplainTarget;
+  verbosity?: "queryPlanner" | "executionStats" | "allPlansExecution";
+  options?: {
+    maxTimeMS?: number;
+  };
+}
+
+export interface MongoExplainResult {
+  collection: string;
+  operation: "find" | "aggregate";
+  queryPlanner: {
+    plannerVersion: number;
+    namespace: string;
+    indexFilterSet: boolean;
+    winningPlan: Record<string, unknown>;
+    rejectedPlans?: Record<string, unknown>[];
+  };
+  executionStats?: {
+    executionSuccess: boolean;
+    nReturned: number;
+    executionTimeMillis: number;
+    totalKeysExamined: number;
+    totalDocsExamined: number;
+    executionStages: Record<string, unknown>;
+    allPlansExecution?: Record<string, unknown>[];
+  };
+  serverInfo?: {
+    host: string;
+    port: number;
+    version: string;
+  };
+  rawExplain: Record<string, unknown>;
+  executionTimeMs: number;
+}
