@@ -324,3 +324,8 @@ export interface MongoExplainResult {
   executionTimeMs: number;
 }
 
+export interface MongoshParseResult {
+  collection: string;
+  op: MongoMqlOperation;
+}
+
