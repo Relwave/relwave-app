@@ -10,6 +10,10 @@ import {
   MongoReplaceResult,
   MongoDeleteRequest,
   MongoDeleteResult,
+  MongoMqlExecuteRequest,
+  MongoMqlExecuteResult,
+  MongoExplainRequest,
+  MongoExplainResult,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 
@@ -149,6 +153,38 @@ class QueryService {
     } catch (error: any) {
       console.error("Failed to delete MongoDB document:", error);
       throw new Error(`Failed to delete MongoDB document: ${error.message}`);
+    }
+  }
+
+  /**
+   * Executes a general-purpose MQL read operation (query.executeMql).
+   */
+  async executeMql(req: MongoMqlExecuteRequest): Promise<MongoMqlExecuteResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.op) {
+        throw new Error("Database ID, collection name, and operation are required.");
+      }
+      const result = await bridgeRequest("query.executeMql", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to execute MQL operation:", error);
+      throw new Error(`Failed to execute MQL operation: ${error.message}`);
+    }
+  }
+
+  /**
+   * Explains an MQL query or aggregation plan (query.explainMql).
+   */
+  async explainMql(req: MongoExplainRequest): Promise<MongoExplainResult> {
+    try {
+      if (!req.dbId || !req.collection || !req.target) {
+        throw new Error("Database ID, collection name, and explain target are required.");
+      }
+      const result = await bridgeRequest("query.explainMql", req);
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to explain MQL operation:", error);
+      throw new Error(`Failed to explain MQL operation: ${error.message}`);
     }
   }
 }

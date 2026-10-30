@@ -33,6 +33,8 @@ import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
 import { MigrationSyncDialog } from "@/features/project/components/MigrationSyncDialog";
 import { getDatabaseKind } from "@/lib/databases";
 import { MongoDataViewPanel } from "@/features/mongodb/components/MongoDataViewPanel";
+import { MongoWorkspacePanel } from "@/features/mongodb/components/workspace/MongoWorkspacePanel";
+import { MongoAggregationPanel } from "@/features/mongodb/components/aggregation/MongoAggregationPanel";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -144,7 +146,27 @@ const DatabaseDetail = () => {
   // ---- Panel router ----
   const renderPanel = () => {
     if (isNosql) {
-      return <MongoDataViewPanel dbId={dbId!} databaseName={databaseName || ""} />;
+      switch (activePanel) {
+        case "mongo-workspace":
+          return (
+            <MongoWorkspacePanel
+              key={`mws-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-aggregation":
+          return (
+            <MongoAggregationPanel
+              key={`magg-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "data":
+        default:
+          return <MongoDataViewPanel dbId={dbId!} databaseName={databaseName || ""} />;
+      }
     }
 
     switch (activePanel) {

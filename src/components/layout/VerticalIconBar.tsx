@@ -16,18 +16,9 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SettingsDialog } from "@/features/settings/components";
-import { getDatabaseKind } from "@/lib/databases";
+import { PanelType, getDatabasePanelItems } from "./panelItems";
 
-export type PanelType =
-  | "data"
-  | "sql-workspace"
-  | "query-builder"
-  | "schema-explorer"
-  | "er-diagram"
-  | "monitoring"
-  | "git-status"
-  | "migrations"
-  | "ai-workspace";
+export { type PanelType, getDatabasePanelItems };
 
 interface VerticalIconBarProps {
   dbId?: string;
@@ -37,41 +28,6 @@ interface VerticalIconBarProps {
 }
 
 const globalNavigationItems = [{ icon: Home, label: "Dashboard", path: "/" }];
-
-function supportsMonitoring(databaseType?: string) {
-  const type = databaseType?.toLowerCase();
-  return (
-    type === "postgres" ||
-    type === "postgresql" ||
-    type === "mysql" ||
-    type === "mariadb" ||
-    type === "clickhouse"
-  );
-}
-
-export function getDatabasePanelItems(databaseType?: string): Array<{
-  icon: any;
-  label: string;
-  panel: PanelType;
-}> {
-  if (getDatabaseKind(databaseType) === "nosql") {
-    return [{ icon: Layers, label: "Data View", panel: "data" }];
-  }
-
-  return [
-    { icon: Layers, label: "Data View", panel: "data" },
-    { icon: Terminal, label: "SQL Workspace", panel: "sql-workspace" },
-    { icon: Sparkles, label: "AI Workspace", panel: "ai-workspace" },
-    { icon: Search, label: "Query Builder", panel: "query-builder" },
-    { icon: GitBranch, label: "Schema Explorer", panel: "schema-explorer" },
-    { icon: Database, label: "ER Diagram", panel: "er-diagram" },
-    ...(supportsMonitoring(databaseType)
-      ? [{ icon: Activity, label: "Monitoring", panel: "monitoring" as PanelType }]
-      : []),
-    { icon: History, label: "Migrations", panel: "migrations" },
-    { icon: GitCommitHorizontal, label: "Git Status", panel: "git-status" },
-  ];
-}
 
 export default function VerticalIconBar({
   dbId,
