@@ -28,6 +28,7 @@ import {
   AggregateOptions,
   Document,
   CreateIndexesOptions,
+  Db,
 } from "mongodb";
 import { createHash } from "crypto";
 import {
@@ -351,9 +352,9 @@ export async function closeAllMongoClients(): Promise<void> {
 }
 
 /** Select the target database, defaulting to the configured one. */
-function selectDb(cfg: MongoConfig): ReturnType<MongoClient["db"]> {
+export function selectDb(cfg: MongoConfig): Db {
   const client = getMongoClient(cfg);
-  return cfg.database ? client.db(cfg.database) : client.db();
+  return (cfg.database ? client.db(cfg.database) : client.db()) as Db;
 }
 
 // ---------------------------------------------------------------------------

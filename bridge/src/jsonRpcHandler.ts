@@ -126,6 +126,13 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "migration.generateDrop", (p, id) =>
     migrationHandlers.handleGenerateDropMigration(p, id),
   );
+  rpcRegister(rpc, "migration.list", (p, id) => migrationHandlers.handleListMigrations(p, id));
+  rpcRegister(rpc, "migration.validate", (p, id) =>
+    migrationHandlers.handleValidateMigration(p, id),
+  );
+  rpcRegister(rpc, "migration.getStatus", (p, id) =>
+    migrationHandlers.handleGetMigrationStatus(p, id),
+  );
   rpcRegister(rpc, "migration.apply", (p, id) => migrationHandlers.handleApplyMigration(p, id));
   rpcRegister(rpc, "migration.applyMigrations", (p, id) =>
     migrationHandlers.handleApplyMigrations(p, id),

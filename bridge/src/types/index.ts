@@ -17,6 +17,7 @@ export * from "./sqlite";
 export * from "./duckdb";
 export * from "./clickhouse";
 export * from "./mongo";
+export * from "./mongoMigration";
 export * from "./ai";
 export { SSHConfig } from "./common";
 

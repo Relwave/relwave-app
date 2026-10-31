@@ -6,6 +6,8 @@ import { Logger } from "pino";
 import path from "path";
 import fs from "fs";
 import { projectStoreInstance } from "../services/projectStore";
+import { mongoMigrationEngine } from "../services/mongoMigrationEngine";
+import { selectDb, MongoApiError } from "../connectors/mongo";
 
 export class MigrationHandlers {
   constructor(
@@ -14,6 +16,115 @@ export class MigrationHandlers {
     private dbService: DatabaseService,
     private queryExecutor: QueryExecutor,
   ) {}
+
+  private sendMigrationError(id: number | string, e: any, contextMsg: string): void {
+    this.logger?.error({ e }, contextMsg);
+    if (e instanceof MongoApiError) {
+      this.rpc.sendError(id, { code: e.code, message: e.message });
+    } else {
+      this.rpc.sendError(id, {
+        code: e?.code || "IO_ERROR",
+        message: String(e?.message || e),
+      });
+    }
+  }
+
+  private async resolveProjectRoot(dbId: string, customRoot?: string): Promise<string> {
+    if (customRoot) return customRoot;
+    const project = await projectStoreInstance.getProjectByDatabaseId(dbId);
+    if (project) {
+      return projectStoreInstance.resolveProjectDir(project.id);
+    }
+    const { CONFIG_FOLDER } = await import("../utils/config");
+    return path.join(CONFIG_FOLDER, "projects", dbId);
+  }
+
+  async handleListMigrations(params: any, id: number | string) {
+    try {
+      const { dbId, projectRoot: customRoot } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId",
+        });
+      }
+
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      if (dbType === "mongodb") {
+        const db = selectDb(conn);
+        const projectRoot = await this.resolveProjectRoot(dbId, customRoot);
+        const data = await mongoMigrationEngine.listMigrations(db, projectRoot);
+        return this.rpc.sendResponse(id, { ok: true, data });
+      }
+
+      // SQL fallback
+      const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
+      const { loadLocalMigrations } = await import("../utils/baselineMigration");
+      const localMigrations = await loadLocalMigrations(migrationsDir);
+      const connector = getConnector(dbType) as any;
+      const appliedMigrations = await connector.listAppliedMigrations(conn);
+      this.rpc.sendResponse(id, {
+        ok: true,
+        data: {
+          appliedMigrations,
+          localMigrations,
+        },
+      });
+    } catch (e: any) {
+      this.sendMigrationError(id, e, "migration.list failed");
+    }
+  }
+
+  async handleValidateMigration(params: any, id: number | string) {
+    try {
+      const { dbId, manifest } = params || {};
+      if (!manifest) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing manifest",
+        });
+      }
+
+      if (dbId) {
+        const { dbType } = await this.dbService.getDatabaseConnection(dbId);
+        if (dbType === "mongodb") {
+          const data = mongoMigrationEngine.validateManifest(manifest);
+          return this.rpc.sendResponse(id, { ok: true, data });
+        }
+      }
+
+      const data = mongoMigrationEngine.validateManifest(manifest);
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (e: any) {
+      this.sendMigrationError(id, e, "migration.validate failed");
+    }
+  }
+
+  async handleGetMigrationStatus(params: any, id: number | string) {
+    try {
+      const { dbId, migrationId } = params || {};
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId",
+        });
+      }
+
+      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      if (dbType === "mongodb") {
+        const db = selectDb(conn);
+        const data = await mongoMigrationEngine.getMigrationStatus(db, migrationId);
+        return this.rpc.sendResponse(id, { ok: true, data });
+      }
+
+      return this.rpc.sendError(id, {
+        code: "BAD_REQUEST",
+        message: "migration.getStatus is currently supported only for MongoDB",
+      });
+    } catch (e: any) {
+      this.sendMigrationError(id, e, "migration.getStatus failed");
+    }
+  }
 
   async handleGenerateCreateMigration(params: any, id: number | string) {
     try {
@@ -224,16 +335,48 @@ export class MigrationHandlers {
 
   async handleApplyMigration(params: any, id: number | string) {
     try {
-      const { dbId, version } = params || {};
+      const { dbId, version, dryRun, projectRoot: customRoot, ownerId } = params || {};
 
-      if (!dbId || !version) {
+      if (!dbId) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing dbId",
+        });
+      }
+
+      const dbConn = await this.dbService.getDatabaseConnection(dbId);
+      if (dbConn.dbType === "mongodb") {
+        const readOnly = Boolean(
+          (dbConn.db as any)?.readonly ||
+          (dbConn.db as any)?.readOnly ||
+          (dbConn.conn as any)?.readonly ||
+          (dbConn.conn as any)?.readOnly,
+        );
+        if (readOnly) {
+          return this.rpc.sendError(id, {
+            code: "MONGO_READ_ONLY",
+            message: "Database is in read-only mode",
+          });
+        }
+
+        const db = selectDb(dbConn.conn);
+        const projectRoot = await this.resolveProjectRoot(dbId, customRoot);
+        const data = await mongoMigrationEngine.applyMigration(db, projectRoot, version, {
+          dryRun,
+          readOnly,
+          ownerId,
+        });
+        return this.rpc.sendResponse(id, { ok: true, data });
+      }
+
+      if (!version) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
           message: "Missing dbId or version",
         });
       }
 
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const { conn, dbType } = dbConn;
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
       // Find migration file
@@ -314,8 +457,7 @@ export class MigrationHandlers {
 
       this.rpc.sendResponse(id, { ok: true });
     } catch (e: any) {
-      this.logger?.error({ e }, "migration.apply failed");
-      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+      this.sendMigrationError(id, e, "migration.apply failed");
     }
   }
 
@@ -493,7 +635,7 @@ export class MigrationHandlers {
 
   async handleRollbackMigration(params: any, id: number | string) {
     try {
-      const { dbId, version } = params || {};
+      const { dbId, version, force, projectRoot: customRoot, ownerId } = params || {};
 
       if (!dbId || !version) {
         return this.rpc.sendError(id, {
@@ -502,7 +644,32 @@ export class MigrationHandlers {
         });
       }
 
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
+      const dbConn = await this.dbService.getDatabaseConnection(dbId);
+      if (dbConn.dbType === "mongodb") {
+        const readOnly = Boolean(
+          (dbConn.db as any)?.readonly ||
+          (dbConn.db as any)?.readOnly ||
+          (dbConn.conn as any)?.readonly ||
+          (dbConn.conn as any)?.readOnly,
+        );
+        if (readOnly) {
+          return this.rpc.sendError(id, {
+            code: "MONGO_READ_ONLY",
+            message: "Database is in read-only mode",
+          });
+        }
+
+        const db = selectDb(dbConn.conn);
+        const projectRoot = await this.resolveProjectRoot(dbId, customRoot);
+        const data = await mongoMigrationEngine.rollbackMigration(db, version, projectRoot, {
+          readOnly,
+          force,
+          ownerId,
+        });
+        return this.rpc.sendResponse(id, { ok: true, data });
+      }
+
+      const { conn, dbType } = dbConn;
       const migrationsDir = await projectStoreInstance.resolveMigrationsDir(dbId);
 
       // Find migration file
@@ -582,8 +749,7 @@ export class MigrationHandlers {
 
       this.rpc.sendResponse(id, { ok: true });
     } catch (e: any) {
-      this.logger?.error({ e }, "migration.rollback failed");
-      this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
+      this.sendMigrationError(id, e, "migration.rollback failed");
     }
   }
 
