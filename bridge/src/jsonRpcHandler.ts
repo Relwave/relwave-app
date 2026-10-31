@@ -4,6 +4,7 @@ import { DatabaseService } from "./services/databaseService";
 import { QueryExecutor } from "./services/queryExecutor";
 import { QueryHandlers } from "./handlers/queryHandlers";
 import { DatabaseHandlers } from "./handlers/databaseHandlers";
+import { IndexHandlers } from "./handlers/indexHandlers";
 import { SessionHandlers } from "./handlers/sessionHandlers";
 import { StatsHandlers } from "./handlers/statsHandlers";
 import { MigrationHandlers } from "./handlers/migrationHandlers";
@@ -45,6 +46,7 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   const gitAdvancedHandlers = new GitAdvancedHandlers(rpc, logger);
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
   const aiHandlers = new (require("./handlers/aiHandlers").AIHandlers)(rpc, logger, dbService);
+  const indexHandlers = new IndexHandlers(rpc, logger, dbService, queryExecutor);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -102,6 +104,15 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "db.getInferredSchema", (p, id) => queryHandlers.handleGetInferredSchema(p, id));
   rpcRegister(rpc, "db.createCollection", (p, id) => queryHandlers.handleCreateCollection(p, id));
   rpcRegister(rpc, "db.dropCollection", (p, id) => queryHandlers.handleDropCollection(p, id));
+
+  // ==========================================
+  // INDEX MANAGEMENT HANDLERS (docs/MONGODB_M6_SPEC.md §11)
+  // ==========================================
+  rpcRegister(rpc, "index.list", (p, id) => indexHandlers.handleListIndexes(p, id));
+  rpcRegister(rpc, "index.create", (p, id) => indexHandlers.handleCreateIndex(p, id));
+  rpcRegister(rpc, "index.drop", (p, id) => indexHandlers.handleDropIndex(p, id));
+  rpcRegister(rpc, "index.getStats", (p, id) => indexHandlers.handleGetIndexStats(p, id));
+  rpcRegister(rpc, "index.hide", (p, id) => indexHandlers.handleHideIndex(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS

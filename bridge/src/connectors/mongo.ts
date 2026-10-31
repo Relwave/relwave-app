@@ -21,7 +21,14 @@
  * sanitized and the raw config is never logged.
  */
 
-import { MongoClient, Collection, FindOptions, AggregateOptions, Document } from "mongodb";
+import {
+  MongoClient,
+  Collection,
+  FindOptions,
+  AggregateOptions,
+  Document,
+  CreateIndexesOptions,
+} from "mongodb";
 import { createHash } from "crypto";
 import {
   MongoConfig,
@@ -60,6 +67,21 @@ import {
   MongoMqlExecuteResult,
   MongoExplainRequest,
   MongoExplainResult,
+  MongoIndexDirection,
+  MongoIndexCollation,
+  MongoIndexOptions,
+  MongoIndexDetails,
+  MongoIndexListRequest,
+  MongoIndexListResult,
+  MongoIndexCreateRequest,
+  MongoIndexCreateResult,
+  MongoIndexDropRequest,
+  MongoIndexDropResult,
+  MongoIndexStatsItem,
+  MongoIndexStatsRequest,
+  MongoIndexStatsResult,
+  MongoIndexHideRequest,
+  MongoIndexHideResult,
   MAX_PAGE_SIZE,
   MAX_PAGE,
   DEFAULT_PAGE_SIZE,
@@ -1590,7 +1612,685 @@ export class MongoConnector {
     mongodbCache.flushConnection(config);
     return { ok: true, collection: req.collection };
   }
+
+  // ===========================================================================
+  // M6 — Secondary Index Management (docs/MONGODB_M6_SPEC.md §3, §9)
+  // ===========================================================================
+
+  async listIndexes(
+    config: MongoConfig,
+    req: MongoIndexListRequest,
+  ): Promise<MongoIndexListResult> {
+    assertCollectionName(req.collection);
+    const coll = selectCollection(config, req.collection);
+    const db = selectDb(config);
+    const timeout = clampTimeout();
+
+    let rawIndexes: any[] = [];
+    try {
+      rawIndexes = await withMongoTimeout(timeout, () =>
+        coll.listIndexes({ maxTimeMS: timeout }).toArray(),
+      );
+    } catch (err: any) {
+      if (err?.codeName === "NamespaceNotFound" || err?.code === 26) {
+        return {
+          collection: req.collection,
+          indexes: [],
+          totalSizeBytes: 0,
+        };
+      }
+      throw err;
+    }
+
+    let indexSizes: Record<string, number> = {};
+    let totalSizeBytes = 0;
+    try {
+      const stats = await withMongoTimeout(timeout, () =>
+        db.command({ collStats: req.collection }),
+      );
+      if (stats?.indexSizes && typeof stats.indexSizes === "object") {
+        indexSizes = stats.indexSizes;
+      }
+      if (typeof stats?.totalIndexSize === "number") {
+        totalSizeBytes = stats.totalIndexSize;
+      }
+    } catch {
+      // collStats is best-effort (e.g. Atlas / views / permissions)
+    }
+
+    if (totalSizeBytes === 0 && Object.keys(indexSizes).length > 0) {
+      totalSizeBytes = Object.values(indexSizes).reduce(
+        (sum, sz) => sum + (typeof sz === "number" ? sz : 0),
+        0,
+      );
+    }
+
+    let defaultCollation: MongoIndexCollation | null = null;
+    let collectionCollationEstablished = false;
+    try {
+      const collInfos = await withMongoTimeout(timeout, () =>
+        db.listCollections({ name: req.collection }, { maxTimeMS: timeout }).toArray(),
+      );
+      if (collInfos.length > 0) {
+        collectionCollationEstablished = true;
+        defaultCollation = (collInfos[0] as any)?.options?.collation || null;
+      }
+    } catch {
+      // Best-effort: if listCollections fails, collectionCollationEstablished remains false
+    }
+
+    const indexDetailsList: MongoIndexDetails[] = rawIndexes.map((raw) => {
+      const isIdIndex = raw.name === "_id_";
+      const sizeBytes = typeof indexSizes[raw.name] === "number" ? indexSizes[raw.name] : 0;
+      return {
+        name: raw.name,
+        key: raw.key,
+        sizeBytes,
+        unique: raw.unique ?? (isIdIndex ? true : false),
+        sparse: raw.sparse ?? false,
+        isIdIndex,
+        expireAfterSeconds: raw.expireAfterSeconds,
+        partialFilterExpression: raw.partialFilterExpression
+          ? (mongoBSONtoEJSON(raw.partialFilterExpression) as EJSONDocument)
+          : undefined,
+        collation: raw.collation,
+        hidden: raw.hidden,
+        v: raw.v,
+        textIndexVersion: raw.textIndexVersion,
+        weights: raw.weights,
+        default_language: raw.default_language,
+        language_override: raw.language_override,
+      };
+    });
+
+    const evaluatedIndexes = evaluateIndexRedundancy(indexDetailsList, {
+      collectionDefaultCollation: defaultCollation,
+      collectionCollationUnknown: !collectionCollationEstablished,
+    });
+
+    return {
+      collection: req.collection,
+      indexes: evaluatedIndexes,
+      totalSizeBytes,
+    };
+  }
+
+  async createIndex(
+    config: MongoConfig,
+    req: MongoIndexCreateRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexCreateResult> {
+    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
+      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    }
+    assertCollectionName(req.collection);
+    if (typeof req.key !== "object" || req.key === null || Array.isArray(req.key)) {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "key must be an object");
+    }
+    const keyEntries = Object.entries(req.key);
+    if (keyEntries.length === 0) {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "key must contain at least one field");
+    }
+    const VALID_DIRECTIONS = new Set([1, -1, "text", "2dsphere", "hashed"]);
+    for (const [field, dir] of keyEntries) {
+      if (typeof field !== "string" || !field.trim()) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "key field name must be a non-empty string");
+      }
+      if (!VALID_DIRECTIONS.has(dir as any)) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          `invalid direction for field '${field}': ${dir}`,
+        );
+      }
+    }
+
+    // Special index combination validation
+    const textFields = keyEntries.filter(([_, dir]) => dir === "text");
+    const geoFields = keyEntries.filter(([_, dir]) => dir === "2dsphere");
+    const hashedFields = keyEntries.filter(([_, dir]) => dir === "hashed");
+
+    if (textFields.length > 0 && (geoFields.length > 0 || hashedFields.length > 0)) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "Cannot combine text index with 2dsphere or hashed keys",
+      );
+    }
+    if (geoFields.length > 0 && hashedFields.length > 0) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "Cannot combine 2dsphere index with hashed keys",
+      );
+    }
+    if (hashedFields.length > 1) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "A compound index cannot contain more than one hashed key",
+      );
+    }
+    if (textFields.length > 0 && req.options?.unique) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "Text indexes cannot enforce unique constraints",
+      );
+    }
+
+    if (req.options?.expireAfterSeconds !== undefined) {
+      if (
+        typeof req.options.expireAfterSeconds !== "number" ||
+        req.options.expireAfterSeconds < 0 ||
+        !Number.isFinite(req.options.expireAfterSeconds)
+      ) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "expireAfterSeconds must be a non-negative number",
+        );
+      }
+      if (keyEntries.length > 1) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "TTL index (expireAfterSeconds) can only be created on a single field",
+        );
+      }
+      if (keyEntries[0][0] === "_id") {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "Cannot create TTL index on immutable primary key '_id'",
+        );
+      }
+      if (textFields.length > 0 || geoFields.length > 0 || hashedFields.length > 0) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "TTL index cannot be created on special non-B-tree key types",
+        );
+      }
+    }
+
+    if (req.options?.name !== undefined) {
+      if (typeof req.options.name !== "string" || !req.options.name.trim()) {
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "index name must be a non-empty string");
+      }
+    }
+
+    if (req.options?.partialFilterExpression !== undefined) {
+      if (
+        typeof req.options.partialFilterExpression !== "object" ||
+        req.options.partialFilterExpression === null ||
+        Array.isArray(req.options.partialFilterExpression)
+      ) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "partialFilterExpression must be a non-null object",
+        );
+      }
+      assertSafeExpressions(req.options.partialFilterExpression);
+      assertSize(req.options.partialFilterExpression, MAX_FILTER_SIZE_BYTES, "partialFilterExpression");
+    }
+
+    if (req.options?.collation !== undefined) {
+      if (
+        typeof req.options.collation !== "object" ||
+        req.options.collation === null ||
+        Array.isArray(req.options.collation)
+      ) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "collation must be a non-null object",
+        );
+      }
+      if (typeof req.options.collation.locale !== "string" || !req.options.collation.locale.trim()) {
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "collation.locale must be a non-empty string",
+        );
+      }
+      if (req.options.collation.strength !== undefined) {
+        const s = req.options.collation.strength;
+        if (![1, 2, 3, 4, 5].includes(s)) {
+          throw new MongoApiError(
+            "MONGO_VALIDATION_ERROR",
+            "collation.strength must be an integer between 1 and 5",
+          );
+        }
+      }
+      if (req.options.collation.caseFirst !== undefined) {
+        if (!["upper", "lower", "off"].includes(req.options.collation.caseFirst)) {
+          throw new MongoApiError(
+            "MONGO_VALIDATION_ERROR",
+            "collation.caseFirst must be 'upper', 'lower', or 'off'",
+          );
+        }
+      }
+      if (req.options.collation.alternate !== undefined) {
+        if (!["non-ignorable", "shifted"].includes(req.options.collation.alternate)) {
+          throw new MongoApiError(
+            "MONGO_VALIDATION_ERROR",
+            "collation.alternate must be 'non-ignorable' or 'shifted'",
+          );
+        }
+      }
+      if (req.options.collation.maxVariable !== undefined) {
+        if (!["punct", "space"].includes(req.options.collation.maxVariable)) {
+          throw new MongoApiError(
+            "MONGO_VALIDATION_ERROR",
+            "collation.maxVariable must be 'punct' or 'space'",
+          );
+        }
+      }
+    }
+
+    const driverOptions: CreateIndexesOptions = {};
+    if (req.options?.name) driverOptions.name = req.options.name;
+    if (typeof req.options?.unique === "boolean") driverOptions.unique = req.options.unique;
+    if (typeof req.options?.sparse === "boolean") driverOptions.sparse = req.options.sparse;
+    if (typeof req.options?.expireAfterSeconds === "number") {
+      driverOptions.expireAfterSeconds = req.options.expireAfterSeconds;
+    }
+    if (req.options?.partialFilterExpression) {
+      driverOptions.partialFilterExpression = serializeMongoFilter(
+        req.options.partialFilterExpression,
+      );
+    }
+    if (req.options?.collation) driverOptions.collation = req.options.collation;
+    if (typeof req.options?.hidden === "boolean") driverOptions.hidden = req.options.hidden;
+    if (typeof req.options?.background === "boolean") {
+      (driverOptions as any).background = req.options.background;
+    }
+
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+    const started = Date.now();
+
+    let indexName: string;
+    try {
+      indexName = await withMongoTimeout(timeout, () =>
+        coll.createIndex(req.key as any, driverOptions),
+      );
+    } catch (err: any) {
+      if (
+        req.options?.hidden &&
+        (err?.codeName === "InvalidOptions" ||
+          err?.code === 72 ||
+          (typeof err?.message === "string" &&
+            (err.message.includes("hidden") ||
+              err.message.includes("unrecognized option") ||
+              err.message.includes("unknown option"))))
+      ) {
+        throw new MongoApiError(
+          "MONGO_UNSUPPORTED_OPERATION",
+          "Hidden indexes require MongoDB 4.4 or higher",
+        );
+      }
+      throw err;
+    }
+
+    mongodbCache.clearCollectionCache(config, req.collection);
+    mongodbCache.flushConnection(config);
+
+    return {
+      success: true,
+      indexName,
+      executionTimeMs: Date.now() - started,
+    };
+  }
+
+  async dropIndex(
+    config: MongoConfig,
+    req: MongoIndexDropRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexDropResult> {
+    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
+      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    }
+    assertCollectionName(req.collection);
+    if (typeof req.indexName !== "string" || !req.indexName.trim()) {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "indexName must be a non-empty string");
+    }
+    if (req.indexName === "_id_" || req.indexName === "*") {
+      throw new MongoApiError(
+        "MONGO_FORBIDDEN",
+        req.indexName === "_id_"
+          ? "Cannot drop immutable default primary key index '_id_'"
+          : "Wildcard index drop '*' is forbidden",
+      );
+    }
+
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+    const started = Date.now();
+
+    try {
+      await withMongoTimeout(timeout, () =>
+        coll.dropIndex(req.indexName, { maxTimeMS: timeout }),
+      );
+    } catch (err: any) {
+      if (err?.codeName === "IndexNotFound" || err?.code === 27) {
+        throw new MongoApiError("MONGO_NOT_FOUND", `Index '${req.indexName}' not found`);
+      }
+      throw err;
+    }
+
+    mongodbCache.clearCollectionCache(config, req.collection);
+    mongodbCache.flushConnection(config);
+
+    return {
+      success: true,
+      droppedIndexName: req.indexName,
+      executionTimeMs: Date.now() - started,
+    };
+  }
+
+  async getIndexStats(
+    config: MongoConfig,
+    req: MongoIndexStatsRequest,
+  ): Promise<MongoIndexStatsResult> {
+    assertCollectionName(req.collection);
+    const coll = selectCollection(config, req.collection);
+    const timeout = clampTimeout();
+
+    let nativeDocs: any[] = [];
+    try {
+      nativeDocs = await withMongoTimeout(timeout, () =>
+        coll.aggregate([{ $indexStats: {} }], { maxTimeMS: timeout }).toArray(),
+      );
+    } catch (err: any) {
+      if (err?.codeName === "NamespaceNotFound" || err?.code === 26) {
+        return {
+          collection: req.collection,
+          stats: {},
+        };
+      }
+      throw err;
+    }
+
+    const stats: Record<string, MongoIndexStatsItem> = {};
+    for (const doc of nativeDocs) {
+      const name = doc.name;
+      if (!name) continue;
+      const ops =
+        typeof doc.accesses?.ops === "number"
+          ? doc.accesses.ops
+          : Number(doc.accesses?.ops || 0);
+      const since =
+        doc.accesses?.since instanceof Date
+          ? doc.accesses.since.toISOString()
+          : String(doc.accesses?.since || new Date().toISOString());
+
+      stats[name] = {
+        name,
+        key: doc.key,
+        ops,
+        since,
+        host: doc.host,
+      };
+    }
+
+    return {
+      collection: req.collection,
+      stats,
+    };
+  }
+
+  async hideIndex(
+    config: MongoConfig,
+    req: MongoIndexHideRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexHideResult> {
+    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
+      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    }
+    assertCollectionName(req.collection);
+    if (typeof req.indexName !== "string" || !req.indexName.trim()) {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "indexName must be a non-empty string");
+    }
+    if (req.indexName === "_id_") {
+      throw new MongoApiError(
+        "MONGO_FORBIDDEN",
+        "Cannot hide default primary key index '_id_'",
+      );
+    }
+    if (typeof req.hidden !== "boolean") {
+      throw new MongoApiError("MONGO_VALIDATION_ERROR", "hidden must be a boolean");
+    }
+
+    const db = selectDb(config);
+    const timeout = clampTimeout();
+
+    try {
+      await withMongoTimeout(timeout, () =>
+        db.command({
+          collMod: req.collection,
+          index: {
+            name: req.indexName,
+            hidden: req.hidden,
+          },
+        }),
+      );
+    } catch (err: any) {
+      if (err?.codeName === "IndexNotFound" || err?.code === 27) {
+        throw new MongoApiError("MONGO_NOT_FOUND", `Index '${req.indexName}' not found`);
+      }
+      if (
+        err?.codeName === "InvalidOptions" ||
+        err?.code === 72 ||
+        (typeof err?.message === "string" &&
+          (err.message.includes("no option found to collMod") ||
+            err.message.includes("unrecognized option") ||
+            err.message.includes("unknown option") ||
+            err.message.includes("index option not supported")))
+      ) {
+        throw new MongoApiError(
+          "MONGO_UNSUPPORTED_OPERATION",
+          "Hiding indexes requires MongoDB 4.4 or higher",
+        );
+      }
+      throw err;
+    }
+
+    mongodbCache.clearCollectionCache(config, req.collection);
+    mongodbCache.flushConnection(config);
+
+    return {
+      success: true,
+      indexName: req.indexName,
+      hidden: req.hidden,
+    };
+  }
 }
+
+/**
+ * Canonical comparison of collation specs.
+ * Missing collation, empty collation, or { locale: "simple" } represents default binary collation.
+ */
+function areCollationsEquivalent(
+  a?: MongoIndexCollation | null,
+  b?: MongoIndexCollation | null,
+): boolean {
+  const isSimpleA = !a || !a.locale || a.locale === "simple";
+  const isSimpleB = !b || !b.locale || b.locale === "simple";
+  if (isSimpleA && isSimpleB) return true;
+  if (isSimpleA !== isSimpleB) return false;
+
+  const nonNullA = a!;
+  const nonNullB = b!;
+  return (
+    nonNullA.locale === nonNullB.locale &&
+    (nonNullA.strength ?? 3) === (nonNullB.strength ?? 3) &&
+    Boolean(nonNullA.caseLevel) === Boolean(nonNullB.caseLevel) &&
+    (nonNullA.caseFirst ?? "off") === (nonNullB.caseFirst ?? "off") &&
+    Boolean(nonNullA.numericOrdering) === Boolean(nonNullB.numericOrdering) &&
+    (nonNullA.alternate ?? "non-ignorable") === (nonNullB.alternate ?? "non-ignorable") &&
+    (nonNullA.maxVariable ?? "punct") === (nonNullB.maxVariable ?? "punct") &&
+    Boolean(nonNullA.backwards) === Boolean(nonNullB.backwards)
+  );
+}
+
+/**
+ * Resolves effective collation for an index, accounting for collection-level defaults.
+ * Returns "UNKNOWN" if collection metadata is missing/unavailable and the index lacks explicit collation.
+ */
+function getEffectiveCollation(
+  idx: MongoIndexDetails,
+  collectionDefault?: MongoIndexCollation | null,
+  collectionCollationUnknown?: boolean,
+): MongoIndexCollation | null | "UNKNOWN" {
+  if (idx.collation) {
+    return idx.collation;
+  }
+  if (collectionCollationUnknown) {
+    return "UNKNOWN";
+  }
+  if (collectionDefault) {
+    return collectionDefault;
+  }
+  return { locale: "simple" };
+}
+
+/**
+ * Canonical comparison of partial filter expressions.
+ * Recursively sorts object keys for deterministic structural equality.
+ */
+function areFiltersEquivalent(a?: Record<string, any>, b?: Record<string, any>): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+
+  const normalize = (obj: any): any => {
+    if (obj === null || typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map(normalize);
+    const sortedKeys = Object.keys(obj).sort();
+    const result: Record<string, any> = {};
+    for (const key of sortedKeys) {
+      result[key] = normalize(obj[key]);
+    }
+    return result;
+  };
+
+  return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+}
+
+export interface EvaluateRedundancyOptions {
+  collectionDefaultCollation?: MongoIndexCollation | null;
+  collectionCollationUnknown?: boolean;
+}
+
+/**
+ * Multi-dimensional redundant index detection (docs/MONGODB_M6_SPEC.md §9).
+ * Evaluates prefix matching, directional alignment (forward & reverse traversal),
+ * unique/sparse/partialFilter/collation/hidden dimensions.
+ */
+export function evaluateIndexRedundancy(
+  indexes: MongoIndexDetails[],
+  options?: EvaluateRedundancyOptions,
+): MongoIndexDetails[] {
+  return indexes.map((target) => {
+    // 1. Primary key index is never redundant
+    if (target.isIdIndex || target.name === "_id_") {
+      return { ...target, isRedundant: false };
+    }
+
+    // 2. Special non-B-tree index types (text, 2dsphere, hashed) on target are never covered by B-tree prefixes
+    const targetValues = Object.values(target.key);
+    if (targetValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))) {
+      return { ...target, isRedundant: false };
+    }
+
+    const targetKeyEntries = Object.entries(target.key);
+
+    for (const other of indexes) {
+      if (other.name === target.name) continue;
+
+      // 3. Hidden indexes cannot be used by query planner; cannot make anything redundant
+      if (other.hidden) continue;
+
+      // 4. If other contains ANY special non-B-tree key (text, 2dsphere, hashed),
+      // it cannot safely cover a standard B-tree index (different execution plans & query restrictions)
+      const otherValues = Object.values(other.key);
+      if (otherValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))) {
+        continue;
+      }
+
+      const otherKeyEntries = Object.entries(other.key);
+
+      // 5. Must be a strict prefix (fewer keys)
+      if (targetKeyEntries.length >= otherKeyEntries.length) continue;
+
+      // 6. Prefix match & direction consistency (supporting both forward and reverse traversal):
+      // Single-field prefix: B-tree can be traversed forward or backward for 1 or -1
+      // Multi-field prefix: all keys must match in sequence, and directions must be
+      // either ALL identical (forward) OR ALL inverted (reverse traversal).
+      let isPrefix = false;
+      if (targetKeyEntries.length === 1) {
+        isPrefix =
+          targetKeyEntries[0][0] === otherKeyEntries[0][0] &&
+          typeof otherKeyEntries[0][1] === "number";
+      } else {
+        const keysMatch = targetKeyEntries.every(
+          ([key], idx) => otherKeyEntries[idx] && otherKeyEntries[idx][0] === key,
+        );
+        if (keysMatch) {
+          const allIdentical = targetKeyEntries.every(
+            ([_, dir], idx) => otherKeyEntries[idx][1] === dir,
+          );
+          const allInverted = targetKeyEntries.every(
+            ([_, dir], idx) =>
+              typeof dir === "number" &&
+              typeof otherKeyEntries[idx][1] === "number" &&
+              (otherKeyEntries[idx][1] as number) === -1 * (dir as number),
+          );
+          isPrefix = allIdentical || allInverted;
+        }
+      }
+      if (!isPrefix) continue;
+
+      // 7. Unique Constraint Dimension:
+      // A unique target index is NEVER redundant with a compound index (must keep unique constraint).
+      // Furthermore, a unique compound index does NOT provide equivalent semantics to a non-unique
+      // shorter index (different constraint semantics, array/multikey restrictions, and distinct lifecycle).
+      if (target.unique || other.unique) continue;
+
+      // 8. Sparsity Dimension:
+      // A non-sparse target index cannot be covered by a sparse index (sparse omits docs).
+      if (!target.sparse && other.sparse) continue;
+
+      // 9. Partial Filter Expression Dimension:
+      // Both must have identical partial filter expressions (or neither).
+      if (!areFiltersEquivalent(target.partialFilterExpression, other.partialFilterExpression)) {
+        continue;
+      }
+
+      // 10. Collation Dimension:
+      // Establish effective collation taking collection defaults into account.
+      // If effective collation cannot be established, prefer suppressing redundancy over an unsafe recommendation.
+      const targetEffective = getEffectiveCollation(
+        target,
+        options?.collectionDefaultCollation,
+        options?.collectionCollationUnknown,
+      );
+      const otherEffective = getEffectiveCollation(
+        other,
+        options?.collectionDefaultCollation,
+        options?.collectionCollationUnknown,
+      );
+
+      if (targetEffective === "UNKNOWN" || otherEffective === "UNKNOWN") {
+        continue;
+      }
+
+      if (!areCollationsEquivalent(targetEffective, otherEffective)) {
+        continue;
+      }
+
+      // If all checks pass, target is genuinely redundant
+      return {
+        ...target,
+        isRedundant: true,
+        redundantReason: `Prefix is completely covered by compound index "${other.name}". Drops write overhead without sacrificing query plan optimality.`,
+      };
+    }
+
+    return { ...target, isRedundant: false };
+  });
+}
+
 
 export const mongoConnector = new MongoConnector();
 

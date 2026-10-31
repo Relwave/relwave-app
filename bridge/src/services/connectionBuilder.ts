@@ -65,6 +65,7 @@ export class ConnectionBuilder {
         replicaSet: db.replicaSet,
         tls: db.tls,
         directConnection: db.directConnection,
+        readonly: Boolean(db.readonly || db.readOnly),
       };
       return { config };
     }

@@ -3,13 +3,14 @@ import { useMongoDatabaseDetails } from "../hooks/useMongoDatabaseDetails";
 import { MongoCollectionsSidebar } from "./MongoCollectionsSidebar";
 import { MongoDocumentViewer } from "./MongoDocumentViewer";
 import { MongoSchemaPanel } from "./MongoSchemaPanel";
+import { MongoIndexesPanel } from "./indexes/MongoIndexesPanel";
 import { MongoInsertDocumentDialog } from "./MongoInsertDocumentDialog";
 import { MongoEditDocumentDialog } from "./MongoEditDocumentDialog";
 import { MongoDeleteDocumentDialog } from "./MongoDeleteDocumentDialog";
 import { MongoCreateCollectionDialog } from "./MongoCreateCollectionDialog";
 import { MongoDropCollectionDialog } from "./MongoDropCollectionDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, GitBranch, Database } from "lucide-react";
+import { FileText, GitBranch, Database, Layers } from "lucide-react";
 
 export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; databaseName: string }) {
   const {
@@ -76,7 +77,7 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
         {selectedCollection && (
           <Tabs
             value={activeTab}
-            onValueChange={(val) => setActiveTab(val as "documents" | "schema")}
+            onValueChange={(val) => setActiveTab(val as "documents" | "schema" | "indexes")}
           >
             <TabsList className="h-8 bg-muted/60">
               <TabsTrigger
@@ -92,6 +93,13 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
               >
                 <GitBranch className="h-3.5 w-3.5" />
                 Inferred Schema
+              </TabsTrigger>
+              <TabsTrigger
+                value="indexes"
+                className="text-xs gap-1.5 data-[state=active]:bg-background"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Indexes
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -139,8 +147,10 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
               onEditDocument={(doc) => setEditingDocument(doc)}
               onDeleteDocument={(doc) => setDeletingDocument(doc)}
             />
-          ) : (
+          ) : activeTab === "schema" ? (
             <MongoSchemaPanel dbId={dbId} collection={selectedCollection} />
+          ) : (
+            <MongoIndexesPanel dbId={dbId} collection={selectedCollection} />
           )}
         </div>
       </div>

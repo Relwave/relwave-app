@@ -10,7 +10,7 @@ export function useMongoDatabaseDetails(dbId: string) {
   const [sortDirection, setSortDirection] = useState<1 | -1 | null>(null);
   const [filterInput, setFilterInput] = useState<string>("");
   const [appliedFilter, setAppliedFilter] = useState<EJSONDocument | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<"documents" | "schema">("documents");
+  const [activeTab, setActiveTab] = useState<"documents" | "schema" | "indexes">("documents");
 
   // M4 Mutation Dialog States
   const [isInsertDialogOpen, setIsInsertDialogOpen] = useState(false);

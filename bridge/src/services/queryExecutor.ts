@@ -27,6 +27,16 @@ import {
   MongoMqlExecuteResult,
   MongoExplainRequest,
   MongoExplainResult,
+  MongoIndexListRequest,
+  MongoIndexListResult,
+  MongoIndexCreateRequest,
+  MongoIndexCreateResult,
+  MongoIndexDropRequest,
+  MongoIndexDropResult,
+  MongoIndexStatsRequest,
+  MongoIndexStatsResult,
+  MongoIndexHideRequest,
+  MongoIndexHideResult,
 } from "../types/mongo";
 
 // Concurrency limit for parallel processing
@@ -366,5 +376,82 @@ export class QueryExecutor {
       );
     }
     return mongoConnector.explainMql(conn, req);
+  }
+
+  // ===========================================================================
+  // M6 — Secondary Index Management (docs/MONGODB_M6_SPEC.md §3)
+  // ===========================================================================
+
+  async listIndexes(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexListRequest,
+  ): Promise<MongoIndexListResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "listIndexes requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.listIndexes(conn, req);
+  }
+
+  async createIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexCreateRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexCreateResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "createIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.createIndex(conn, req, options);
+  }
+
+  async dropIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexDropRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexDropResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "dropIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.dropIndex(conn, req, options);
+  }
+
+  async getIndexStats(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexStatsRequest,
+  ): Promise<MongoIndexStatsResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "getIndexStats requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.getIndexStats(conn, req);
+  }
+
+  async hideIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexHideRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexHideResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "hideIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.hideIndex(conn, req, options);
   }
 }

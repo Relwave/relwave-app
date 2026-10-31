@@ -16,6 +16,16 @@ import {
   MongoCreateCollectionOptions,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
+import {
+  databaseBridge,
+  MongoIndexDirection,
+  MongoIndexOptions,
+  MongoIndexListResult,
+  MongoIndexCreateResult,
+  MongoIndexDropResult,
+  MongoIndexStatsResult,
+  MongoIndexHideResult,
+} from "./databaseBridge";
 
 class DatabaseService {
   // ------------------------------------
@@ -668,6 +678,59 @@ class DatabaseService {
       console.error("Failed to drop MongoDB collection:", error);
       throw new Error(`Failed to drop MongoDB collection: ${error.message}`);
     }
+  }
+
+  // ------------------------------------
+  // MONGO INDEX MANAGEMENT METHODS (index.*)
+  // ------------------------------------
+
+  /**
+   * List secondary indexes in a MongoDB collection (index.list)
+   */
+  async listMongoIndexes(dbId: string, collection: string): Promise<MongoIndexListResult> {
+    return databaseBridge.listIndexes(dbId, collection);
+  }
+
+  /**
+   * Create a secondary index in a MongoDB collection (index.create)
+   */
+  async createMongoIndex(
+    dbId: string,
+    collection: string,
+    key: Record<string, MongoIndexDirection>,
+    options?: MongoIndexOptions,
+  ): Promise<MongoIndexCreateResult> {
+    return databaseBridge.createIndex(dbId, collection, key, options);
+  }
+
+  /**
+   * Drop a secondary index in a MongoDB collection (index.drop)
+   */
+  async dropMongoIndex(
+    dbId: string,
+    collection: string,
+    indexName: string,
+  ): Promise<MongoIndexDropResult> {
+    return databaseBridge.dropIndex(dbId, collection, indexName);
+  }
+
+  /**
+   * Get index usage statistics for a MongoDB collection (index.getStats)
+   */
+  async getMongoIndexStats(dbId: string, collection: string): Promise<MongoIndexStatsResult> {
+    return databaseBridge.getIndexStats(dbId, collection);
+  }
+
+  /**
+   * Toggle index visibility in a MongoDB collection (index.hide)
+   */
+  async hideMongoIndex(
+    dbId: string,
+    collection: string,
+    indexName: string,
+    hidden: boolean,
+  ): Promise<MongoIndexHideResult> {
+    return databaseBridge.hideIndex(dbId, collection, indexName, hidden);
   }
 }
 

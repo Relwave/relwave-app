@@ -25,6 +25,7 @@ export type MongoConfig = {
   replicaSet?: string;
   tls?: boolean;
   directConnection?: boolean;
+  readonly?: boolean;
   /**
    * M2 (opt-in): when true, findDocuments caches paginated pages briefly.
    * Off by default to avoid stale reads (spec §14 / D-M2-5).
@@ -495,4 +496,114 @@ export interface MongoExplainResult {
   };
   rawExplain: Record<string, unknown>;
   executionTimeMs: number;
+}
+
+// ===========================================================================
+// M6 — MongoDB Index Management & Migrations (docs/MONGODB_M6_SPEC.md §3)
+// ===========================================================================
+
+export type MongoIndexDirection = 1 | -1 | "text" | "2dsphere" | "hashed";
+
+export interface MongoIndexCollation {
+  locale: string;
+  caseLevel?: boolean;
+  caseFirst?: "upper" | "lower" | "off";
+  strength?: 1 | 2 | 3 | 4 | 5;
+  numericOrdering?: boolean;
+  alternate?: "non-ignorable" | "shifted";
+  maxVariable?: "punct" | "space";
+  backwards?: boolean;
+}
+
+export interface MongoIndexOptions {
+  name?: string;
+  unique?: boolean;
+  sparse?: boolean;
+  expireAfterSeconds?: number;
+  partialFilterExpression?: EJSONDocument;
+  collation?: MongoIndexCollation;
+  hidden?: boolean;
+  background?: boolean;
+}
+
+export interface MongoIndexDetails {
+  name: string;
+  key: Record<string, MongoIndexDirection>;
+  sizeBytes: number;
+  unique: boolean;
+  sparse: boolean;
+  isIdIndex: boolean;
+  expireAfterSeconds?: number;
+  partialFilterExpression?: EJSONDocument;
+  collation?: MongoIndexCollation;
+  hidden?: boolean;
+  v?: number;
+  textIndexVersion?: number;
+  weights?: Record<string, number>;
+  default_language?: string;
+  language_override?: string;
+  isRedundant?: boolean;
+  redundantReason?: string;
+}
+
+export interface MongoIndexListRequest {
+  collection: string;
+}
+
+export interface MongoIndexListResult {
+  collection: string;
+  indexes: MongoIndexDetails[];
+  totalSizeBytes: number;
+}
+
+export interface MongoIndexCreateRequest {
+  collection: string;
+  key: Record<string, MongoIndexDirection>;
+  options?: MongoIndexOptions;
+}
+
+export interface MongoIndexCreateResult {
+  success: boolean;
+  indexName: string;
+  executionTimeMs: number;
+}
+
+export interface MongoIndexDropRequest {
+  collection: string;
+  indexName: string;
+}
+
+export interface MongoIndexDropResult {
+  success: boolean;
+  droppedIndexName: string;
+  executionTimeMs: number;
+}
+
+export interface MongoIndexStatsItem {
+  name: string;
+  key: Record<string, MongoIndexDirection>;
+  ops: number;
+  since: string;
+  host?: string;
+}
+
+export interface MongoIndexStatsRequest {
+  collection: string;
+}
+
+export interface MongoIndexStatsResult {
+  collection: string;
+  stats: Record<string, MongoIndexStatsItem>;
+}
+
+export interface MongoIndexHideRequest {
+  collection: string;
+  indexName: string;
+  hidden: boolean;
+}
+
+export interface MongoIndexHideResult {
+  success: boolean;
+  indexName: string;
+  hidden: boolean;
 }
