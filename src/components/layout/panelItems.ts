@@ -23,7 +23,8 @@ export type PanelType =
   | "migrations"
   | "ai-workspace"
   | "mongo-workspace"
-  | "mongo-aggregation";
+  | "mongo-aggregation"
+  | "mongo-migrations";
 
 function supportsMonitoring(databaseType?: string) {
   const type = databaseType?.toLowerCase();
@@ -46,6 +47,7 @@ export function getDatabasePanelItems(databaseType?: string): Array<{
       { icon: Layers, label: "Data View", panel: "data" },
       { icon: Terminal, label: "Query Workspace", panel: "mongo-workspace" },
       { icon: GitBranch, label: "Aggregation Builder", panel: "mongo-aggregation" },
+      { icon: History, label: "Migrations", panel: "mongo-migrations" },
     ];
   }
 

@@ -14,14 +14,16 @@ test("Navigation Routing - MongoDB returns dedicated panel items", () => {
   const mongoItems = getDatabasePanelItems("mongodb");
   const panelKeys = mongoItems.map((i) => i.panel);
 
-  assert.deepStrictEqual(panelKeys, ["data", "mongo-workspace", "mongo-aggregation"]);
+  assert.deepStrictEqual(panelKeys, ["data", "mongo-workspace", "mongo-aggregation", "mongo-migrations"]);
   assert.strictEqual(mongoItems[0].label, "Data View");
   assert.strictEqual(mongoItems[1].label, "Query Workspace");
   assert.strictEqual(mongoItems[2].label, "Aggregation Builder");
+  assert.strictEqual(mongoItems[3].label, "Migrations");
+  assert.ok(mongoItems[3].icon, "Migrations item must have an icon defined");
 
   // Case-insensitive test
   const mongoUpperItems = getDatabasePanelItems("MongoDB");
-  assert.deepStrictEqual(mongoUpperItems.map((i) => i.panel), ["data", "mongo-workspace", "mongo-aggregation"]);
+  assert.deepStrictEqual(mongoUpperItems.map((i) => i.panel), ["data", "mongo-workspace", "mongo-aggregation", "mongo-migrations"]);
 });
 
 test("Navigation Routing - Relational databases retain full SQL suite without regression", () => {

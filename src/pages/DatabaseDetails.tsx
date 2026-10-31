@@ -35,6 +35,7 @@ import { getDatabaseKind } from "@/lib/databases";
 import { MongoDataViewPanel } from "@/features/mongodb/components/MongoDataViewPanel";
 import { MongoWorkspacePanel } from "@/features/mongodb/components/workspace/MongoWorkspacePanel";
 import { MongoAggregationPanel } from "@/features/mongodb/components/aggregation/MongoAggregationPanel";
+import { MongoMigrationsPanel } from "@/features/mongodb/components/migrations/MongoMigrationsPanel";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -159,6 +160,14 @@ const DatabaseDetail = () => {
           return (
             <MongoAggregationPanel
               key={`magg-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-migrations":
+          return (
+            <MongoMigrationsPanel
+              key={`mmig-${dbId}`}
               dbId={dbId!}
               databaseName={databaseName || ""}
             />

@@ -14,6 +14,12 @@ import {
   MongoCollectionInfo,
   MongoCollectionSchema,
   MongoCreateCollectionOptions,
+  MongoMigrationManifest,
+  MongoMigrationListResult,
+  MongoMigrationValidateResult,
+  MongoMigrationApplyResult,
+  MongoMigrationRollbackResult,
+  MongoMigrationGetStatusResult,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 import {
@@ -731,6 +737,61 @@ class DatabaseService {
     hidden: boolean,
   ): Promise<MongoIndexHideResult> {
     return databaseBridge.hideIndex(dbId, collection, indexName, hidden);
+  }
+
+  // ------------------------------------
+  // MongoDB Migration Engine Methods
+  // ------------------------------------
+
+  /**
+   * List applied and pending MongoDB migrations and lock state (migration.list)
+   */
+  async listMongoMigrations(
+    dbId: string,
+    projectRoot?: string,
+  ): Promise<MongoMigrationListResult> {
+    return databaseBridge.listMongoMigrations(dbId, projectRoot);
+  }
+
+  /**
+   * Statically validate a MongoDB migration manifest (migration.validate)
+   */
+  async validateMongoMigration(
+    manifest: MongoMigrationManifest,
+    dbId?: string,
+  ): Promise<MongoMigrationValidateResult> {
+    return databaseBridge.validateMongoMigration(manifest, dbId);
+  }
+
+  /**
+   * Apply pending MongoDB migration(s) (migration.apply)
+   */
+  async applyMongoMigration(
+    dbId: string,
+    options?: { version?: string; dryRun?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationApplyResult> {
+    return databaseBridge.applyMongoMigration(dbId, options);
+  }
+
+  /**
+   * Rollback an applied MongoDB migration via inverse compensation (migration.rollback)
+   */
+  async rollbackMongoMigration(
+    dbId: string,
+    version: string,
+    options?: { force?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationRollbackResult> {
+    return databaseBridge.rollbackMongoMigration(dbId, version, options);
+  }
+
+  /**
+   * Get MongoDB migration status, lock details, and audit events (migration.getStatus)
+   */
+  async getMongoMigrationStatus(
+    dbId: string,
+    migrationId?: string,
+  ): Promise<MongoMigrationGetStatusResult> {
+    return databaseBridge.getMongoMigrationStatus(dbId, migrationId);
   }
 }
 

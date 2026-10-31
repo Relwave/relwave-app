@@ -329,3 +329,5 @@ export interface MongoshParseResult {
   op: MongoMqlOperation;
 }
 
+export * from "./types/migration";
+

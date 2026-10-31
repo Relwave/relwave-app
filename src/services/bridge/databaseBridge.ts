@@ -1,4 +1,12 @@
 import { bridgeRequest } from "./bridgeClient";
+import type {
+  MongoMigrationManifest,
+  MongoMigrationListResult,
+  MongoMigrationValidateResult,
+  MongoMigrationApplyResult,
+  MongoMigrationRollbackResult,
+  MongoMigrationGetStatusResult,
+} from "@/features/mongodb/types/migration";
 
 export type MongoIndexDirection = 1 | -1 | "text" | "2dsphere" | "hashed";
 
@@ -148,6 +156,51 @@ export class DatabaseBridge {
     hidden: boolean,
   ): Promise<MongoIndexHideResult> {
     const res = await bridgeRequest("index.hide", { dbId, collection, indexName, hidden });
+    return res?.data;
+  }
+
+  // ==========================================
+  // MongoDB Migration Engine RPC Methods
+  // ==========================================
+
+  async listMongoMigrations(
+    dbId: string,
+    projectRoot?: string,
+  ): Promise<MongoMigrationListResult> {
+    const res = await bridgeRequest("migration.list", { dbId, projectRoot });
+    return res?.data;
+  }
+
+  async validateMongoMigration(
+    manifest: MongoMigrationManifest,
+    dbId?: string,
+  ): Promise<MongoMigrationValidateResult> {
+    const res = await bridgeRequest("migration.validate", { dbId, manifest });
+    return res?.data;
+  }
+
+  async applyMongoMigration(
+    dbId: string,
+    options?: { version?: string; dryRun?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationApplyResult> {
+    const res = await bridgeRequest("migration.apply", { dbId, ...options });
+    return res?.data;
+  }
+
+  async rollbackMongoMigration(
+    dbId: string,
+    version: string,
+    options?: { force?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationRollbackResult> {
+    const res = await bridgeRequest("migration.rollback", { dbId, version, ...options });
+    return res?.data;
+  }
+
+  async getMongoMigrationStatus(
+    dbId: string,
+    migrationId?: string,
+  ): Promise<MongoMigrationGetStatusResult> {
+    const res = await bridgeRequest("migration.getStatus", { dbId, migrationId });
     return res?.data;
   }
 }
