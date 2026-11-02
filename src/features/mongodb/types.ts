@@ -330,4 +330,5 @@ export interface MongoshParseResult {
 }
 
 export * from "./types/migration";
+export * from "./types/relationship";
 

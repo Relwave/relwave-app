@@ -7,6 +7,18 @@ import type {
   MongoMigrationRollbackResult,
   MongoMigrationGetStatusResult,
 } from "@/features/mongodb/types/migration";
+import type {
+  MongoInferRelationshipsRequest,
+  MongoInferRelationshipsResult,
+  MongoListRelationshipsRequest,
+  MongoListRelationshipsResult,
+  MongoSetRelationshipStatusRequest,
+  MongoSetRelationshipStatusResult,
+  MongoSaveRelationshipRequest,
+  MongoSaveRelationshipResult,
+  MongoDeleteRelationshipRequest,
+  MongoDeleteRelationshipResult,
+} from "@/features/mongodb/types/relationship";
 
 export type MongoIndexDirection = 1 | -1 | "text" | "2dsphere" | "hashed";
 
@@ -201,6 +213,45 @@ export class DatabaseBridge {
     migrationId?: string,
   ): Promise<MongoMigrationGetStatusResult> {
     const res = await bridgeRequest("migration.getStatus", { dbId, migrationId });
+    return res?.data;
+  }
+
+  // ==========================================
+  // MongoDB Relationship Engine RPC Methods
+  // ==========================================
+
+  async inferMongoRelationships(
+    request: MongoInferRelationshipsRequest,
+  ): Promise<MongoInferRelationshipsResult> {
+    const res = await bridgeRequest("mongo.relationship.infer", request);
+    return res?.data;
+  }
+
+  async listMongoRelationships(
+    request: MongoListRelationshipsRequest,
+  ): Promise<MongoListRelationshipsResult> {
+    const res = await bridgeRequest("mongo.relationship.list", request);
+    return res?.data;
+  }
+
+  async setMongoRelationshipStatus(
+    request: MongoSetRelationshipStatusRequest,
+  ): Promise<MongoSetRelationshipStatusResult> {
+    const res = await bridgeRequest("mongo.relationship.setStatus", request);
+    return res?.data;
+  }
+
+  async saveMongoRelationship(
+    request: MongoSaveRelationshipRequest,
+  ): Promise<MongoSaveRelationshipResult> {
+    const res = await bridgeRequest("mongo.relationship.save", request);
+    return res?.data;
+  }
+
+  async deleteMongoRelationship(
+    request: MongoDeleteRelationshipRequest,
+  ): Promise<MongoDeleteRelationshipResult> {
+    const res = await bridgeRequest("mongo.relationship.delete", request);
     return res?.data;
   }
 }

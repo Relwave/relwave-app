@@ -8,6 +8,7 @@ import {
   Terminal,
   History,
   Sparkles,
+  Network,
   LucideIcon,
 } from "lucide-react";
 import { getDatabaseKind } from "@/lib/databases";
@@ -24,7 +25,8 @@ export type PanelType =
   | "ai-workspace"
   | "mongo-workspace"
   | "mongo-aggregation"
-  | "mongo-migrations";
+  | "mongo-migrations"
+  | "mongo-relationships";
 
 function supportsMonitoring(databaseType?: string) {
   const type = databaseType?.toLowerCase();
@@ -48,6 +50,7 @@ export function getDatabasePanelItems(databaseType?: string): Array<{
       { icon: Terminal, label: "Query Workspace", panel: "mongo-workspace" },
       { icon: GitBranch, label: "Aggregation Builder", panel: "mongo-aggregation" },
       { icon: History, label: "Migrations", panel: "mongo-migrations" },
+      { icon: Network, label: "Relationships", panel: "mongo-relationships" },
     ];
   }
 

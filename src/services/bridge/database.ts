@@ -20,6 +20,16 @@ import {
   MongoMigrationApplyResult,
   MongoMigrationRollbackResult,
   MongoMigrationGetStatusResult,
+  MongoInferRelationshipsRequest,
+  MongoInferRelationshipsResult,
+  MongoListRelationshipsRequest,
+  MongoListRelationshipsResult,
+  MongoSetRelationshipStatusRequest,
+  MongoSetRelationshipStatusResult,
+  MongoSaveRelationshipRequest,
+  MongoSaveRelationshipResult,
+  MongoDeleteRelationshipRequest,
+  MongoDeleteRelationshipResult,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 import {
@@ -792,6 +802,40 @@ class DatabaseService {
     migrationId?: string,
   ): Promise<MongoMigrationGetStatusResult> {
     return databaseBridge.getMongoMigrationStatus(dbId, migrationId);
+  }
+
+  // ------------------------------------
+  // MongoDB Relationship Engine Methods
+  // ------------------------------------
+
+  async inferMongoRelationships(
+    request: MongoInferRelationshipsRequest,
+  ): Promise<MongoInferRelationshipsResult> {
+    return databaseBridge.inferMongoRelationships(request);
+  }
+
+  async listMongoRelationships(
+    request: MongoListRelationshipsRequest,
+  ): Promise<MongoListRelationshipsResult> {
+    return databaseBridge.listMongoRelationships(request);
+  }
+
+  async setMongoRelationshipStatus(
+    request: MongoSetRelationshipStatusRequest,
+  ): Promise<MongoSetRelationshipStatusResult> {
+    return databaseBridge.setMongoRelationshipStatus(request);
+  }
+
+  async saveMongoRelationship(
+    request: MongoSaveRelationshipRequest,
+  ): Promise<MongoSaveRelationshipResult> {
+    return databaseBridge.saveMongoRelationship(request);
+  }
+
+  async deleteMongoRelationship(
+    request: MongoDeleteRelationshipRequest,
+  ): Promise<MongoDeleteRelationshipResult> {
+    return databaseBridge.deleteMongoRelationship(request);
   }
 }
 

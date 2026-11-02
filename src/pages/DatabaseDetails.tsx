@@ -7,7 +7,7 @@ import { useDatabaseDetailPage } from "@/features/database/hooks/useDatabaseDeta
 import { useMigrations, useFullSchema } from "@/features/project/hooks/useDbQueries";
 import { useExport } from "@/features/database/hooks/useExport";
 import { useProjectSync } from "@/features/project/hooks/useProjectSync";
-import { useProjectDir } from "@/features/project/hooks/useProjectQueries";
+import { useProjectDir, useProjectByDatabaseId } from "@/features/project/hooks/useProjectQueries";
 import { useRowOperations } from "@/features/database/hooks/useRowOperations";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
 import VerticalIconBar, { getDatabasePanelItems } from "@/components/layout/VerticalIconBar";
@@ -36,6 +36,7 @@ import { MongoDataViewPanel } from "@/features/mongodb/components/MongoDataViewP
 import { MongoWorkspacePanel } from "@/features/mongodb/components/workspace/MongoWorkspacePanel";
 import { MongoAggregationPanel } from "@/features/mongodb/components/aggregation/MongoAggregationPanel";
 import { MongoMigrationsPanel } from "@/features/mongodb/components/migrations/MongoMigrationsPanel";
+import { MongoRelationshipsPanel } from "@/features/mongodb/components/relationships";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -105,6 +106,8 @@ const DatabaseDetail = () => {
   const { data: schemaData, refetch: refetchSchema } = useFullSchema(isNosql ? undefined : dbId);
   const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } =
     useProjectSync(isNosql ? undefined : dbId, isNosql ? undefined : (schemaData ?? undefined));
+  const { data: noSqlProject } = useProjectByDatabaseId(isNosql ? dbId : undefined);
+  const effectiveProjectId = isNosql ? (noSqlProject?.id ?? null) : projectId;
   const { data: projectDir } = useProjectDir(projectId);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
@@ -172,9 +175,34 @@ const DatabaseDetail = () => {
               databaseName={databaseName || ""}
             />
           );
+        case "mongo-relationships":
+          return (
+            <MongoRelationshipsPanel
+              key={`mrel-${dbId}`}
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "er-diagram":
+          return (
+            <MongoRelationshipsPanel
+              key={`mrel-${dbId}`}
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+              initialView="diagram"
+            />
+          );
         case "data":
         default:
-          return <MongoDataViewPanel dbId={dbId!} databaseName={databaseName || ""} />;
+          return (
+            <MongoDataViewPanel
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+            />
+          );
       }
     }
 

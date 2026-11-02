@@ -9,10 +9,19 @@ import { MongoEditDocumentDialog } from "./MongoEditDocumentDialog";
 import { MongoDeleteDocumentDialog } from "./MongoDeleteDocumentDialog";
 import { MongoCreateCollectionDialog } from "./MongoCreateCollectionDialog";
 import { MongoDropCollectionDialog } from "./MongoDropCollectionDialog";
+import { MongoCollectionRelationshipsTab } from "./relationships";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, GitBranch, Database, Layers } from "lucide-react";
+import { FileText, GitBranch, Database, Layers, Network } from "lucide-react";
 
-export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; databaseName: string }) {
+export function MongoDataViewPanel({
+  dbId,
+  databaseName,
+  projectId,
+}: {
+  dbId: string;
+  databaseName: string;
+  projectId?: string | null;
+}) {
   const {
     collections,
     collectionsLoading,
@@ -77,7 +86,9 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
         {selectedCollection && (
           <Tabs
             value={activeTab}
-            onValueChange={(val) => setActiveTab(val as "documents" | "schema" | "indexes")}
+            onValueChange={(val) =>
+              setActiveTab(val as "documents" | "schema" | "indexes" | "relationships")
+            }
           >
             <TabsList className="h-8 bg-muted/60">
               <TabsTrigger
@@ -100,6 +111,13 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
               >
                 <Layers className="h-3.5 w-3.5" />
                 Indexes
+              </TabsTrigger>
+              <TabsTrigger
+                value="relationships"
+                className="text-xs gap-1.5 data-[state=active]:bg-background"
+              >
+                <Network className="h-3.5 w-3.5" />
+                Relationships
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -149,6 +167,13 @@ export function MongoDataViewPanel({ dbId, databaseName }: { dbId: string; datab
             />
           ) : activeTab === "schema" ? (
             <MongoSchemaPanel dbId={dbId} collection={selectedCollection} />
+          ) : activeTab === "relationships" ? (
+            <MongoCollectionRelationshipsTab
+              dbId={dbId}
+              projectId={projectId ?? undefined}
+              collection={selectedCollection}
+              onSelectCollection={setSelectedCollection}
+            />
           ) : (
             <MongoIndexesPanel dbId={dbId} collection={selectedCollection} />
           )}
