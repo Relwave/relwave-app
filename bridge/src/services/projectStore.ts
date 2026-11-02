@@ -6,8 +6,9 @@ import path from "path";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { v4 as uuidv4 } from "uuid";
-import { PROJECTS_FOLDER, PROJECTS_INDEX_FILE, getProjectDir, ensureDir } from "../utils/config";
+import { PROJECTS_FOLDER, PROJECTS_INDEX_FILE, getProjectDir, ensureDir, CONFIG_FOLDER } from "../utils/config";
 import { dbStoreInstance, DBMeta } from "./dbStore";
+import type { MongoRelationshipsFile } from "../types/mongo";
 
 // ==========================================
 // Types
@@ -201,6 +202,7 @@ const PROJECT_FILES = {
   localConfig: "relwave.local.json",
   readme: "README.md",
   schema: path.join("schema", "schema.json"),
+  relationships: path.join("schema", "relationships.json"),
   erDiagram: path.join("diagrams", "er.json"),
   annotations: path.join("diagrams", "annotations.json"),
   queries: path.join("queries", "queries.json"),
@@ -915,6 +917,104 @@ export class ProjectStore {
     await this.writeJSON(this.projectFile(projectId, PROJECT_FILES.erDiagram), file);
 
     return file;
+  }
+
+  // ==========================================
+  // MongoDB Relationships (M7 Phase 1)
+  // ==========================================
+
+  async getMongoRelationships(
+    projectId?: string,
+    dbId?: string,
+  ): Promise<MongoRelationshipsFile> {
+    let resolvedProjectId = projectId;
+    if (!resolvedProjectId && dbId) {
+      const project = await this.getProjectByDatabaseId(dbId);
+      if (project?.id) {
+        resolvedProjectId = project.id;
+      }
+    }
+
+    let filePath: string;
+    if (resolvedProjectId) {
+      filePath = this.projectFile(resolvedProjectId, PROJECT_FILES.relationships);
+    } else if (dbId) {
+      filePath = path.join(CONFIG_FOLDER, "relationships", `${dbId}.json`);
+    } else {
+      return {
+        version: 1,
+        projectId: undefined,
+        databaseId: "",
+        inferred: [],
+        confirmed: [],
+        rejectedIds: [],
+        manual: [],
+        insufficientEvidence: [],
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    const data = await this.readJSON<MongoRelationshipsFile>(filePath);
+    if (!data) {
+      return {
+        version: 1,
+        projectId: resolvedProjectId || undefined,
+        databaseId: dbId || "",
+        inferred: [],
+        confirmed: [],
+        rejectedIds: [],
+        manual: [],
+        insufficientEvidence: [],
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return {
+      version: data.version ?? 1,
+      projectId: data.projectId ?? (resolvedProjectId || undefined),
+      databaseId: data.databaseId ?? (dbId || ""),
+      inferred: Array.isArray(data.inferred) ? data.inferred : [],
+      confirmed: Array.isArray(data.confirmed) ? data.confirmed : [],
+      rejectedIds: Array.isArray(data.rejectedIds) ? data.rejectedIds : [],
+      manual: Array.isArray(data.manual) ? data.manual : [],
+      insufficientEvidence: Array.isArray(data.insufficientEvidence) ? data.insufficientEvidence : [],
+      updatedAt: data.updatedAt ?? new Date().toISOString(),
+    };
+  }
+
+  async saveMongoRelationships(
+    file: MongoRelationshipsFile,
+    projectId?: string,
+    dbId?: string,
+  ): Promise<void> {
+    let resolvedProjectId = projectId ?? file.projectId;
+    const resolvedDbId = dbId ?? file.databaseId;
+
+    if (!resolvedProjectId && resolvedDbId) {
+      const project = await this.getProjectByDatabaseId(resolvedDbId);
+      if (project?.id) {
+        resolvedProjectId = project.id;
+      }
+    }
+
+    let filePath: string;
+    if (resolvedProjectId) {
+      filePath = this.projectFile(resolvedProjectId, PROJECT_FILES.relationships);
+    } else if (resolvedDbId) {
+      filePath = path.join(CONFIG_FOLDER, "relationships", `${resolvedDbId}.json`);
+    } else {
+      throw new Error("Cannot save relationships: missing both projectId and dbId");
+    }
+
+    const fileToSave: MongoRelationshipsFile = {
+      ...file,
+      projectId: resolvedProjectId || undefined,
+      databaseId: resolvedDbId,
+      insufficientEvidence: Array.isArray(file.insufficientEvidence) ? file.insufficientEvidence : [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.writeJSON(filePath, fileToSave);
   }
 
   async getAnnotations(projectId: string): Promise<AnnotationsFile | null> {

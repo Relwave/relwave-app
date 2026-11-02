@@ -5,6 +5,8 @@ import { QueryExecutor } from "./services/queryExecutor";
 import { QueryHandlers } from "./handlers/queryHandlers";
 import { DatabaseHandlers } from "./handlers/databaseHandlers";
 import { IndexHandlers } from "./handlers/indexHandlers";
+import { MongoRelationshipEngine } from "./services/mongoRelationshipEngine";
+import { MongoRelationshipHandlers } from "./handlers/mongoRelationshipHandlers";
 import { SessionHandlers } from "./handlers/sessionHandlers";
 import { StatsHandlers } from "./handlers/statsHandlers";
 import { MigrationHandlers } from "./handlers/migrationHandlers";
@@ -47,6 +49,12 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
   const aiHandlers = new (require("./handlers/aiHandlers").AIHandlers)(rpc, logger, dbService);
   const indexHandlers = new IndexHandlers(rpc, logger, dbService, queryExecutor);
+  const mongoRelationshipEngine = new MongoRelationshipEngine(dbService);
+  const mongoRelationshipHandlers = new MongoRelationshipHandlers(
+    rpc,
+    logger,
+    mongoRelationshipEngine,
+  );
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -113,6 +121,25 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "index.drop", (p, id) => indexHandlers.handleDropIndex(p, id));
   rpcRegister(rpc, "index.getStats", (p, id) => indexHandlers.handleGetIndexStats(p, id));
   rpcRegister(rpc, "index.hide", (p, id) => indexHandlers.handleHideIndex(p, id));
+
+  // ==========================================
+  // MONGO RELATIONSHIP HANDLERS (M7 Phase 1)
+  // ==========================================
+  rpcRegister(rpc, "mongo.relationship.infer", (p, id) =>
+    mongoRelationshipHandlers.handleInfer(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.list", (p, id) =>
+    mongoRelationshipHandlers.handleList(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.setStatus", (p, id) =>
+    mongoRelationshipHandlers.handleSetStatus(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.save", (p, id) =>
+    mongoRelationshipHandlers.handleSave(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.delete", (p, id) =>
+    mongoRelationshipHandlers.handleDelete(p, id),
+  );
 
   // ==========================================
   // MIGRATION HANDLERS
