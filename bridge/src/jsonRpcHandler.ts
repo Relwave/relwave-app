@@ -7,6 +7,8 @@ import { DatabaseHandlers } from "./handlers/databaseHandlers";
 import { IndexHandlers } from "./handlers/indexHandlers";
 import { MongoRelationshipEngine } from "./services/mongoRelationshipEngine";
 import { MongoRelationshipHandlers } from "./handlers/mongoRelationshipHandlers";
+import { MongoBulkEngine } from "./services/mongoBulkEngine";
+import { MongoBulkHandlers } from "./handlers/mongoBulkHandlers";
 import { SessionHandlers } from "./handlers/sessionHandlers";
 import { StatsHandlers } from "./handlers/statsHandlers";
 import { MigrationHandlers } from "./handlers/migrationHandlers";
@@ -55,6 +57,8 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
     logger,
     mongoRelationshipEngine,
   );
+  const mongoBulkEngine = new MongoBulkEngine(dbService);
+  const mongoBulkHandlers = new MongoBulkHandlers(rpc, logger, mongoBulkEngine);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -139,6 +143,37 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   );
   rpcRegister(rpc, "mongo.relationship.delete", (p, id) =>
     mongoRelationshipHandlers.handleDelete(p, id),
+  );
+
+  // ==========================================
+  // MONGO BULK OPERATIONS HANDLERS (M7 Phase 3)
+  // ==========================================
+  rpcRegister(rpc, "mongo.bulk.importStart", (p, id) =>
+    mongoBulkHandlers.handleImportStart(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.importChunk", (p, id) =>
+    mongoBulkHandlers.handleImportChunk(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.exportStart", (p, id) =>
+    mongoBulkHandlers.handleExportStart(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.getOperationStatus", (p, id) =>
+    mongoBulkHandlers.handleGetOperationStatus(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.cancelOperation", (p, id) =>
+    mongoBulkHandlers.handleCancelOperation(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.cleanupOperation", (p, id) =>
+    mongoBulkHandlers.handleCleanupOperation(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.insert", (p, id) =>
+    mongoBulkHandlers.handleBulkInsert(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.update", (p, id) =>
+    mongoBulkHandlers.handleBulkUpdate(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.delete", (p, id) =>
+    mongoBulkHandlers.handleBulkDelete(p, id),
   );
 
   // ==========================================

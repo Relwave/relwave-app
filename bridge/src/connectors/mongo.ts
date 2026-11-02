@@ -123,7 +123,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Redact any embedded credentials if a message ever echoes the connection URI. */
-function safeMongoError(err: unknown): string {
+export function safeMongoError(err: unknown): string {
   const base = err instanceof Error ? err.message : String(err);
   return base.replace(/(mongodb\+?srv?:\/\/)[^@\s]+@/gi, "$1<credentials>@");
 }
