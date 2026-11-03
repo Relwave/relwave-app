@@ -63,6 +63,12 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
         operationId: validUuid,
         success: true,
       }),
+      exportSaveTo: jest.fn<any>().mockResolvedValue({
+        operationId: validUuid,
+        destinationPath: "/abs/path/export.json",
+        bytesWritten: 1234,
+        success: true,
+      }),
       bulkInsert: jest.fn<any>().mockResolvedValue({
         collection: "products",
         insertedCount: 5,
@@ -201,6 +207,129 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
     expect(mockRpc.sendError).toHaveBeenCalledWith(12, {
       code: "MONGO_READ_ONLY",
       message: "Database is in read-only mode",
+    });
+  });
+
+  describe("handleExportSaveTo", () => {
+    test("dispatches successfully with valid arguments", async () => {
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: "/abs/path/export.json",
+          options: { overwrite: true },
+        },
+        13,
+      );
+
+      expect(mockEngine.exportSaveTo).toHaveBeenCalledWith({
+        operationId: validUuid,
+        destinationPath: "/abs/path/export.json",
+        options: { overwrite: true },
+      });
+      expect(mockRpc.sendResponse).toHaveBeenCalledWith(13, {
+        ok: true,
+        data: expect.objectContaining({
+          operationId: validUuid,
+          destinationPath: "/abs/path/export.json",
+          bytesWritten: 1234,
+          success: true,
+        }),
+      });
+    });
+
+    test("validates operationId is valid UUIDv4", async () => {
+      await handlers.handleExportSaveTo(
+        {
+          operationId: "invalid-uuid",
+          destinationPath: "/abs/path/export.json",
+        },
+        14,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(14, {
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("operationId must be a valid UUIDv4"),
+      });
+      expect(mockEngine.exportSaveTo).not.toHaveBeenCalled();
+    });
+
+    test("validates destinationPath is non-empty string", async () => {
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: "   ",
+        },
+        15,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(15, {
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("destinationPath must be a non-empty string"),
+      });
+
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: null,
+        },
+        16,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(16, {
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("destinationPath must be a non-empty string"),
+      });
+    });
+
+    test("validates options must be object", async () => {
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: "/abs/path/export.json",
+          options: "not-an-object",
+        },
+        17,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(17, {
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("options must be an object"),
+      });
+    });
+
+    test("validates options.overwrite must be boolean", async () => {
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: "/abs/path/export.json",
+          options: { overwrite: "yes" as any },
+        },
+        18,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(18, {
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("options.overwrite must be a boolean"),
+      });
+    });
+
+    test("propagates MongoApiError from engine", async () => {
+      mockEngine.exportSaveTo.mockRejectedValueOnce(
+        new MongoApiError("MONGO_FILE_EXISTS", "Destination file already exists"),
+      );
+
+      await handlers.handleExportSaveTo(
+        {
+          operationId: validUuid,
+          destinationPath: "/abs/path/export.json",
+        },
+        19,
+      );
+
+      expect(mockRpc.sendError).toHaveBeenCalledWith(19, {
+        code: "MONGO_FILE_EXISTS",
+        message: "Destination file already exists",
+      });
     });
   });
 });

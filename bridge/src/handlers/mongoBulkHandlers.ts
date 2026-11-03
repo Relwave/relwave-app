@@ -198,6 +198,48 @@ export class MongoBulkHandlers {
     }
   }
 
+  async handleExportSaveTo(params: any, id: number | string): Promise<void> {
+    try {
+      const { operationId, destinationPath, options } = params || {};
+      if (!isNonEmptyString(operationId) || !isValidUuidV4(operationId)) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing or invalid required parameter: operationId must be a valid UUIDv4",
+        });
+      }
+      if (!isNonEmptyString(destinationPath)) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Missing or invalid required parameter: destinationPath must be a non-empty string",
+        });
+      }
+      if (
+        options !== undefined &&
+        (typeof options !== "object" || options === null || Array.isArray(options))
+      ) {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Invalid optional parameter: options must be an object",
+        });
+      }
+      if (options?.overwrite !== undefined && typeof options.overwrite !== "boolean") {
+        return this.rpc.sendError(id, {
+          code: "BAD_REQUEST",
+          message: "Invalid optional parameter: options.overwrite must be a boolean",
+        });
+      }
+
+      const data = await this.engine.exportSaveTo({
+        operationId,
+        destinationPath,
+        options,
+      });
+      this.rpc.sendResponse(id, { ok: true, data });
+    } catch (err: any) {
+      this.sendError(id, err, "mongo.bulk.exportSaveTo failed");
+    }
+  }
+
   async handleBulkInsert(params: any, id: number | string): Promise<void> {
     try {
       const { dbId, collection, documents, options } = params || {};

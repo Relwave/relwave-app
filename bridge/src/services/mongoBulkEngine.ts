@@ -18,6 +18,7 @@ import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import { Collection, Db, Document } from "mongodb";
 import { DatabaseService } from "./databaseService";
+import logger from "./logger";
 import { selectDb, MongoApiError, assertCollectionName, safeMongoError, mongodbCache } from "../connectors/mongo";
 import { serializeMongoEJSONDocument, mongoBSONtoEJSON, serializeMongoFilter, serializeMongoUpdateOperand } from "../connectors/mongoBson";
 import { DBType } from "../types";
@@ -32,6 +33,9 @@ import {
   MongoBulkImportChunkResult,
   MongoBulkExportStartRequest,
   MongoBulkExportStartResult,
+  StagingFileIdentity,
+  MongoBulkExportSaveToRequest,
+  MongoBulkExportSaveToResult,
   MongoBulkOperationStatusResult,
   MongoBulkCancelResult,
   MongoBulkCleanupResult,
@@ -433,17 +437,75 @@ export interface InternalOperationState {
   processedChunkIndices: Set<number>;
   cachedChunkResponses: Map<number, MongoBulkImportChunkResult>;
   totalBytesProcessed: number;
+  isSaving?: boolean;
 }
 
 export class BulkOperationManager {
   private operations = new Map<string, InternalOperationState>();
+  private pendingStagingCleanups = new Map<string, StagingFileIdentity>();
+  private static readonly MAX_PENDING_STAGING_CLEANUPS = 100;
   private sweepTimer: NodeJS.Timeout | null = null;
 
   constructor(private ttlMs: number = OPERATION_TTL_MS) {
-    this.sweepTimer = setInterval(() => this.sweepExpired(), 5 * 60 * 1000);
+    this.sweepTimer = setInterval(() => {
+      this.sweepExpired().catch(() => {});
+    }, 5 * 60 * 1000);
     if (this.sweepTimer.unref) {
       this.sweepTimer.unref();
     }
+  }
+
+  recordPendingStagingCleanup(
+    stagingPath: string,
+    identity?: StagingFileIdentity,
+  ): boolean {
+    // Duplicate path registration: idempotent no-op, preserves original authoritative identity and does not consume extra capacity
+    if (this.pendingStagingCleanups.has(stagingPath)) {
+      return true;
+    }
+
+    // Below capacity: track for automated retry
+    if (this.pendingStagingCleanups.size < BulkOperationManager.MAX_PENDING_STAGING_CLEANUPS) {
+      this.pendingStagingCleanups.set(
+        stagingPath,
+        identity ?? {
+          exactPath: stagingPath,
+          dev: 0,
+          ino: 0,
+          size: 0,
+          registeredAt: Date.now(),
+          retryCount: 0,
+        },
+      );
+      logger.info(
+        { stagingPath, currentCount: this.pendingStagingCleanups.size },
+        "Recorded staging file identity for bounded retry cleanup",
+      );
+      return true;
+    }
+
+    // Capacity overflow (queue full): honest refusal and observable orphan logging
+    logger.warn(
+      {
+        stagingPath,
+        capacity: BulkOperationManager.MAX_PENDING_STAGING_CLEANUPS,
+        dropped: true,
+      },
+      "Pending staging cleanups queue capacity reached (100); temporary staging file abandoned as untracked orphan requiring manual administrative removal",
+    );
+    return false;
+  }
+
+  getPendingStagingCleanupsCount(): number {
+    return this.pendingStagingCleanups.size;
+  }
+
+  getPendingStagingCleanup(stagingPath: string): StagingFileIdentity | undefined {
+    return this.pendingStagingCleanups.get(stagingPath);
+  }
+
+  clearPendingStagingCleanups(): void {
+    this.pendingStagingCleanups.clear();
   }
 
   createOperation(
@@ -490,6 +552,9 @@ export class BulkOperationManager {
     if (!state) return null;
 
     if (Date.now() > new Date(state.operation.expiresAt).getTime()) {
+      if (state.isSaving === true) {
+        return state;
+      }
       this.cleanup(operationId);
       return null;
     }
@@ -542,6 +607,13 @@ export class BulkOperationManager {
       throw new MongoApiError("MONGO_NOT_FOUND", `Operation '${operationId}' not found or expired`);
     }
 
+    if (state.isSaving === true) {
+      throw new MongoApiError(
+        "MONGO_CONCURRENT_SAVE",
+        "Cannot cancel an export operation that is currently saving",
+      );
+    }
+
     if (state.operation.status === "cancelled") {
       return {
         operationId,
@@ -582,6 +654,12 @@ export class BulkOperationManager {
     assertValidOperationId(operationId);
     const state = this.operations.get(operationId);
     if (state) {
+      if (state.isSaving === true) {
+        throw new MongoApiError(
+          "MONGO_CONCURRENT_SAVE",
+          "Cannot clean up an export operation that is currently saving",
+        );
+      }
       state.controller.abort();
       if (state.operation.tempFilePath) {
         try {
@@ -593,15 +671,102 @@ export class BulkOperationManager {
         }
       }
       this.operations.delete(operationId);
+      return { operationId, success: true };
     }
-    return { operationId, success: true };
+    return { operationId, success: true, alreadyCleaned: true };
   }
 
-  sweepExpired(): void {
+  async sweepExpired(): Promise<void> {
     const now = Date.now();
     for (const [id, state] of Array.from(this.operations.entries())) {
+      if (state.isSaving === true) {
+        continue;
+      }
       if (now > new Date(state.operation.expiresAt).getTime()) {
-        this.cleanup(id);
+        try {
+          this.cleanup(id);
+        } catch {
+          // safe ignore
+        }
+      }
+    }
+
+    for (const [stagingPath, expected] of Array.from(this.pendingStagingCleanups.entries())) {
+      try {
+        // Step A: Inspect path via lstat (NEVER follow symlinks)
+        let currentStat: fs.Stats;
+        try {
+          currentStat = await fs.promises.lstat(stagingPath);
+        } catch (statErr: any) {
+          if (statErr?.code === "ENOENT") {
+            // File already removed externally; safely evict stale entry and free capacity
+            this.pendingStagingCleanups.delete(stagingPath);
+            logger.info({ stagingPath }, "Staging file already absent (ENOENT); evicted from cleanup queue");
+            continue;
+          }
+          logger.warn({ err: statErr, stagingPath }, "Failed to lstat staging path during retry verification; retaining");
+          continue;
+        }
+
+        // Step B: Must be a regular file; reject symlinks, directories, FIFOs, and devices
+        // Filesystem entry is left untouched on disk (never moved or isolated) and evicted from cleanup tracking
+        if (!currentStat.isFile() || currentStat.isSymbolicLink()) {
+          logger.error(
+            { stagingPath, isSymbolicLink: currentStat.isSymbolicLink(), isDirectory: currentStat.isDirectory() },
+            "SECURITY ALERT: Staging path is no longer a regular file (symlink or directory substituted); unlinking aborted, filesystem entry left untouched on disk, and entry evicted from automated cleanup tracking",
+          );
+          this.pendingStagingCleanups.delete(stagingPath);
+          continue;
+        }
+
+        // Step C: Verify filesystem identity (dev & ino)
+        const hasValidExpected = expected.dev !== 0 && expected.ino !== 0;
+        const hasValidCurrent = currentStat.dev !== 0 && currentStat.ino !== 0;
+
+        if (hasValidExpected && hasValidCurrent) {
+          if (currentStat.dev !== expected.dev || currentStat.ino !== expected.ino) {
+            logger.error(
+              {
+                stagingPath,
+                expectedDev: expected.dev,
+                actualDev: currentStat.dev,
+                expectedIno: expected.ino,
+                actualIno: currentStat.ino,
+              },
+              "SECURITY ALERT: Staging file identity mismatch (dev/ino substitution detected); unlinking aborted, filesystem entry left untouched on disk, and entry evicted from automated cleanup tracking",
+            );
+            this.pendingStagingCleanups.delete(stagingPath);
+            continue;
+          }
+        } else {
+          // Fail-Closed Fallback for unsupported or unpopulated filesystem identity
+          logger.warn(
+            { stagingPath, dev: currentStat.dev, ino: currentStat.ino },
+            "Filesystem identity (dev/ino) unpopulated or unsupported on host volume; failing closed, refusing automated retry unlink, and evicting entry from cleanup tracking",
+          );
+          this.pendingStagingCleanups.delete(stagingPath);
+          continue;
+        }
+
+        // Step D: Authoritative unlink of verified staging file
+        await fs.promises.unlink(stagingPath);
+        this.pendingStagingCleanups.delete(stagingPath);
+        logger.info({ stagingPath }, "Successfully verified identity and unlinked leftover staging file on retry");
+      } catch (retryErr: any) {
+        if (retryErr?.code === "ENOENT") {
+          this.pendingStagingCleanups.delete(stagingPath);
+        } else {
+          expected.retryCount = (expected.retryCount ?? 0) + 1;
+          if (expected.retryCount >= 5) {
+            logger.warn(
+              { stagingPath, retries: expected.retryCount },
+              "Staging file retry limit reached (5); abandoning as untracked orphan",
+            );
+            this.pendingStagingCleanups.delete(stagingPath);
+          } else {
+            logger.warn({ err: retryErr, stagingPath }, "Staging cleanup retry failed; retaining in retry queue");
+          }
+        }
       }
     }
   }
@@ -612,8 +777,21 @@ export class BulkOperationManager {
       this.sweepTimer = null;
     }
     for (const id of Array.from(this.operations.keys())) {
-      this.cleanup(id);
+      try {
+        const state = this.operations.get(id);
+        if (state?.isSaving === true) {
+          logger.warn(
+            { operationId: id },
+            "Operation has an active save in progress during manager disposal; active save protection preserved and source file retained",
+          );
+          continue;
+        }
+        this.cleanup(id);
+      } catch {
+        // safe ignore during dispose
+      }
     }
+    this.pendingStagingCleanups.clear();
   }
 }
 
@@ -1028,6 +1206,389 @@ export class MongoBulkEngine {
   async cleanupOperation(operationId: string): Promise<MongoBulkCleanupResult> {
     assertValidOperationId(operationId);
     return this.opManager.cleanup(operationId);
+  }
+
+  async exportSaveTo(
+    params: MongoBulkExportSaveToRequest,
+  ): Promise<MongoBulkExportSaveToResult> {
+    const { operationId, destinationPath, options } = params || {};
+    assertValidOperationId(operationId);
+
+    if (
+      typeof destinationPath !== "string" ||
+      destinationPath.trim().length === 0 ||
+      !path.isAbsolute(destinationPath)
+    ) {
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "destinationPath must be a non-empty absolute path",
+      );
+    }
+
+    const state = this.opManager.getOperation(operationId);
+    if (!state) {
+      throw new MongoApiError(
+        "MONGO_NOT_FOUND",
+        `Operation '${operationId}' not found or expired`,
+      );
+    }
+
+    if (state.operation.type !== "export") {
+      throw new MongoApiError(
+        "MONGO_INVALID_STATE",
+        "Cannot save: operation is not an export",
+      );
+    }
+
+    if (state.operation.status !== "completed") {
+      throw new MongoApiError(
+        "MONGO_INVALID_STATE",
+        `Cannot save export file: operation status is '${state.operation.status}', expected 'completed'`,
+      );
+    }
+
+    const sourceFilePath = state.operation.tempFilePath;
+    if (!sourceFilePath || !fs.existsSync(sourceFilePath)) {
+      throw new MongoApiError(
+        "MONGO_NOT_FOUND",
+        "Export source temporary file does not exist",
+      );
+    }
+
+    if (state.isSaving === true) {
+      throw new MongoApiError(
+        "MONGO_CONCURRENT_SAVE",
+        "Another save operation is already in progress for this export",
+      );
+    }
+
+    // Synchronously acquire lock to eliminate race window
+    state.isSaving = true;
+
+    try {
+      const normalizedDestPath = path.normalize(destinationPath);
+      const parentDir = path.dirname(normalizedDestPath);
+
+      let resolvedParent: string;
+      try {
+        resolvedParent = await fs.promises.realpath(parentDir);
+      } catch (err: any) {
+        throw new MongoApiError(
+          "MONGO_SAVE_FAILED",
+          `Parent directory does not exist or is not accessible: ${err?.message}`,
+        );
+      }
+
+      let parentStat: fs.Stats;
+      try {
+        parentStat = await fs.promises.stat(resolvedParent);
+      } catch (err: any) {
+        throw new MongoApiError(
+          "MONGO_SAVE_FAILED",
+          `Failed to inspect parent directory: ${err?.message}`,
+        );
+      }
+      if (!parentStat.isDirectory()) {
+        throw new MongoApiError(
+          "MONGO_SAVE_FAILED",
+          "Parent path is not a directory",
+        );
+      }
+
+      // Destination Type Inspection (prior to staging) with strict error discrimination
+      let destStat: fs.Stats | null = null;
+      try {
+        destStat = await fs.promises.lstat(normalizedDestPath);
+      } catch (err: any) {
+        if (err?.code === "ENOENT") {
+          destStat = null;
+        } else {
+          throw new MongoApiError(
+            "MONGO_SAVE_FAILED",
+            `Failed to inspect destination path (${err.code ?? "UNKNOWN"}): ${err.message}`,
+          );
+        }
+      }
+
+      if (destStat) {
+        if (destStat.isDirectory()) {
+          throw new MongoApiError(
+            "MONGO_FILE_EXISTS",
+            "Destination is an existing directory; cannot overwrite a directory with a file",
+          );
+        }
+        if (
+          destStat.isFIFO() ||
+          destStat.isSocket() ||
+          destStat.isBlockDevice() ||
+          destStat.isCharacterDevice()
+        ) {
+          throw new MongoApiError(
+            "MONGO_VALIDATION_ERROR",
+            "Destination is a special device or socket; overwriting unsupported file types is forbidden",
+          );
+        }
+        if (options?.overwrite !== true) {
+          throw new MongoApiError(
+            "MONGO_FILE_EXISTS",
+            "Destination file already exists",
+          );
+        }
+      }
+
+      // Generate staging filename in same parent dir
+      const stagingFileName = `${path.basename(normalizedDestPath)}.relwave-tmp-${uuidv4()}`;
+      const tempDestPath = path.join(resolvedParent, stagingFileName);
+
+      let stagingWriteStream: fs.WriteStream | null = null;
+      let sourceReadStream: fs.ReadStream | null = null;
+
+      try {
+        stagingWriteStream = fs.createWriteStream(tempDestPath, {
+          flags: "wx",
+          mode: 0o600,
+        });
+        stagingWriteStream.on("error", () => {});
+
+        sourceReadStream = fs.createReadStream(sourceFilePath);
+        sourceReadStream.on("error", () => {});
+
+        await new Promise<void>((resolve, reject) => {
+          stagingWriteStream!.once("error", reject);
+          sourceReadStream!.once("error", reject);
+          stagingWriteStream!.once("finish", resolve);
+          sourceReadStream!.pipe(stagingWriteStream!);
+        });
+      } catch (streamErr: any) {
+        if (stagingWriteStream) {
+          if (!stagingWriteStream.destroyed) {
+            stagingWriteStream.destroy();
+          }
+          if (!stagingWriteStream.closed) {
+            await new Promise<void>((res) => {
+              stagingWriteStream!.once("close", () => res());
+              setTimeout(res, 50);
+            });
+          }
+        }
+        if (sourceReadStream && !sourceReadStream.destroyed) {
+          sourceReadStream.destroy();
+        }
+
+        // Attempt filesystem cleanup of temporary staging file
+        try {
+          await fs.promises.unlink(tempDestPath);
+        } catch (cleanupErr: any) {
+          if (cleanupErr?.code !== "ENOENT") {
+            let streamFailureIdentity: StagingFileIdentity | undefined;
+            try {
+              const st = await fs.promises.lstat(tempDestPath);
+              streamFailureIdentity = {
+                exactPath: tempDestPath,
+                dev: st.dev,
+                ino: st.ino,
+                size: st.size,
+                birthtimeMs: st.birthtimeMs,
+                registeredAt: Date.now(),
+                retryCount: 0,
+              };
+            } catch {
+              // Identity capture failed: streamFailureIdentity remains undefined.
+              // Existing fail-closed behavior will apply during retry verification (dev: 0, ino: 0).
+            }
+
+            const isTracked = this.opManager.recordPendingStagingCleanup(
+              tempDestPath,
+              streamFailureIdentity,
+            );
+            if (!isTracked) {
+              logger.warn(
+                { tempDestPath, err: cleanupErr },
+                "Failed to clean up staging file on streaming failure and retry queue at capacity; file abandoned as untracked orphan",
+              );
+            }
+          }
+        }
+
+        throw new MongoApiError(
+          "MONGO_SAVE_FAILED",
+          `Failed to stream export data to staging file: ${streamErr?.message}`,
+        );
+      } finally {
+        if (stagingWriteStream && !stagingWriteStream.destroyed) {
+          stagingWriteStream.destroy();
+        }
+        if (sourceReadStream && !sourceReadStream.destroyed) {
+          sourceReadStream.destroy();
+        }
+      }
+
+      // Capture staging file identity for cleanup tracking
+      let stagingIdentity: StagingFileIdentity | undefined;
+      let stagedStat: fs.Stats | undefined;
+      try {
+        stagedStat = await fs.promises.lstat(tempDestPath);
+        stagingIdentity = {
+          exactPath: tempDestPath,
+          dev: stagedStat.dev,
+          ino: stagedStat.ino,
+          size: stagedStat.size,
+          birthtimeMs: stagedStat.birthtimeMs,
+          registeredAt: Date.now(),
+          retryCount: 0,
+        };
+      } catch {
+        // Identity remains undefined if lstat fails; fail-closed rules will apply if cleanup retried
+      }
+      const bytesWritten = stagedStat?.size ?? 0;
+
+      // STEP 1: Authoritative publication operation
+      if (options?.overwrite === true) {
+        // Atomic replacement via rename
+        try {
+          await fs.promises.rename(tempDestPath, normalizedDestPath);
+        } catch (renameErr: any) {
+          // Pre-publication failure: attempt staging cleanup
+          try {
+            await fs.promises.unlink(tempDestPath);
+          } catch (cleanupErr: any) {
+            if (cleanupErr?.code !== "ENOENT") {
+              const isTracked = this.opManager.recordPendingStagingCleanup(
+                tempDestPath,
+                stagingIdentity,
+              );
+              if (!isTracked) {
+                logger.warn(
+                  { tempDestPath, err: cleanupErr },
+                  "Failed to clean up staging file on pre-publication failure and retry queue at capacity; file abandoned as untracked orphan",
+                );
+              }
+            }
+          }
+
+          throw new MongoApiError(
+            "MONGO_SAVE_FAILED",
+            `Failed to atomically replace destination file (${renameErr?.code ?? "UNKNOWN"}): ${renameErr?.message}`,
+          );
+        }
+      } else {
+        // Atomic hard-link publication for overwrite: false
+        try {
+          await fs.promises.link(tempDestPath, normalizedDestPath);
+        } catch (linkErr: any) {
+          // Pre-publication failure: attempt staging cleanup
+          try {
+            await fs.promises.unlink(tempDestPath);
+          } catch (cleanupErr: any) {
+            if (cleanupErr?.code !== "ENOENT") {
+              const isTracked = this.opManager.recordPendingStagingCleanup(
+                tempDestPath,
+                stagingIdentity,
+              );
+              if (!isTracked) {
+                logger.warn(
+                  { tempDestPath, err: cleanupErr },
+                  "Failed to clean up staging file on pre-publication failure and retry queue at capacity; file abandoned as untracked orphan",
+                );
+              }
+            }
+          }
+
+          if (linkErr?.code === "EEXIST") {
+            throw new MongoApiError(
+              "MONGO_FILE_EXISTS",
+              "Destination file already exists",
+            );
+          }
+
+          if (
+            linkErr?.code === "ENOSYS" ||
+            linkErr?.code === "EOPNOTSUPP" ||
+            linkErr?.code === "ENOTSUP"
+          ) {
+            throw new MongoApiError(
+              "MONGO_UNSUPPORTED_FILESYSTEM",
+              "The destination filesystem does not support atomic hard-link publication (e.g. FAT32, exFAT, or unsupported network share). " +
+                "Please choose a destination on an NTFS or POSIX filesystem, or export with explicit overwrite enabled.",
+            );
+          }
+
+          if (linkErr?.code === "EACCES" || linkErr?.code === "EPERM") {
+            throw new MongoApiError(
+              "MONGO_SAVE_FAILED",
+              `Permission denied or operation not permitted during hard-link publication (${linkErr.code}): ${linkErr.message}`,
+            );
+          }
+
+          if (linkErr?.code === "EXDEV") {
+            throw new MongoApiError(
+              "MONGO_SAVE_FAILED",
+              "Cross-device link error (EXDEV): destination spans a volume, junction, or mount boundary. " +
+                "Please choose a destination on a single local filesystem volume, or export with explicit overwrite enabled.",
+            );
+          }
+
+          throw new MongoApiError(
+            "MONGO_SAVE_FAILED",
+            `Failed to publish export file (${linkErr?.code ?? "UNKNOWN"}): ${linkErr?.message}`,
+          );
+        }
+      }
+
+      // STEP 2: Post-publication staging cleanup & audit (Destination is COMMITTED)
+      let warning: string | undefined;
+
+      // Staging unlink is only required for hard-link publication (!options?.overwrite).
+      // Atomic rename already moved/consumed tempDestPath; skipping unlink avoids an artificial ENOENT error.
+      if (!options?.overwrite) {
+        try {
+          await fs.promises.unlink(tempDestPath);
+        } catch (cleanupErr: any) {
+          if (cleanupErr?.code !== "ENOENT") {
+            const isTracked = this.opManager.recordPendingStagingCleanup(
+              tempDestPath,
+              stagingIdentity,
+            );
+            if (isTracked) {
+              warning = `Destination file published successfully, but temporary staging file could not be removed (${cleanupErr.code ?? "UNKNOWN"}); queued for identity-verified retry cleanup.`;
+            } else {
+              warning = `Destination file published successfully, but temporary staging file could not be removed (${cleanupErr.code ?? "UNKNOWN"}) and cleanup queue is at capacity (100); file remains as an untracked orphan requiring manual removal: ${tempDestPath}`;
+            }
+          }
+        }
+      }
+
+      try {
+        const postStat = await fs.promises.lstat(normalizedDestPath);
+        if (!postStat.isFile()) {
+          const auditMsg =
+            "Destination published, but post-commit audit detected unexpected file attributes";
+          logger.warn({ destinationPath: normalizedDestPath }, auditMsg);
+          warning = warning ? `${warning}; ${auditMsg}` : auditMsg;
+        }
+      } catch (auditErr: any) {
+        const auditMsg = `Destination published, but post-commit verification failed (${auditErr.code ?? "UNKNOWN"}): ${auditErr.message}`;
+        logger.warn({ err: auditErr, destinationPath: normalizedDestPath }, auditMsg);
+        warning = warning ? `${warning}; ${auditMsg}` : auditMsg;
+      }
+
+      return {
+        operationId,
+        destinationPath: normalizedDestPath,
+        bytesWritten,
+        success: true,
+        warning,
+      };
+    } finally {
+      state.isSaving = false;
+      if (Date.now() > new Date(state.operation.expiresAt).getTime()) {
+        try {
+          this.opManager.cleanup(operationId);
+        } catch {
+          // safe ignore
+        }
+      }
+    }
   }
 
   // =========================================================================

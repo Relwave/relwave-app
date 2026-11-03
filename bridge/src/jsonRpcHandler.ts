@@ -166,6 +166,9 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "mongo.bulk.cleanupOperation", (p, id) =>
     mongoBulkHandlers.handleCleanupOperation(p, id),
   );
+  rpcRegister(rpc, "mongo.bulk.exportSaveTo", (p, id) =>
+    mongoBulkHandlers.handleExportSaveTo(p, id),
+  );
   rpcRegister(rpc, "mongo.bulk.insert", (p, id) =>
     mongoBulkHandlers.handleBulkInsert(p, id),
   );

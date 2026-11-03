@@ -96,6 +96,36 @@ export interface MongoBulkExportStartResult {
 }
 
 // ===========================================================================
+// Export Save-To RPC Interfaces (Phase 4 Extension)
+// ===========================================================================
+
+export interface StagingFileIdentity {
+  exactPath: string;
+  dev: number;
+  ino: number;
+  size: number;
+  birthtimeMs?: number;
+  registeredAt: number;
+  retryCount: number;
+}
+
+export interface MongoBulkExportSaveToRequest {
+  operationId: string;
+  destinationPath: string;
+  options?: {
+    overwrite?: boolean;
+  };
+}
+
+export interface MongoBulkExportSaveToResult {
+  operationId: string;
+  destinationPath: string;
+  bytesWritten: number;
+  success: boolean;
+  warning?: string;
+}
+
+// ===========================================================================
 // Lifecycle & Management RPC Interfaces
 // ===========================================================================
 
@@ -136,6 +166,7 @@ export interface MongoBulkCleanupRequest {
 export interface MongoBulkCleanupResult {
   operationId: string;
   success: boolean;
+  alreadyCleaned?: boolean;
 }
 
 // ===========================================================================
