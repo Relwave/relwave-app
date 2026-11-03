@@ -30,6 +30,26 @@ import {
   MongoSaveRelationshipResult,
   MongoDeleteRelationshipRequest,
   MongoDeleteRelationshipResult,
+  MongoBulkImportStartRequest,
+  MongoBulkImportStartResult,
+  MongoBulkImportChunkRequest,
+  MongoBulkImportChunkResult,
+  MongoBulkExportStartRequest,
+  MongoBulkExportStartResult,
+  MongoBulkGetOperationStatusRequest,
+  MongoBulkOperationStatusResult,
+  MongoBulkCancelRequest,
+  MongoBulkCancelResult,
+  MongoBulkCleanupRequest,
+  MongoBulkCleanupResult,
+  MongoBulkInsertRequest,
+  MongoBulkInsertResult,
+  MongoBulkUpdateRequest,
+  MongoBulkUpdateResult,
+  MongoBulkDeleteRequest,
+  MongoBulkDeleteResult,
+  MongoBulkExportSaveToRequest,
+  MongoBulkExportSaveToResult,
 } from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
 import {
@@ -836,6 +856,70 @@ class DatabaseService {
     request: MongoDeleteRelationshipRequest,
   ): Promise<MongoDeleteRelationshipResult> {
     return databaseBridge.deleteMongoRelationship(request);
+  }
+
+  // ------------------------------------
+  // MongoDB Bulk Operations Engine Methods
+  // ------------------------------------
+
+  async startMongoBulkImport(
+    request: MongoBulkImportStartRequest,
+  ): Promise<MongoBulkImportStartResult> {
+    return databaseBridge.startMongoBulkImport(request);
+  }
+
+  async importMongoBulkChunk(
+    request: MongoBulkImportChunkRequest,
+  ): Promise<MongoBulkImportChunkResult> {
+    return databaseBridge.importMongoBulkChunk(request);
+  }
+
+  async startMongoBulkExport(
+    request: MongoBulkExportStartRequest,
+  ): Promise<MongoBulkExportStartResult> {
+    return databaseBridge.startMongoBulkExport(request);
+  }
+
+  async getMongoBulkOperationStatus(
+    request: MongoBulkGetOperationStatusRequest,
+  ): Promise<MongoBulkOperationStatusResult> {
+    return databaseBridge.getMongoBulkOperationStatus(request);
+  }
+
+  async cancelMongoBulkOperation(
+    request: MongoBulkCancelRequest,
+  ): Promise<MongoBulkCancelResult> {
+    return databaseBridge.cancelMongoBulkOperation(request);
+  }
+
+  async cleanupMongoBulkOperation(
+    request: MongoBulkCleanupRequest,
+  ): Promise<MongoBulkCleanupResult> {
+    return databaseBridge.cleanupMongoBulkOperation(request);
+  }
+
+  async bulkInsertMongoDocuments(
+    request: MongoBulkInsertRequest,
+  ): Promise<MongoBulkInsertResult> {
+    return databaseBridge.bulkInsertMongoDocuments(request);
+  }
+
+  async bulkUpdateMongoDocuments(
+    request: MongoBulkUpdateRequest,
+  ): Promise<MongoBulkUpdateResult> {
+    return databaseBridge.bulkUpdateMongoDocuments(request);
+  }
+
+  async bulkDeleteMongoDocuments(
+    request: MongoBulkDeleteRequest,
+  ): Promise<MongoBulkDeleteResult> {
+    return databaseBridge.bulkDeleteMongoDocuments(request);
+  }
+
+  async saveMongoBulkExportTo(
+    request: MongoBulkExportSaveToRequest,
+  ): Promise<MongoBulkExportSaveToResult> {
+    return databaseBridge.saveMongoBulkExportTo(request);
   }
 }
 

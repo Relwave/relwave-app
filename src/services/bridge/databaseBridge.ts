@@ -19,6 +19,28 @@ import type {
   MongoDeleteRelationshipRequest,
   MongoDeleteRelationshipResult,
 } from "@/features/mongodb/types/relationship";
+import type {
+  MongoBulkImportStartRequest,
+  MongoBulkImportStartResult,
+  MongoBulkImportChunkRequest,
+  MongoBulkImportChunkResult,
+  MongoBulkExportStartRequest,
+  MongoBulkExportStartResult,
+  MongoBulkGetOperationStatusRequest,
+  MongoBulkOperationStatusResult,
+  MongoBulkCancelRequest,
+  MongoBulkCancelResult,
+  MongoBulkCleanupRequest,
+  MongoBulkCleanupResult,
+  MongoBulkInsertRequest,
+  MongoBulkInsertResult,
+  MongoBulkUpdateRequest,
+  MongoBulkUpdateResult,
+  MongoBulkDeleteRequest,
+  MongoBulkDeleteResult,
+  MongoBulkExportSaveToRequest,
+  MongoBulkExportSaveToResult,
+} from "@/features/mongodb/types/bulk";
 
 export type MongoIndexDirection = 1 | -1 | "text" | "2dsphere" | "hashed";
 
@@ -132,6 +154,12 @@ export interface MongoIndexHideResult {
 }
 
 export class DatabaseBridge {
+  private bridgeFn: typeof bridgeRequest;
+
+  constructor(bridgeFn: typeof bridgeRequest = bridgeRequest) {
+    this.bridgeFn = bridgeFn;
+  }
+
   async listIndexes(dbId: string, collection: string): Promise<MongoIndexListResult> {
     const res = await bridgeRequest("index.list", { dbId, collection });
     return res?.data;
@@ -254,6 +282,82 @@ export class DatabaseBridge {
     const res = await bridgeRequest("mongo.relationship.delete", request);
     return res?.data;
   }
+
+  // ==========================================
+  // MongoDB Bulk Operations Engine RPC Methods
+  // ==========================================
+
+  async startMongoBulkImport(
+    request: MongoBulkImportStartRequest,
+  ): Promise<MongoBulkImportStartResult> {
+    const res = await this.bridgeFn("mongo.bulk.importStart", request);
+    return res?.data;
+  }
+
+  async importMongoBulkChunk(
+    request: MongoBulkImportChunkRequest,
+  ): Promise<MongoBulkImportChunkResult> {
+    const res = await this.bridgeFn("mongo.bulk.importChunk", request);
+    return res?.data;
+  }
+
+  async startMongoBulkExport(
+    request: MongoBulkExportStartRequest,
+  ): Promise<MongoBulkExportStartResult> {
+    const res = await this.bridgeFn("mongo.bulk.exportStart", request);
+    return res?.data;
+  }
+
+  async getMongoBulkOperationStatus(
+    request: MongoBulkGetOperationStatusRequest,
+  ): Promise<MongoBulkOperationStatusResult> {
+    const res = await this.bridgeFn("mongo.bulk.getOperationStatus", request);
+    return res?.data;
+  }
+
+  async cancelMongoBulkOperation(
+    request: MongoBulkCancelRequest,
+  ): Promise<MongoBulkCancelResult> {
+    const res = await this.bridgeFn("mongo.bulk.cancelOperation", request);
+    return res?.data;
+  }
+
+  async cleanupMongoBulkOperation(
+    request: MongoBulkCleanupRequest,
+  ): Promise<MongoBulkCleanupResult> {
+    const res = await this.bridgeFn("mongo.bulk.cleanupOperation", request);
+    return res?.data;
+  }
+
+  async bulkInsertMongoDocuments(
+    request: MongoBulkInsertRequest,
+  ): Promise<MongoBulkInsertResult> {
+    const res = await this.bridgeFn("mongo.bulk.insert", request);
+    return res?.data;
+  }
+
+  async bulkUpdateMongoDocuments(
+    request: MongoBulkUpdateRequest,
+  ): Promise<MongoBulkUpdateResult> {
+    const res = await this.bridgeFn("mongo.bulk.update", request);
+    return res?.data;
+  }
+
+  async bulkDeleteMongoDocuments(
+    request: MongoBulkDeleteRequest,
+  ): Promise<MongoBulkDeleteResult> {
+    const res = await this.bridgeFn("mongo.bulk.delete", request);
+    return res?.data;
+  }
+
+  async saveMongoBulkExportTo(
+    request: MongoBulkExportSaveToRequest,
+  ): Promise<MongoBulkExportSaveToResult> {
+    const res = await this.bridgeFn("mongo.bulk.exportSaveTo", request);
+    return res?.data;
+  }
 }
 
 export const databaseBridge = new DatabaseBridge();
+
+export * from "@/features/mongodb/types/bulk";
