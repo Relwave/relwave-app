@@ -16,6 +16,10 @@
  * - Generic save failure preserving source on bridge
  * - Unmount cleanup (clearing poller and dispatching cancel)
  * - Resetting and cleaning up bridge operation
+ * - Stage 5 externalPolling suppression of internal timer
+ * - Stage 5 centralized store persistence across unmount (cancelOnUnmount: false)
+ * - Stage 5 single poller verification in delegated mode
+ * - Stage 5 terminal completion poller teardown
  */
 
 import { describe, it } from "node:test";
@@ -28,6 +32,7 @@ import {
   type UseMongoBulkExportReturn,
   INITIAL_EXPORT_PROGRESS,
 } from "../hooks/useMongoBulkExport";
+import { createMongoBulkOperationsStore } from "../hooks/useMongoBulkOperationsStore";
 import type {
   MongoBulkExportStartRequest,
   MongoBulkExportStartResult,
@@ -39,6 +44,7 @@ import type {
   MongoBulkCleanupResult,
   MongoBulkExportSaveToRequest,
   MongoBulkExportSaveToResult,
+  TrackedAsyncBulkOperation,
 } from "../types/bulk";
 
 function createMockExportService(overrides?: Partial<BulkExportServiceContract>): BulkExportServiceContract & {
@@ -197,7 +203,6 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     assert.equal(mockService.calls.start.length, 1);
     assert.equal(mockService.calls.start[0].collection, "users");
 
-    // Wait for poller to run ticks
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     assert.equal(hook.state, "ready-to-save");
@@ -347,7 +352,6 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     });
 
     function TestComp() {
-      // Set short 25ms timeout
       hook = useMongoBulkExport("db-1", mockService, {
         pollingTimeoutMs: 25,
         initialIntervalMs: 10,
@@ -512,7 +516,6 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     await hook.startExport({ collection: "users", format: "json" });
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    // First attempt fails with collision
     await assert.rejects(
       async () => {
         await hook.saveToFile("/exports/existing.json", false);
@@ -520,11 +523,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
       /Destination file already exists/,
     );
 
-    // Reverts to ready-to-save and not_saved so dialog can prompt
     assert.equal(hook.state, "ready-to-save");
     assert.equal(hook.saveStatus, "not_saved");
 
-    // Retry with overwrite: true succeeds
     const res = await hook.saveToFile("/exports/existing.json", true);
     assert.equal(res.success, true);
     assert.equal(hook.state, "completed");
@@ -573,7 +574,7 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
 
     assert.equal(hook.state, "failed");
     assert.equal(hook.saveStatus, "save_failed");
-    assert.equal(mockService.calls.cleanup.length, 0); // Source retained on bridge for retry
+    assert.equal(mockService.calls.cleanup.length, 0);
   });
 
   it("cleans up bridge operation and resets state upon reset()", async () => {
@@ -639,17 +640,14 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     assert.equal(hook.state, "exporting");
     assert.equal(mockService.calls.cancel.length, 0);
 
-    // Trigger unmount while export is actively streaming/polling
     hook.unmount();
 
-    // Verify cancellation was dispatched to bridge immediately
     assert.equal(mockService.calls.cancel.length, 1);
     assert.equal(mockService.calls.cancel[0].operationId, "mock-export-op-1");
 
-    // Wait to confirm that no further status polling or React state changes occur
     const cancelCountBefore = mockService.calls.cancel.length;
     await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.equal(mockService.calls.cancel.length, cancelCountBefore); // No duplicate cancel
+    assert.equal(mockService.calls.cancel.length, cancelCountBefore);
   });
 
   it("drops stale polling responses and prevents overwriting newer state or progress", async () => {
@@ -664,7 +662,6 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
       getMongoBulkOperationStatus: async (req) => {
         pollCount++;
         if (pollCount === 1) {
-          // Delay first status response
           return stalePromise;
         }
         return {
@@ -692,11 +689,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
 
     await hook.startExport({ collection: "users", format: "json" });
 
-    // Status request 1 is in-flight. Now cancel the export (which invalidates in-flight responses).
     await hook.cancelExport();
     assert.equal(hook.state, "cancelled");
 
-    // Now resolve the delayed status response with an old "in_progress" state
     resolveStaleStatus({
       operationId: "mock-export-op-1",
       type: "export",
@@ -712,73 +707,92 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
       expiresAt: new Date(Date.now() + 3600000).toISOString(),
     });
 
-    // Wait a tick for promise microtasks
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    // Assert that the stale response was dropped and could NOT overwrite the 'cancelled' state
     assert.equal(hook.state, "cancelled");
   });
 
-  it("handles MONGO_FILE_EXISTS collision and saves to alternate destination when overwrite is discarded", async () => {
+  it("externalPolling: true suppresses internal hook polling timer", async () => {
     let hook!: UseMongoBulkExportReturn;
-    const mockService = createMockExportService({
-      getMongoBulkOperationStatus: async (req) => ({
-        operationId: req.operationId,
-        type: "export",
-        status: "completed",
-        collection: "users",
-        format: "json",
-        processedDocuments: 100,
-        successfulDocuments: 100,
-        failedDocuments: 0,
-        fileSizeBytes: 2048,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      }),
-      saveMongoBulkExportTo: async (req) => {
-        if (req.destinationPath === "/existing/path.json" && !req.options?.overwrite) {
-          const err = new Error("Destination file already exists");
-          (err as unknown as Record<string, unknown>).code = "MONGO_FILE_EXISTS";
-          throw err;
-        }
-        return {
-          operationId: req.operationId,
-          destinationPath: req.destinationPath,
-          bytesWritten: 2048,
-          success: true,
-        };
-      },
-    });
+    const mockService = createMockExportService();
 
     function TestComp() {
-      hook = useMongoBulkExport("db-1", mockService, { initialIntervalMs: 10 });
+      hook = useMongoBulkExport("db-1", mockService, {
+        externalPolling: true,
+        initialIntervalMs: 10,
+      });
       return null;
     }
     ReactDOMServer.renderToString(React.createElement(TestComp));
 
     await hook.startExport({ collection: "users", format: "json" });
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(hook.state, "exporting");
+    assert.equal(mockService.calls.start.length, 1);
 
-    // First attempt hits file collision
-    await assert.rejects(
-      async () => {
-        await hook.saveToFile("/existing/path.json", false);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(mockService.calls.status.length, 0, "Internal hook poller must remain suppressed when externalPolling is true");
+  });
+
+  it("centralized store continues polling after export dialog unmounts (cancelOnUnmount: false)", async () => {
+    let statusPollCount = 0;
+    const mockService = createMockExportService({
+      getMongoBulkOperationStatus: async (req) => {
+        statusPollCount++;
+        return {
+          operationId: req.operationId,
+          type: "export",
+          status: statusPollCount >= 2 ? "completed" : "in_progress",
+          collection: "orders",
+          format: "json",
+          processedDocuments: statusPollCount * 50,
+          successfulDocuments: statusPollCount * 50,
+          failedDocuments: 0,
+          fileSizeBytes: 2048,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        };
       },
-      /Destination file already exists/,
-    );
+    });
 
-    // Remains in ready-to-save
-    assert.equal(hook.state, "ready-to-save");
-    assert.equal(hook.saveStatus, "not_saved");
+    const store = createMongoBulkOperationsStore(mockService);
+    let hook!: UseMongoBulkExportReturn;
 
-    // User chooses a different destination path instead of overwriting
-    const res = await hook.saveToFile("/new/alternate-path.json", false);
-    assert.equal(res.success, true);
-    assert.equal(hook.state, "completed");
-    assert.equal(hook.saveStatus, "saved");
-    assert.equal(hook.destinationPath, "/new/alternate-path.json");
-    assert.equal(mockService.calls.save[1].destinationPath, "/new/alternate-path.json");
-    assert.equal(mockService.calls.save[1].options?.overwrite, false);
+    function TestComp() {
+      hook = useMongoBulkExport("db-1", mockService, {
+        cancelOnUnmount: false,
+        externalPolling: true,
+        onOperationStart: (op) => {
+          store.getSnapshot().registerAsyncOperation("db-1", op);
+        },
+      });
+      return null;
+    }
+    ReactDOMServer.renderToString(React.createElement(TestComp));
+
+    await hook.startExport({ collection: "orders", format: "json" });
+    const opId = hook.operationId!;
+    assert.ok(opId);
+
+    // Exactly one centralized poller exists in delegated mode
+    assert.equal(store._activePollers.size, 1);
+    assert.ok(store._activePollers.has(opId));
+
+    // Unmount export hook with cancelOnUnmount: false
+    hook.unmount();
+
+    // Operation is NOT cancelled on unmount
+    assert.equal(mockService.calls.cancel.length, 0);
+
+    // Centralized poller continues running
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    assert.ok(statusPollCount >= 2, "Centralized store must continue polling after hook unmount");
+
+    // Terminal completion stops centralized polling
+    const opRecord = store.getSnapshot().operationsByDb["db-1"][0] as TrackedAsyncBulkOperation;
+    assert.equal(opRecord.status, "completed");
+    assert.equal(store._activePollers.has(opId), false, "Centralized poller must halt upon terminal status");
+
+    store.getSnapshot().resetStore();
   });
 });

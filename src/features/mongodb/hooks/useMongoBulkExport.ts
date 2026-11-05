@@ -6,7 +6,7 @@
  * stale response rejection, polling deadline timeout, terminal transitions,
  * cancellation, cleanup, and two-phase failure-safe save-to-disk publication.
  *
- * Adheres to docs/M7_PHASE4_SPEC.md §5, §6, §7.1, §7.2, and §13 (Stage 4).
+ * Adheres to docs/M7_PHASE4_SPEC.md §5, §6, §7.1, §7.2, and §13.
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -14,6 +14,7 @@ import { databaseService } from "@/services/bridge/database";
 import type {
   MongoBulkFormat,
   MongoBulkDocument,
+  MongoBulkOperationStatus,
   MongoBulkExportStartRequest,
   MongoBulkExportStartResult,
   MongoBulkGetOperationStatusRequest,
@@ -24,7 +25,11 @@ import type {
   MongoBulkCleanupResult,
   MongoBulkExportSaveToRequest,
   MongoBulkExportSaveToResult,
+  TrackedAsyncBulkOperation,
+  MongoBulkExportOptions,
 } from "../types/bulk";
+
+export type { MongoBulkExportOptions };
 
 export type ExportState =
   | "idle"
@@ -64,12 +69,6 @@ export interface ExportConfig {
   limit?: number;
 }
 
-export interface MongoBulkExportOptions {
-  pollingTimeoutMs?: number;
-  initialIntervalMs?: number;
-  maxIntervalMs?: number;
-}
-
 export interface UseMongoBulkExportReturn {
   state: ExportState;
   saveStatus: SaveStatus;
@@ -85,6 +84,14 @@ export interface UseMongoBulkExportReturn {
   saveToFile: (destinationPath: string, overwrite?: boolean) => Promise<MongoBulkExportSaveToResult>;
   reset: () => Promise<void>;
   unmount: () => void;
+  syncExternalStatus: (statusUpdate: {
+    status: MongoBulkOperationStatus | "stale";
+    processedDocuments?: number;
+    successfulDocuments?: number;
+    failedDocuments?: number;
+    fileSizeBytes?: number;
+    error?: string;
+  }) => void;
 }
 
 export const INITIAL_EXPORT_PROGRESS: ExportProgress = {
@@ -194,6 +201,50 @@ export function useMongoBulkExport(
     isPollingInFlightRef.current = false;
   }, [clearPollingTimer]);
 
+  const syncExternalStatus = useCallback(
+    (statusUpdate: {
+      status: MongoBulkOperationStatus | "stale";
+      processedDocuments?: number;
+      successfulDocuments?: number;
+      failedDocuments?: number;
+      fileSizeBytes?: number;
+      error?: string;
+    }) => {
+      if (statusUpdate.status === "completed") {
+        safeSetProgress((prev) => ({
+          ...prev,
+          processedDocuments: statusUpdate.processedDocuments ?? prev.processedDocuments,
+          successfulDocuments:
+            statusUpdate.successfulDocuments ?? statusUpdate.processedDocuments ?? prev.successfulDocuments,
+          failedDocuments: statusUpdate.failedDocuments ?? prev.failedDocuments,
+          fileSizeBytes: statusUpdate.fileSizeBytes ?? prev.fileSizeBytes,
+        }));
+        safeSetState("ready-to-save");
+      } else if (statusUpdate.status === "failed") {
+        safeSetProgress((prev) => ({
+          ...prev,
+          processedDocuments: statusUpdate.processedDocuments ?? prev.processedDocuments,
+          failedDocuments: statusUpdate.failedDocuments ?? prev.failedDocuments,
+          fileSizeBytes: statusUpdate.fileSizeBytes ?? prev.fileSizeBytes,
+        }));
+        safeSetError(statusUpdate.error || "Export operation failed on bridge");
+        safeSetState("failed");
+      } else if (statusUpdate.status === "cancelled") {
+        safeSetState("cancelled");
+      } else if (statusUpdate.status === "in_progress" || statusUpdate.status === "pending") {
+        safeSetProgress((prev) => ({
+          ...prev,
+          processedDocuments: statusUpdate.processedDocuments ?? prev.processedDocuments,
+          successfulDocuments: statusUpdate.successfulDocuments ?? prev.successfulDocuments,
+          failedDocuments: statusUpdate.failedDocuments ?? prev.failedDocuments,
+          fileSizeBytes: statusUpdate.fileSizeBytes ?? prev.fileSizeBytes,
+        }));
+        safeSetState("exporting");
+      }
+    },
+    [safeSetProgress, safeSetState, safeSetError],
+  );
+
   const pollStatus = useCallback(
     async (opId: string): Promise<void> => {
       if (!isMountedRef.current || isCancelledRef.current) {
@@ -204,7 +255,6 @@ export function useMongoBulkExport(
         return;
       }
 
-      // Check polling deadline timeout
       if (Date.now() - pollingStartTimeRef.current > pollingTimeoutMs) {
         stopPolling();
         safeSetError("Export operation timed out after exceeding polling deadline");
@@ -218,12 +268,10 @@ export function useMongoBulkExport(
       try {
         const statusRes = await service.getMongoBulkOperationStatus({ operationId: opId });
 
-        // Stale response guard or post-cancel/post-unmount guard
         if (sequence < pollSequenceRef.current || isCancelledRef.current || !isMountedRef.current) {
           return;
         }
 
-        // Terminal: completed
         if (statusRes.status === "completed") {
           stopPolling();
           safeSetProgress((prev) => ({
@@ -237,7 +285,6 @@ export function useMongoBulkExport(
           return;
         }
 
-        // Terminal: failed
         if (statusRes.status === "failed") {
           stopPolling();
           safeSetProgress((prev) => ({
@@ -251,14 +298,12 @@ export function useMongoBulkExport(
           return;
         }
 
-        // Terminal: cancelled
         if (statusRes.status === "cancelled") {
           stopPolling();
           safeSetState("cancelled");
           return;
         }
 
-        // Non-terminal: pending or in_progress
         safeSetProgress((prev) => ({
           ...prev,
           processedDocuments: statusRes.processedDocuments,
@@ -268,7 +313,6 @@ export function useMongoBulkExport(
         }));
         safeSetState("exporting");
 
-        // Backoff interval up to maxIntervalMs
         currentIntervalRef.current = Math.min(
           maxIntervalMs,
           Math.floor(currentIntervalRef.current * 1.5),
@@ -288,7 +332,6 @@ export function useMongoBulkExport(
         const code = typeof errRecord?.code === "string" ? errRecord.code : "";
         const msg = err instanceof Error ? err.message : String(err);
 
-        // Terminal: Bridge operation not found (restarted or expired after TTL)
         if (code === "MONGO_NOT_FOUND" || msg.includes("MONGO_NOT_FOUND")) {
           stopPolling();
           safeSetError(
@@ -298,7 +341,6 @@ export function useMongoBulkExport(
           return;
         }
 
-        // Transient error during status query: continue polling with max backoff
         currentIntervalRef.current = maxIntervalMs;
         if (isMountedRef.current && !isCancelledRef.current) {
           pollingTimerRef.current = setTimeout(() => {
@@ -323,19 +365,20 @@ export function useMongoBulkExport(
   const handleUnmount = useCallback(() => {
     isMountedRef.current = false;
     clearPollingTimer();
-    isCancelledRef.current = true;
-
-    if (stateRef.current === "starting" || stateRef.current === "exporting") {
-      const opId = operationIdRef.current;
-      if (opId) {
-        service.cancelMongoBulkOperation({ operationId: opId }).catch((err: unknown) => {
-          console.warn("Unmount export cancellation error:", err);
-        });
+    const shouldCancel = options?.cancelOnUnmount ?? true;
+    if (shouldCancel) {
+      isCancelledRef.current = true;
+      if (stateRef.current === "starting" || stateRef.current === "exporting") {
+        const opId = operationIdRef.current;
+        if (opId) {
+          service.cancelMongoBulkOperation({ operationId: opId }).catch((err: unknown) => {
+            console.warn("Unmount export cancellation error:", err);
+          });
+        }
       }
     }
-  }, [service, clearPollingTimer]);
+  }, [service, clearPollingTimer, options?.cancelOnUnmount]);
 
-  // Unmount cleanup
   useEffect(() => {
     isMountedRef.current = true;
     return handleUnmount;
@@ -411,7 +454,6 @@ export function useMongoBulkExport(
 
   const startExport = useCallback(
     async (config: ExportConfig): Promise<void> => {
-      // Prevent duplicate exports
       if (
         stateRef.current === "starting" ||
         stateRef.current === "exporting" ||
@@ -467,13 +509,36 @@ export function useMongoBulkExport(
             setOperationId(res.operationId);
           }
 
+          // Stage 5 Initial status registration: preserves bridge "pending"
+          const nowIso = new Date().toISOString();
+          const initialTrackedOp: TrackedAsyncBulkOperation = {
+            kind: "async",
+            operationId: res.operationId,
+            dbId,
+            collection: config.collection,
+            type: "export",
+            status: "pending",
+            format: config.format,
+            processedDocuments: 0,
+            successfulDocuments: 0,
+            failedDocuments: 0,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            hasAuthoritativeExpiresAt: false,
+          };
+          options?.onOperationStart?.(initialTrackedOp);
+
           safeSetState("exporting");
           pollingStartTimeRef.current = Date.now();
 
-          // Begin polling
-          pollingTimerRef.current = setTimeout(() => {
-            pollStatus(res.operationId);
-          }, currentIntervalRef.current);
+          // Centralized polling delegation invariant:
+          // In delegated mode (externalPolling === true), do NOT start internal poller!
+          if (!options?.externalPolling) {
+            pollingTimerRef.current = setTimeout(() => {
+              pollStatus(res.operationId);
+            }, currentIntervalRef.current);
+          }
         } catch (err: unknown) {
           if (isCancelledRef.current) {
             safeSetState("cancelled");
@@ -503,6 +568,7 @@ export function useMongoBulkExport(
       safeSetError,
       safeSetWarning,
       safeSetDestinationPath,
+      options,
     ],
   );
 
@@ -556,14 +622,12 @@ export function useMongoBulkExport(
         const code = typeof errRecord?.code === "string" ? errRecord.code : "";
         const msg = err instanceof Error ? err.message : String(err);
 
-        // MONGO_FILE_EXISTS: revert to ready-to-save, reset saveStatus, re-throw for overwrite prompt
         if (code === "MONGO_FILE_EXISTS" || msg.includes("MONGO_FILE_EXISTS") || msg.includes("already exists")) {
           safeSetSaveStatus("not_saved");
           safeSetState("ready-to-save");
           throw err;
         }
 
-        // Other save failures: mark save_failed, preserve source export for retry
         safeSetSaveStatus("save_failed");
         safeSetState("failed");
         safeSetError(msg);
@@ -614,5 +678,6 @@ export function useMongoBulkExport(
     saveToFile,
     reset,
     unmount: handleUnmount,
+    syncExternalStatus,
   };
 }

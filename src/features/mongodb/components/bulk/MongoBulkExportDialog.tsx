@@ -50,11 +50,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { hasTauriInvoke } from "@/services/bridge/bridgeClient";
-import type { MongoBulkFormat } from "../../types/bulk";
+import type { MongoBulkFormat, TrackedAsyncBulkOperation } from "../../types/bulk";
 import {
   useMongoBulkExport,
   type BulkExportServiceContract,
 } from "../../hooks/useMongoBulkExport";
+import { useMongoBulkOperationsStore } from "../../hooks/useMongoBulkOperationsStore";
 import { validateCollectionName } from "../../utils/validation";
 
 export interface MongoBulkExportDialogProps {
@@ -66,6 +67,9 @@ export interface MongoBulkExportDialogProps {
   initialFilter?: Record<string, unknown>;
   service?: BulkExportServiceContract;
   onExportComplete?: () => void;
+  cancelOnUnmount?: boolean;
+  externalPolling?: boolean;
+  onOperationStart?: (operation: TrackedAsyncBulkOperation) => void;
 }
 
 export function formatBytes(bytes: number): string {
@@ -84,6 +88,9 @@ export function MongoBulkExportDialog({
   initialFilter,
   service,
   onExportComplete,
+  cancelOnUnmount,
+  externalPolling,
+  onOperationStart,
 }: MongoBulkExportDialogProps) {
   const collectionInputId = useId();
   const filterInputId = useId();
@@ -116,6 +123,7 @@ export function MongoBulkExportDialog({
     state: exportState,
     saveStatus,
     progress,
+    operationId,
     error: exportError,
     warning: exportWarning,
     destinationPath: savedDestinationPath,
@@ -123,7 +131,30 @@ export function MongoBulkExportDialog({
     cancelExport,
     saveToFile,
     reset: resetExport,
-  } = useMongoBulkExport(dbId, service);
+    syncExternalStatus,
+  } = useMongoBulkExport(dbId, service, {
+    cancelOnUnmount,
+    externalPolling,
+    onOperationStart,
+  });
+
+  // Wire reactive store subscription when externalPolling === true
+  const store = useMongoBulkOperationsStore({ service });
+  useEffect(() => {
+    if (!externalPolling || !operationId) return;
+    const dbOps = store.operationsByDb[dbId] || [];
+    const op = dbOps.find((entry) => entry.kind === "async" && entry.operationId === operationId);
+    if (op && op.kind === "async") {
+      syncExternalStatus({
+        status: op.status,
+        processedDocuments: op.processedDocuments,
+        successfulDocuments: op.successfulDocuments,
+        failedDocuments: op.failedDocuments,
+        fileSizeBytes: op.fileSizeBytes,
+        error: op.error,
+      });
+    }
+  }, [externalPolling, operationId, store.operationsByDb, dbId, syncExternalStatus]);
 
   // Initialize/reset form when dialog opens
   useEffect(() => {
@@ -357,23 +388,26 @@ export function MongoBulkExportDialog({
   const handleOpenChange = useCallback(
     async (nextOpen: boolean) => {
       if (!nextOpen) {
-        if (exportState === "starting" || exportState === "exporting") {
-          try {
-            await cancelExport();
-          } catch {
-            // ignore
-          }
-        } else if (exportState === "ready-to-save") {
-          try {
-            await resetExport();
-          } catch {
-            // ignore
+        const shouldCancel = cancelOnUnmount ?? true;
+        if (shouldCancel) {
+          if (exportState === "starting" || exportState === "exporting") {
+            try {
+              await cancelExport();
+            } catch {
+              // ignore
+            }
+          } else if (exportState === "ready-to-save") {
+            try {
+              await resetExport();
+            } catch {
+              // ignore
+            }
           }
         }
       }
       onOpenChange(nextOpen);
     },
-    [exportState, cancelExport, resetExport, onOpenChange],
+    [exportState, cancelExport, resetExport, onOpenChange, cancelOnUnmount],
   );
 
   const isConfigValid =

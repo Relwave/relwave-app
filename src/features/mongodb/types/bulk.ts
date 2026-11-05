@@ -217,7 +217,7 @@ export interface MongoBulkDeleteResult {
 }
 
 // ===========================================================================
-// Frontend Tracking & Operation History Interfaces (Section 7 / Section 13)
+// Frontend Tracking & Operation History Interfaces (Stage 5 Extension)
 // ===========================================================================
 
 /**
@@ -232,16 +232,18 @@ export interface TrackedAsyncBulkOperation {
   status: MongoBulkOperationStatus | "stale";
   saveStatus?: "not_saved" | "saving" | "saved" | "save_failed";
   isUnreachable?: boolean;
-  format?: string;
+  format?: MongoBulkFormat | string;
   processedDocuments: number;
   successfulDocuments: number;
   failedDocuments: number;
   fileSizeBytes?: number;
   destinationPath?: string;
+  warning?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
+  hasAuthoritativeExpiresAt?: boolean; // True once reconciled from bridge status RPC
 }
 
 /**
@@ -249,7 +251,7 @@ export interface TrackedAsyncBulkOperation {
  */
 export interface TrackedSyncBulkMutation {
   kind: "sync";
-  id: string;
+  id: string; // Client-generated UUIDv4
   dbId: string;
   collection: string;
   type: "insert" | "update" | "delete";
@@ -272,6 +274,71 @@ export interface PollerControl {
   inFlight: boolean;
   consecutiveErrors: number;
   isCancelled: boolean;
+}
+
+export interface ImportExecutionControl {
+  abortController: AbortController;
+  cancelFn: () => Promise<void>;
+  activeCancellationPromise?: Promise<void> | null;
+}
+
+export interface ImportProgress {
+  documentsParsed: number;
+  documentsSubmitted: number;
+  documentsAcknowledged: number;
+  totalInserted: number;
+  totalFailed: number;
+  bytesAcknowledged: number;
+  cumulativeBytesSent: number;
+  currentChunkIndex: number;
+  totalChunksExpected?: number;
+}
+
+export interface BulkImportOptions {
+  cancelOnUnmount?: boolean;
+  onOperationStart?: (
+    operation: TrackedAsyncBulkOperation,
+    abortController: AbortController,
+    cancelFn: () => Promise<void>,
+  ) => void;
+  onChunkAcknowledged?: (
+    progress: ImportProgress,
+    chunkResult: MongoBulkImportChunkResult,
+  ) => void;
+  onTerminalState?: (operationId: string, status: MongoBulkOperationStatus, error?: string) => void;
+}
+
+export interface MongoBulkExportOptions {
+  pollingTimeoutMs?: number;
+  initialIntervalMs?: number;
+  maxIntervalMs?: number;
+  cancelOnUnmount?: boolean;
+  externalPolling?: boolean;
+  onOperationStart?: (operation: TrackedAsyncBulkOperation) => void;
+}
+
+export interface MongoBulkOperationsState {
+  operationsByDb: Record<string, BulkHistoryEntry[]>;
+  activePollers: Map<string, PollerControl>;
+  activeExecutionControls: Map<string, ImportExecutionControl>;
+
+  // Actions
+  registerAsyncOperation: (
+    dbId: string,
+    op: TrackedAsyncBulkOperation,
+    control?: ImportExecutionControl,
+  ) => void;
+  updateAsyncOperation: (operationId: string, patch: Partial<TrackedAsyncBulkOperation>) => void;
+  registerSyncMutation: (dbId: string, mutation: TrackedSyncBulkMutation) => void;
+  updateSyncMutation: (id: string, patch: Partial<TrackedSyncBulkMutation>) => void;
+  markOperationStale: (operationId: string, reason: string) => void;
+  setOperationUnreachable: (operationId: string, unreachable: boolean) => void;
+  retryPolling: (operationId: string) => void;
+  cancelOperation: (operationId: string) => Promise<void>;
+  cleanupOperation: (operationId: string) => Promise<void>;
+  removeOperation: (operationId: string) => void;
+  clearExpiredOperations: (dbId: string) => void;
+  resetStore: () => void;
 }
 
 // ===========================================================================

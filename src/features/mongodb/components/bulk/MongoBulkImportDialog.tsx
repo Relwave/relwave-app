@@ -39,8 +39,18 @@ import {
   FileCode,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { MongoBulkDocument, MongoBulkFormat } from "../../types/bulk";
-import { useMongoBulkImport } from "../../hooks/useMongoBulkImport";
+import type {
+  MongoBulkDocument,
+  MongoBulkFormat,
+  TrackedAsyncBulkOperation,
+  MongoBulkOperationStatus,
+  MongoBulkImportChunkResult,
+} from "../../types/bulk";
+import {
+  useMongoBulkImport,
+  type BulkImportServiceContract,
+  type ImportProgress,
+} from "../../hooks/useMongoBulkImport";
 import { previewImportFile } from "../../utils/importReader";
 import { validateFileSize, MAX_IMPORT_TOTAL_SIZE_BYTES } from "../../utils/payloadAccounting";
 import { validateCollectionName } from "../../utils/validation";
@@ -52,6 +62,18 @@ export interface MongoBulkImportDialogProps {
   databaseName: string;
   defaultCollection?: string;
   onImportComplete?: () => void;
+  service?: BulkImportServiceContract;
+  cancelOnUnmount?: boolean;
+  onOperationStart?: (
+    operation: TrackedAsyncBulkOperation,
+    abortController: AbortController,
+    cancelFn: () => Promise<void>,
+  ) => void;
+  onChunkAcknowledged?: (
+    progress: ImportProgress,
+    chunkResult: MongoBulkImportChunkResult,
+  ) => void;
+  onTerminalState?: (operationId: string, status: MongoBulkOperationStatus, error?: string) => void;
 }
 
 type DialogStep = "select-file" | "preview" | "uploading" | "summary";
@@ -78,6 +100,11 @@ export function MongoBulkImportDialog({
   databaseName,
   defaultCollection = "",
   onImportComplete,
+  service,
+  cancelOnUnmount,
+  onOperationStart,
+  onChunkAcknowledged,
+  onTerminalState,
 }: MongoBulkImportDialogProps) {
   const [step, setStep] = useState<DialogStep>("select-file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -102,7 +129,12 @@ export function MongoBulkImportDialog({
     startImport,
     cancelImport,
     reset: resetImport,
-  } = useMongoBulkImport(dbId);
+  } = useMongoBulkImport(dbId, service, {
+    cancelOnUnmount,
+    onOperationStart,
+    onChunkAcknowledged,
+    onTerminalState,
+  });
 
   // Reset when dialog opens
   useEffect(() => {
@@ -227,21 +259,24 @@ export function MongoBulkImportDialog({
   const handleOpenChange = useCallback(
     async (nextOpen: boolean) => {
       if (!nextOpen) {
-        if (
-          importState === "validating" ||
-          importState === "starting" ||
-          importState === "uploading"
-        ) {
-          try {
-            await cancelImport();
-          } catch {
-            // ignore
+        const shouldCancel = cancelOnUnmount ?? true;
+        if (shouldCancel) {
+          if (
+            importState === "validating" ||
+            importState === "starting" ||
+            importState === "uploading"
+          ) {
+            try {
+              await cancelImport();
+            } catch {
+              // ignore
+            }
           }
         }
       }
       onOpenChange(nextOpen);
     },
-    [importState, cancelImport, onOpenChange],
+    [importState, cancelImport, onOpenChange, cancelOnUnmount],
   );
 
   return (

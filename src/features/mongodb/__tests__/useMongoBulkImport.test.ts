@@ -12,6 +12,9 @@
  * - Handshake cancellation safety (no orphaned operations)
  * - Final operation completion and status reconciliation
  * - Hook-level duplicate import prevention and cancellation deduplication
+ * - Stage 5 cancellation between chunks (halts reader, 0 subsequent chunks, 1 cancel RPC)
+ * - Stage 5 in-flight chunk success/failure progress reconciliation
+ * - Stage 5 delegated unmount (cancelOnUnmount: false) vs standalone unmount (cancelOnUnmount: true)
  */
 
 import { describe, it } from "node:test";
@@ -335,7 +338,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       ZeroDocumentImportError,
     );
 
-    // Crucial check: startMongoBulkImport was NEVER called!
     assert.equal(mockService.calls.start.length, 0);
     assert.equal(mockService.calls.chunk.length, 0);
     assert.deepEqual(tracker.stateTransitions, ["validating", "failed"]);
@@ -473,7 +475,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       },
     );
 
-    // Initial attempt 0 only: NO retry on MONGO_VALIDATION_ERROR!
     assert.equal(attempts, 1);
     assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "failed"]);
   });
@@ -526,7 +527,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     const mockService = createMockService({
       importMongoBulkChunk: async (req) => {
         if (req.chunkIndex === 0) {
-          // Trigger abort while chunk 0 is in flight
           abortController.abort();
           await new Promise((resolve) => setTimeout(resolve, 20));
           inFlightChunkCompleted = true;
@@ -556,19 +556,110 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       mockService,
     );
 
-    // Verify in-flight chunk was awaited and completed
     assert.equal(inFlightChunkCompleted, true);
-    // Verify progress acknowledged the in-flight chunk
     assert.equal(tracker.progress.documentsAcknowledged, 1000);
     assert.equal(tracker.progress.totalInserted, 1000);
 
-    // Verify cancellation was sent to bridge and state marked cancelled
     assert.equal(mockService.calls.cancel.length, 1);
     assert.equal(mockService.calls.cancel[0].operationId, "mock-op-123");
     assert.ok(tracker.stateTransitions.includes("cancelled"));
-
-    // Did not send chunk 1
     assert.equal(mockService.calls.chunk.length, 1);
+  });
+
+  it("cancellation between chunks halts reader, submits zero subsequent chunks, and dispatches 1 cancel RPC", async () => {
+    // 3000 documents -> 3 chunks (chunk 0, 1, 2)
+    const docs = Array.from({ length: 3000 }, (_, i) => ({ id: i }));
+    const file = new File([JSON.stringify(docs)], "multi_cancel.json", { type: "application/json" });
+    const abortController = new AbortController();
+
+    const mockService = createMockService({
+      importMongoBulkChunk: async (req) => {
+        return {
+          operationId: req.operationId,
+          chunkIndex: req.chunkIndex,
+          insertedCount: 1000,
+          failedCount: 0,
+          totalInserted: (req.chunkIndex + 1) * 1000,
+          totalFailed: 0,
+          status: "in_progress",
+          isComplete: false,
+        };
+      },
+    });
+
+    const tracker = createCallbackTracker();
+
+    // Trigger abort right after chunk 0 acknowledges
+    const origOnProgress = tracker.callbacks.onProgressChange;
+    tracker.callbacks.onProgressChange = (updater) => {
+      origOnProgress(updater);
+      if (tracker.progress.documentsAcknowledged === 1000) {
+        abortController.abort();
+      }
+    };
+
+    await executeMongoBulkImport(
+      "db-1",
+      file,
+      "users",
+      "json",
+      abortController,
+      tracker.callbacks,
+      mockService,
+    );
+
+    // Only chunk 0 was submitted; zero subsequent chunks (chunk 1 and 2 halted)
+    assert.equal(mockService.calls.chunk.length, 1);
+    assert.equal(mockService.calls.cancel.length, 1);
+    assert.equal(tracker.progress.documentsAcknowledged, 1000);
+    assert.equal(tracker.stateTransitions[tracker.stateTransitions.length - 1], "cancelled");
+  });
+
+  it("failed in-flight chunk preserves previous acknowledged counts and transitions to cancelled", async () => {
+    const docs = Array.from({ length: 2500 }, (_, i) => ({ id: i }));
+    const file = new File([JSON.stringify(docs)], "chunk_fail_cancel.json", { type: "application/json" });
+    const abortController = new AbortController();
+
+    const mockService = createMockService({
+      importMongoBulkChunk: async (req) => {
+        if (req.chunkIndex === 0) {
+          return {
+            operationId: req.operationId,
+            chunkIndex: 0,
+            insertedCount: 1000,
+            failedCount: 0,
+            totalInserted: 1000,
+            totalFailed: 0,
+            status: "in_progress",
+            isComplete: false,
+          };
+        }
+        // Chunk 1 is aborted while in flight, then fails
+        abortController.abort();
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        const err = new Error("Transport failure while aborting");
+        (err as unknown as Record<string, unknown>).code = "ECONNRESET";
+        throw err;
+      },
+    });
+
+    const tracker = createCallbackTracker();
+
+    await executeMongoBulkImport(
+      "db-1",
+      file,
+      "users",
+      "json",
+      abortController,
+      tracker.callbacks,
+      mockService,
+    );
+
+    // Acknowledged count strictly preserved from successful chunk 0
+    assert.equal(tracker.progress.documentsAcknowledged, 1000);
+    assert.equal(tracker.progress.totalInserted, 1000);
+    assert.equal(mockService.calls.cancel.length, 1);
+    assert.equal(tracker.stateTransitions[tracker.stateTransitions.length - 1], "cancelled");
   });
 
   it("cancels bridge operation immediately if cancelled during startMongoBulkImport handshake", async () => {
@@ -577,7 +668,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const mockService = createMockService({
       startMongoBulkImport: async (req) => {
-        // Cancel while startMongoBulkImport handshake is in-flight
         abortController.abort();
         return {
           operationId: "handshake-cancelled-op-456",
@@ -601,11 +691,9 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       mockService,
     );
 
-    // Verify bridge cancel was called immediately for the new operationId so it is not orphaned
     assert.equal(mockService.calls.cancel.length, 1);
     assert.equal(mockService.calls.cancel[0].operationId, "handshake-cancelled-op-456");
     assert.equal(tracker.stateTransitions[tracker.stateTransitions.length - 1], "cancelled");
-    // Did not send any chunk
     assert.equal(mockService.calls.chunk.length, 0);
   });
 
@@ -628,7 +716,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
         };
       },
       cancelMongoBulkOperation: async () => {
-        // Bridge reports cancellation failed
         return {
           operationId: "mock-op-123",
           status: "failed",
@@ -669,13 +756,13 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
         failedCount: 0,
         totalInserted: 1,
         totalFailed: 0,
-        status: "in_progress", // final chunk still reports in_progress
+        status: "in_progress",
         isComplete: false,
       }),
       getMongoBulkOperationStatus: async (req) => ({
         operationId: req.operationId,
         type: "import",
-        status: "completed", // status query confirms completed
+        status: "completed",
         collection: "users",
         format: "json",
         processedDocuments: 1,
@@ -774,11 +861,8 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       },
     );
 
-    // Initial attempt + 2 retries = 3 attempts total
     assert.equal(attempts, 3);
     assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "failed"]);
-
-    // Verify cleanup was called after failure settled
     assert.equal(mockService.calls.cleanup.length, 1);
     assert.equal(mockService.calls.cleanup[0].operationId, "mock-op-123");
   });
@@ -789,7 +873,6 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const mockService = createMockService({
       importMongoBulkChunk: async (req) => {
-        // Delay to allow triggering concurrent import
         await new Promise((resolve) => setTimeout(resolve, 50));
         return {
           operationId: req.operationId,
@@ -811,10 +894,8 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     ReactDOMServer.renderToString(React.createElement(TestComp));
 
-    // Start first import
     const firstPromise = hookInstance.startImport(file, "users", "json");
 
-    // Immediately attempt second concurrent import
     await assert.rejects(
       async () => {
         await hookInstance.startImport(file, "users", "json");
@@ -854,14 +935,11 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const importPromise = hookInstance.startImport(file, "users", "json");
 
-    // Wait until import starts
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    // Trigger two concurrent cancelImport calls
     const cancelP1 = hookInstance.cancelImport();
     const cancelP2 = hookInstance.cancelImport();
 
-    // Verify both returned the exact same promise instance
     assert.strictEqual(cancelP1, cancelP2);
 
     await Promise.all([cancelP1, cancelP2]);
@@ -871,7 +949,114 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       // ignore abort error
     }
 
-    // Verify bridge cancel was called only once
     assert.equal(mockService.calls.cancel.length, 1);
+  });
+
+  it("delegated unmount (cancelOnUnmount: false) does not abort or cancel background import", async () => {
+    let cleanupFn: (() => void) | undefined;
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+
+    let hookInstance!: UseMongoBulkImportReturn;
+    const file = new File([JSON.stringify([{ id: 1 }])], "delegated.json", { type: "application/json" });
+
+    const mockService = createMockService({
+      importMongoBulkChunk: async (req) => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return {
+          operationId: req.operationId,
+          chunkIndex: 0,
+          insertedCount: 1,
+          failedCount: 0,
+          totalInserted: 1,
+          totalFailed: 0,
+          status: "completed",
+          isComplete: true,
+        };
+      },
+    });
+
+    function TestComp() {
+      const origUseEffect = internals.H.useEffect;
+      internals.H.useEffect = (cb: any) => {
+        const res = cb();
+        if (typeof res === "function") cleanupFn = res;
+      };
+      try {
+        hookInstance = useMongoBulkImport("db-1", mockService, { cancelOnUnmount: false });
+      } finally {
+        internals.H.useEffect = origUseEffect;
+      }
+      return null;
+    }
+    ReactDOMServer.renderToString(React.createElement(TestComp));
+
+    const importPromise = hookInstance.startImport(file, "users", "json");
+
+    // Unmount hook while import is running
+    assert.ok(cleanupFn, "Cleanup function must be captured");
+    cleanupFn!();
+
+    await importPromise;
+
+    // Zero cancel calls dispatched because cancelOnUnmount was false
+    assert.equal(mockService.calls.cancel.length, 0, "No cancel RPC should be sent when cancelOnUnmount is false");
+  });
+
+  it("standalone unmount (default cancelOnUnmount: true) dispatches cancel RPC to bridge", async () => {
+    let cleanupFn: (() => void) | undefined;
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+
+    let hookInstance!: UseMongoBulkImportReturn;
+    const file = new File([JSON.stringify([{ id: 1 }])], "standalone.json", { type: "application/json" });
+
+    const mockService = createMockService({
+      importMongoBulkChunk: async (req) => {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return {
+          operationId: req.operationId,
+          chunkIndex: 0,
+          insertedCount: 1,
+          failedCount: 0,
+          totalInserted: 1,
+          totalFailed: 0,
+          status: "completed",
+          isComplete: true,
+        };
+      },
+    });
+
+    function TestComp() {
+      const origUseEffect = internals.H.useEffect;
+      internals.H.useEffect = (cb: any) => {
+        const res = cb();
+        if (typeof res === "function") cleanupFn = res;
+      };
+      try {
+        hookInstance = useMongoBulkImport("db-1", mockService); // default cancelOnUnmount: true
+      } finally {
+        internals.H.useEffect = origUseEffect;
+      }
+      return null;
+    }
+    ReactDOMServer.renderToString(React.createElement(TestComp));
+
+    const importPromise = hookInstance.startImport(file, "users", "json");
+
+    // Wait until start handshake completes and operationId is set
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Unmount hook
+    assert.ok(cleanupFn, "Cleanup function must be captured");
+    cleanupFn!();
+
+    try {
+      await importPromise;
+    } catch {
+      // ignore
+    }
+
+    // Cancel RPC was dispatched to bridge
+    assert.ok(mockService.calls.cancel.length >= 1, "Cancel RPC must be sent upon unmount when cancelOnUnmount is true");
+    assert.equal(mockService.calls.cancel[0].operationId, "mock-op-123");
   });
 });

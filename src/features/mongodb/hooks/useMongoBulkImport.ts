@@ -12,6 +12,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { databaseService } from "@/services/bridge/database";
 import type {
   MongoBulkFormat,
+  MongoBulkOperationStatus,
   MongoBulkImportStartRequest,
   MongoBulkImportStartResult,
   MongoBulkImportChunkRequest,
@@ -22,6 +23,9 @@ import type {
   MongoBulkCleanupResult,
   MongoBulkGetOperationStatusRequest,
   MongoBulkOperationStatusResult,
+  TrackedAsyncBulkOperation,
+  BulkImportOptions,
+  ImportProgress,
 } from "../types/bulk";
 import {
   createIncrementalChunkReader,
@@ -34,6 +38,8 @@ import {
   ZeroDocumentImportError,
 } from "../utils/payloadAccounting";
 
+export type { ImportProgress, BulkImportOptions };
+
 export type ImportState =
   | "idle"
   | "validating"
@@ -43,18 +49,6 @@ export type ImportState =
   | "cancelled"
   | "completed"
   | "failed";
-
-export interface ImportProgress {
-  documentsParsed: number;
-  documentsSubmitted: number;
-  documentsAcknowledged: number;
-  totalInserted: number;
-  totalFailed: number;
-  bytesAcknowledged: number;
-  cumulativeBytesSent: number;
-  currentChunkIndex: number;
-  totalChunksExpected?: number;
-}
 
 export interface BulkImportServiceContract {
   startMongoBulkImport: (request: MongoBulkImportStartRequest) => Promise<MongoBulkImportStartResult>;
@@ -69,6 +63,9 @@ export interface BulkImportCallbacks {
   onProgressChange: (updater: (prev: ImportProgress) => ImportProgress) => void;
   onErrorChange: (error: string | null) => void;
   onOperationIdChange: (operationId: string | null) => void;
+  onOperationStart?: (operation: TrackedAsyncBulkOperation) => void;
+  onChunkAcknowledged?: (progress: ImportProgress, chunkResult: MongoBulkImportChunkResult) => void;
+  onTerminalState?: (operationId: string, status: MongoBulkOperationStatus, error?: string) => void;
   isMounted?: () => boolean;
 }
 
@@ -221,6 +218,7 @@ export async function executeMongoBulkImport(
             callbacks.onErrorChange(errorMsg);
           }
           callbacks.onStateChange("failed");
+          callbacks.onTerminalState?.(opId, "failed", errorMsg);
           const err = new Error(errorMsg);
           cancellationError = err;
           throw err;
@@ -231,11 +229,15 @@ export async function executeMongoBulkImport(
           callbacks.onErrorChange(errorMsg);
         }
         callbacks.onStateChange("failed");
+        callbacks.onTerminalState?.(opId, "failed", errorMsg);
         cancellationError = err;
         throw err;
       }
     }
     callbacks.onStateChange("cancelled");
+    if (opId) {
+      callbacks.onTerminalState?.(opId, "cancelled");
+    }
   }
 
   try {
@@ -244,8 +246,6 @@ export async function executeMongoBulkImport(
       signal: abortController.signal,
     });
 
-    // Advance reader to read the first chunk. If file has 0 documents (empty file, empty array, header-only CSV),
-    // reader.next() will immediately throw ZeroDocumentImportError before startMongoBulkImport is called!
     const firstChunkResult = await reader.next();
     if (firstChunkResult.done) {
       throw new ZeroDocumentImportError("File contains no documents to import.");
@@ -268,7 +268,26 @@ export async function executeMongoBulkImport(
     currentOpId = startResult.operationId;
     callbacks.onOperationIdChange(currentOpId);
 
-    // If cancellation arrived while handshake was in flight, cancel bridge operation immediately!
+    // Stage 5 Initial status registration: preserves bridge "pending"
+    const nowIso = new Date().toISOString();
+    const initialTrackedOp: TrackedAsyncBulkOperation = {
+      kind: "async",
+      operationId: currentOpId,
+      dbId,
+      collection: targetCollection,
+      type: "import",
+      status: "pending",
+      format: importFormat,
+      processedDocuments: 0,
+      successfulDocuments: 0,
+      failedDocuments: 0,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      hasAuthoritativeExpiresAt: false,
+    };
+    callbacks.onOperationStart?.(initialTrackedOp);
+
     if (abortController.signal.aborted) {
       await handleCancellation(currentOpId);
       return;
@@ -283,7 +302,6 @@ export async function executeMongoBulkImport(
         return;
       }
 
-      // Pre-send cumulative 16 MB session limit check
       if (cumulativeBytesSent + chunk.byteLength > MAX_IMPORT_TOTAL_SIZE_BYTES) {
         throw new ImportLimitExceededError(
           `Import halted: next chunk would exceed the cumulative 16 MB session limit ` +
@@ -296,15 +314,18 @@ export async function executeMongoBulkImport(
       docsSubmitted += chunk.documentCount;
       cumulativeBytesSent += chunk.byteLength;
 
-      callbacks.onProgressChange((prev) => ({
-        ...prev,
+      const progressSnapshot: ImportProgress = {
         documentsParsed: docsParsed,
         documentsSubmitted: docsSubmitted,
+        documentsAcknowledged: docsAcknowledged,
+        totalInserted: totalInsertedDocs,
+        totalFailed: totalFailedDocs,
+        bytesAcknowledged: bytesAck,
         cumulativeBytesSent,
         currentChunkIndex: chunk.chunkIndex,
-      }));
+      };
+      callbacks.onProgressChange(() => progressSnapshot);
 
-      // Send chunk with automatic idempotent retry for transient transport failures
       let lastChunkError: unknown = null;
       let chunkSuccess = false;
       let lastChunkRes: MongoBulkImportChunkResult | null = null;
@@ -312,7 +333,6 @@ export async function executeMongoBulkImport(
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          // Track chunk promise so that if cancellation triggers while in-flight, it is awaited
           const chunkPromise = service.importMongoBulkChunk({
             operationId: currentOpId as string,
             chunkIndex: chunk.chunkIndex,
@@ -328,13 +348,19 @@ export async function executeMongoBulkImport(
           totalFailedDocs = res.totalFailed;
           bytesAck += chunk.byteLength;
 
-          callbacks.onProgressChange((prev) => ({
-            ...prev,
+          const updatedProgress: ImportProgress = {
+            documentsParsed: docsParsed,
+            documentsSubmitted: docsSubmitted,
             documentsAcknowledged: docsAcknowledged,
             totalInserted: totalInsertedDocs,
             totalFailed: totalFailedDocs,
             bytesAcknowledged: bytesAck,
-          }));
+            cumulativeBytesSent,
+            currentChunkIndex: chunk.chunkIndex,
+          };
+
+          callbacks.onProgressChange(() => updatedProgress);
+          callbacks.onChunkAcknowledged?.(updatedProgress, res);
 
           chunkSuccess = true;
           break;
@@ -343,26 +369,21 @@ export async function executeMongoBulkImport(
           const errStr = String(err);
           const errCode = (err as Record<string, unknown>)?.code;
 
-          // If cancelled during in-flight chunk failure
           if (abortController.signal.aborted) {
             break;
           }
 
-          // MONGO_NOT_FOUND: unavailable session / bridge restarted. Immediate halt without retry!
           if (errStr.includes("MONGO_NOT_FOUND") || errCode === "MONGO_NOT_FOUND") {
             throw new Error(
               `MONGO_NOT_FOUND: Operation session is no longer available in bridge memory. ${totalInsertedDocs} documents remain committed.`,
             );
           }
 
-          // Classify transient vs non-retryable
           if (!isTransientTransportError(err)) {
-            // Non-retryable terminal error
             throw err;
           }
 
           if (attempt < maxRetries) {
-            // Exponential backoff between retries (50ms -> 100ms)
             await new Promise((resolve) => setTimeout(resolve, 50 * Math.pow(2, attempt)));
           }
         }
@@ -377,21 +398,19 @@ export async function executeMongoBulkImport(
         throw lastChunkError;
       }
 
-      // If this was the last chunk, verify final completion status
       if (chunk.isLastChunk) {
         if (lastChunkRes.status === "failed") {
           const errorMsg = `Bulk import failed on final chunk for operation ${currentOpId}`;
           callbacks.onErrorChange(errorMsg);
           callbacks.onStateChange("failed");
+          callbacks.onTerminalState?.(currentOpId as string, "failed", errorMsg);
           throw new Error(errorMsg);
         }
 
         if (lastChunkRes.status === "completed" && lastChunkRes.isComplete === true) {
-          // Fully verified completed
           return;
         }
 
-        // Status remained in_progress or isComplete is false: reconcile via getMongoBulkOperationStatus
         if (service.getMongoBulkOperationStatus) {
           const statusRes = await service.getMongoBulkOperationStatus({
             operationId: currentOpId as string,
@@ -402,17 +421,20 @@ export async function executeMongoBulkImport(
             const errorMsg = statusRes.error ?? `Operation ${currentOpId} failed on bridge`;
             callbacks.onErrorChange(errorMsg);
             callbacks.onStateChange("failed");
+            callbacks.onTerminalState?.(currentOpId as string, "failed", errorMsg);
             throw new Error(errorMsg);
           } else {
             const errorMsg = `Operation ${currentOpId} remained in_progress after final chunk`;
             callbacks.onErrorChange(errorMsg);
             callbacks.onStateChange("failed");
+            callbacks.onTerminalState?.(currentOpId as string, "failed", errorMsg);
             throw new Error(errorMsg);
           }
         } else {
           const errorMsg = `Operation ${currentOpId} not marked complete after final chunk`;
           callbacks.onErrorChange(errorMsg);
           callbacks.onStateChange("failed");
+          callbacks.onTerminalState?.(currentOpId as string, "failed", errorMsg);
           throw new Error(errorMsg);
         }
       }
@@ -447,6 +469,9 @@ export async function executeMongoBulkImport(
 
     // Upload loop finished successfully
     callbacks.onStateChange("completed");
+    if (currentOpId) {
+      callbacks.onTerminalState?.(currentOpId, "completed");
+    }
   } catch (err: unknown) {
     if (cancellationError || err === cancellationError) {
       throw (cancellationError ?? err);
@@ -466,8 +491,10 @@ export async function executeMongoBulkImport(
       callbacks.onErrorChange(msg);
     }
     callbacks.onStateChange("failed");
+    if (currentOpId) {
+      callbacks.onTerminalState?.(currentOpId, "failed", msg);
+    }
 
-    // Cleanup operation on failure ONLY after operation has settled and failed (not cancelling/in-progress)
     if (currentOpId && !abortController.signal.aborted) {
       try {
         await service.cleanupMongoBulkOperation({ operationId: currentOpId });
@@ -482,6 +509,7 @@ export async function executeMongoBulkImport(
 export function useMongoBulkImport(
   dbId: string,
   service: BulkImportServiceContract = databaseService,
+  options?: BulkImportOptions,
 ): UseMongoBulkImportReturn {
   const [state, setState] = useState<ImportState>("idle");
   const [progress, setProgress] = useState<ImportProgress>(INITIAL_IMPORT_PROGRESS);
@@ -496,22 +524,25 @@ export function useMongoBulkImport(
   const activeExecutionPromiseRef = useRef<Promise<void> | null>(null);
   const activeCancellationPromiseRef = useRef<Promise<void> | null>(null);
 
-  // Keep ref synchronized with state for callbacks
+  // Unmount cleanup with Stage 5 delegation support
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const currentOpId = operationIdRef.current;
-      if (currentOpId) {
-        service.cancelMongoBulkOperation({ operationId: currentOpId }).catch((err: unknown) => {
-          console.warn("Unmount cancellation error:", err);
-        });
+      const shouldCancel = options?.cancelOnUnmount ?? true;
+      if (shouldCancel) {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        const currentOpId = operationIdRef.current;
+        if (currentOpId) {
+          service.cancelMongoBulkOperation({ operationId: currentOpId }).catch((err: unknown) => {
+            console.warn("Unmount cancellation error:", err);
+          });
+        }
       }
     };
-  }, [service]);
+  }, [service, options?.cancelOnUnmount]);
 
   const safeSetState = useCallback((stateOrUpdater: ImportState | ((prev: ImportState) => ImportState)) => {
     if (isMountedRef.current) {
@@ -526,7 +557,6 @@ export function useMongoBulkImport(
   }, []);
 
   const cancelImport = useCallback((): Promise<void> => {
-    // If a cancellation is already in flight, return the existing cancellation promise
     if (activeCancellationPromiseRef.current) {
       return activeCancellationPromiseRef.current;
     }
@@ -537,7 +567,6 @@ export function useMongoBulkImport(
         abortControllerRef.current.abort();
       }
 
-      // If active execution is in progress, await it so in-flight chunks and handshake complete/cancel
       const activeExec = activeExecutionPromiseRef.current;
       if (activeExec) {
         try {
@@ -603,7 +632,6 @@ export function useMongoBulkImport(
 
   const startImport = useCallback(
     async (file: File, targetCollection: string, importFormat: MongoBulkFormat): Promise<void> => {
-      // Prevent duplicate imports
       if (activeExecutionPromiseRef.current) {
         throw new Error("An import operation is already in progress");
       }
@@ -634,6 +662,11 @@ export function useMongoBulkImport(
                 operationIdRef.current = opId;
                 if (isMountedRef.current) setOperationId(opId);
               },
+              onOperationStart: (trackedOp) => {
+                options?.onOperationStart?.(trackedOp, abortController, cancelImport);
+              },
+              onChunkAcknowledged: options?.onChunkAcknowledged,
+              onTerminalState: options?.onTerminalState,
               isMounted: () => isMountedRef.current,
             },
             service,
@@ -646,7 +679,7 @@ export function useMongoBulkImport(
       activeExecutionPromiseRef.current = execPromise;
       await execPromise;
     },
-    [dbId, safeSetState, safeSetProgress, service],
+    [dbId, safeSetState, safeSetProgress, service, cancelImport, options],
   );
 
   return {
