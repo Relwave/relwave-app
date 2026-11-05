@@ -247,6 +247,15 @@ export interface TrackedAsyncBulkOperation {
 }
 
 /**
+ * Structured mutation error matching bridge MongoBulkInsertResult.errors
+ */
+export interface TrackedBulkMutationError {
+  index: number;
+  code: string;
+  message: string;
+}
+
+/**
  * Synchronous Frontend-Managed Mutation History (insert, update, delete).
  */
 export interface TrackedSyncBulkMutation {
@@ -255,7 +264,7 @@ export interface TrackedSyncBulkMutation {
   dbId: string;
   collection: string;
   type: "insert" | "update" | "delete";
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "partial_success" | "failed";
   timestamp: string;
   matchedCount?: number;
   modifiedCount?: number;
@@ -265,6 +274,8 @@ export interface TrackedSyncBulkMutation {
   upsertedId?: unknown;
   advisoryWarning?: string;
   error?: string;
+  errors?: TrackedBulkMutationError[];
+  totalErrors?: number;
 }
 
 export type BulkHistoryEntry = TrackedAsyncBulkOperation | TrackedSyncBulkMutation;

@@ -123,6 +123,7 @@ export function MongoBulkOperationsHistory({
             <option value="all">All Statuses</option>
             <option value="active">Active</option>
             <option value="completed">Completed</option>
+            <option value="partial_success">Partial Success</option>
             <option value="failed">Failed</option>
             <option value="cancelled">Cancelled</option>
             <option value="stale">Stale</option>
@@ -198,18 +199,27 @@ export function MongoBulkOperationsHistory({
                       {/* Status */}
                       <td className="px-3.5 py-2.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <Badge
-                            variant={
-                              entry.status === "completed"
-                                ? "default"
-                                : entry.status === "failed"
-                                  ? "destructive"
-                                  : "secondary"
-                            }
-                            className="capitalize text-[10px]"
-                          >
-                            {entry.status}
-                          </Badge>
+                          {entry.status === "partial_success" ? (
+                            <Badge
+                              variant="outline"
+                              className="capitalize text-[10px] text-amber-500 border-amber-500/40"
+                            >
+                              Partial Success
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant={
+                                entry.status === "completed"
+                                  ? "default"
+                                  : entry.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                              className="capitalize text-[10px]"
+                            >
+                              {entry.status}
+                            </Badge>
+                          )}
                           {isAsync && entry.isUnreachable && (
                             <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/40">
                               Unreachable
@@ -232,6 +242,10 @@ export function MongoBulkOperationsHistory({
                               </span>
                             )}
                           </div>
+                        ) : entry.status === "partial_success" ? (
+                          <span className="text-amber-500 font-medium">
+                            {entry.insertedCount ?? 0} inserted, {entry.failedCount ?? 0} failed
+                          </span>
                         ) : (
                           <span>
                             {entry.modifiedCount ?? entry.insertedCount ?? entry.deletedCount ?? 0} docs
