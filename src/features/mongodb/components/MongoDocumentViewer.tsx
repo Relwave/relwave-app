@@ -21,6 +21,9 @@ import {
   RefreshCw,
   Database,
   Plus,
+  Upload,
+  Download,
+  FileEdit,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +49,10 @@ export function MongoDocumentViewer({
   onInsertDocument,
   onEditDocument,
   onDeleteDocument,
+  onImportClick,
+  onExportClick,
+  onBulkMutationClick,
+  isReadOnly,
 }: {
   collection: string;
   documents: EJSONDocument[];
@@ -68,6 +75,10 @@ export function MongoDocumentViewer({
   onInsertDocument?: () => void;
   onEditDocument?: (doc: EJSONDocument) => void;
   onDeleteDocument?: (doc: EJSONDocument) => void;
+  onImportClick?: () => void;
+  onExportClick?: () => void;
+  onBulkMutationClick?: () => void;
+  isReadOnly?: boolean;
 }) {
   const [copiedAll, setCopiedAll] = useState(false);
 
@@ -94,6 +105,7 @@ export function MongoDocumentViewer({
 
   const startDoc = (page - 1) * pageSize + 1;
   const endDoc = Math.min(page * pageSize, totalDocuments);
+  const isSystemCollection = collection ? collection.startsWith("system.") : false;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
@@ -117,6 +129,50 @@ export function MongoDocumentViewer({
             >
               <Plus className="h-3.5 w-3.5" />
               Insert Document
+            </Button>
+          )}
+
+          {onImportClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onImportClick}
+              disabled={isLoading || !collection || isReadOnly || isSystemCollection}
+              title={isSystemCollection ? "System collections are protected against imports" : undefined}
+              data-testid="toolbar-bulk-import-button"
+              className="h-9 gap-1.5 text-xs"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </Button>
+          )}
+
+          {onExportClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportClick}
+              disabled={isLoading || !collection}
+              data-testid="toolbar-bulk-export-button"
+              className="h-9 gap-1.5 text-xs"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+          )}
+
+          {onBulkMutationClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBulkMutationClick}
+              disabled={isLoading || !collection || isReadOnly || isSystemCollection}
+              title={isSystemCollection ? "System collections cannot be modified" : undefined}
+              data-testid="toolbar-bulk-mutation-button"
+              className="h-9 gap-1.5 text-xs"
+            >
+              <FileEdit className="h-3.5 w-3.5" />
+              Bulk Mutations
             </Button>
           )}
 

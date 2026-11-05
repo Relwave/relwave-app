@@ -20,13 +20,16 @@ test("Navigation Routing - MongoDB returns dedicated panel items", () => {
     "mongo-aggregation",
     "mongo-migrations",
     "mongo-relationships",
+    "mongo-bulk",
   ]);
   assert.strictEqual(mongoItems[0].label, "Data View");
   assert.strictEqual(mongoItems[1].label, "Query Workspace");
   assert.strictEqual(mongoItems[2].label, "Aggregation Builder");
   assert.strictEqual(mongoItems[3].label, "Migrations");
   assert.strictEqual(mongoItems[4].label, "Relationships");
+  assert.strictEqual(mongoItems[5].label, "Bulk Operations");
   assert.ok(mongoItems[4].icon, "Relationships item must have an icon defined");
+  assert.ok(mongoItems[5].icon, "Bulk Operations item must have an icon defined");
 
   // Case-insensitive test
   const mongoUpperItems = getDatabasePanelItems("MongoDB");
@@ -36,6 +39,7 @@ test("Navigation Routing - MongoDB returns dedicated panel items", () => {
     "mongo-aggregation",
     "mongo-migrations",
     "mongo-relationships",
+    "mongo-bulk",
   ]);
 });
 
@@ -55,6 +59,7 @@ test("Navigation Routing - Relational databases retain full SQL suite without re
     assert.ok(panelKeys.includes("git-status"), `${db} must retain git-status`);
     assert.ok(!panelKeys.includes("mongo-workspace"), `${db} must not contain mongo-workspace`);
     assert.ok(!panelKeys.includes("mongo-aggregation"), `${db} must not contain mongo-aggregation`);
+    assert.ok(!panelKeys.includes("mongo-bulk"), `${db} must not contain mongo-bulk`);
   }
 });
 

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { useMongoDatabaseDetails } from "../hooks/useMongoDatabaseDetails";
+import { useDatabase } from "@/features/project/hooks/useDbQueries";
 import { MongoCollectionsSidebar } from "./MongoCollectionsSidebar";
 import { MongoDocumentViewer } from "./MongoDocumentViewer";
 import { MongoSchemaPanel } from "./MongoSchemaPanel";
@@ -10,6 +11,11 @@ import { MongoDeleteDocumentDialog } from "./MongoDeleteDocumentDialog";
 import { MongoCreateCollectionDialog } from "./MongoCreateCollectionDialog";
 import { MongoDropCollectionDialog } from "./MongoDropCollectionDialog";
 import { MongoCollectionRelationshipsTab } from "./relationships";
+import {
+  MongoBulkImportDialog,
+  MongoBulkExportDialog,
+  MongoBulkMutationDialog,
+} from "./bulk";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, GitBranch, Database, Layers, Network } from "lucide-react";
 
@@ -17,11 +23,24 @@ export function MongoDataViewPanel({
   dbId,
   databaseName,
   projectId,
+  isReadOnly: isReadOnlyProp = false,
 }: {
   dbId: string;
   databaseName: string;
   projectId?: string | null;
+  isReadOnly?: boolean;
 }) {
+  // Query database connection to resolve effective read-only mode if not explicitly passed
+  const { data: dbConn } = useDatabase(dbId);
+  const isEffectiveReadOnly =
+    isReadOnlyProp ||
+    Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
+
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isBulkExportOpen, setIsBulkExportOpen] = useState(false);
+  const [isBulkMutationOpen, setIsBulkMutationOpen] = useState(false);
+  const importCommittedCountRef = useRef(0);
+
   const {
     collections,
     collectionsLoading,
@@ -164,6 +183,10 @@ export function MongoDataViewPanel({
               onInsertDocument={() => setIsInsertDialogOpen(true)}
               onEditDocument={(doc) => setEditingDocument(doc)}
               onDeleteDocument={(doc) => setDeletingDocument(doc)}
+              onImportClick={() => setIsBulkImportOpen(true)}
+              onExportClick={() => setIsBulkExportOpen(true)}
+              onBulkMutationClick={() => setIsBulkMutationOpen(true)}
+              isReadOnly={isEffectiveReadOnly}
             />
           ) : activeTab === "schema" ? (
             <MongoSchemaPanel dbId={dbId} collection={selectedCollection} />
@@ -204,6 +227,47 @@ export function MongoDataViewPanel({
             collection={selectedCollection}
             document={deletingDocument}
             onRefreshView={refetchDocuments}
+          />
+        </>
+      )}
+
+      {/* Bulk Operations Dialogs */}
+      {selectedCollection && (
+        <>
+          <MongoBulkImportDialog
+            open={isBulkImportOpen}
+            onOpenChange={setIsBulkImportOpen}
+            dbId={dbId}
+            databaseName={databaseName}
+            defaultCollection={selectedCollection}
+            cancelOnUnmount={false}
+            onChunkAcknowledged={(progress) => {
+              importCommittedCountRef.current = progress.totalInserted;
+            }}
+            onTerminalState={(_opId, status) => {
+              if (status === "completed" || importCommittedCountRef.current > 0) {
+                refetchDocuments();
+                refetchCollections();
+                importCommittedCountRef.current = 0;
+              }
+            }}
+          />
+          <MongoBulkExportDialog
+            open={isBulkExportOpen}
+            onOpenChange={setIsBulkExportOpen}
+            dbId={dbId}
+            databaseName={databaseName}
+            defaultCollection={selectedCollection}
+            cancelOnUnmount={false}
+          />
+          <MongoBulkMutationDialog
+            open={isBulkMutationOpen}
+            onOpenChange={setIsBulkMutationOpen}
+            dbId={dbId}
+            databaseName={databaseName}
+            defaultCollection={selectedCollection}
+            collections={collections.map((c) => c.name)}
+            isReadOnly={isEffectiveReadOnly}
           />
         </>
       )}

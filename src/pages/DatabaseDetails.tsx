@@ -1,10 +1,11 @@
 // pages/DatabaseDetail.tsx
 
 import { useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { useDatabaseDetails } from "@/features/database/hooks/useDatabaseDetails";
 import { useDatabaseDetailPage } from "@/features/database/hooks/useDatabaseDetailPage";
-import { useMigrations, useFullSchema } from "@/features/project/hooks/useDbQueries";
+import { useMigrations, useFullSchema, useDatabase } from "@/features/project/hooks/useDbQueries";
 import { useExport } from "@/features/database/hooks/useExport";
 import { useProjectSync } from "@/features/project/hooks/useProjectSync";
 import { useProjectDir, useProjectByDatabaseId } from "@/features/project/hooks/useProjectQueries";
@@ -37,6 +38,8 @@ import { MongoWorkspacePanel } from "@/features/mongodb/components/workspace/Mon
 import { MongoAggregationPanel } from "@/features/mongodb/components/aggregation/MongoAggregationPanel";
 import { MongoMigrationsPanel } from "@/features/mongodb/components/migrations/MongoMigrationsPanel";
 import { MongoRelationshipsPanel } from "@/features/mongodb/components/relationships";
+import { MongoBulkOperationsPanel } from "@/features/mongodb/components/bulk";
+import { defaultMongoBulkOperationsStore } from "@/features/mongodb/hooks/useMongoBulkOperationsStore";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -96,6 +99,49 @@ const DatabaseDetail = () => {
   });
 
   const isNosql = getDatabaseKind(databaseType) === "nosql";
+  const { data: dbConn } = useDatabase(isNosql ? dbId : undefined);
+  const isReadOnlyConnection = Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
+
+  const queryClient = useQueryClient();
+
+  // Background bulk operations terminal cache invalidation (preserves captured target dbId across unmounts)
+  useEffect(() => {
+    if (!isNosql) return;
+
+    let prevOperationsByDb = defaultMongoBulkOperationsStore.getSnapshot().operationsByDb;
+
+    return defaultMongoBulkOperationsStore.subscribe(() => {
+      const currentOperationsByDb = defaultMongoBulkOperationsStore.getSnapshot().operationsByDb;
+
+      for (const [targetDbId, ops] of Object.entries(currentOperationsByDb)) {
+        const prevOps = prevOperationsByDb[targetDbId] || [];
+        for (const op of ops) {
+          if (op.kind === "sync") {
+            const prev = prevOps.find((p) => p.kind === "sync" && p.id === op.id);
+            if (
+              prev &&
+              prev.status === "running" &&
+              (op.status === "completed" || op.status === "partial_success")
+            ) {
+              queryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoCollections", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoSchema", op.dbId] });
+            }
+          } else if (op.kind === "async" && op.type === "import") {
+            const prev = prevOps.find((p) => p.kind === "async" && p.operationId === op.operationId);
+            const wasActive = prev && (prev.status === "pending" || prev.status === "in_progress");
+            const isTerminal = op.status === "completed" || op.status === "failed" || op.status === "cancelled";
+            if (wasActive && isTerminal && op.successfulDocuments > 0) {
+              queryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoCollections", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoSchema", op.dbId] });
+            }
+          }
+        }
+      }
+      prevOperationsByDb = currentOperationsByDb;
+    });
+  }, [isNosql, queryClient]);
 
   // Migrations
   const { data: migrationsResponse } = useMigrations(isNosql ? undefined : dbId);
@@ -184,6 +230,14 @@ const DatabaseDetail = () => {
               databaseName={databaseName || ""}
             />
           );
+        case "mongo-bulk":
+          return (
+            <MongoBulkOperationsPanel
+              key={`mbulk-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
         case "er-diagram":
           return (
             <MongoRelationshipsPanel
@@ -201,6 +255,7 @@ const DatabaseDetail = () => {
               dbId={dbId!}
               projectId={effectiveProjectId}
               databaseName={databaseName || ""}
+              isReadOnly={isReadOnlyConnection}
             />
           );
       }
