@@ -13,6 +13,7 @@ export function MongoCollectionsSidebar({
   onRefresh,
   onCreateCollection,
   onDropCollection,
+  isReadOnly,
 }: {
   collections: MongoCollectionInfo[];
   selectedCollection: string | null;
@@ -21,6 +22,7 @@ export function MongoCollectionsSidebar({
   onRefresh: () => void;
   onCreateCollection?: () => void;
   onDropCollection?: (name: string) => void;
+  isReadOnly?: boolean;
 }) {
   const [search, setSearch] = useState("");
 
@@ -45,8 +47,9 @@ export function MongoCollectionsSidebar({
               variant="ghost"
               size="icon"
               onClick={onCreateCollection}
-              className="h-6 w-6 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
-              title="Create new collection"
+              disabled={isReadOnly}
+              title={isReadOnly ? "Database is read-only" : "Create new collection"}
+              className="h-6 w-6 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>
@@ -113,7 +116,7 @@ export function MongoCollectionsSidebar({
                       </span>
                     )}
 
-                    {!isSystem && onDropCollection && (
+                    {!isSystem && !isReadOnly && onDropCollection && (
                       <Button
                         variant="ghost"
                         size="icon"

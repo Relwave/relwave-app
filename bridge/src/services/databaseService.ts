@@ -6,57 +6,229 @@ import {
   extractMongoCredentials,
   sanitizeMongoUri,
   normalizeMongoUriMeta,
+  buildMongoConnectionUri,
 } from "../utils/mongoUri";
-import { dbStoreInstance } from "./dbStore"; // always use the singleton
-import { connectionPool } from "./connectionPool";
+import { dbStoreInstance } from "./dbStore";
+import { connectionPool, ConnectionPool } from "./connectionPool";
 import { keyringServiceInstance } from "./keyringService";
+import { getClientKey, closeAllMongoClients, setMongoShuttingDown, safeMongoError } from "../connectors/mongo";
+import logger from "./logger";
 
 export class DatabaseService {
-  /**
-   * Get a single database's metadata (no password).
-   */
-  async getDatabase(dbId: string) {
-    return dbStoreInstance.getDB(dbId);
+  private dbGenerations = new Map<string, number>();
+  private inFlightConnections = new Map<string, Promise<void>>();
+  private activeBuilders = new Set<Promise<void>>();
+  private isShuttingDown = false;
+  private connectionPool: ConnectionPool = connectionPool;
+
+  getGeneration(dbId: string): number {
+    return this.dbGenerations.get(dbId) || 0;
   }
 
-  /**
-   * Return a connection config for the given dbId.
-   * Hits the in-memory pool first; builds a fresh config on miss.
-   *
-   * NOTE: the connectors create their own client on every call using the
-   * config object, so the "connection" here is a config descriptor, not an
-   * open socket.  The pool avoids repeated dbStore + password lookups.
-   */
+  async invalidateConnection(dbId: string): Promise<void> {
+    const nextGen = (this.dbGenerations.get(dbId) || 0) + 1;
+    this.dbGenerations.set(dbId, nextGen);
+    this.inFlightConnections.delete(dbId);
+    await this.connectionPool.invalidate(dbId);
+  }
+
+  private async ensureConnectionBuilt(dbId: string): Promise<void> {
+    if (this.isShuttingDown) {
+      throw new Error("Bridge is shutting down: connection acquisition rejected");
+    }
+
+    let pending = this.inFlightConnections.get(dbId);
+    if (!pending) {
+      const buildGeneration = this.getGeneration(dbId);
+
+      pending = (async () => {
+        let builtTunnel: any;
+        let builtConfig: any;
+        let builtDbType: DBType | undefined;
+        let registeredClientKey: string | undefined;
+
+        try {
+          if (this.isShuttingDown) {
+            throw new Error("Bridge is shutting down: connection build aborted");
+          }
+
+          const db = await dbStoreInstance.getDB(dbId);
+          if (!db) throw new Error(`Database '${dbId}' not found`);
+          const pwd = await dbStoreInstance.getPasswordFor(db);
+          const dbType = DBTypeDetector.detect(db);
+          builtDbType = dbType;
+
+          if (db.ssh) {
+            if (db.ssh.authMethod === "password") {
+              db.ssh.password =
+                (await keyringServiceInstance.getCredential(`${dbId}_ssh_pwd`)) || undefined;
+            } else if (db.ssh.authMethod === "privateKey") {
+              db.ssh.passphrase =
+                (await keyringServiceInstance.getCredential(`${dbId}_ssh_pass`)) || undefined;
+            }
+          }
+
+          if (this.isShuttingDown || this.getGeneration(dbId) !== buildGeneration) {
+            throw new Error("Connection build aborted: profile was invalidated or bridge is shutting down");
+          }
+
+          if (dbType === DBType.MONGODB && !db.ssh) {
+            registeredClientKey = getClientKey({
+              uri: buildMongoConnectionUri(db, null),
+              database: db.database,
+            });
+            this.connectionPool.registerBuildingClient(registeredClientKey);
+          }
+
+          const res = await ConnectionBuilder.buildConnection(db, pwd, dbType);
+          builtConfig = res.config;
+          builtTunnel = res.tunnel;
+
+          if (dbType === DBType.MONGODB && db.ssh && builtConfig) {
+            registeredClientKey = getClientKey(builtConfig);
+            this.connectionPool.registerBuildingClient(registeredClientKey);
+          }
+
+          if (this.isShuttingDown || this.getGeneration(dbId) !== buildGeneration) {
+            if (builtTunnel) {
+              const isTunnelAdopted = Array.from(this.connectionPool.getAllEntries()).some(
+                (entry) => entry.tunnel === builtTunnel,
+              );
+              if (!isTunnelAdopted) {
+                try {
+                  builtTunnel.close();
+                } catch {}
+              }
+            }
+
+            if (registeredClientKey) {
+              this.connectionPool.unregisterBuildingClient(registeredClientKey);
+              registeredClientKey = undefined;
+            }
+
+            if (builtConfig && builtDbType === DBType.MONGODB) {
+              await this.connectionPool.safeCloseMongoClient(builtConfig);
+            }
+
+            throw new Error("Connection build aborted: profile was invalidated or bridge is shutting down");
+          }
+
+          this.connectionPool.set(dbId, builtConfig, builtDbType, builtTunnel);
+        } finally {
+          if (registeredClientKey) {
+            this.connectionPool.unregisterBuildingClient(registeredClientKey);
+          }
+          if (this.inFlightConnections.get(dbId) === pending) {
+            this.inFlightConnections.delete(dbId);
+          }
+          this.activeBuilders.delete(pending);
+        }
+      })();
+
+      this.inFlightConnections.set(dbId, pending);
+      this.activeBuilders.add(pending);
+    }
+
+    await pending;
+  }
+
+  isFatalConnectionError(err: any): boolean {
+    if (!err) return false;
+    const name = err.name || "";
+    const msg = err.message || "";
+    return (
+      name === "MongoServerSelectionError" ||
+      name === "MongoNetworkError" ||
+      name === "MongoNetworkTimeoutError" ||
+      name === "MongoTopologyClosedError" ||
+      msg.includes("connection reset by peer") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("Topology is closed")
+    );
+  }
+
+  async withConnection<T>(
+    dbId: string,
+    operation: (conn: any, db: any, dbType: DBType) => Promise<T>,
+  ): Promise<T> {
+    if (this.isShuttingDown) {
+      throw new Error("Bridge is shutting down: connection acquisition rejected");
+    }
+
+    let lease = this.connectionPool.acquire(dbId);
+
+    if (!lease) {
+      await this.ensureConnectionBuilt(dbId);
+      lease = this.connectionPool.acquire(dbId);
+      if (!lease) {
+        throw new Error(`Failed to acquire connection lease for '${dbId}' after build`);
+      }
+    }
+
+    const db = await dbStoreInstance.getDB(dbId);
+
+    try {
+      return await operation(lease.connection.conn, db, lease.connection.dbType);
+    } catch (err: any) {
+      if (this.isFatalConnectionError(err)) {
+        try {
+          await this.invalidateConnection(dbId);
+        } catch (invalErr: any) {
+          logger.error(
+            { dbId, err: safeMongoError(invalErr), originalErr: safeMongoError(err) },
+            "Failed to invalidate connection following fatal database operation error",
+          );
+        }
+      }
+      throw err;
+    } finally {
+      lease.release();
+    }
+  }
+
+  async acquireConnection(
+    dbId: string,
+  ): Promise<{ conn: any; db: any; dbType: DBType; release: () => void }> {
+    if (this.isShuttingDown) {
+      throw new Error("Bridge is shutting down: connection acquisition rejected");
+    }
+
+    let lease = this.connectionPool.acquire(dbId);
+    if (!lease) {
+      await this.ensureConnectionBuilt(dbId);
+      lease = this.connectionPool.acquire(dbId);
+      if (!lease) {
+        throw new Error(`Failed to acquire connection lease for '${dbId}' after build`);
+      }
+    }
+
+    const db = await dbStoreInstance.getDB(dbId);
+    return {
+      conn: lease.connection.conn,
+      db,
+      dbType: lease.connection.dbType,
+      release: lease.release,
+    };
+  }
+
   async getDatabaseConnection(dbId: string): Promise<{ db: unknown; conn: any; dbType: DBType }> {
-    // Pool hit — skip disk IO entirely
-    const cached = connectionPool.get(dbId);
+    const cached = this.connectionPool.get(dbId);
     if (cached) {
       const db = await dbStoreInstance.getDB(dbId);
       return { db, conn: cached.conn, dbType: cached.dbType };
     }
 
-    // Pool miss — build config and cache it
+    await this.ensureConnectionBuilt(dbId);
+    const published = this.connectionPool.get(dbId);
+    if (!published) throw new Error("Failed to build connection");
     const db = await dbStoreInstance.getDB(dbId);
-    if (!db) throw new Error("Database not found");
+    return { db, conn: published.conn, dbType: published.dbType };
+  }
 
-    const pwd = await dbStoreInstance.getPasswordFor(db);
-    const dbType = DBTypeDetector.detect(db);
-
-    // If SSH is present, retrieve credentials from keyring
-    if (db.ssh) {
-      if (db.ssh.authMethod === "password") {
-        db.ssh.password =
-          (await keyringServiceInstance.getCredential(`${dbId}_ssh_pwd`)) || undefined;
-      } else if (db.ssh.authMethod === "privateKey") {
-        db.ssh.passphrase =
-          (await keyringServiceInstance.getCredential(`${dbId}_ssh_pass`)) || undefined;
-      }
-    }
-
-    const { config, tunnel } = await ConnectionBuilder.buildConnection(db, pwd, dbType);
-
-    connectionPool.set(dbId, config, dbType, tunnel);
-    return { db, conn: config, dbType };
+  async getDatabase(dbId: string) {
+    return dbStoreInstance.getDB(dbId);
   }
 
   async listDatabases() {
@@ -79,7 +251,6 @@ export class DatabaseService {
       if (!payload[field]) throw new Error(`Missing required field: ${field}`);
     }
 
-    // Extract SSH credentials before saving to dbStore
     const sshPwd = payload.ssh?.password;
     const sshPass = payload.ssh?.passphrase;
     if (payload.ssh) {
@@ -88,7 +259,6 @@ export class DatabaseService {
     }
 
     if (isFileBasedDB) {
-      // NOTE: ConnectionBuilder.buildSQLiteConnection works for duckdb paths too
       const { config } = await ConnectionBuilder.buildSQLiteConnection(payload);
       payload = {
         ...payload,
@@ -114,9 +284,6 @@ export class DatabaseService {
         throw new Error("Missing required field: url");
       }
       if (payload.url && isMongoUri(payload.url)) {
-        // Extract any embedded credentials into the AES store and persist a
-        // credential-free (sanitized) URI instead. dbStore.addDB encrypts
-        // payload.password and stores the sanitized url at rest.
         const creds = extractMongoCredentials(payload.url);
         const meta = normalizeMongoUriMeta(payload.url);
         payload = {
@@ -139,7 +306,6 @@ export class DatabaseService {
 
     const res = await dbStoreInstance.addDB(payload as Parameters<typeof dbStoreInstance.addDB>[0]);
 
-    // Store SSH credentials in keyring
     if (sshPwd) {
       await keyringServiceInstance.storeCredential(`${res.id}_ssh_pwd`, sshPwd);
     }
@@ -158,7 +324,6 @@ export class DatabaseService {
     const isClickHouse = (payload.type as string | undefined)?.toLowerCase() === "clickhouse";
     const isMongo = (payload.type as string | undefined)?.toLowerCase() === "mongodb";
 
-    // Extract SSH credentials
     const sshPwd = payload.ssh?.password;
     const sshPass = payload.ssh?.passphrase;
     if (payload.ssh) {
@@ -179,8 +344,6 @@ export class DatabaseService {
       };
     }
     if (isMongo && payload.url && isMongoUri(payload.url)) {
-      // Keep persisted mongo URIs credential-free on update too. An explicitly
-      // supplied password wins over one embedded in the URI.
       const creds = extractMongoCredentials(payload.url);
       payload = { ...payload, url: sanitizeMongoUri(payload.url) };
       if (creds.password && payload.password === undefined) {
@@ -209,13 +372,12 @@ export class DatabaseService {
       }
     }
 
-    connectionPool.invalidate(id); // evict stale cached config
+    await this.invalidateConnection(id);
     const res = await dbStoreInstance.updateDB(
       id,
       payload as Parameters<typeof dbStoreInstance.updateDB>[1],
     );
 
-    // Update SSH credentials in keyring
     if (sshPwd !== undefined) {
       if (sshPwd) {
         await keyringServiceInstance.storeCredential(`${id}_ssh_pwd`, sshPwd);
@@ -236,10 +398,9 @@ export class DatabaseService {
 
   async deleteDatabase(id: string) {
     if (!id) throw new Error("Missing id");
-    connectionPool.invalidate(id); // evict before removing from store
+    await this.invalidateConnection(id);
     const res = await dbStoreInstance.deleteDB(id);
 
-    // Delete SSH credentials from keyring
     await keyringServiceInstance.deleteCredential(`${id}_ssh_pwd`);
     await keyringServiceInstance.deleteCredential(`${id}_ssh_pass`);
 
@@ -250,4 +411,69 @@ export class DatabaseService {
     if (!id) throw new Error("Missing id");
     return dbStoreInstance.touchDB(id);
   }
+
+  private async drainActiveLeases(): Promise<void> {
+    while (this.connectionPool.getActiveOperationsCount() > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
+  private async executePhase4Teardown(): Promise<void> {
+    const inProgressList = Array.from(this.connectionPool.getInProgressCleanups());
+    if (inProgressList.length > 0) {
+      let syncTimer: NodeJS.Timeout | undefined;
+      const syncTimeout = new Promise<void>((resolve) => {
+        syncTimer = setTimeout(resolve, 200);
+      });
+      await Promise.race([Promise.allSettled(inProgressList), syncTimeout]);
+      if (syncTimer) clearTimeout(syncTimer);
+    }
+
+    this.connectionPool.setForcedTeardownInitiated(true);
+
+    const uniqueTunnels = new Set<any>();
+    for (const entry of this.connectionPool.getAllEntries()) {
+      if (entry.tunnel) uniqueTunnels.add(entry.tunnel);
+    }
+    for (const tunnel of uniqueTunnels) {
+      try {
+        tunnel.close();
+      } catch {}
+    }
+
+    const phase4Deadline = Date.now() + 100;
+    await closeAllMongoClients({ force: true, globalDeadline: phase4Deadline });
+
+    this.connectionPool.clear();
+    this.activeBuilders.clear();
+  }
+
+  async shutdown(): Promise<void> {
+    this.isShuttingDown = true;
+    this.connectionPool.setShuttingDown(true);
+    setMongoShuttingDown(true);
+
+    for (const dbId of Array.from(this.dbGenerations.keys())) {
+      this.dbGenerations.set(dbId, (this.dbGenerations.get(dbId) || 0) + 1);
+    }
+    this.inFlightConnections.clear();
+
+    const leaseDrainPromise = this.drainActiveLeases();
+    const builderDrainPromise = Promise.allSettled(Array.from(this.activeBuilders));
+
+    let drainTimer: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<void>((resolve) => {
+      drainTimer = setTimeout(resolve, 1500);
+    });
+
+    await Promise.race([
+      Promise.all([leaseDrainPromise, builderDrainPromise]),
+      timeoutPromise,
+    ]);
+    if (drainTimer) clearTimeout(drainTimer);
+
+    await this.executePhase4Teardown();
+  }
 }
+
+export const databaseServiceInstance = new DatabaseService();

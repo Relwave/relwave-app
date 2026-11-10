@@ -998,7 +998,8 @@ export class MongoBulkEngine {
       throw new MongoApiError("MONGO_VALIDATION_ERROR", `Invalid bulk export format '${format}'`);
     }
 
-    const { conn, nativeDb } = await this.getDb(dbId);
+    const lease = await this.dbService.acquireConnection(dbId);
+    const nativeDb = selectDb(lease.conn);
 
     const state = this.opManager.createOperation("export", dbId, collection, format);
     const operationId = state.operation.operationId;
@@ -1063,6 +1064,7 @@ export class MongoBulkEngine {
         if (writeStream && !writeStream.destroyed) {
           writeStream.destroy();
         }
+        lease.release();
       }
     })();
 

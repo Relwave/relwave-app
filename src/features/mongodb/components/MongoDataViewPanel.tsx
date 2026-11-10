@@ -153,6 +153,7 @@ export function MongoDataViewPanel({
           onRefresh={refetchCollections}
           onCreateCollection={() => setIsCreateCollectionOpen(true)}
           onDropCollection={(name) => setDroppingCollection(name)}
+          isReadOnly={isEffectiveReadOnly}
         />
 
         <div className="flex-1 flex overflow-hidden">

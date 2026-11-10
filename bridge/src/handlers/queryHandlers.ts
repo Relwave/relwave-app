@@ -357,15 +357,16 @@ export class QueryHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.findDocuments(conn, dbType, {
-        collection,
-        filter,
-        sort,
-        projection,
-        page,
-        pageSize,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.findDocuments(conn, dbType, {
+          collection,
+          filter,
+          sort,
+          projection,
+          page,
+          pageSize,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -381,8 +382,9 @@ export class QueryHandlers {
           message: "Missing dbId, collection, or document",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.insertDocument(conn, dbType, { collection, document });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.insertDocument(conn, dbType, { collection, document }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -398,13 +400,14 @@ export class QueryHandlers {
           message: "Missing dbId, collection, filter, or update",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.updateDocument(conn, dbType, {
-        collection,
-        filter,
-        update,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.updateDocument(conn, dbType, {
+          collection,
+          filter,
+          update,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -420,12 +423,13 @@ export class QueryHandlers {
           message: "Missing dbId, collection, or filter",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.deleteDocument(conn, dbType, {
-        collection,
-        filter,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.deleteDocument(conn, dbType, {
+          collection,
+          filter,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -441,12 +445,13 @@ export class QueryHandlers {
           message: "Missing dbId, collection, or pipeline",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.runAggregation(conn, dbType, {
-        collection,
-        pipeline,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.runAggregation(conn, dbType, {
+          collection,
+          pipeline,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -462,8 +467,9 @@ export class QueryHandlers {
           message: "Missing dbId",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.listCollections(conn, dbType, params);
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.listCollections(conn, dbType, params),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -479,12 +485,13 @@ export class QueryHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.inferCollectionSchema(conn, dbType, {
-        collection,
-        sampleSize,
-        maxDepth,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.inferCollectionSchema(conn, dbType, {
+          collection,
+          sampleSize,
+          maxDepth,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -500,13 +507,14 @@ export class QueryHandlers {
           message: "Missing dbId, collection, filter, or replacement",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.replaceDocument(conn, dbType, {
-        collection,
-        filter,
-        replacement,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.replaceDocument(conn, dbType, {
+          collection,
+          filter,
+          replacement,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -522,11 +530,12 @@ export class QueryHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.createCollection(conn, dbType, {
-        collection,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.createCollection(conn, dbType, {
+          collection,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -542,10 +551,11 @@ export class QueryHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.dropCollection(conn, dbType, {
-        collection,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.dropCollection(conn, dbType, {
+          collection,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -561,12 +571,13 @@ export class QueryHandlers {
           message: "Missing dbId, collection, or op",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.executeMql(conn, dbType, {
-        collection,
-        op,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.executeMql(conn, dbType, {
+          collection,
+          op,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -582,13 +593,14 @@ export class QueryHandlers {
           message: "Missing dbId, collection, or target",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.explainMql(conn, dbType, {
-        collection,
-        target,
-        verbosity,
-        options,
-      });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.explainMql(conn, dbType, {
+          collection,
+          target,
+          verbosity,
+          options,
+        }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);

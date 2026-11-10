@@ -29,8 +29,9 @@ export class IndexHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.listIndexes(conn, dbType, { collection });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.listIndexes(conn, dbType, { collection }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -46,19 +47,20 @@ export class IndexHandlers {
           message: "Missing dbId, collection, or key",
         });
       }
-      const dbConn = await this.dbService.getDatabaseConnection(dbId);
-      const readOnly = Boolean(
-        (dbConn.db as any)?.readonly ||
-        (dbConn.db as any)?.readOnly ||
-        (dbConn.conn as any)?.readonly ||
-        (dbConn.conn as any)?.readOnly,
-      );
-      const data = await this.queryExecutor.createIndex(
-        dbConn.conn,
-        dbConn.dbType,
-        { collection, key, options },
-        { readOnly },
-      );
+      const data = await this.dbService.withConnection(dbId, (conn, db, dbType) => {
+        const readOnly = Boolean(
+          (db as any)?.readonly ||
+          (db as any)?.readOnly ||
+          (conn as any)?.readonly ||
+          (conn as any)?.readOnly,
+        );
+        return this.queryExecutor.createIndex(
+          conn,
+          dbType,
+          { collection, key, options },
+          { readOnly },
+        );
+      });
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -74,19 +76,20 @@ export class IndexHandlers {
           message: "Missing dbId, collection, or indexName",
         });
       }
-      const dbConn = await this.dbService.getDatabaseConnection(dbId);
-      const readOnly = Boolean(
-        (dbConn.db as any)?.readonly ||
-        (dbConn.db as any)?.readOnly ||
-        (dbConn.conn as any)?.readonly ||
-        (dbConn.conn as any)?.readOnly,
-      );
-      const data = await this.queryExecutor.dropIndex(
-        dbConn.conn,
-        dbConn.dbType,
-        { collection, indexName },
-        { readOnly },
-      );
+      const data = await this.dbService.withConnection(dbId, (conn, db, dbType) => {
+        const readOnly = Boolean(
+          (db as any)?.readonly ||
+          (db as any)?.readOnly ||
+          (conn as any)?.readonly ||
+          (conn as any)?.readOnly,
+        );
+        return this.queryExecutor.dropIndex(
+          conn,
+          dbType,
+          { collection, indexName },
+          { readOnly },
+        );
+      });
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -102,8 +105,9 @@ export class IndexHandlers {
           message: "Missing dbId or collection",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const data = await this.queryExecutor.getIndexStats(conn, dbType, { collection });
+      const data = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.getIndexStats(conn, dbType, { collection }),
+      );
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);
@@ -119,19 +123,20 @@ export class IndexHandlers {
           message: "Missing dbId, collection, indexName, or hidden (must be a boolean)",
         });
       }
-      const dbConn = await this.dbService.getDatabaseConnection(dbId);
-      const readOnly = Boolean(
-        (dbConn.db as any)?.readonly ||
-        (dbConn.db as any)?.readOnly ||
-        (dbConn.conn as any)?.readonly ||
-        (dbConn.conn as any)?.readOnly,
-      );
-      const data = await this.queryExecutor.hideIndex(
-        dbConn.conn,
-        dbConn.dbType,
-        { collection, indexName, hidden },
-        { readOnly },
-      );
+      const data = await this.dbService.withConnection(dbId, (conn, db, dbType) => {
+        const readOnly = Boolean(
+          (db as any)?.readonly ||
+          (db as any)?.readOnly ||
+          (conn as any)?.readonly ||
+          (conn as any)?.readOnly,
+        );
+        return this.queryExecutor.hideIndex(
+          conn,
+          dbType,
+          { collection, indexName, hidden },
+          { readOnly },
+        );
+      });
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {
       this.sendMongoError(id, e);

@@ -125,7 +125,9 @@ export function MongoDocumentViewer({
               variant="default"
               size="sm"
               onClick={onInsertDocument}
-              className="h-9 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={isLoading || isReadOnly || isSystemCollection}
+              title={isReadOnly ? "Database is read-only" : undefined}
+              className="h-9 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-3.5 w-3.5" />
               Insert Document
@@ -231,8 +233,8 @@ export function MongoDocumentViewer({
             sortColumn={sortField || undefined}
             sortDirection={sortDirection === 1 ? "asc" : sortDirection === -1 ? "desc" : undefined}
             onSort={onSort}
-            onEditRow={onEditDocument ? (row) => onEditDocument(row) : undefined}
-            onDeleteRow={onDeleteDocument ? (row) => onDeleteDocument(row) : undefined}
+            onEditRow={!isReadOnly && onEditDocument ? (row) => onEditDocument(row) : undefined}
+            onDeleteRow={!isReadOnly && onDeleteDocument ? (row) => onDeleteDocument(row) : undefined}
             renderCell={(val, col, row) => <MongoDocumentCell value={val} column={col} row={row} />}
           />
         )}

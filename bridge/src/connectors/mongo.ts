@@ -29,7 +29,9 @@ import {
   Document,
   CreateIndexesOptions,
   Db,
+  MongoClientOptions,
 } from "mongodb";
+import { sanitizeMongoUri } from "../utils/mongoUri";
 import { createHash } from "crypto";
 import {
   MongoConfig,
@@ -308,53 +310,458 @@ export const mongodbCache = new MongoCacheManager();
 // CLIENT CONNECTION POOL
 // ---------------------------------------------------------------------------
 
-const clientPool = new Map<string, MongoClient>();
+// ---------------------------------------------------------------------------
+// CANONICAL CLIENT KEY FUNCTION (Section 4.3)
+// ---------------------------------------------------------------------------
 
-function getClientKey(cfg: MongoConfig): string {
-  return `${cfg.uri || ""}:${cfg.database || ""}`;
-}
-
-export function getMongoClient(cfg: MongoConfig): MongoClient {
-  const key = getClientKey(cfg);
-  let client = clientPool.get(key);
-  if (!client) {
-    if (!cfg.uri) {
-      throw new Error("MongoDB connection requires a connection URI");
-    }
-    client = new MongoClient(cfg.uri);
-    clientPool.set(key, client);
+export function getClientKey(cfg: { uri?: string; database?: string }): string {
+  const normalizedDb = (cfg.database || "").trim().toLowerCase();
+  if (!cfg.uri) {
+    return `::${normalizedDb}`;
   }
-  return client;
+
+  try {
+    const raw = cfg.uri.trim();
+    const isSrv = raw.toLowerCase().startsWith("mongodb+srv://");
+    const scheme = isSrv ? "mongodb+srv" : "mongodb";
+    const prefix = isSrv ? "mongodb+srv://" : "mongodb://";
+    const rest = raw.slice(prefix.length);
+
+    const qIdx = rest.indexOf("?");
+    const hIdx = rest.indexOf("#");
+    let endIdx = rest.length;
+    if (qIdx !== -1) endIdx = qIdx;
+    if (hIdx !== -1 && (qIdx === -1 || hIdx < qIdx)) endIdx = hIdx;
+    const authAndPath = rest.slice(0, endIdx);
+
+    const slashIdx = authAndPath.indexOf("/");
+    const authority = slashIdx !== -1 ? authAndPath.slice(0, slashIdx) : authAndPath;
+
+    let userPart = "";
+    let hostsPart = authority;
+    const atIdx = authority.lastIndexOf("@");
+    if (atIdx !== -1) {
+      const creds = authority.slice(0, atIdx);
+      hostsPart = authority.slice(atIdx + 1);
+      const colonIdx = creds.indexOf(":");
+      const rawUser = colonIdx !== -1 ? creds.slice(0, colonIdx) : creds;
+      if (rawUser) {
+        userPart = `${encodeURIComponent(decodeURIComponent(rawUser))}@`;
+      }
+    }
+
+    const normalizedHosts = hostsPart
+      .split(",")
+      .map((hp) => {
+        const trimmed = hp.trim().toLowerCase();
+        if (!trimmed) return "";
+        if (isSrv) return trimmed;
+        if (trimmed.startsWith("[")) {
+          const closeBracket = trimmed.indexOf("]");
+          if (closeBracket !== -1) {
+            const h = trimmed.slice(0, closeBracket + 1);
+            const after = trimmed.slice(closeBracket + 1);
+            if (after.startsWith(":")) {
+              const p = parseInt(after.slice(1), 10);
+              return `${h}:${isNaN(p) ? 27017 : p}`;
+            }
+            return `${h}:27017`;
+          }
+        }
+        const lastColon = trimmed.lastIndexOf(":");
+        if (lastColon !== -1) {
+          const h = trimmed.slice(0, lastColon);
+          const p = trimmed.slice(lastColon + 1);
+          const portNum = parseInt(p, 10);
+          return `${h}:${isNaN(portNum) ? 27017 : portNum}`;
+        }
+        return `${trimmed}:27017`;
+      })
+      .filter(Boolean)
+      .join(",");
+
+    const normalizedUri = `${scheme}://${userPart}${normalizedHosts}`;
+    return `${normalizedUri}::${normalizedDb}`;
+  } catch {
+    const sanitizedUri = sanitizeMongoUri(cfg.uri);
+    return `${sanitizedUri}::${normalizedDb}`;
+  }
 }
 
-export async function closeMongoClient(cfg: MongoConfig): Promise<void> {
-  const key = getClientKey(cfg);
-  const client = clientPool.get(key);
-  if (client) {
+// ---------------------------------------------------------------------------
+// ATOMIC SHARED MONGO CLIENT REGISTRY & LIFECYCLE (Section 5)
+// ---------------------------------------------------------------------------
+
+export type SocketTeardownStatus = "destroy_confirmed" | "destroy_requested" | "unconfirmed";
+
+export interface SocketDestructionResult {
+  status: SocketTeardownStatus;
+  destroyedSockets: number;
+  totalDiscoveredSockets: number;
+  error?: Error;
+}
+
+export interface ManagedMongoClient {
+  client: MongoClient;
+  state: "active" | "closing" | "close_failed" | "closed";
+  closeError?: Error;
+  closePromise?: Promise<void>;
+}
+
+export const clientRegistry = new Map<string, ManagedMongoClient>();
+export const closingClients = new Map<string, Promise<void>>();
+
+let isMongoShuttingDown = false;
+export function setMongoShuttingDown(val: boolean): void {
+  isMongoShuttingDown = val;
+}
+
+export const DEFAULT_MONGO_CLIENT_OPTIONS: MongoClientOptions = {
+  connectTimeoutMS: 5000,
+  socketTimeoutMS: 30000,
+  serverSelectionTimeoutMS: 5000,
+  maxIdleTimeMS: 60000,
+  maxPoolSize: 20,
+};
+
+export function getDriverOptions(cfg?: MongoConfig): MongoClientOptions {
+  return {
+    ...DEFAULT_MONGO_CLIENT_OPTIONS,
+  };
+}
+
+export function forceDestroyMongoSockets(client: MongoClient): SocketDestructionResult {
+  let destroyedSockets = 0;
+  try {
+    const topology = (client as any).topology;
+    if (!topology) {
+      return { status: "destroy_confirmed", destroyedSockets: 0, totalDiscoveredSockets: 0 };
+    }
+
+    const servers = topology.s?.servers;
+    if (!(servers instanceof Map)) {
+      return {
+        status: "unconfirmed",
+        destroyedSockets: 0,
+        totalDiscoveredSockets: 0,
+        error: new Error("Unexpected MongoDB driver topology structure: servers Map not found"),
+      };
+    }
+
+    if (servers.size === 0) {
+      return { status: "destroy_confirmed", destroyedSockets: 0, totalDiscoveredSockets: 0 };
+    }
+
+    const uniqueConns = new Set<any>();
+    const uniqueSockets = new Set<any>();
+
+    for (const server of servers.values()) {
+      const pool = server.pool || server.s?.pool;
+      if (pool) {
+        if (pool.connections && typeof pool.connections[Symbol.iterator] === "function") {
+          for (const conn of pool.connections) {
+            if (conn) uniqueConns.add(conn);
+          }
+        }
+        if (pool.checkedOut instanceof Set) {
+          for (const conn of pool.checkedOut) {
+            if (conn) uniqueConns.add(conn);
+          }
+        }
+        if (typeof pool.destroy === "function") {
+          try {
+            pool.destroy();
+          } catch {}
+        }
+      }
+    }
+
+    for (const conn of uniqueConns) {
+      if (conn?.socket && typeof conn.socket.destroy === "function") {
+        uniqueSockets.add(conn.socket);
+      }
+    }
+
+    if (uniqueSockets.size === 0) {
+      return { status: "destroy_confirmed", destroyedSockets: 0, totalDiscoveredSockets: 0 };
+    }
+
+    const totalDiscoveredSockets = uniqueSockets.size;
+    let allDestroyedObserved = true;
+
+    for (const socket of uniqueSockets) {
+      try {
+        if (!socket.destroyed) {
+          socket.destroy();
+        }
+        destroyedSockets++;
+        if (!socket.destroyed) {
+          allDestroyedObserved = false;
+        }
+      } catch (sockErr) {
+        allDestroyedObserved = false;
+        logger.warn({ sockErr }, "Failed invoking destroy on individual MongoDB socket");
+      }
+    }
+
+    if (allDestroyedObserved && destroyedSockets === totalDiscoveredSockets) {
+      return { status: "destroy_confirmed", destroyedSockets, totalDiscoveredSockets };
+    }
+
+    return { status: "destroy_requested", destroyedSockets, totalDiscoveredSockets };
+  } catch (err: any) {
+    logger.warn({ err: safeMongoError(err) }, "Error during forceDestroyMongoSockets traversal");
+    return { status: "unconfirmed", destroyedSockets, totalDiscoveredSockets: 0, error: err };
+  }
+}
+
+export function closeMongoClientByKey(
+  clientKey: string,
+  options?: { force?: boolean; timeoutMs?: number; globalDeadline?: number },
+): Promise<void> {
+  const existingClose = closingClients.get(clientKey);
+  const entry = clientRegistry.get(clientKey);
+
+  if (!entry || entry.state === "closed") {
+    return Promise.resolve();
+  }
+
+  const remainingMs =
+    options?.globalDeadline !== undefined
+      ? Math.max(0, options.globalDeadline - Date.now())
+      : options?.timeoutMs !== undefined
+      ? options.timeoutMs
+      : options?.force
+      ? 100
+      : undefined;
+
+  if (existingClose) {
+    if (remainingMs === undefined) {
+      return existingClose;
+    }
+
+    return (async () => {
+      let timer: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Close timeout")), remainingMs);
+      });
+
+      try {
+        await Promise.race([existingClose, timeoutPromise]);
+      } catch (err: any) {
+        logger.warn(
+          { clientKey, err: safeMongoError(err) },
+          "In-flight MongoClient close exceeded deadline; escalating to forced socket destruction",
+        );
+        const result = forceDestroyMongoSockets(entry.client);
+        if (result.status === "destroy_confirmed") {
+          entry.state = "closed";
+          entry.closeError = undefined;
+          clientRegistry.delete(clientKey);
+        } else {
+          entry.state = "close_failed";
+          entry.closeError = result.error || new Error(`Forced socket destruction state: ${result.status}`);
+          logger.error(
+            { clientKey, status: result.status, err: safeMongoError(entry.closeError) },
+            "Forced socket destruction not confirmed; retaining MongoClient in close_failed state",
+          );
+        }
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    })();
+  }
+
+  entry.state = "closing";
+
+  const closePromise = (async () => {
+    let timer: NodeJS.Timeout | undefined;
     try {
-      await client.close();
-    } catch {
-      // ignore
+      const driverClosePromise = entry.client.close(options?.force);
+      if (remainingMs !== undefined) {
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Close timeout")), remainingMs);
+        });
+        await Promise.race([driverClosePromise, timeoutPromise]);
+      } else {
+        await driverClosePromise;
+      }
+
+      entry.state = "closed";
+      entry.closeError = undefined;
+      clientRegistry.delete(clientKey);
+    } catch (err: any) {
+      logger.warn(
+        { clientKey, err: safeMongoError(err) },
+        "MongoClient.close() rejected or timed out; escalating to forced socket destruction",
+      );
+      const result = forceDestroyMongoSockets(entry.client);
+      if (result.status === "destroy_confirmed") {
+        entry.state = "closed";
+        entry.closeError = undefined;
+        clientRegistry.delete(clientKey);
+      } else {
+        entry.state = "close_failed";
+        entry.closeError = result.error || err;
+        logger.error(
+          { err: safeMongoError(entry.closeError), status: result.status, clientKey },
+          "Failed to confirm MongoClient socket destruction; retained in close_failed state for recovery/watchdog",
+        );
+        throw err;
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+      closingClients.delete(clientKey);
+      entry.closePromise = undefined;
     }
-    clientPool.delete(key);
+  })();
+
+  entry.closePromise = closePromise;
+  closingClients.set(clientKey, closePromise);
+  return closePromise;
+}
+
+export function closeMongoClient(cfg: MongoConfig): Promise<void> {
+  return closeMongoClientByKey(getClientKey(cfg));
+}
+
+export async function closeAllMongoClients(options?: {
+  force?: boolean;
+  timeoutMs?: number;
+  globalDeadline?: number;
+}): Promise<void> {
+  const globalDeadline = options?.globalDeadline ?? (Date.now() + (options?.timeoutMs ?? 100));
+  const remainingBudget = Math.max(0, globalDeadline - Date.now());
+
+  let globalTimer: NodeJS.Timeout | undefined;
+  const globalTimeoutPromise = new Promise<void>((resolve) => {
+    globalTimer = setTimeout(resolve, remainingBudget);
+  });
+
+  const keys = Array.from(clientRegistry.keys());
+  const batchClosePromise = Promise.allSettled(
+    keys.map((key) =>
+      closeMongoClientByKey(key, {
+        force: options?.force,
+        globalDeadline,
+      }),
+    ),
+  );
+
+  await Promise.race([batchClosePromise, globalTimeoutPromise]);
+  if (globalTimer) clearTimeout(globalTimer);
+
+  for (const [key, entry] of clientRegistry.entries()) {
+    if (entry.state !== "closed") {
+      const result = forceDestroyMongoSockets(entry.client);
+      if (result.status === "destroy_confirmed") {
+        entry.state = "closed";
+        entry.closeError = undefined;
+        clientRegistry.delete(key);
+      } else {
+        entry.state = "close_failed";
+        if (!entry.closeError) {
+          entry.closeError = result.error || new Error(`Forced socket destruction state: ${result.status}`);
+        }
+      }
+    }
   }
 }
 
-export async function closeAllMongoClients(): Promise<void> {
-  for (const client of clientPool.values()) {
+export function getMongoClientSync(cfg: MongoConfig): MongoClient {
+  if (isMongoShuttingDown) {
+    throw new Error("Bridge is shutting down: MongoClient creation rejected");
+  }
+
+  const key = getClientKey(cfg);
+  let entry = clientRegistry.get(key);
+
+  if (entry && entry.state === "close_failed") {
+    throw new Error(
+      `Cannot create MongoClient: prior client for key '${key}' failed to force-close (${entry.closeError?.message || entry.closeError}). Resource ownership retained in registry; manual recovery or bridge restart required.`,
+    );
+  }
+
+  if (entry && entry.state === "closing") {
+    throw new Error(`MongoClient for key '${key}' is currently closing.`);
+  }
+
+  if (entry && entry.state === "active") {
+    return entry.client;
+  }
+
+  if (!entry || entry.state === "closed") {
+    if (!cfg.uri) throw new Error("MongoDB connection requires a connection URI");
+    const client = new MongoClient(cfg.uri, getDriverOptions(cfg));
+    entry = { client, state: "active" };
+    clientRegistry.set(key, entry);
+  }
+
+  return entry.client;
+}
+
+export async function getMongoClient(cfg: MongoConfig): Promise<MongoClient> {
+  if (isMongoShuttingDown) {
+    throw new Error("Bridge is shutting down: MongoClient creation rejected");
+  }
+
+  const key = getClientKey(cfg);
+
+  const pendingClose = closingClients.get(key);
+  if (pendingClose) {
     try {
-      await client.close();
-    } catch {
-      // ignore
+      await pendingClose;
+    } catch {}
+  }
+
+  let entry = clientRegistry.get(key);
+  if (entry && entry.state === "close_failed") {
+    try {
+      await closeMongoClientByKey(key, { force: true, timeoutMs: 100 });
+    } catch (err: any) {
+      throw new Error(
+        `Cannot create MongoClient: prior client for key '${key}' failed to force-close (${err?.message || err}). Resource ownership retained in registry; manual recovery or bridge restart required.`,
+      );
+    }
+    entry = clientRegistry.get(key);
+    if (entry && entry.state === "close_failed") {
+      throw new Error(
+        `Cannot create MongoClient: prior client for key '${key}' failed to force-close. Resource ownership retained in registry; manual recovery or bridge restart required.`,
+      );
     }
   }
-  clientPool.clear();
+
+  if (entry && entry.state === "active") {
+    return entry.client;
+  }
+
+  if (!entry || entry.state === "closed") {
+    if (!cfg.uri) throw new Error("MongoDB connection requires a connection URI");
+    const client = new MongoClient(cfg.uri, getDriverOptions(cfg));
+    entry = { client, state: "active" };
+    clientRegistry.set(key, entry);
+  }
+
+  return entry.client;
 }
 
 /** Select the target database, defaulting to the configured one. */
 export function selectDb(cfg: MongoConfig): Db {
-  const client = getMongoClient(cfg);
+  const client = getMongoClientSync(cfg);
   return (cfg.database ? client.db(cfg.database) : client.db()) as Db;
+}
+
+// ---------------------------------------------------------------------------
+// READ-ONLY & SAFE EXPRESSION GUARDS (Section 7 & 8)
+// ---------------------------------------------------------------------------
+
+export function assertMongoNotReadOnly(conn: MongoConfig, operation: string): void {
+  if (conn.readonly || (conn as any).readOnly) {
+    throw new MongoApiError(
+      "MONGO_READ_ONLY",
+      `Database is configured as read-only. '${operation}' is prohibited.`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -368,9 +775,10 @@ export async function testConnection(
     return { ok: false, status: "disconnected", message: "Missing connection URI" };
   }
 
-  const tempClient = new MongoClient(cfg.uri);
+  const tempClient = new MongoClient(cfg.uri, getDriverOptions(cfg));
   try {
-    await tempClient.db().admin().ping();
+    const targetDb = cfg.database ? tempClient.db(cfg.database) : tempClient.db();
+    await targetDb.command({ ping: 1 });
     return { ok: true, status: "connected", message: "Connection successful" };
   } catch (err) {
     return { ok: false, status: "disconnected", message: safeMongoError(err) };
@@ -1200,6 +1608,7 @@ export class MongoConnector {
     }
     const filter: EJSONDocument = req.filter ?? {};
     assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
+    if (req.filter) assertSafeExpressions(req.filter);
     const sort = validateSort(req.sort);
     const projection = validateProjection(req.projection);
     const bsonFilter = serializeMongoFilter(filter);
@@ -1241,11 +1650,13 @@ export class MongoConnector {
   }
 
   async insertDocument(config: MongoConfig, req: MongoInsertRequest): Promise<MongoInsertResult> {
+    assertMongoNotReadOnly(config, "insertDocument");
     assertCollectionName(req.collection);
     if (typeof req.document !== "object" || req.document === null || Array.isArray(req.document)) {
       throw new MongoApiError("MONGO_VALIDATION_ERROR", "document must be an object");
     }
     assertSize(req.document, MAX_DOCUMENT_SIZE_BYTES, "document");
+    assertSafeExpressions(req.document);
     const doc = serializeMongoEJSONDocument(req.document);
     const coll = selectCollection(config, req.collection);
     const timeout = clampTimeout();
@@ -1259,9 +1670,12 @@ export class MongoConnector {
   }
 
   async updateDocument(config: MongoConfig, req: MongoUpdateRequest): Promise<MongoUpdateResult> {
+    assertMongoNotReadOnly(config, "updateDocument");
     assertCollectionName(req.collection);
     assertNonEmptyFilter(req.filter);
     assertOperatorDocument(req.update);
+    assertSafeExpressions(req.filter);
+    assertSafeExpressions(req.update);
     const bsonFilter = serializeMongoFilter(req.filter);
     const bsonUpdate = serializeMongoUpdateOperand(req.update);
     const multi = req.options?.multi ?? false;
@@ -1331,6 +1745,7 @@ export class MongoConnector {
     config: MongoConfig,
     req: MongoReplaceRequest,
   ): Promise<MongoReplaceResult> {
+    assertMongoNotReadOnly(config, "replaceDocument");
     assertCollectionName(req.collection);
     assertNonEmptyFilter(req.filter);
     if (
@@ -1342,6 +1757,8 @@ export class MongoConnector {
     }
     assertNoOperatorKeys(req.replacement);
     assertSize(req.replacement, MAX_DOCUMENT_SIZE_BYTES, "replacement");
+    assertSafeExpressions(req.filter);
+    assertSafeExpressions(req.replacement);
 
     if (req.replacement._id !== undefined && req.filter._id !== undefined) {
       if (canonicalJSON(req.replacement._id) !== canonicalJSON(req.filter._id)) {
@@ -1408,8 +1825,10 @@ export class MongoConnector {
   }
 
   async deleteDocument(config: MongoConfig, req: MongoDeleteRequest): Promise<MongoDeleteResult> {
+    assertMongoNotReadOnly(config, "deleteDocument");
     assertCollectionName(req.collection);
     assertNonEmptyFilter(req.filter);
+    assertSafeExpressions(req.filter);
     const bsonFilter = serializeMongoFilter(req.filter);
     const multi = req.options?.multi ?? false;
     const coll = selectCollection(config, req.collection);
@@ -1435,6 +1854,11 @@ export class MongoConnector {
   ): Promise<MongoAggregationResult> {
     assertCollectionName(req.collection);
     assertReadOnlyPipeline(req.pipeline);
+    if (req.pipeline) {
+      for (const stage of req.pipeline) {
+        assertSafeExpressions(stage);
+      }
+    }
     const stages = (req.pipeline || []).map((stage) => serializeMongoPipelineStage(stage));
     const timeout = clampMqlTimeout(req.options?.maxTimeMS, 10000, 60000);
     const allowDiskUse =
@@ -1564,6 +1988,7 @@ export class MongoConnector {
     config: MongoConfig,
     req: MongoCreateCollectionRequest,
   ): Promise<MongoCreateCollectionResult> {
+    assertMongoNotReadOnly(config, "createCollection");
     assertNewCollectionName(req.collection);
     if (req.options?.capped) {
       const { size, max } = req.options;
@@ -1591,6 +2016,7 @@ export class MongoConnector {
     config: MongoConfig,
     req: MongoDropCollectionRequest,
   ): Promise<MongoDropCollectionResult> {
+    assertMongoNotReadOnly(config, "dropCollection");
     if (typeof req.collection === "string" && req.collection.startsWith("system.")) {
       throw new MongoApiError("MONGO_FORBIDDEN", "Cannot drop system collection");
     }
@@ -1721,8 +2147,12 @@ export class MongoConnector {
     req: MongoIndexCreateRequest,
     options?: { readOnly?: boolean },
   ): Promise<MongoIndexCreateResult> {
-    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
-      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    assertMongoNotReadOnly(config, "createIndexes");
+    if (options?.readOnly) {
+      throw new MongoApiError(
+        "MONGO_READ_ONLY",
+        "Database is configured as read-only. 'createIndexes' is prohibited.",
+      );
     }
     assertCollectionName(req.collection);
     if (typeof req.key !== "object" || req.key === null || Array.isArray(req.key)) {
@@ -1934,13 +2364,25 @@ export class MongoConnector {
     };
   }
 
+  async createIndexes(
+    config: MongoConfig,
+    req: MongoIndexCreateRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexCreateResult> {
+    return this.createIndex(config, req, options);
+  }
+
   async dropIndex(
     config: MongoConfig,
     req: MongoIndexDropRequest,
     options?: { readOnly?: boolean },
   ): Promise<MongoIndexDropResult> {
-    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
-      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    assertMongoNotReadOnly(config, "dropIndex");
+    if (options?.readOnly) {
+      throw new MongoApiError(
+        "MONGO_READ_ONLY",
+        "Database is configured as read-only. 'dropIndex' is prohibited.",
+      );
     }
     assertCollectionName(req.collection);
     if (typeof req.indexName !== "string" || !req.indexName.trim()) {
@@ -2036,8 +2478,12 @@ export class MongoConnector {
     req: MongoIndexHideRequest,
     options?: { readOnly?: boolean },
   ): Promise<MongoIndexHideResult> {
-    if (options?.readOnly || (config as any).readonly || (config as any).readOnly) {
-      throw new MongoApiError("MONGO_READ_ONLY", "Connection is read-only");
+    assertMongoNotReadOnly(config, "hideIndex");
+    if (options?.readOnly) {
+      throw new MongoApiError(
+        "MONGO_READ_ONLY",
+        "Database is configured as read-only. 'hideIndex' is prohibited.",
+      );
     }
     assertCollectionName(req.collection);
     if (typeof req.indexName !== "string" || !req.indexName.trim()) {

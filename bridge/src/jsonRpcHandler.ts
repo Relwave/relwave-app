@@ -1,6 +1,6 @@
 import { Rpc } from "./types";
 import { SessionManager } from "./sessionManager";
-import { DatabaseService } from "./services/databaseService";
+import { databaseServiceInstance } from "./services/databaseService";
 import { QueryExecutor } from "./services/queryExecutor";
 import { QueryHandlers } from "./handlers/queryHandlers";
 import { DatabaseHandlers } from "./handlers/databaseHandlers";
@@ -29,7 +29,7 @@ import { Logger } from "pino";
  */
 export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionManager) {
   // Initialize services
-  const dbService = new DatabaseService();
+  const dbService = databaseServiceInstance;
   const queryExecutor = new QueryExecutor();
   const monitoringService = new MonitoringService();
   const monitoringWebSocketServer = new MonitoringWebSocketServer(

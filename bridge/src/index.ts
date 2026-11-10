@@ -4,7 +4,7 @@ import { JsonStdio } from "./jsonRpc";
 import logger from "./services/logger";
 import { registerDbHandlers } from "./jsonRpcHandler";
 import { SessionManager } from "./sessionManager";
-import { connectionPool } from "./services/connectionPool";
+import { databaseServiceInstance } from "./services/databaseService";
 
 const rpc = new JsonStdio();
 const sessions = new SessionManager();
@@ -73,36 +73,55 @@ rpc.on("request", async (req: any) => {
 });
 
 // Graceful shutdown
+const SHUTDOWN_WATCHDOG_MS = 2000;
 let isShuttingDown = false;
-function shutdown(signal: string) {
+
+async function shutdown(signal: string): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
-  logger.info(`Bridge received ${signal} — shutting down`);
+  logger.info(`Bridge received ${signal} — initiating graceful shutdown`);
+
+  // Unconditional watchdog: forces exit if teardown hangs
+  const watchdog = setTimeout(() => {
+    logger.error("Graceful shutdown exceeded 2000ms deadline — forcing exit");
+    process.exit(0);
+  }, SHUTDOWN_WATCHDOG_MS);
+  if (watchdog.unref) watchdog.unref();
+
+  // 1. Session cleanup (isolated try/catch)
   try {
-    sessions.destroy();
+    await Promise.resolve(sessions.destroy());
   } catch (e) {
     logger.error({ e }, "Error destroying sessions");
   }
+
+  // 2. Database service & connection pool drain/teardown (authoritatively awaited)
   try {
-    connectionPool.destroy();
+    await databaseServiceInstance.shutdown();
   } catch (e) {
-    logger.error({ e }, "Error destroying connection pool");
+    logger.error({ e }, "Error during database service shutdown");
   }
-  // Hard exit fallback in case anything hangs in event loop
-  setTimeout(() => process.exit(0), 100).unref();
+
+  // 3. Normal clean exit
+  clearTimeout(watchdog);
   process.exit(0);
 }
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
 
 rpc.on("end", () => {
   logger.info("JSON-RPC stream ended — shutting down");
-  shutdown("RPC_END");
+  void shutdown("RPC_END");
 });
 
 rpc.on("error", (err: any) => {
   logger.error({ err }, "JSON-RPC stream error — shutting down");
-  shutdown("RPC_ERROR");
+  void shutdown("RPC_ERROR");
 });
 
 // Parent process watchdog: if parent process (RelWave/Tauri) dies, bridge exits immediately
@@ -117,7 +136,7 @@ if (parentPid && parentPid > 0 && parentPid !== process.pid) {
       process.kill(parentPid, 0);
     } catch {
       logger.info({ parentPid }, "Parent process has exited — shutting down bridge");
-      shutdown("PARENT_EXITED");
+      void shutdown("PARENT_EXITED");
     }
   }, 1000);
   watchdog.unref();

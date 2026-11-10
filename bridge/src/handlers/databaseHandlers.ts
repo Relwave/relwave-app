@@ -85,8 +85,9 @@ export class DatabaseHandlers {
         });
       }
 
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const tables = await this.queryExecutor.listTables(conn, dbType, params.schema);
+      const tables = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.listTables(conn, dbType, params.schema),
+      );
       this.rpc.sendResponse(id, { ok: true, data: tables });
     } catch (e: any) {
       this.logger?.error({ e }, "db.listTables failed");
@@ -103,8 +104,9 @@ export class DatabaseHandlers {
           message: "Missing id",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const schemas = await this.queryExecutor.listSchemaNames(conn, dbType);
+      const schemas = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.listSchemaNames(conn, dbType),
+      );
       this.rpc.sendResponse(id, { ok: true, data: schemas });
     } catch (e: any) {
       this.logger?.error({ e }, "db.listSchemas failed");
@@ -121,8 +123,9 @@ export class DatabaseHandlers {
           message: "Missing id",
         });
       }
-      const { conn, dbType } = await this.dbService.getDatabaseConnection(dbId);
-      const dbSchema = await this.queryExecutor.listSchemas(conn, dbType);
+      const dbSchema = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+        this.queryExecutor.listSchemas(conn, dbType),
+      );
       this.rpc.sendResponse(id, { ok: true, data: dbSchema });
     } catch (e: any) {
       this.logger?.error({ e }, "db.getSchema failed");
@@ -171,13 +174,14 @@ export class DatabaseHandlers {
         });
       }
 
-      let conn, dbType;
+      let result;
 
       if (dbId) {
-        const result = await this.dbService.getDatabaseConnection(dbId);
-        conn = result.conn;
-        dbType = result.dbType;
+        result = await this.dbService.withConnection(dbId, (conn, _db, dbType) =>
+          this.queryExecutor.testConnection(conn, dbType),
+        );
       } else {
+        let dbType;
         // Detect DB type from the raw connection object
         if (connection.type?.toLowerCase().includes("mariadb")) {
           dbType = "mariadb";
@@ -198,10 +202,10 @@ export class DatabaseHandlers {
           connection.password ?? null,
           dbType,
         );
-        conn = buildResult.config;
+        const conn = buildResult.config;
         tunnelToClose = buildResult.tunnel;
+        result = await this.queryExecutor.testConnection(conn, dbType);
       }
-      const result = await this.queryExecutor.testConnection(conn, dbType);
       this.rpc.sendResponse(id, { ok: true, data: result });
     } catch (err: any) {
       this.logger.error({ err }, "[Handler] testConnection error");
