@@ -146,6 +146,23 @@ export type MongoMigrationStepStatus =
   | "STEP_FAILED"
   | "STEP_UNCERTAIN";
 
+export type MongoMigrationDriftStatus = "VERIFIED" | "DRIFTED" | "UNVERIFIABLE";
+
+export type MongoMigrationDriftReason =
+  | "CHECKSUM_MATCH"
+  | "CHECKSUM_MISMATCH"
+  | "MANIFEST_MISSING"
+  | "RECORDED_CHECKSUM_MISSING"
+  | "MANIFEST_PARSE_ERROR";
+
+export interface MongoMigrationDriftDetails {
+  status: MongoMigrationDriftStatus;
+  reason: MongoMigrationDriftReason;
+  expectedChecksum?: string;
+  actualChecksum?: string;
+  message?: string;
+}
+
 export interface MongoMigrationSummary {
   _id: string; // Matches manifest ID
   name: string;
@@ -164,6 +181,10 @@ export interface MongoMigrationSummary {
   error?: string | { stepIndex?: number; stepType?: string; message: string };
   isReversible?: boolean;
   appliedBy?: string;
+  // AUD-05 Additions:
+  driftStatus?: MongoMigrationDriftStatus;
+  drifted?: boolean;
+  driftDetails?: MongoMigrationDriftDetails;
 }
 
 export interface MongoMigrationLockDoc {

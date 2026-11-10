@@ -325,6 +325,9 @@ export function MongoMigrationsPanel({
                   error: existing?.error,
                   attemptNumber: existing?.attemptNumber,
                   fencingToken: existing?.fencingToken,
+                  driftStatus: existing?.driftStatus,
+                  drifted: existing?.drifted,
+                  driftDetails: existing?.driftDetails,
                 };
                 return (
                   <MongoMigrationCard
@@ -371,6 +374,9 @@ export function MongoMigrationsPanel({
                   fencingToken: m.fencingToken,
                   error: m.error,
                   appliedBy: m.appliedBy,
+                  driftStatus: m.driftStatus,
+                  drifted: m.drifted,
+                  driftDetails: m.driftDetails,
                 };
                 return (
                   <MongoMigrationCard

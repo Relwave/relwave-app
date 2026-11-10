@@ -854,6 +854,8 @@ async function applySingleManifest(
 
 /**
  * List applied and pending migrations for a MongoDB database.
+ * Computes deterministic drift classification for applied migrations
+ * strictly adhering to 5-precedence order without mutating database state.
  */
 export async function listMigrations(
   db: Db,
@@ -875,53 +877,251 @@ export async function listMigrations(
 
   const pendingMigrations: MongoMigrationListResult["pendingMigrations"] = [];
 
-  if (fs.existsSync(migrationsDir)) {
-    const files = fs.readdirSync(migrationsDir);
+  // If migrationsDir does not exist, all applied migrations become UNVERIFIABLE (MANIFEST_MISSING)
+  if (!fs.existsSync(migrationsDir)) {
+    for (const applied of appliedSummaries) {
+      applied.driftStatus = "UNVERIFIABLE";
+      applied.drifted = false;
+      applied.driftDetails = {
+        status: "UNVERIFIABLE",
+        reason: "MANIFEST_MISSING",
+        expectedChecksum: applied.checksum || undefined,
+        message: "Manifest file not found in migrations directory",
+      };
+    }
 
-    for (const file of files) {
-      if (!MANIFEST_FILENAME_REGEX.test(file)) continue;
+    return {
+      appliedMigrations: appliedSummaries,
+      pendingMigrations,
+      isLocked: lockStatus.isLocked,
+      lockDetails: lockStatus.isLocked
+        ? {
+            ownerId: lockStatus.ownerId,
+            fencingToken: lockStatus.fencingToken,
+            expiresAt: lockStatus.expiresAt,
+            migrationId: lockStatus.migrationId,
+          }
+        : undefined,
+    };
+  }
 
-      const fullPath = path.join(migrationsDir, file);
-      validateSafeFilePath(fullPath, migrationsDir);
+  const rawFiles = fs.readdirSync(migrationsDir);
+  const candidateFiles = rawFiles.filter((f) => MANIFEST_FILENAME_REGEX.test(f));
+  // Deterministically pre-sort filenames alphabetically
+  candidateFiles.sort((a, b) => a.localeCompare(b));
 
-      const stats = fs.statSync(fullPath);
-      if (stats.size > MAX_MANIFEST_SIZE_BYTES) {
-        throw new MongoApiError(
-          "MANIFEST_SIZE_EXCEEDED",
-          `Manifest file '${file}' exceeds 1MB limit (${stats.size} bytes)`,
-        );
-      }
+  // Group candidate files by filename-derived ID (split on first '_')
+  const idToFilesMap = new Map<string, string[]>();
+  for (const file of candidateFiles) {
+    const filenameId = file.split("_")[0];
+    const list = idToFilesMap.get(filenameId) || [];
+    list.push(file);
+    idToFilesMap.set(filenameId, list);
+  }
 
-      const rawContent = fs.readFileSync(fullPath, "utf8");
-      const checksum = computeManifestChecksum(rawContent);
-
-      let manifest: MongoMigrationManifest;
-      try {
-        manifest = JSON.parse(rawContent);
-      } catch (err: any) {
-        throw new MongoApiError(
-          "INVALID_MANIFEST",
-          `Failed to parse manifest JSON in '${file}': ${err.message}`,
-        );
-      }
-
-      const id = manifest.id || file.split("_")[0];
+  const duplicateIds = new Set<string>();
+  for (const [id, fileList] of idToFilesMap.entries()) {
+    if (fileList.length > 1) {
+      duplicateIds.add(id);
       const applied = appliedMap.get(id);
-
-      if (applied && applied.status === "APPLIED") {
-        if (applied.checksum && applied.checksum !== checksum) {
-          // divergence noted if needed
-        }
-      } else {
-        pendingMigrations.push({
-          id,
-          name: manifest.name || file,
-          filename: file,
-          checksum,
-          stepCount: manifest.up?.length || 0,
-          isReversible: manifest.up?.every((s) => s.type !== "dropCollection") ?? false,
-        });
+      if (applied) {
+        applied.driftStatus = "UNVERIFIABLE";
+        applied.drifted = false;
+        applied.driftDetails = {
+          status: "UNVERIFIABLE",
+          reason: "MANIFEST_PARSE_ERROR",
+          expectedChecksum: applied.checksum || undefined,
+          message: `Multiple manifest files on disk resolve to migration ID '${id}': [${fileList.join(", ")}]`,
+        };
       }
+    }
+  }
+
+  // Map to store valid parsed manifests on disk for applied drift verification
+  const validDiskFiles = new Map<
+    string,
+    { checksum: string; manifest: MongoMigrationManifest; file: string }
+  >();
+
+  for (const file of candidateFiles) {
+    const filenameId = file.split("_")[0];
+    if (duplicateIds.has(filenameId)) {
+      // Duplicate collisions are flagged on applied migration (if any)
+      // and skipped from valid pending migrations.
+      continue;
+    }
+
+    const fullPath = path.join(migrationsDir, file);
+    validateSafeFilePath(fullPath, migrationsDir);
+
+    let fd: number;
+    try {
+      fd = fs.openSync(fullPath, "r");
+    } catch (err: any) {
+      const applied = appliedMap.get(filenameId);
+      if (applied && !applied.driftStatus) {
+        applied.driftStatus = "UNVERIFIABLE";
+        applied.drifted = false;
+        applied.driftDetails = {
+          status: "UNVERIFIABLE",
+          reason: "MANIFEST_PARSE_ERROR",
+          expectedChecksum: applied.checksum || undefined,
+          message: `Failed to open manifest file '${file}': ${err.message}`,
+        };
+      }
+      continue;
+    }
+
+    let stat: fs.Stats;
+    try {
+      stat = fs.fstatSync(fd);
+    } catch (err: any) {
+      fs.closeSync(fd);
+      const applied = appliedMap.get(filenameId);
+      if (applied && !applied.driftStatus) {
+        applied.driftStatus = "UNVERIFIABLE";
+        applied.drifted = false;
+        applied.driftDetails = {
+          status: "UNVERIFIABLE",
+          reason: "MANIFEST_PARSE_ERROR",
+          expectedChecksum: applied.checksum || undefined,
+          message: `Failed to stat manifest file '${file}': ${err.message}`,
+        };
+      }
+      continue;
+    }
+
+    // Size Safety & TOCTOU Prevention:
+    // If stat.size > MAX_MANIFEST_SIZE_BYTES (1MB), close fd immediately and bypass buffer read.
+    if (stat.size > MAX_MANIFEST_SIZE_BYTES) {
+      fs.closeSync(fd);
+      const applied = appliedMap.get(filenameId);
+      if (applied && !applied.driftStatus) {
+        applied.driftStatus = "UNVERIFIABLE";
+        applied.drifted = false;
+        applied.driftDetails = {
+          status: "UNVERIFIABLE",
+          reason: "MANIFEST_PARSE_ERROR",
+          expectedChecksum: applied.checksum || undefined,
+          message: `Manifest file '${file}' exceeds 1MB limit (${stat.size} bytes)`,
+        };
+      }
+      continue;
+    }
+
+    const buf = Buffer.alloc(stat.size);
+    try {
+      fs.readSync(fd, buf, 0, stat.size, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+
+    const rawContent = buf.toString("utf8");
+    const checksum = computeManifestChecksum(rawContent);
+
+    let manifest: MongoMigrationManifest;
+    try {
+      manifest = JSON.parse(rawContent);
+    } catch (err: any) {
+      const applied = appliedMap.get(filenameId);
+      if (applied && !applied.driftStatus) {
+        applied.driftStatus = "UNVERIFIABLE";
+        applied.drifted = false;
+        applied.driftDetails = {
+          status: "UNVERIFIABLE",
+          reason: "MANIFEST_PARSE_ERROR",
+          expectedChecksum: applied.checksum || undefined,
+          message: `Failed to parse manifest JSON in '${file}': ${err.message}`,
+        };
+      }
+      continue;
+    }
+
+    const id = manifest.id || filenameId;
+    validDiskFiles.set(id, { checksum, manifest, file });
+    if (id !== filenameId) {
+      validDiskFiles.set(filenameId, { checksum, manifest, file });
+    }
+
+    const applied = appliedMap.get(id) || appliedMap.get(filenameId);
+    if (!applied) {
+      pendingMigrations.push({
+        id,
+        name: manifest.name || file,
+        filename: file,
+        checksum,
+        stepCount: manifest.up?.length || 0,
+        isReversible: manifest.up?.every((s) => s.type !== "dropCollection") ?? false,
+      });
+    }
+  }
+
+  // Evaluate applied migrations according to strict deterministic precedence:
+  for (const applied of appliedSummaries) {
+    // If already marked UNVERIFIABLE via Precedence 2 (duplicate collision, oversized, or parse error), preserve it.
+    if (applied.driftStatus) {
+      continue;
+    }
+
+    const filesForId = idToFilesMap.get(applied._id);
+
+    // Precedence 1: MANIFEST_MISSING
+    if (!filesForId || filesForId.length === 0) {
+      applied.driftStatus = "UNVERIFIABLE";
+      applied.drifted = false;
+      applied.driftDetails = {
+        status: "UNVERIFIABLE",
+        reason: "MANIFEST_MISSING",
+        expectedChecksum: applied.checksum || undefined,
+        message: "Manifest file not found in migrations directory",
+      };
+      continue;
+    }
+
+    const diskInfo = validDiskFiles.get(applied._id);
+    if (!diskInfo) {
+      applied.driftStatus = "UNVERIFIABLE";
+      applied.drifted = false;
+      applied.driftDetails = {
+        status: "UNVERIFIABLE",
+        reason: "MANIFEST_PARSE_ERROR",
+        expectedChecksum: applied.checksum || undefined,
+        message: `Failed to validate manifest file for migration ID '${applied._id}'`,
+      };
+      continue;
+    }
+
+    // Precedence 3: RECORDED_CHECKSUM_MISSING
+    if (!applied.checksum) {
+      applied.driftStatus = "UNVERIFIABLE";
+      applied.drifted = false;
+      applied.driftDetails = {
+        status: "UNVERIFIABLE",
+        reason: "RECORDED_CHECKSUM_MISSING",
+        actualChecksum: diskInfo.checksum,
+        message: "Recorded migration summary contains no baseline checksum",
+      };
+    } else if (applied.checksum === diskInfo.checksum) {
+      // Precedence 4: CHECKSUM_MATCH
+      applied.driftStatus = "VERIFIED";
+      applied.drifted = false;
+      applied.driftDetails = {
+        status: "VERIFIED",
+        reason: "CHECKSUM_MATCH",
+        expectedChecksum: applied.checksum,
+        actualChecksum: diskInfo.checksum,
+      };
+    } else {
+      // Precedence 5: CHECKSUM_MISMATCH
+      applied.driftStatus = "DRIFTED";
+      applied.drifted = true;
+      applied.driftDetails = {
+        status: "DRIFTED",
+        reason: "CHECKSUM_MISMATCH",
+        expectedChecksum: applied.checksum,
+        actualChecksum: diskInfo.checksum,
+        message: "On-disk manifest content has been altered since application",
+      };
     }
   }
 

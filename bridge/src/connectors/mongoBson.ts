@@ -243,6 +243,113 @@ function isEJSONWrapper(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Validates and normalizes BSON binary subtype.
+ * Subtype must be an integer between 0 and 255 (numeric or 1-2 character hex string).
+ */
+export function validateAndParseSubtype(rawSubtype: unknown): number {
+  if (typeof rawSubtype === "number") {
+    if (!Number.isSafeInteger(rawSubtype) || rawSubtype < 0 || rawSubtype > 255) {
+      throw new TypeError(
+        `Invalid EJSON $binary: subtype must be a safe integer between 0 and 255, received ${rawSubtype}`
+      );
+    }
+    return rawSubtype;
+  }
+
+  if (typeof rawSubtype === "string") {
+    if (!/^(?:0x)?[0-9a-fA-F]{1,2}$/i.test(rawSubtype)) {
+      throw new TypeError(
+        `Invalid EJSON $binary: subtype must be a valid 1-2 digit hexadecimal string (0x00-0xFF), received '${rawSubtype}'`
+      );
+    }
+    const cleanHex =
+      rawSubtype.startsWith("0x") || rawSubtype.startsWith("0X")
+        ? rawSubtype.slice(2)
+        : rawSubtype;
+    const val = parseInt(cleanHex, 16);
+    if (!Number.isSafeInteger(val) || val < 0 || val > 255) {
+      throw new TypeError(
+        `Invalid EJSON $binary: subtype must be between 0 and 255, received '${rawSubtype}'`
+      );
+    }
+    return val;
+  }
+
+  throw new TypeError(
+    `Invalid EJSON $binary: subtype must be a number or hexadecimal string, received ${typeof rawSubtype}`
+  );
+}
+
+/**
+ * Validates structural RFC 4648 Base64 syntax before decoding, and canonical
+ * post-decoding re-encoding (ensuring unused pad bits in the final quantum are zero).
+ */
+export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
+  if (typeof rawBase64 !== "string") {
+    throw new TypeError(
+      `Invalid EJSON $binary: base64 payload must be a string, received ${typeof rawBase64}`
+    );
+  }
+
+  if (rawBase64 === "") {
+    return Buffer.alloc(0);
+  }
+
+  // Reject truncated base64 (modulo 4 cannot be 1 in RFC 4648)
+  if (rawBase64.length % 4 === 1) {
+    throw new TypeError(
+      `Invalid EJSON $binary: invalid base64 length (${rawBase64.length}), modulo 4 cannot be 1`
+    );
+  }
+
+  let paddedStr: string;
+
+  if (rawBase64.includes("=")) {
+    // Padded base64 must have total length divisible by 4
+    if (rawBase64.length % 4 !== 0) {
+      throw new TypeError(
+        `Invalid EJSON $binary: padded base64 length (${rawBase64.length}) must be a multiple of 4`
+      );
+    }
+    // Must match valid padded base64 structure: blocks of 4 chars ending with == (preceded by 2 chars) or = (preceded by 3 chars)
+    const PADDED_BASE64_REGEX =
+      /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$/;
+    if (!PADDED_BASE64_REGEX.test(rawBase64)) {
+      throw new TypeError(
+        `Invalid EJSON $binary: invalid base64 padding or characters in '${rawBase64}'`
+      );
+    }
+    paddedStr = rawBase64;
+  } else {
+    // Unpadded base64: characters must be strictly RFC 4648 alphabet without padding
+    if (!/^[A-Za-z0-9+/]+$/.test(rawBase64)) {
+      throw new TypeError(
+        `Invalid EJSON $binary: invalid characters in unpadded base64 '${rawBase64}'`
+      );
+    }
+    const remainder = rawBase64.length % 4;
+    if (remainder === 2) {
+      paddedStr = rawBase64 + "==";
+    } else if (remainder === 3) {
+      paddedStr = rawBase64 + "=";
+    } else {
+      paddedStr = rawBase64;
+    }
+  }
+
+  const buf = Buffer.from(paddedStr, "base64");
+
+  // Canonical re-encoding validation post-decoding (unused pad bits must be zero)
+  if (buf.toString("base64") !== paddedStr) {
+    throw new TypeError(
+      "Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)"
+    );
+  }
+
+  return buf;
+}
+
+/**
  * Recursively convert an EJSON value to driver-native BSON types. Resolves the
  * EJSON v2 wrappers; plain JSON passes through; a bare 24-hex string stays a
  * string (only $oid yields an ObjectId — spec §4.2 / D-M2-6); unknown $-wrappers
@@ -289,9 +396,70 @@ export function mongoEJSONtoBSON(value: EJsonValue): unknown {
       case "$numberDecimal":
         return new Decimal128(v["$numberDecimal"] as string);
       case "$binary": {
-        const b = v["$binary"] as { $type?: string; $base64?: string };
-        const subtype = parseInt(b["$type"] || "0", 16) | 0;
-        return new Binary(Buffer.from(b["$base64"] || "", "base64"), subtype);
+        const b = v["$binary"];
+        if (typeof b === "string") {
+          const buf = validateAndDecodeBase64(b);
+          return new Binary(buf, 0);
+        }
+
+        if (isPlainRecord(b)) {
+          const base64Candidates: { key: string; val: unknown }[] = [];
+          if ("base64" in b && b.base64 !== undefined) {
+            base64Candidates.push({ key: "base64", val: b.base64 });
+          }
+          if ("$base64" in b && b.$base64 !== undefined) {
+            base64Candidates.push({ key: "$base64", val: b.$base64 });
+          }
+
+          if (base64Candidates.length === 0) {
+            throw new TypeError("Invalid EJSON $binary: missing base64 data");
+          }
+
+          // Validate EVERY defined candidate independently (a valid alias cannot conceal an invalid alias)
+          const decodedBuffers: Buffer[] = [];
+          for (const cand of base64Candidates) {
+            decodedBuffers.push(validateAndDecodeBase64(cand.val));
+          }
+
+          if (
+            base64Candidates.length === 2 &&
+            base64Candidates[0].val !== base64Candidates[1].val
+          ) {
+            throw new TypeError("Invalid EJSON $binary: conflicting base64 payload properties");
+          }
+
+          const selectedBuffer = decodedBuffers[0];
+
+          // Subtype candidates: subtype, subType, $type, sub_type
+          const subtypeCandidates: { key: string; val: unknown }[] = [];
+          for (const key of ["subtype", "subType", "$type", "sub_type"] as const) {
+            if (key in b && b[key] !== undefined) {
+              subtypeCandidates.push({ key, val: b[key] });
+            }
+          }
+
+          let selectedSubtype = 0;
+          if (subtypeCandidates.length > 0) {
+            const parsedSubtypes: number[] = [];
+            for (const cand of subtypeCandidates) {
+              parsedSubtypes.push(validateAndParseSubtype(cand.val));
+            }
+
+            const firstSubtype = parsedSubtypes[0];
+            for (let i = 1; i < parsedSubtypes.length; i++) {
+              if (parsedSubtypes[i] !== firstSubtype) {
+                throw new TypeError(
+                  "Invalid EJSON $binary: conflicting subtype payload properties"
+                );
+              }
+            }
+            selectedSubtype = firstSubtype;
+          }
+
+          return new Binary(selectedBuffer, selectedSubtype);
+        }
+
+        throw new TypeError("Invalid EJSON $binary: missing base64 data");
       }
       case "$regex":
         return new RegExp(v["$regex"] as string, (v["$options"] as string) || "");

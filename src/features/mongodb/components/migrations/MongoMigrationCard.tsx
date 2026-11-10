@@ -9,13 +9,18 @@ import {
   Play,
   FileText,
   AlertTriangle,
+  HelpCircle,
   CheckCircle2,
   XCircle,
   ShieldAlert,
   Layers,
   ArrowRight,
 } from "lucide-react";
-import type { MongoMigrationStatus } from "@/features/mongodb/types/migration";
+import type {
+  MongoMigrationStatus,
+  MongoMigrationDriftStatus,
+  MongoMigrationDriftDetails,
+} from "@/features/mongodb/types/migration";
 
 export interface MigrationCardData {
   id: string;
@@ -36,6 +41,10 @@ export interface MigrationCardData {
   error?: string | { stepIndex?: number; stepType?: string; message: string };
   appliedBy?: string;
   filename?: string;
+  // AUD-05 Additions:
+  driftStatus?: MongoMigrationDriftStatus;
+  drifted?: boolean;
+  driftDetails?: MongoMigrationDriftDetails;
 }
 
 export interface MongoMigrationCardProps {
@@ -172,6 +181,61 @@ export function MongoMigrationCard({
             >
               {badgeConfig.label}
             </Badge>
+
+            {migration.driftStatus === "DRIFTED" && (
+              <Badge
+                variant="outline"
+                data-testid="migration-drift-badge"
+                className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/40 bg-amber-500/10 flex items-center gap-1 cursor-help"
+                title={`Manifest Checksum Mismatch: The manifest file on disk has been modified since this migration was applied. (Applied: ${
+                  migration.driftDetails?.expectedChecksum
+                    ? `${migration.driftDetails.expectedChecksum.slice(0, 10)}…`
+                    : "unknown"
+                }, On-disk: ${
+                  migration.driftDetails?.actualChecksum
+                    ? `${migration.driftDetails.actualChecksum.slice(0, 10)}…`
+                    : "unknown"
+                })`}
+              >
+                <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                <span>Drift Detected</span>
+              </Badge>
+            )}
+
+            {migration.driftStatus === "UNVERIFIABLE" && (() => {
+              const reason = migration.driftDetails?.reason;
+              let tooltipTitle = "Unverifiable";
+              let tooltipDesc =
+                migration.driftDetails?.message ||
+                "Migration integrity cannot be verified against on-disk files.";
+
+              if (reason === "MANIFEST_MISSING") {
+                tooltipTitle = "Manifest File Missing";
+                tooltipDesc =
+                  "The migration manifest file was not found on disk in the migrations directory.";
+              } else if (reason === "RECORDED_CHECKSUM_MISSING") {
+                tooltipTitle = "No Recorded Checksum";
+                tooltipDesc =
+                  "No baseline checksum was recorded when this migration was applied (legacy migration).";
+              } else if (reason === "MANIFEST_PARSE_ERROR") {
+                tooltipTitle = "Manifest Parse Error";
+                tooltipDesc =
+                  migration.driftDetails?.message ||
+                  "The on-disk manifest file failed validation, exceeded 1MB, or has duplicate collisions.";
+              }
+
+              return (
+                <Badge
+                  variant="outline"
+                  data-testid="migration-unverifiable-badge"
+                  className="text-[10px] px-1.5 py-0 text-muted-foreground border-border/60 bg-muted/40 flex items-center gap-1 cursor-help"
+                  title={`${tooltipTitle}: ${tooltipDesc}`}
+                >
+                  <HelpCircle className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span>Unverifiable</span>
+                </Badge>
+              );
+            })()}
 
             {migration.isReversible !== undefined && (
               <Badge
