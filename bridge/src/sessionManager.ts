@@ -1,9 +1,13 @@
-type Session = {
+import logger from "./services/logger";
+
+export interface Session {
   id: string;
   connectionId?: string;
   cancel?: () => Promise<void> | void;
+  isCancelled?: boolean;
+  callbackDispatched?: boolean;
   createdAt: number;
-};
+}
 
 /** Sessions idle longer than this are treated as stale and swept away */
 const DEFAULT_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
@@ -32,26 +36,59 @@ export class SessionManager {
   get(id: string) {
     return this.sessions.get(id);
   }
+
   remove(id: string) {
     return this.sessions.delete(id);
   }
+
   list() {
     return Array.from(this.sessions.values());
   }
 
   registerCancel(id: string, fn: () => Promise<void> | void) {
     const s = this.sessions.get(id);
-    if (s) s.cancel = fn;
+    if (!s) return;
+    s.cancel = fn;
+
+    // If cancel was called before callback registration, dispatch exactly once
+    if (s.isCancelled && !s.callbackDispatched) {
+      s.callbackDispatched = true;
+      try {
+        const res = fn();
+        if (res && typeof (res as Promise<void>).catch === "function") {
+          (res as Promise<void>).catch(() => {});
+        }
+      } catch (err) {
+        logger.warn({ id, err }, "Error in post-registered cancel callback");
+      }
+    }
   }
 
-  async cancel(id: string) {
+  /**
+   * Synchronously triggers cancellation.
+   * Dispatches callback at-most-once.
+   * Returns false if session is unknown.
+   * Returns true if session exists.
+   * Repeated calls return true idempotently without duplicate callback dispatch.
+   */
+  cancel(id: string): boolean {
     const s = this.sessions.get(id);
     if (!s) return false;
-    if (s.cancel) {
-      await s.cancel();
-      return true;
+    if (s.isCancelled) return true; // Idempotent repeated cancel
+
+    s.isCancelled = true;
+    if (s.cancel && !s.callbackDispatched) {
+      s.callbackDispatched = true;
+      try {
+        const res = s.cancel();
+        if (res && typeof (res as Promise<void>).catch === "function") {
+          (res as Promise<void>).catch(() => {});
+        }
+      } catch (err) {
+        logger.warn({ id, err }, "Error in synchronous cancel callback");
+      }
     }
-    return false;
+    return true;
   }
 
   /**

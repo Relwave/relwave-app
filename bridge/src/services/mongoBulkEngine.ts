@@ -58,6 +58,157 @@ export const EXPORT_CURSOR_BATCH_SIZE = 1_000;
 
 export const EXPORT_DIR = path.join(os.tmpdir(), "relwave-exports");
 
+export const EXPORT_ORPHAN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const EXPORT_FILENAME_REGEX = /^export-([a-zA-Z0-9_-]+)\.(json|ndjson|csv|tmp)$/;
+
+export interface ActiveExportJob {
+  jobId: string;
+  startedAt: number;
+  lastHeartbeat: number;
+  filePath: string;
+}
+
+export class ExportCoordinationManager {
+  private static instance: ExportCoordinationManager;
+  private activeJobs = new Map<string, ActiveExportJob>();
+  private dirLocks = new Map<string, Promise<void>>();
+
+  private constructor() {}
+
+  /** Process-wide Singleton Accessor */
+  public static getInstance(): ExportCoordinationManager {
+    if (!ExportCoordinationManager.instance) {
+      ExportCoordinationManager.instance = new ExportCoordinationManager();
+    }
+    return ExportCoordinationManager.instance;
+  }
+
+  public static resetForTesting(): void {
+    ExportCoordinationManager.instance = new ExportCoordinationManager();
+  }
+
+  /** Keyed Per-Directory Mutex */
+  public async withDirLock<T>(dirPath: string, fn: () => Promise<T>): Promise<T> {
+    const normalizedDir = path.resolve(dirPath);
+    const prevLock = this.dirLocks.get(normalizedDir) || Promise.resolve();
+    let releaseLock!: () => void;
+    const newLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    this.dirLocks.set(normalizedDir, newLock);
+
+    await prevLock;
+    try {
+      return await fn();
+    } finally {
+      releaseLock();
+      if (this.dirLocks.get(normalizedDir) === newLock) {
+        this.dirLocks.delete(normalizedDir);
+      }
+    }
+  }
+
+  /** Pre-Creation Registration: Registered under critical section BEFORE file creation */
+  async registerJobBeforeFileCreation(jobId: string, filePath: string): Promise<void> {
+    const dir = path.dirname(filePath);
+    await this.withDirLock(dir, async () => {
+      this.activeJobs.set(jobId, {
+        jobId,
+        startedAt: Date.now(),
+        lastHeartbeat: Date.now(),
+        filePath,
+      });
+    });
+  }
+
+  updateJobHeartbeat(jobId: string): void {
+    const job = this.activeJobs.get(jobId);
+    if (job) job.lastHeartbeat = Date.now();
+  }
+
+  async unregisterJob(jobId: string): Promise<void> {
+    const job = this.activeJobs.get(jobId);
+    const dir = job ? path.dirname(job.filePath) : process.cwd();
+    await this.withDirLock(dir, async () => {
+      this.activeJobs.delete(jobId);
+    });
+  }
+
+  isJobActive(jobId: string): boolean {
+    return this.activeJobs.has(jobId);
+  }
+
+  /** Race-Safe Purge: Synchronized with registration under dirLock */
+  async purgeOrphanedExportsAsync(exportDir: string): Promise<{ purged: number; skipped: number }> {
+    return this.withDirLock(exportDir, async () => {
+      let files: string[];
+      try {
+        files = await fs.promises.readdir(exportDir);
+      } catch (err: any) {
+        if (err.code === "ENOENT") return { purged: 0, skipped: 0 };
+        throw err;
+      }
+
+      const now = Date.now();
+      let purged = 0;
+      let skipped = 0;
+
+      for (const file of files) {
+        const match = file.match(EXPORT_FILENAME_REGEX);
+        if (!match) {
+          skipped++;
+          continue;
+        }
+
+        const fullPath = path.join(exportDir, file);
+        let stat: fs.Stats;
+        try {
+          stat = await fs.promises.lstat(fullPath);
+        } catch (err: any) {
+          if (err.code === "ENOENT") continue;
+          skipped++;
+          continue;
+        }
+
+        // 1. Symlink rejection
+        if (stat.isSymbolicLink()) {
+          skipped++;
+          continue;
+        }
+
+        const jobId = match[1];
+
+        // 2. In-memory Active Job Protection (Protected even if run > 2 hours!)
+        if (this.activeJobs.has(jobId)) {
+          skipped++;
+          continue;
+        }
+
+        // 3. Two-Hour TTL Age Gate
+        if (now - stat.mtimeMs < EXPORT_ORPHAN_TTL_MS) {
+          skipped++;
+          continue;
+        }
+
+        // 4. Atomic Unlink with ENOENT tolerance
+        try {
+          await fs.promises.unlink(fullPath);
+          purged++;
+        } catch (err: any) {
+          if (err.code === "ENOENT") {
+            // Deleted concurrently or already rotated
+            continue;
+          }
+          skipped++;
+          logger.warn({ fullPath, err }, "Failed to unlink orphaned export file");
+        }
+      }
+
+      return { purged, skipped };
+    });
+  }
+}
+
 const UUID_V4_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -990,6 +1141,10 @@ export class MongoBulkEngine {
   // 2. Bulk Export Engine (Streaming directly to temporary file)
   // =========================================================================
 
+  async purgeOrphanedExports(exportDir: string = EXPORT_DIR): Promise<{ purged: number; skipped: number }> {
+    return ExportCoordinationManager.getInstance().purgeOrphanedExportsAsync(exportDir);
+  }
+
   async exportStart(req: MongoBulkExportStartRequest): Promise<MongoBulkExportStartResult> {
     const { dbId, collection, format, filter = {}, projection, sort, limit } = req;
     assertValidCollectionName(collection);
@@ -1007,8 +1162,12 @@ export class MongoBulkEngine {
     if (!fs.existsSync(EXPORT_DIR)) {
       fs.mkdirSync(EXPORT_DIR, { recursive: true });
     }
-    const tempFilePath = path.join(EXPORT_DIR, `${operationId}.${format}`);
+    const exportCoord = ExportCoordinationManager.getInstance();
+    const tempFilePath = path.join(EXPORT_DIR, `export-${operationId}.${format}`);
     state.operation.tempFilePath = tempFilePath;
+
+    // Register job BEFORE temporary file creation under critical section
+    await exportCoord.registerJobBeforeFileCreation(operationId, tempFilePath);
 
     const bsonFilter = serializeMongoFilter(filter);
     const coll = nativeDb.collection(collection);
@@ -1064,6 +1223,7 @@ export class MongoBulkEngine {
         if (writeStream && !writeStream.destroyed) {
           writeStream.destroy();
         }
+        await exportCoord.unregisterJob(operationId);
         lease.release();
       }
     })();
@@ -1081,6 +1241,7 @@ export class MongoBulkEngine {
     stream: fs.WriteStream,
     state: InternalOperationState,
   ): Promise<void> {
+    const exportCoord = ExportCoordinationManager.getInstance();
     await writeStreamDrain(stream, "[\n");
     let isFirst = true;
 
@@ -1088,6 +1249,7 @@ export class MongoBulkEngine {
       if (state.controller.signal.aborted) {
         throw new MongoApiError("MONGO_OPERATION_CANCELLED", "Export operation was cancelled");
       }
+      exportCoord.updateJobHeartbeat(state.operation.operationId);
       const serialized = JSON.stringify(mongoBSONtoEJSON(doc));
       const chunk = isFirst ? `  ${serialized}` : `,\n  ${serialized}`;
       isFirst = false;
@@ -1104,10 +1266,12 @@ export class MongoBulkEngine {
     stream: fs.WriteStream,
     state: InternalOperationState,
   ): Promise<void> {
+    const exportCoord = ExportCoordinationManager.getInstance();
     for await (const doc of cursor) {
       if (state.controller.signal.aborted) {
         throw new MongoApiError("MONGO_OPERATION_CANCELLED", "Export operation was cancelled");
       }
+      exportCoord.updateJobHeartbeat(state.operation.operationId);
       const line = JSON.stringify(mongoBSONtoEJSON(doc)) + "\n";
       await writeStreamDrain(stream, line);
       state.operation.processedDocuments++;
@@ -1120,6 +1284,7 @@ export class MongoBulkEngine {
     stream: fs.WriteStream,
     state: InternalOperationState,
   ): Promise<void> {
+    const exportCoord = ExportCoordinationManager.getInstance();
     const bufferedDocs: Document[] = [];
     const headerSet = new Set<string>();
 
@@ -1127,6 +1292,7 @@ export class MongoBulkEngine {
       if (state.controller.signal.aborted) {
         throw new MongoApiError("MONGO_OPERATION_CANCELLED", "Export operation was cancelled");
       }
+      exportCoord.updateJobHeartbeat(state.operation.operationId);
       bufferedDocs.push(doc);
       const flattened = flattenObject(doc);
       for (const k of Object.keys(flattened)) {
@@ -1152,6 +1318,7 @@ export class MongoBulkEngine {
       if (state.controller.signal.aborted) {
         throw new MongoApiError("MONGO_OPERATION_CANCELLED", "Export operation was cancelled");
       }
+      exportCoord.updateJobHeartbeat(state.operation.operationId);
       const flattened = flattenObject(doc);
       const row = headers.map((h) => escapeCsvValue(flattened[h])).join(",") + "\n";
       await writeStreamDrain(stream, row);
@@ -1163,6 +1330,7 @@ export class MongoBulkEngine {
       if (state.controller.signal.aborted) {
         throw new MongoApiError("MONGO_OPERATION_CANCELLED", "Export operation was cancelled");
       }
+      exportCoord.updateJobHeartbeat(state.operation.operationId);
       const flattened = flattenObject(doc);
       const row = headers.map((h) => escapeCsvValue(flattened[h])).join(",") + "\n";
       await writeStreamDrain(stream, row);

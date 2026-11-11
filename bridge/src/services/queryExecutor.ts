@@ -4,6 +4,7 @@ import logger from "./logger";
 import { mongoConnector, MongoApiError } from "../connectors/mongo";
 import {
   MongoConfig,
+  MongoExecutionContext,
   MongoCollectionInfo,
   MongoInferSchemaRequest,
   MongoCollectionSchema,
@@ -354,6 +355,7 @@ export class QueryExecutor {
     conn: MongoConfig,
     dbType: DBType,
     req: MongoMqlExecuteRequest,
+    context?: MongoExecutionContext,
   ): Promise<MongoMqlExecuteResult> {
     if (dbType !== DBType.MONGODB) {
       throw new MongoApiError(
@@ -361,13 +363,14 @@ export class QueryExecutor {
         "executeMql requires a MongoDB connection",
       );
     }
-    return mongoConnector.executeMql(conn, req);
+    return mongoConnector.executeMql(conn, req, context);
   }
 
   async explainMql(
     conn: MongoConfig,
     dbType: DBType,
     req: MongoExplainRequest,
+    context?: MongoExecutionContext,
   ): Promise<MongoExplainResult> {
     if (dbType !== DBType.MONGODB) {
       throw new MongoApiError(
@@ -375,7 +378,7 @@ export class QueryExecutor {
         "explainMql requires a MongoDB connection",
       );
     }
-    return mongoConnector.explainMql(conn, req);
+    return mongoConnector.explainMql(conn, req, context);
   }
 
   // ===========================================================================

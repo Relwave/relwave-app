@@ -22,6 +22,7 @@ import {
 import {
   Database,
   Play,
+  Square,
   FileSearch,
   CheckCircle2,
   AlertCircle,
@@ -448,6 +449,16 @@ export function MongoWorkspacePanel({
     [collections]
   );
 
+  const handleCancel = useCallback(async () => {
+    if (executeMqlMutation.isPending) {
+      await executeMqlMutation.cancelMql?.();
+    }
+    if (explainMqlMutation.isPending) {
+      await explainMqlMutation.cancelMql?.();
+    }
+    setStatusMessage("Query cancelled by user.");
+  }, [executeMqlMutation, explainMqlMutation]);
+
   const activeError =
     validationError ||
     (executeMqlMutation.error ? executeMqlMutation.error.message : null) ||
@@ -566,23 +577,34 @@ export function MongoWorkspacePanel({
             </TooltipContent>
           </Tooltip>
 
-          {/* Run Query button */}
-          <Button
-            size="sm"
-            onClick={handleRunQuery}
-            disabled={isExecuting || (!selectedCollection && inputMode === "json")}
-            className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isExecuting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
+          {/* Run Query / Cancel Query button */}
+          {isExecuting ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleCancel}
+              className="h-8 text-xs gap-1.5"
+              data-testid="cancel-query-button"
+              title="Cancel executing query"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleRunQuery}
+              disabled={isExecuting || (!selectedCollection && inputMode === "json")}
+              className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+              data-testid="run-query-button"
+            >
               <Play className="h-3.5 w-3.5 fill-current" />
-            )}
-            Run Query
-            <kbd className="ml-1 text-[10px] bg-primary-foreground/20 px-1 py-0.2 rounded font-mono">
-              Mod+Enter
-            </kbd>
-          </Button>
+              Run Query
+              <kbd className="ml-1 text-[10px] bg-primary-foreground/20 px-1 py-0.2 rounded font-mono">
+                Mod+Enter
+              </kbd>
+            </Button>
+          )}
         </div>
       </div>
 

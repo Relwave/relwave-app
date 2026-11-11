@@ -68,14 +68,29 @@ export interface MongoFindRequest {
   pageSize?: number;
 }
 
-export interface MongoFindResult {
+export interface MongoPaginatedResult {
   collection: string;
   documents: EJSONDocument[];
-  total: number;
+  total?: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+  totalPages?: number;
   hasMore: boolean;
+  countOmitted?: boolean;
+}
+
+export interface MongoQueryState {
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  countOmitted: boolean;
+  total?: number;
+  totalPages?: number;
+}
+
+export interface MongoFindResult extends MongoPaginatedResult {
+  total: number;
+  totalPages: number;
 }
 
 // ==========================================
@@ -231,6 +246,7 @@ export interface MongoMqlExecuteRequest {
   dbId: string;
   collection: string;
   op: MongoMqlOperation;
+  sessionId?: string;
   options?: {
     maxTimeMS?: number;
   };
@@ -290,6 +306,7 @@ export interface MongoExplainRequest {
   dbId: string;
   collection: string;
   target: MongoExplainTarget;
+  sessionId?: string;
   verbosity?: "queryPlanner" | "executionStats" | "allPlansExecution";
   options?: {
     maxTimeMS?: number;

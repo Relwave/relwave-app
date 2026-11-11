@@ -212,6 +212,26 @@ class QueryService {
       throw new Error(`Failed to run aggregation: ${error.message}`);
     }
   }
+
+  /**
+   * Cancels an ongoing query or MQL operation by sessionId (query.cancel).
+   */
+  async cancelQuery(sessionId: string): Promise<{ cancelled: boolean }> {
+    try {
+      if (!sessionId) {
+        throw new Error("sessionId is required to cancel a query.");
+      }
+      const result = await bridgeRequest("query.cancel", { sessionId });
+      return result?.data ?? { cancelled: false };
+    } catch (error: any) {
+      console.error("Failed to cancel query:", error);
+      throw new Error(`Failed to cancel query: ${error.message}`);
+    }
+  }
+
+  async cancel(sessionId: string): Promise<{ cancelled: boolean }> {
+    return this.cancelQuery(sessionId);
+  }
 }
 
 export const queryService = new QueryService();

@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Info,
   Zap,
+  Square,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MongoTreeViewer } from "./MongoTreeViewer";
@@ -140,11 +142,15 @@ export function analyzeExplainPlan(explain: MongoExplainResult): ExplainAnalysis
 export interface MongoExplainViewProps {
   explainResult: MongoExplainResult;
   className?: string;
+  onCancel?: () => void;
+  isExecuting?: boolean;
 }
 
 export const MongoExplainView: React.FC<MongoExplainViewProps> = ({
   explainResult,
   className,
+  onCancel,
+  isExecuting = false,
 }) => {
   const [showRawTree, setShowRawTree] = useState(false);
 
@@ -154,6 +160,22 @@ export const MongoExplainView: React.FC<MongoExplainViewProps> = ({
 
   return (
     <div className={cn("flex flex-col h-full overflow-auto p-4 gap-4 bg-background", className)}>
+      {onCancel && (
+        <div className="flex justify-end">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onCancel}
+            disabled={!isExecuting}
+            className="h-7 px-2 text-xs gap-1"
+            data-testid="cancel-explain-button"
+            title="Cancel Explain execution"
+          >
+            <Square className="h-3 w-3 fill-current" />
+            Cancel
+          </Button>
+        </div>
+      )}
       {/* 1. COLLSCAN Warning Banner if unindexed */}
       {analysis.isCollScan && !analysis.isIxScan && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400 flex items-start gap-3">

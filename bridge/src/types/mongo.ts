@@ -739,3 +739,97 @@ export interface MongoDeleteRelationshipResult {
   success: boolean;
   relationshipId: string;
 }
+
+// ===========================================================================
+// Stage 8 Phase 3 — Cancellation, Lifecycle Supervision & Teardown Types
+// ===========================================================================
+
+export type CursorCloseState =
+  | "none"
+  | "open"
+  | "closing"
+  | "closed_confirmed"
+  | "closed_failed"
+  | "closed_timed_out";
+
+export type CursorCloseOutcome =
+  | { status: "closed_confirmed"; durationMs: number }
+  | { status: "closed_failed"; error: unknown; durationMs: number }
+  | { status: "closed_timed_out"; durationMs: number };
+
+export interface MongoExecutionContext {
+  signal?: AbortSignal;
+  onCursorCreated?: (cursor: any) => void;
+  onDriverPromiseCreated?: (promise: Promise<any>) => void;
+}
+
+export interface DriverSettlementSignal {
+  readonly isSettled: boolean;
+  readonly settledAt?: number;
+  readonly outcome?: "fulfilled" | "rejected";
+  readonly error?: unknown;
+  readonly promise: Promise<{ outcome: "fulfilled" | "rejected"; error?: unknown }>;
+  markSettled: (outcome?: "fulfilled" | "rejected", error?: unknown) => void;
+}
+
+export type TeardownOutcomeStatus =
+  | "destroy_confirmed"
+  | "driver_settled"
+  | "shutdown_handoff"
+  | "retryable_failure"
+  | "unrecoverable_failure";
+
+export type TeardownOutcome =
+  | {
+      status: "destroy_confirmed";
+      invalidationSucceeded: boolean;
+      socketsDestroyed: number;
+      durationMs: number;
+    }
+  | {
+      status: "driver_settled";
+      durationMs: number;
+    }
+  | {
+      status: "shutdown_handoff";
+      reason: "shutdown_adopted";
+      durationMs: number;
+    }
+  | {
+      status: "retryable_failure";
+      invalidationSucceeded: boolean;
+      socketError?: unknown;
+      invalidationError?: unknown;
+      attempt: number;
+      durationMs: number;
+    }
+  | {
+      status: "unrecoverable_failure";
+      invalidationSucceeded: boolean;
+      socketError?: unknown;
+      invalidationError?: unknown;
+      totalAttempts: number;
+      durationMs: number;
+    };
+
+export type OperationLifecycleState =
+  | "running"
+  | "rpc_rejected_driver_pending"
+  | "zombie_pinned"
+  | "teardown_initiated"
+  | "teardown_failed_pinned"
+  | "unrecoverable_pinned"
+  | "shutdown_adopted"
+  | "completed"
+  | "closed";
+
+export interface OperationLifecycleHandle {
+  id: string;
+  dbId: string;
+  state: OperationLifecycleState;
+  settlementSignal: DriverSettlementSignal;
+  retryTimer?: NodeJS.Timeout;
+  cursor?: any;
+  cursorCloseOutcome?: CursorCloseOutcome;
+  hasReleasedLease?: boolean;
+}

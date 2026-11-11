@@ -34,6 +34,8 @@ import {
 import { sanitizeMongoUri } from "../utils/mongoUri";
 import { createHash } from "crypto";
 import {
+  CursorCloseOutcome,
+  MongoExecutionContext,
   MongoConfig,
   MongoCollectionInfo,
   MongoCollectionStats,
@@ -1909,12 +1911,17 @@ export class MongoConnector {
   async executeMql(
     config: MongoConfig,
     req: MongoMqlExecuteRequest,
+    context?: MongoExecutionContext,
   ): Promise<MongoMqlExecuteResult> {
-    return executeMql(config, req);
+    return executeMql(config, req, context);
   }
 
-  async explainMql(config: MongoConfig, req: MongoExplainRequest): Promise<MongoExplainResult> {
-    return explainMql(config, req);
+  async explainMql(
+    config: MongoConfig,
+    req: MongoExplainRequest,
+    context?: MongoExecutionContext,
+  ): Promise<MongoExplainResult> {
+    return explainMql(config, req, context);
   }
 
   async listCollections(config: MongoConfig): Promise<MongoCollectionInfo[]> {
@@ -2742,13 +2749,43 @@ export function evaluateIndexRedundancy(
 export const mongoConnector = new MongoConnector();
 
 // ===========================================================================
+// Stage 8 Phase 3 — Cursor Close Helper with 2000ms Bound
+// ===========================================================================
+
+export async function initiateCursorClose(cursor: any): Promise<CursorCloseOutcome> {
+  const startedAt = Date.now();
+  if (!cursor || typeof cursor.close !== "function") {
+    return { status: "closed_confirmed", durationMs: 0 };
+  }
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Cursor close timeout")), 2000);
+    });
+    await Promise.race([cursor.close(), timeoutPromise]);
+    return { status: "closed_confirmed", durationMs: Date.now() - startedAt };
+  } catch (err: any) {
+    if (err?.message === "Cursor close timeout") {
+      return { status: "closed_timed_out", durationMs: Date.now() - startedAt };
+    }
+    return { status: "closed_failed", error: err, durationMs: Date.now() - startedAt };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// ===========================================================================
 // M5 — MQL Query Workspace & Read-Only Engine (docs/MONGODB_M5_SPEC.md §3, §5)
 // ===========================================================================
 
 export async function executeMql(
   config: MongoConfig,
   req: MongoMqlExecuteRequest,
+  context?: MongoExecutionContext,
 ): Promise<MongoMqlExecuteResult> {
+  // Gate 0: Entry check
+  context?.signal?.throwIfAborted();
+
   const op = req?.op;
   const opName = (op as any)?.operation;
 
@@ -2760,6 +2797,8 @@ export async function executeMql(
   }
 
   assertCollectionName(req.collection);
+  // Gate 1: Pre-collection selection check
+  context?.signal?.throwIfAborted();
   const coll = selectCollection(config, req.collection);
   const started = Date.now();
 
@@ -2804,9 +2843,18 @@ export async function executeMql(
       }
 
       const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+
+      // Gate 2: Pre-serialization check
+      context?.signal?.throwIfAborted();
       const bsonFilter = serializeMongoFilter(filter);
 
+      // Gate 3: Pre-driver invocation check
+      context?.signal?.throwIfAborted();
+
       const nativeDocs = await withMongoTimeout(timeout, (signal) => {
+        signal.throwIfAborted();
+        context?.signal?.throwIfAborted();
+
         const options: FindOptions & { signal?: AbortSignal } = {
           signal,
           maxTimeMS: timeout,
@@ -2816,7 +2864,22 @@ export async function executeMql(
         if (sort) options.sort = sort;
         if (projection) options.projection = projection;
         if (payload.skip !== undefined) options.skip = payload.skip;
-        return coll.find(bsonFilter, options).toArray();
+
+        const cursor = coll.find(bsonFilter, options);
+
+        // Gate 4: Cursor creation check
+        if (signal.aborted || context?.signal?.aborted) {
+          initiateCursorClose(cursor);
+          if (signal.aborted) signal.throwIfAborted();
+          context?.signal?.throwIfAborted();
+        }
+
+        context?.onCursorCreated?.(cursor);
+
+        const driverPromise = cursor.toArray();
+        context?.onDriverPromiseCreated?.(driverPromise);
+
+        return driverPromise;
       });
 
       const documents = nativeDocs.map((d) => mongoBSONtoEJSON(d) as EJSONDocument);
@@ -2839,8 +2902,14 @@ export async function executeMql(
       const timeout = clampMqlTimeout(req.options?.maxTimeMS, 10000, 60000);
       const allowDiskUse = typeof payload.allowDiskUse === "boolean" ? payload.allowDiskUse : false;
 
+      // Gate 3: Pre-driver invocation check
+      context?.signal?.throwIfAborted();
+
       const nativeDocs: Document[] = [];
       await withMongoTimeout(timeout, async (signal) => {
+        signal.throwIfAborted();
+        context?.signal?.throwIfAborted();
+
         const options: AggregateOptions & { signal?: AbortSignal } = {
           signal,
           maxTimeMS: timeout,
@@ -2855,18 +2924,33 @@ export async function executeMql(
           options.batchSize = payload.batchSize;
         }
         const cursor = coll.aggregate(stages, options);
+
+        if (signal.aborted || context?.signal?.aborted) {
+          initiateCursorClose(cursor);
+          if (signal.aborted) signal.throwIfAborted();
+          context?.signal?.throwIfAborted();
+        }
+
+        context?.onCursorCreated?.(cursor);
+
         try {
-          for await (const doc of cursor) {
-            nativeDocs.push(doc);
-            if (nativeDocs.length > MAX_AGG_RESULTS) {
-              throw new MongoApiError(
-                "MONGO_LIMIT_EXCEEDED",
-                `aggregation returned more than ${MAX_AGG_RESULTS} documents (max ${MAX_AGG_RESULTS}); add a $limit stage`,
-              );
+          const streamPromise = (async () => {
+            for await (const doc of cursor) {
+              signal.throwIfAborted();
+              context?.signal?.throwIfAborted();
+              nativeDocs.push(doc);
+              if (nativeDocs.length > MAX_AGG_RESULTS) {
+                throw new MongoApiError(
+                  "MONGO_LIMIT_EXCEEDED",
+                  `aggregation returned more than ${MAX_AGG_RESULTS} documents (max ${MAX_AGG_RESULTS}); add a $limit stage`,
+                );
+              }
             }
-          }
+          })();
+          context?.onDriverPromiseCreated?.(streamPromise);
+          await streamPromise;
         } finally {
-          await cursor.close().catch(() => {});
+          await initiateCursorClose(cursor);
         }
       });
 
@@ -2923,9 +3007,18 @@ export async function executeMql(
       }
 
       const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+
+      // Gate 2: Pre-serialization check
+      context?.signal?.throwIfAborted();
       const bsonFilter = serializeMongoFilter(filter);
 
+      // Gate 3: Pre-driver invocation check
+      context?.signal?.throwIfAborted();
+
       const count = await withMongoTimeout(timeout, (signal) => {
+        signal.throwIfAborted();
+        context?.signal?.throwIfAborted();
+
         const options: { maxTimeMS?: number; signal?: AbortSignal; skip?: number; limit?: number } =
           {
             maxTimeMS: timeout,
@@ -2933,7 +3026,10 @@ export async function executeMql(
           };
         if (payload.skip !== undefined) options.skip = payload.skip;
         if (payload.limit !== undefined) options.limit = payload.limit;
-        return coll.countDocuments(bsonFilter, options);
+
+        const p = coll.countDocuments(bsonFilter, options);
+        context?.onDriverPromiseCreated?.(p);
+        return p;
       });
 
       return {
@@ -2959,9 +3055,17 @@ export async function executeMql(
       }
       const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
 
-      const count = await withMongoTimeout(timeout, (signal) =>
-        coll.estimatedDocumentCount({ maxTimeMS: timeout, signal } as any),
-      );
+      // Gate 3: Pre-driver invocation check
+      context?.signal?.throwIfAborted();
+
+      const count = await withMongoTimeout(timeout, (signal) => {
+        signal.throwIfAborted();
+        context?.signal?.throwIfAborted();
+
+        const p = coll.estimatedDocumentCount({ maxTimeMS: timeout, signal } as any);
+        context?.onDriverPromiseCreated?.(p);
+        return p;
+      });
 
       return {
         operation: "estimatedDocumentCount",
@@ -2992,11 +3096,22 @@ export async function executeMql(
       assertSize(filter, MAX_FILTER_SIZE_BYTES, "filter");
 
       const timeout = clampMqlTimeout(req.options?.maxTimeMS, 5000, 60000);
+
+      // Gate 2: Pre-serialization check
+      context?.signal?.throwIfAborted();
       const bsonFilter = serializeMongoFilter(filter);
 
-      let rawValues = await withMongoTimeout(timeout, (signal) =>
-        coll.distinct(payload.field, bsonFilter, { maxTimeMS: timeout, signal } as any),
-      );
+      // Gate 3: Pre-driver invocation check
+      context?.signal?.throwIfAborted();
+
+      let rawValues = await withMongoTimeout(timeout, (signal) => {
+        signal.throwIfAborted();
+        context?.signal?.throwIfAborted();
+
+        const p = coll.distinct(payload.field, bsonFilter, { maxTimeMS: timeout, signal } as any);
+        context?.onDriverPromiseCreated?.(p);
+        return p;
+      });
 
       if (rawValues.length > MAX_DISTINCT_VALUES) {
         rawValues = rawValues.slice(0, MAX_DISTINCT_VALUES);
@@ -3018,7 +3133,9 @@ export async function executeMql(
 export async function explainMql(
   config: MongoConfig,
   req: MongoExplainRequest,
+  context?: MongoExecutionContext,
 ): Promise<MongoExplainResult> {
+  context?.signal?.throwIfAborted();
   const target = req?.target;
   const op = (target as any)?.operation;
 
@@ -3030,6 +3147,7 @@ export async function explainMql(
   }
 
   assertCollectionName(req.collection);
+  context?.signal?.throwIfAborted();
   const coll = selectCollection(config, req.collection);
 
   const verbosity = req.verbosity || "queryPlanner";
@@ -3068,6 +3186,7 @@ export async function explainMql(
       }
     }
 
+    context?.signal?.throwIfAborted();
     const bsonFilter = serializeMongoFilter(filter);
     const cursor = coll.find(bsonFilter, { maxTimeMS: timeout, ...PRESERVE_BSON_TYPES });
     if (sort) cursor.sort(sort);
@@ -3078,18 +3197,33 @@ export async function explainMql(
       if (floored >= 1) cursor.limit(Math.min(floored, MAX_PAGE_SIZE));
     }
 
-    raw = await withMongoTimeout(timeout, () => cursor.explain(verbosity));
+    context?.onCursorCreated?.(cursor);
+    raw = await withMongoTimeout(timeout, (signal) => {
+      signal.throwIfAborted();
+      context?.signal?.throwIfAborted();
+      const p = cursor.explain(verbosity);
+      context?.onDriverPromiseCreated?.(p);
+      return p;
+    });
   } else {
     // aggregate
     assertReadOnlyPipeline(target.pipeline);
     const stages = (target.pipeline || []).map((stage) => serializeMongoPipelineStage(stage));
+    context?.signal?.throwIfAborted();
     const cursor = coll.aggregate(stages, {
       maxTimeMS: timeout,
       allowDiskUse: target.allowDiskUse ?? false,
       ...PRESERVE_BSON_TYPES,
     });
 
-    raw = await withMongoTimeout(timeout, () => cursor.explain(verbosity));
+    context?.onCursorCreated?.(cursor);
+    raw = await withMongoTimeout(timeout, (signal) => {
+      signal.throwIfAborted();
+      context?.signal?.throwIfAborted();
+      const p = cursor.explain(verbosity);
+      context?.onDriverPromiseCreated?.(p);
+      return p;
+    });
   }
 
   const rawObj = (raw || {}) as Record<string, any>;
