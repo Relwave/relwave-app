@@ -792,4 +792,42 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
       store.getSnapshot().resetStore();
     }
   });
+
+  it("maintains stable cached snapshot identity across repeated getSnapshot calls to avoid React re-render loops", () => {
+    const mockService = createMockService();
+    const store = createMongoBulkOperationsStore(mockService);
+
+    // Initial snapshot should be reference-equal on repeated calls
+    const snapshot1 = store.getSnapshot();
+    const snapshot2 = store.getSnapshot();
+    assert.strictEqual(snapshot1, snapshot2, "getSnapshot must return cached reference when store has not mutated");
+
+    // Mutation triggers a snapshot reference change
+    const op: TrackedAsyncBulkOperation = {
+      kind: "async",
+      type: "export",
+      operationId: "op-snapshot-cache-1",
+      dbId: "db-snap",
+      collection: "users",
+      format: "json",
+      status: "pending",
+      processedDocuments: 0,
+      successfulDocuments: 0,
+      failedDocuments: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    store.getSnapshot().registerAsyncOperation("db-snap", op);
+
+    const snapshot3 = store.getSnapshot();
+    assert.notStrictEqual(snapshot3, snapshot1, "getSnapshot must return a new snapshot reference upon state mutation");
+
+    // After mutation, repeated calls return the new stable cached reference
+    const snapshot4 = store.getSnapshot();
+    assert.strictEqual(snapshot3, snapshot4, "getSnapshot must return identical reference on subsequent reads after mutation");
+
+    store.getSnapshot().resetStore();
+  });
 });

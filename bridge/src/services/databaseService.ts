@@ -53,7 +53,7 @@ export class DatabaseService {
           }
 
           const db = await dbStoreInstance.getDB(dbId);
-          if (!db) throw new Error(`Database '${dbId}' not found`);
+          if (!db) throw new Error("Database not found");
           const pwd = await dbStoreInstance.getPasswordFor(db);
           const dbType = DBTypeDetector.detect(db);
           builtDbType = dbType;

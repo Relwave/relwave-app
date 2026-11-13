@@ -2,6 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, jest } from "@jest/globa
 import fs from "fs";
 import path from "path";
 import os from "os";
+import * as mongoConnector from "../src/connectors/mongo";
 import {
   BulkOperationManager,
   MongoBulkEngine,
@@ -53,7 +54,15 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
         conn: { uri: "mongodb://localhost:27017/test" },
         dbType: DBType.MONGODB,
       }),
+      acquireConnection: jest.fn<any>().mockResolvedValue({
+        db: { id: "test-db", readonly: false },
+        conn: { uri: "mongodb://localhost:27017/test" },
+        dbType: DBType.MONGODB,
+        release: jest.fn(),
+      }),
     };
+
+    jest.spyOn(mongoConnector, "selectDb").mockReturnValue(mockNativeDb as any);
 
     engine = new MongoBulkEngine(mockDbService, opManager);
     jest.spyOn(engine, "getDb").mockResolvedValue({
@@ -389,7 +398,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
       expect(cursorClosed).toBe(true);
 
       // Verify temp file content
-      const filePath = path.join(EXPORT_DIR, `${res.operationId}.json`);
+      const filePath = path.join(EXPORT_DIR, `export-${res.operationId}.json`);
       expect(fs.existsSync(filePath)).toBe(true);
       const content = fs.readFileSync(filePath, "utf8");
       expect(content).toContain('"_id":"1"');
@@ -425,7 +434,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
       await new Promise((r) => setTimeout(r, 60));
 
-      const filePath = path.join(EXPORT_DIR, `${res.operationId}.csv`);
+      const filePath = path.join(EXPORT_DIR, `export-${res.operationId}.csv`);
       expect(fs.existsSync(filePath)).toBe(true);
       const csv = fs.readFileSync(filePath, "utf8");
 

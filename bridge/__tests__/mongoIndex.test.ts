@@ -1321,6 +1321,10 @@ describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
           conn: dummyConfig,
           dbType: DBType.MONGODB,
         }),
+        withConnection: jest.fn<any>().mockImplementation(async (dbId: string, fn: any) => {
+          const connInfo = await mockDbService.getDatabaseConnection(dbId);
+          return fn(connInfo.conn, connInfo.db, connInfo.dbType);
+        }),
       };
       mockQueryExecutor = {
         listIndexes: jest.fn<any>().mockResolvedValue({

@@ -134,6 +134,7 @@ describe("QueryHandlers MQL Unit Tests (bridge/src/handlers/queryHandlers.ts)", 
           op: params.op,
           options: params.options,
         },
+        expect.any(Object),
       );
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(5, {
         ok: true,
@@ -260,6 +261,7 @@ describe("QueryHandlers MQL Unit Tests (bridge/src/handlers/queryHandlers.ts)", 
           verbosity: params.verbosity,
           options: params.options,
         },
+        expect.any(Object),
       );
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(15, {
         ok: true,

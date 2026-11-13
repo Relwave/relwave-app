@@ -91,7 +91,7 @@ describeIntegration("MongoDB M5 MQL Integration Tests (Live Server)", () => {
     if (res.operation === "aggregate") {
       expect(res.documents).toHaveLength(2);
       expect((res.documents[0] as any)._id).toBe("tools");
-      expect((res.documents[0] as any).totalStock).toBe(150);
+      expect((res.documents[0] as any).totalStock).toEqual({ $numberInt: "150" });
     }
   });
 

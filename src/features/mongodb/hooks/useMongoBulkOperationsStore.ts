@@ -45,7 +45,30 @@ export function createMongoBulkOperationsStore(
   const activeCancellationPromises = new Map<string, Promise<void>>();
   const listeners = new Set<() => void>();
 
+  let snapshot: MongoBulkOperationsState;
+
+  function updateSnapshot() {
+    snapshot = {
+      operationsByDb,
+      activePollers,
+      activeExecutionControls,
+      registerAsyncOperation,
+      updateAsyncOperation,
+      registerSyncMutation,
+      updateSyncMutation,
+      markOperationStale,
+      setOperationUnreachable,
+      retryPolling,
+      cancelOperation,
+      cleanupOperation,
+      removeOperation,
+      clearExpiredOperations,
+      resetStore,
+    };
+  }
+
   function notify() {
+    updateSnapshot();
     for (const listener of listeners) {
       listener();
     }
@@ -462,6 +485,8 @@ export function createMongoBulkOperationsStore(
     });
   }
 
+  updateSnapshot();
+
   return {
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -470,23 +495,7 @@ export function createMongoBulkOperationsStore(
       };
     },
     getSnapshot(): MongoBulkOperationsState {
-      return {
-        operationsByDb,
-        activePollers,
-        activeExecutionControls,
-        registerAsyncOperation,
-        updateAsyncOperation,
-        registerSyncMutation,
-        updateSyncMutation,
-        markOperationStale,
-        setOperationUnreachable,
-        retryPolling,
-        cancelOperation,
-        cleanupOperation,
-        removeOperation,
-        clearExpiredOperations,
-        resetStore,
-      };
+      return snapshot;
     },
     // Expose internal references for test inspection
     _activePollers: activePollers,
