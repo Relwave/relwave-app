@@ -128,7 +128,7 @@ export const MongoHistoryDrawer: React.FC<MongoHistoryDrawerProps> = ({
         )}
       >
         {/* Drawer Header */}
-        <SheetHeader className="p-4 border-b border-border/40 shrink-0 bg-muted/20">
+        <SheetHeader className="p-4 border-b border-border/40 shrink-0 bg-muted/20 pr-12">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center text-primary">

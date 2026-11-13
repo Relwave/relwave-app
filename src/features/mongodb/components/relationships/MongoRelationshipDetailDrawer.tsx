@@ -76,21 +76,29 @@ export function MongoRelationshipDetailDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl overflow-y-auto w-full">
-        <SheetHeader className="pb-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-primary" />
-            <SheetTitle className="text-lg font-mono">
-              {relationship.sourceCollection}.{relationship.sourceField} →{" "}
-              {relationship.targetCollection}.{relationship.targetField}
-            </SheetTitle>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-xl p-0 flex flex-col gap-0 bg-background text-foreground border-l border-border/80 shadow-2xl"
+      >
+        <SheetHeader className="p-4 border-b border-border/60 bg-muted/20 shrink-0 pr-12">
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground mb-1">
+            <Link2 className="h-4 w-4 text-primary shrink-0" />
+            <span>Relationship Details</span>
+            <span>•</span>
+            <span className="font-semibold text-foreground">
+              {isInferred ? "Inferred Reference" : "Manual Relationship"}
+            </span>
           </div>
-          <SheetDescription>
+          <SheetTitle className="text-base font-mono font-semibold truncate text-foreground pr-6">
+            {relationship.sourceCollection}.{relationship.sourceField} →{" "}
+            {relationship.targetCollection}.{relationship.targetField}
+          </SheetTitle>
+          <SheetDescription className="text-xs text-muted-foreground mt-0.5">
             Relationship metadata and heuristic evidence breakdown.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Status & Origin Badges */}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs">

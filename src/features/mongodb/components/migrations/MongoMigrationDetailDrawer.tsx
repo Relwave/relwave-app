@@ -186,7 +186,7 @@ export function MongoMigrationDetailDrawer({
         className="w-full sm:max-w-xl p-0 flex flex-col gap-0 bg-background text-foreground border-l border-border/80 shadow-2xl"
       >
         {/* Header */}
-        <SheetHeader className="p-4 border-b border-border/60 bg-muted/20 shrink-0">
+        <SheetHeader className="p-4 border-b border-border/60 bg-muted/20 shrink-0 pr-12">
           <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
             <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
             <span>Audit Journal</span>
