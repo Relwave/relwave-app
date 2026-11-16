@@ -68,17 +68,19 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
   });
 
   // Scenario 1: Navigation Item Registration & Relational Isolation
-  it("1. getDatabasePanelItems('mongodb') returns 6 items with 'mongo-bulk' at index 5; all 6 relational engines strictly exclude it", () => {
+  it("1. getDatabasePanelItems('mongodb') returns 7 items with 'mongo-bulk' at index 5 and 'git-status' at index 6; all 6 relational engines strictly exclude mongo-bulk", () => {
     const mongoItems = getDatabasePanelItems("mongodb");
-    assert.strictEqual(mongoItems.length, 6);
+    assert.strictEqual(mongoItems.length, 7);
     assert.strictEqual(mongoItems[5].panel, "mongo-bulk");
     assert.strictEqual(mongoItems[5].label, "Bulk Operations");
     assert.strictEqual(mongoItems[5].icon, ArrowLeftRight);
+    assert.strictEqual(mongoItems[6].panel, "git-status");
 
     // Case-insensitivity
     const mongoUpperItems = getDatabasePanelItems("MongoDB");
-    assert.strictEqual(mongoUpperItems.length, 6);
+    assert.strictEqual(mongoUpperItems.length, 7);
     assert.strictEqual(mongoUpperItems[5].panel, "mongo-bulk");
+    assert.strictEqual(mongoUpperItems[6].panel, "git-status");
 
     // All 6 relational engines (7 string identifiers) strictly exclude mongo-bulk
     const relationalIdentifiers = [
