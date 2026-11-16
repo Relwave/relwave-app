@@ -154,7 +154,7 @@ const DatabaseDetail = () => {
     useProjectSync(isNosql ? undefined : dbId, isNosql ? undefined : (schemaData ?? undefined));
   const { data: noSqlProject } = useProjectByDatabaseId(isNosql ? dbId : undefined);
   const effectiveProjectId = isNosql ? (noSqlProject?.id ?? null) : projectId;
-  const { data: projectDir } = useProjectDir(projectId);
+  const { data: projectDir } = useProjectDir(effectiveProjectId ?? undefined);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
   // Keyboard shortcut listener: Alt+1..9 switches active database panel
@@ -246,6 +246,14 @@ const DatabaseDetail = () => {
               projectId={effectiveProjectId}
               databaseName={databaseName || ""}
               initialView="diagram"
+            />
+          );
+        case "git-status":
+          return (
+            <GitStatusPanel
+              key={`git-${dbId}`}
+              projectDir={projectDir}
+              projectId={effectiveProjectId ?? ""}
             />
           );
         case "data":

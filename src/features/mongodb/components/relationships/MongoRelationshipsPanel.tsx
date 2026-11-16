@@ -397,6 +397,7 @@ export function MongoRelationshipsPanel({
           </div>
         ) : viewMode === "diagram" ? (
           <MongoERDiagramView
+            projectId={projectId}
             collections={collectionNames}
             inferred={inferred}
             confirmed={confirmed}

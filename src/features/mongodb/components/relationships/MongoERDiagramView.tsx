@@ -1,16 +1,20 @@
-import React, { useMemo, useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   Edge,
   ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import TableNode from "@/features/er-diagram/components/TableNode";
 import { transformMongoToER } from "../../adapters/mongoErAdapter";
+import { useProjectERDiagram } from "@/features/project/hooks/useProjectQueries";
+import { projectService } from "@/services/bridge/project";
+import type { ERNode } from "@/features/project/types";
 import type {
   MongoInferredRelationship,
   MongoRelationship,
@@ -21,6 +25,7 @@ const nodeTypes = {
 };
 
 export interface MongoERDiagramViewProps {
+  projectId?: string | null;
   collections: string[];
   inferred: MongoInferredRelationship[];
   confirmed: MongoRelationship[];
@@ -29,43 +34,90 @@ export interface MongoERDiagramViewProps {
 }
 
 export function MongoERDiagramViewContent({
+  projectId,
   collections,
   inferred,
   confirmed,
   manual,
   onSelectRelationship,
 }: MongoERDiagramViewProps) {
-  const { initialNodes, initialEdges } = useMemo(() => {
-    const { nodes, edges } = transformMongoToER({
+  const reactFlowInstance = useReactFlow();
+  const { data: savedLayout } = useProjectERDiagram(projectId ?? undefined);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Compute and set nodes/edges when collections, relationships, or savedLayout change
+  useEffect(() => {
+    const layoutNodes = savedLayout?.nodes ?? null;
+    const { nodes: newNodes, edges: newEdges } = transformMongoToER({
       collections,
       confirmed,
       inferred,
       manual,
       useDagreLayout: true,
+      savedLayout: layoutNodes,
     });
-    return { initialNodes: nodes, initialEdges: edges };
-  }, [collections, confirmed, inferred, manual]);
+    setNodes(newNodes);
+    setEdges(newEdges);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const timer = setTimeout(() => {
+      if (savedLayout?.zoom != null && savedLayout?.panX != null && savedLayout?.panY != null) {
+        reactFlowInstance?.setViewport({
+          zoom: savedLayout.zoom,
+          x: savedLayout.panX,
+          y: savedLayout.panY,
+        });
+      } else {
+        reactFlowInstance?.fitView({ padding: 0.2, duration: 300 });
+      }
+    }, 100);
 
-  // Dynamic synchronization of nodes & edges with position preservation
+    return () => clearTimeout(timer);
+  }, [collections, confirmed, inferred, manual, savedLayout, reactFlowInstance, setNodes, setEdges]);
+
+  // Debounced auto-save of ER node positions to project er.json
+  const erSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLayoutDoneRef = useRef(false);
+
+  // Mark initial layout application so initial mounting does not trigger an immediate save
   useEffect(() => {
-    setNodes((currentNodes) => {
-      const posMap = new Map(currentNodes.map((n) => [n.id, n.position]));
-      return initialNodes.map((node) => {
-        const existingPos = posMap.get(node.id);
-        if (existingPos) {
-          return {
-            ...node,
-            position: existingPos,
-          };
-        }
-        return node;
-      });
-    });
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    initialLayoutDoneRef.current = false;
+    const id = setTimeout(() => {
+      initialLayoutDoneRef.current = true;
+    }, 800);
+    return () => clearTimeout(id);
+  }, [collections, confirmed, inferred, manual, savedLayout]);
+
+  useEffect(() => {
+    if (!projectId || !initialLayoutDoneRef.current || nodes.length === 0) return;
+
+    if (erSaveTimerRef.current) clearTimeout(erSaveTimerRef.current);
+
+    erSaveTimerRef.current = setTimeout(() => {
+      const viewport = reactFlowInstance?.getViewport();
+      const erNodes: ERNode[] = nodes.map((n) => ({
+        tableId: n.id,
+        x: n.position.x,
+        y: n.position.y,
+        width: n.width ?? (n as any).measured?.width ?? undefined,
+        height: n.height ?? (n as any).measured?.height ?? undefined,
+      }));
+      projectService
+        .saveProjectERDiagram(projectId, {
+          nodes: erNodes,
+          zoom: viewport?.zoom,
+          panX: viewport?.x,
+          panY: viewport?.y,
+        })
+        .then(() => console.debug("[ProjectSync] Mongo ER diagram saved"))
+        .catch((err) => console.warn("[ProjectSync] Mongo ER diagram save failed:", err.message));
+    }, 2000);
+
+    return () => {
+      if (erSaveTimerRef.current) clearTimeout(erSaveTimerRef.current);
+    };
+  }, [nodes, projectId, reactFlowInstance]);
 
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
@@ -100,8 +152,13 @@ export function MongoERDiagramViewContent({
 
       {/* Legend */}
       <div className="absolute top-4 right-4 bg-card/90 backdrop-blur border p-2.5 rounded-lg text-xs space-y-1.5 shadow-md">
-        <div className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider mb-1">
-          Relationship Types
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">
+            Relationship Types
+          </span>
+          {savedLayout && (
+            <span className="text-[10px] text-muted-foreground/60 font-mono">Layout saved</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-[#10b981]" />

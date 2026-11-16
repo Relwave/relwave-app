@@ -54,6 +54,7 @@ export function getDatabasePanelItems(databaseType?: string): Array<{
       { icon: History, label: "Migrations", panel: "mongo-migrations" },
       { icon: Network, label: "Relationships", panel: "mongo-relationships" },
       { icon: ArrowLeftRight, label: "Bulk Operations", panel: "mongo-bulk" },
+      { icon: GitCommitHorizontal, label: "Git Status", panel: "git-status" },
     ];
   }
 

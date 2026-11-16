@@ -1,5 +1,6 @@
 import { MarkerType, Node, Edge } from "reactflow";
 import dagre from "dagre";
+import type { ERNode } from "@/features/project/types";
 import type {
   MongoCardinality,
   MongoInferredRelationship,
@@ -21,6 +22,7 @@ export interface MongoErAdapterOptions {
   inferred?: MongoInferredRelationship[];
   manual?: MongoRelationship[];
   useDagreLayout?: boolean;
+  savedLayout?: ERNode[] | null;
 }
 
 export function formatMongoCardinality(cardinality: MongoCardinality): string {
@@ -50,6 +52,7 @@ export function transformMongoToER({
   inferred = [],
   manual = [],
   useDagreLayout = true,
+  savedLayout = null,
 }: MongoErAdapterOptions) {
   const normCollections: MongoCollectionNodeItem[] = collections.map((c) =>
     typeof c === "string" ? { name: c } : c,
@@ -109,6 +112,11 @@ export function transformMongoToER({
     }
   }
 
+  const layoutMap = new Map<string, ERNode>();
+  if (savedLayout) {
+    savedLayout.forEach((n) => layoutMap.set(n.tableId, n));
+  }
+
   const nodes: Node[] = [];
   let index = 0;
 
@@ -148,16 +156,16 @@ export function transformMongoToER({
       constraint_name: r.id,
     }));
 
-    const width = 240;
-    const height = 40 + columns.length * 28 + 20;
+    const savedNode = layoutMap.get(collName);
+    const width = savedNode?.width || 240;
+    const height = savedNode?.height || (40 + columns.length * 28 + 20);
+    const x = savedNode ? savedNode.x : (index % 3) * 320;
+    const y = savedNode ? savedNode.y : Math.floor(index / 3) * 260;
 
     nodes.push({
       id: collName,
       type: "table",
-      position: {
-        x: (index % 3) * 320,
-        y: Math.floor(index / 3) * 260,
-      },
+      position: { x, y },
       width,
       height,
       data: {
@@ -244,7 +252,8 @@ export function transformMongoToER({
     });
   }
 
-  if (useDagreLayout && nodes.length > 0) {
+  const hasSavedPositions = Boolean(savedLayout && savedLayout.length > 0);
+  if (useDagreLayout && nodes.length > 0 && !hasSavedPositions) {
     const g = new dagre.graphlib.Graph();
     g.setDefaultEdgeLabel(() => ({}));
     g.setGraph({

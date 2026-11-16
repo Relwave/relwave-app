@@ -8,6 +8,7 @@ import {
   INFERRED_COLOR,
   MANUAL_COLOR,
 } from "../adapters/mongoErAdapter";
+import type { ERNode } from "@/features/project/types";
 import type {
   MongoInferredRelationship,
   MongoRelationship,
@@ -443,4 +444,45 @@ test("SQL ER Diagram - Zero regression on relational database panel items and sc
 
   assert.ok(panels.includes("er-diagram"));
   assert.ok(!panels.includes("mongo-relationships"));
+});
+
+test("MongoErAdapter - transformMongoToER uses saved positions and skips Dagre when savedLayout is provided", () => {
+  const savedLayout: ERNode[] = [
+    { tableId: "users", x: 150, y: 250, width: 300, height: 180 },
+    { tableId: "orders", x: 600, y: 400, width: 280, height: 220 },
+  ];
+
+  const confirmedRel: MongoRelationship = {
+    id: "orders.user_id->users._id",
+    sourceCollection: "orders",
+    sourceField: "user_id",
+    targetCollection: "users",
+    targetField: "_id",
+    cardinality: "many-to-one",
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+  };
+
+  const { nodes } = transformMongoToER({
+    collections: ["users", "orders"],
+    confirmed: [confirmedRel],
+    useDagreLayout: true,
+    savedLayout,
+  });
+
+  const usersNode = nodes.find((n) => n.id === "users");
+  const ordersNode = nodes.find((n) => n.id === "orders");
+
+  assert.ok(usersNode);
+  assert.ok(ordersNode);
+
+  assert.strictEqual(usersNode.position.x, 150);
+  assert.strictEqual(usersNode.position.y, 250);
+  assert.strictEqual(usersNode.width, 300);
+  assert.strictEqual(usersNode.height, 180);
+
+  assert.strictEqual(ordersNode.position.x, 600);
+  assert.strictEqual(ordersNode.position.y, 400);
+  assert.strictEqual(ordersNode.width, 280);
+  assert.strictEqual(ordersNode.height, 220);
 });
