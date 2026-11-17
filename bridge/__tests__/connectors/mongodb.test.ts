@@ -9,7 +9,7 @@ const MONGO_DB = process.env.REAL_MONGODB_DATABASE || "testdb";
 
 // Credential-free URI: the test mongo service runs without auth.
 const validConfig: MongoConfig = {
-  uri: `mongodb://${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}`,
+  uri: process.env.REAL_MONGODB_URI || `mongodb://${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}`,
   database: MONGO_DB,
 };
 
@@ -22,7 +22,10 @@ const invalidConfig: MongoConfig = {
 let seedClient: MongoClient | null = null;
 
 async function seedFixtures(): Promise<void> {
-  seedClient = new MongoClient(validConfig.uri as string);
+  seedClient = new MongoClient(validConfig.uri as string, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+  });
   await seedClient.connect();
   const db = seedClient.db(MONGO_DB);
 

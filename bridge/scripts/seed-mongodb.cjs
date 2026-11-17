@@ -23,28 +23,47 @@ function wait(ms) {
 async function seed() {
   const host = process.env.REAL_MONGODB_HOST || "127.0.0.1";
   const port = process.env.REAL_MONGODB_PORT || "27017";
-  const user = process.env.REAL_MONGODB_USER || "testuser";
-  const password = process.env.REAL_MONGODB_PASSWORD || "testpass";
+  const user = process.env.REAL_MONGODB_USER;
+  const password = process.env.REAL_MONGODB_PASSWORD;
   const database = process.env.REAL_MONGODB_DATABASE || "testdb";
-  const uri =
-    process.env.REAL_MONGODB_URI ||
-    `mongodb://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/?authSource=admin`;
 
-  const client = new MongoClient(uri);
-
-  let connected = false;
-  for (let attempt = 1; attempt <= 15; attempt++) {
-    try {
-      await client.connect();
-      await client.db(database).command({ ping: 1 });
-      connected = true;
-      break;
-    } catch {
-      await wait(1000);
+  // Build candidate URIs: prefer explicit REAL_MONGODB_URI, then credentialed if provided, with unauthenticated fallback
+  const uris = [];
+  if (process.env.REAL_MONGODB_URI) {
+    uris.push(process.env.REAL_MONGODB_URI);
+  } else {
+    if (user && password) {
+      uris.push(
+        `mongodb://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}?authSource=admin`,
+      );
     }
+    uris.push(`mongodb://${host}:${port}/${database}`);
   }
 
-  if (!connected) {
+  let client = null;
+  let connected = false;
+
+  for (let attempt = 1; attempt <= 15; attempt++) {
+    for (const testUri of uris) {
+      try {
+        const candidateClient = new MongoClient(testUri, {
+          serverSelectionTimeoutMS: 2000,
+          connectTimeoutMS: 2000,
+        });
+        await candidateClient.connect();
+        await candidateClient.db(database).command({ ping: 1 });
+        client = candidateClient;
+        connected = true;
+        break;
+      } catch {
+        // try next URI candidate or retry
+      }
+    }
+    if (connected) break;
+    await wait(1000);
+  }
+
+  if (!connected || !client) {
     throw new Error(`MongoDB at ${host}:${port} was not reachable after 15 attempts.`);
   }
 
@@ -87,8 +106,8 @@ async function seed() {
     },
   ];
   const userInsert = await db.collection("users").insertMany(users);
-  for (const doc of userInsert.insertedDocs.values()) {
-    userIds.push(doc._id);
+  for (const id of Object.values(userInsert.insertedIds)) {
+    userIds.push(id);
   }
 
   const orders = [
@@ -115,7 +134,11 @@ async function seed() {
   await db.collection("orders").insertMany(orders);
 
   // A view to exercise VIEW detection in listTables/listCollections.
-  await db.createView("active_users_view", "users", [{ $match: { active: true } }]);
+  await db.command({
+    create: "active_users_view",
+    viewOn: "users",
+    pipeline: [{ $match: { active: true } }],
+  });
 
   await client.close();
   console.log("MongoDB test database seeded successfully.");
