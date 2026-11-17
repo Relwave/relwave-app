@@ -4,12 +4,7 @@ import { serializePipeline } from "./pipelineSerializer";
 import { canPrependSample } from "./pipelineValidation";
 import { useRunAggregation } from "../../hooks/useMongoMql";
 import { MongoResultsViewer } from "../results/MongoResultsViewer";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Play, Info } from "lucide-react";
@@ -68,15 +63,15 @@ export const StagePreviewDialog: React.FC<StagePreviewDialogProps> = ({
           <div className="flex items-center justify-between">
             <DialogTitle className="text-sm font-semibold flex items-center gap-2">
               <span>Preview Output — Stage {stageIndex + 1}</span>
-              <span className="font-mono text-xs text-primary">
-                ({currentStage?.type})
-              </span>
+              <span className="font-mono text-xs text-primary">({currentStage?.type})</span>
             </DialogTitle>
 
             <div className="flex items-center gap-3">
               {/* Sampled Preview Toggle */}
               <div className="flex items-center gap-2 text-xs">
-                <span className={sampleSafety.allowed ? "text-foreground" : "text-muted-foreground/60"}>
+                <span
+                  className={sampleSafety.allowed ? "text-foreground" : "text-muted-foreground/60"}
+                >
                   Sampled Preview ($sample: 500)
                 </span>
                 <Switch
@@ -110,7 +105,8 @@ export const StagePreviewDialog: React.FC<StagePreviewDialogProps> = ({
           <div className="mt-2 text-[11px] text-muted-foreground bg-muted/40 rounded p-1.5 flex items-center gap-1.5">
             <Info className="h-3.5 w-3.5 shrink-0" />
             <span>
-              Preview executes with a strict 3,000ms timeout and $limit: 10. Prior pipeline stages still scan source collection documents.
+              Preview executes with a strict 3,000ms timeout and $limit: 10. Prior pipeline stages
+              still scan source collection documents.
             </span>
           </div>
         </DialogHeader>

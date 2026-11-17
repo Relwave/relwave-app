@@ -203,10 +203,7 @@ export class DatabaseBridge {
   // MongoDB Migration Engine RPC Methods
   // ==========================================
 
-  async listMongoMigrations(
-    dbId: string,
-    projectRoot?: string,
-  ): Promise<MongoMigrationListResult> {
+  async listMongoMigrations(dbId: string, projectRoot?: string): Promise<MongoMigrationListResult> {
     const res = await bridgeRequest("migration.list", { dbId, projectRoot });
     return res?.data;
   }
@@ -315,9 +312,7 @@ export class DatabaseBridge {
     return res?.data;
   }
 
-  async cancelMongoBulkOperation(
-    request: MongoBulkCancelRequest,
-  ): Promise<MongoBulkCancelResult> {
+  async cancelMongoBulkOperation(request: MongoBulkCancelRequest): Promise<MongoBulkCancelResult> {
     const res = await this.bridgeFn("mongo.bulk.cancelOperation", request);
     return res?.data;
   }
@@ -329,23 +324,17 @@ export class DatabaseBridge {
     return res?.data;
   }
 
-  async bulkInsertMongoDocuments(
-    request: MongoBulkInsertRequest,
-  ): Promise<MongoBulkInsertResult> {
+  async bulkInsertMongoDocuments(request: MongoBulkInsertRequest): Promise<MongoBulkInsertResult> {
     const res = await this.bridgeFn("mongo.bulk.insert", request);
     return res?.data;
   }
 
-  async bulkUpdateMongoDocuments(
-    request: MongoBulkUpdateRequest,
-  ): Promise<MongoBulkUpdateResult> {
+  async bulkUpdateMongoDocuments(request: MongoBulkUpdateRequest): Promise<MongoBulkUpdateResult> {
     const res = await this.bridgeFn("mongo.bulk.update", request);
     return res?.data;
   }
 
-  async bulkDeleteMongoDocuments(
-    request: MongoBulkDeleteRequest,
-  ): Promise<MongoBulkDeleteResult> {
+  async bulkDeleteMongoDocuments(request: MongoBulkDeleteRequest): Promise<MongoBulkDeleteResult> {
     const res = await this.bridgeFn("mongo.bulk.delete", request);
     return res?.data;
   }

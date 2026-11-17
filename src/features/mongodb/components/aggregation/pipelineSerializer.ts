@@ -43,10 +43,9 @@ export function serializePipeline(stages: PipelineStageItem[]): EJSONDocument[] 
 
 export function formatPipelineScript(collection: string, stages: PipelineStageItem[]): string {
   const serialized = serializePipeline(stages);
-  const collRef =
-    /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(collection)
-      ? `db.${collection || "collection"}`
-      : `db.collection("${collection || "collection"}")`;
+  const collRef = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(collection)
+    ? `db.${collection || "collection"}`
+    : `db.collection("${collection || "collection"}")`;
 
   if (serialized.length === 0) {
     return `${collRef}.aggregate([])`;

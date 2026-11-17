@@ -1,18 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  getMigrationStatusBadgeConfig,
-} from "../components/migrations/MongoMigrationCard";
+import { getMigrationStatusBadgeConfig } from "../components/migrations/MongoMigrationCard";
 import {
   groupAndSortMigrationEvents,
   getEventTypeBadgeConfig,
 } from "../components/migrations/MongoMigrationDetailDrawer";
-import {
-  STATIC_PREFLIGHT_ADVISORY,
-} from "../components/migrations/MongoMigrationApplyDialog";
-import {
-  IRREVERSIBLE_ROLLBACK_ACKNOWLEDGMENT,
-} from "../components/migrations/MongoMigrationRollbackDialog";
+import { STATIC_PREFLIGHT_ADVISORY } from "../components/migrations/MongoMigrationApplyDialog";
+import { IRREVERSIBLE_ROLLBACK_ACKNOWLEDGMENT } from "../components/migrations/MongoMigrationRollbackDialog";
 import type {
   MongoMigrationStatus,
   MongoMigrationEvent,
@@ -32,7 +26,11 @@ test("MongoMigrations - All 9 Canonical Statuses are mapped correctly", () => {
     "FAILED_MANUAL_INTERVENTION_REQUIRED",
   ];
 
-  assert.strictEqual(canonicalStatuses.length, 9, "Must strictly preserve exactly 9 canonical states");
+  assert.strictEqual(
+    canonicalStatuses.length,
+    9,
+    "Must strictly preserve exactly 9 canonical states",
+  );
 
   for (const status of canonicalStatuses) {
     const config = getMigrationStatusBadgeConfig(status);
@@ -58,7 +56,10 @@ test("MongoMigrations - All 9 Canonical Statuses are mapped correctly", () => {
 
   const crashedUncertain = getMigrationStatusBadgeConfig("CRASHED_UNCERTAIN");
   assert.strictEqual(crashedUncertain.variant, "outline");
-  assert.ok(crashedUncertain.className.includes("destructive"), "CRASHED_UNCERTAIN must highlight destructive");
+  assert.ok(
+    crashedUncertain.className.includes("destructive"),
+    "CRASHED_UNCERTAIN must highlight destructive",
+  );
 
   const rollingBack = getMigrationStatusBadgeConfig("ROLLING_BACK");
   assert.ok(rollingBack.className.includes("animate-pulse"), "ROLLING_BACK must pulse");
@@ -72,7 +73,10 @@ test("MongoMigrations - All 9 Canonical Statuses are mapped correctly", () => {
 
   const failedManual = getMigrationStatusBadgeConfig("FAILED_MANUAL_INTERVENTION_REQUIRED");
   assert.strictEqual(failedManual.variant, "destructive");
-  assert.ok(failedManual.className.includes("font-bold"), "FAILED_MANUAL_INTERVENTION_REQUIRED must be bold");
+  assert.ok(
+    failedManual.className.includes("font-bold"),
+    "FAILED_MANUAL_INTERVENTION_REQUIRED must be bold",
+  );
 });
 
 test("MongoMigrations - Event Audit History Grouping & Sequence Ordering", () => {
@@ -238,10 +242,22 @@ test("MongoMigrations - Read-Only Connection Protection Disables Mutating Action
     return hasPendingItems;
   };
 
-  assert.strictEqual(isActionAllowed(true, true), false, "Read-only prevents apply even if pending items exist");
+  assert.strictEqual(
+    isActionAllowed(true, true),
+    false,
+    "Read-only prevents apply even if pending items exist",
+  );
   assert.strictEqual(isActionAllowed(true, false), false, "Read-only prevents apply when empty");
-  assert.strictEqual(isActionAllowed(false, true), true, "Read-write allows apply when items exist");
-  assert.strictEqual(isActionAllowed(false, false), false, "Read-write blocks apply when no items exist");
+  assert.strictEqual(
+    isActionAllowed(false, true),
+    true,
+    "Read-write allows apply when items exist",
+  );
+  assert.strictEqual(
+    isActionAllowed(false, false),
+    false,
+    "Read-write blocks apply when no items exist",
+  );
 });
 
 test("MongoMigrations - Event Type Badges for all 14 Event Types", () => {
@@ -291,9 +307,7 @@ test("MongoMigrations - Uncertain & Manual Intervention Action Restrictions", ()
     if (isReadOnly) return false;
     if (pendingCount === 0) return false;
     const hasUncertainOrManualIntervention = appliedSummaries.some(
-      (m) =>
-        m.status === "CRASHED_UNCERTAIN" ||
-        m.status === "FAILED_MANUAL_INTERVENTION_REQUIRED",
+      (m) => m.status === "CRASHED_UNCERTAIN" || m.status === "FAILED_MANUAL_INTERVENTION_REQUIRED",
     );
     return !hasUncertainOrManualIntervention;
   };
@@ -314,9 +328,5 @@ test("MongoMigrations - Uncertain & Manual Intervention Action Restrictions", ()
     false,
     "FAILED_MANUAL_INTERVENTION_REQUIRED halts automated batch apply",
   );
-  assert.strictEqual(
-    canApplyAll(true, 3, []),
-    false,
-    "Read-only halts automated batch apply",
-  );
+  assert.strictEqual(canApplyAll(true, 3, []), false, "Read-only halts automated batch apply");
 });

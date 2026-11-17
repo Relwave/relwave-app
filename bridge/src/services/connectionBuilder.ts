@@ -5,7 +5,6 @@ import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath
 import { parseClickHouseUrl } from "../utils/clickhouseUrl";
 import { buildMongoConnectionUri } from "../utils/mongoUri";
 import { sshTunnelServiceInstance, TunnelInfo } from "./sshTunnelService";
-import { getClientKey } from "../connectors/mongo";
 import { ConnectionPool } from "./connectionPool";
 
 export interface BuildResult {
@@ -84,7 +83,11 @@ export class ConnectionBuilder {
       if (db.ssh) {
         const remoteHost = db.host || "127.0.0.1";
         const remotePort = db.port || 27017;
-        const tunnel = await sshTunnelServiceInstance.createSSHTunnel(db.ssh, remoteHost, remotePort);
+        const tunnel = await sshTunnelServiceInstance.createSSHTunnel(
+          db.ssh,
+          remoteHost,
+          remotePort,
+        );
         const tunnelDb = { ...db, host: "127.0.0.1", port: tunnel.localPort };
         const uri = buildMongoConnectionUri(tunnelDb, pwd);
         const config: MongoConfig = {

@@ -124,7 +124,9 @@ export const useIndexPage = (bridgeReady: boolean) => {
         : isClickHouse
           ? CLICKHOUSE_REQUIRED_FIELDS
           : isMongo
-            ? (formData.url ? ["name", "type"] : MONGODB_REQUIRED_FIELDS)
+            ? formData.url
+              ? ["name", "type"]
+              : MONGODB_REQUIRED_FIELDS
             : REQUIRED_FIELDS;
     const missing = requiredFields.filter((field) => !formData[field as keyof typeof formData]);
 
@@ -172,9 +174,10 @@ export const useIndexPage = (bridgeReady: boolean) => {
       const isFileBasedDB = isSQLite || isDuckDB;
       const port = isFileBasedDB
         ? 0
-        : parseInt(formData.port) || (isClickHouse ? (formData.ssl ? 8443 : 8123) : isMongo ? 27017 : 5432);
+        : parseInt(formData.port) ||
+          (isClickHouse ? (formData.ssl ? 8443 : 8123) : isMongo ? 27017 : 5432);
 
-      const resolvedUrl = (isMongo || isClickHouse) ? (formData.url || undefined) : formData.url;
+      const resolvedUrl = isMongo || isClickHouse ? formData.url || undefined : formData.url;
 
       const payload: any = {
         ...rest,

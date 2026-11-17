@@ -189,36 +189,24 @@ describe("computeDocumentDiff (M4 Spec §4.2.1)", () => {
   it("throws when _id is modified", () => {
     const orig = { _id: { $oid: "507f1f77bcf86cd799439011" }, name: "A" };
     const edited = { _id: { $oid: "507f1f77bcf86cd799439022" }, name: "A" };
-    assert.throws(
-      () => computeDocumentDiff(orig, edited),
-      /ID_MODIFICATION_PROHIBITED/,
-    );
+    assert.throws(() => computeDocumentDiff(orig, edited), /ID_MODIFICATION_PROHIBITED/);
   });
 
   it("throws when _id is deleted", () => {
     const orig = { _id: "1", name: "A" };
     const edited = { name: "A" };
-    assert.throws(
-      () => computeDocumentDiff(orig, edited),
-      /ID_MODIFICATION_PROHIBITED/,
-    );
+    assert.throws(() => computeDocumentDiff(orig, edited), /ID_MODIFICATION_PROHIBITED/);
   });
 
   it("rejects keys containing '$'", () => {
     const orig = { _id: "1" };
-    const edited = { _id: "1", "$badKey": 123 };
-    assert.throws(
-      () => computeDocumentDiff(orig, edited),
-      /INVALID_FIELD_PATH.*'\$badKey'/,
-    );
+    const edited = { _id: "1", $badKey: 123 };
+    assert.throws(() => computeDocumentDiff(orig, edited), /INVALID_FIELD_PATH.*'\$badKey'/);
   });
 
   it("rejects keys containing invalid dot notation", () => {
     const orig = { _id: "1" };
     const edited = { _id: "1", ".badKey": 123 };
-    assert.throws(
-      () => computeDocumentDiff(orig, edited),
-      /INVALID_FIELD_PATH.*'\.badKey'/,
-    );
+    assert.throws(() => computeDocumentDiff(orig, edited), /INVALID_FIELD_PATH.*'\.badKey'/);
   });
 });

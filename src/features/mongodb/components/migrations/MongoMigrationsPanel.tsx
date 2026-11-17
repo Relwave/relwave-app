@@ -2,9 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Layers,
   RefreshCw,
   FileCheck,
   Play,
@@ -23,7 +21,6 @@ import { MongoMigrationValidateDialog } from "./MongoMigrationValidateDialog";
 import { MongoMigrationApplyDialog } from "./MongoMigrationApplyDialog";
 import { MongoMigrationRollbackDialog } from "./MongoMigrationRollbackDialog";
 import { MongoMigrationDetailDrawer } from "./MongoMigrationDetailDrawer";
-import type { MongoMigrationSummary } from "@/features/mongodb/types/migration";
 
 export interface MongoMigrationsPanelProps {
   dbId: string;
@@ -39,15 +36,9 @@ export function MongoMigrationsPanel({
   // Query database connection to check read-only mode if not explicitly passed
   const { data: dbConn } = useDatabase(dbId);
   const isReadOnly =
-    isReadOnlyProp ??
-    Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
+    isReadOnlyProp ?? Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
 
-  const {
-    data: migrationsData,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useMongoMigrations(dbId);
+  const { data: migrationsData, isLoading, isFetching, refetch } = useMongoMigrations(dbId);
 
   // Dialog and drawer state
   const [validateOpen, setValidateOpen] = useState(false);
@@ -75,8 +66,7 @@ export function MongoMigrationsPanel({
     () =>
       appliedMigrations.some(
         (m) =>
-          m.status === "CRASHED_UNCERTAIN" ||
-          m.status === "FAILED_MANUAL_INTERVENTION_REQUIRED",
+          m.status === "CRASHED_UNCERTAIN" || m.status === "FAILED_MANUAL_INTERVENTION_REQUIRED",
       ),
     [appliedMigrations],
   );
@@ -125,7 +115,10 @@ export function MongoMigrationsPanel({
               </strong>
             </span>
             {lockDetails?.fencingToken !== undefined && (
-              <Badge variant="outline" className="font-mono text-[10px] border-amber-500/40 text-amber-500">
+              <Badge
+                variant="outline"
+                className="font-mono text-[10px] border-amber-500/40 text-amber-500"
+              >
                 token: {lockDetails.fencingToken}
               </Badge>
             )}
@@ -151,10 +144,14 @@ export function MongoMigrationsPanel({
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 text-blue-500 shrink-0" />
             <span className="font-medium">
-              Read-Only Connection: Mutation actions (Apply, Rollback) are safely disabled for this connection.
+              Read-Only Connection: Mutation actions (Apply, Rollback) are safely disabled for this
+              connection.
             </span>
           </div>
-          <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-500 font-mono">
+          <Badge
+            variant="outline"
+            className="text-[10px] border-blue-500/30 text-blue-500 font-mono"
+          >
             READ_ONLY
           </Badge>
         </div>
@@ -166,7 +163,8 @@ export function MongoMigrationsPanel({
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
             <span className="font-medium">
-              Action Required: One or more migrations are in an uncertain or manual intervention state. Automated forward execution is paused.
+              Action Required: One or more migrations are in an uncertain or manual intervention
+              state. Automated forward execution is paused.
             </span>
           </div>
           <Badge variant="destructive" className="text-[10px] font-mono">
@@ -262,7 +260,9 @@ export function MongoMigrationsPanel({
             size="sm"
             className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={handleApplyAll}
-            disabled={isReadOnly || pendingMigrations.length === 0 || hasUncertainOrManualIntervention}
+            disabled={
+              isReadOnly || pendingMigrations.length === 0 || hasUncertainOrManualIntervention
+            }
             title={
               isReadOnly
                 ? "Database connection is read-only"
@@ -303,9 +303,12 @@ export function MongoMigrationsPanel({
           {pendingMigrations.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground text-xs space-y-2">
               <CheckCircle2 className="h-8 w-8 text-emerald-500/70" />
-              <div className="font-semibold text-foreground text-sm">All migrations are up to date</div>
+              <div className="font-semibold text-foreground text-sm">
+                All migrations are up to date
+              </div>
               <p className="max-w-xs text-muted-foreground">
-                No unapplied migration manifests found in <code className="font-mono">migrations/mongo/</code>.
+                No unapplied migration manifests found in{" "}
+                <code className="font-mono">migrations/mongo/</code>.
               </p>
             </div>
           ) : (
@@ -349,9 +352,12 @@ export function MongoMigrationsPanel({
           {appliedMigrations.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground text-xs space-y-2">
               <History className="h-8 w-8 text-muted-foreground/40" />
-              <div className="font-semibold text-foreground text-sm">No applied migrations recorded</div>
+              <div className="font-semibold text-foreground text-sm">
+                No applied migrations recorded
+              </div>
               <p className="max-w-xs text-muted-foreground">
-                Migrations applied forward will be journaled in <code className="font-mono">_relwave_migrations</code>.
+                Migrations applied forward will be journaled in{" "}
+                <code className="font-mono">_relwave_migrations</code>.
               </p>
             </div>
           ) : (

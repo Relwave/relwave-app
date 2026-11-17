@@ -137,10 +137,7 @@ describe("MongoDB Aggregation Serializer", () => {
     const sSkip = createStageItem("$skip");
     sSkip.config = { skip: 10 };
 
-    assert.deepStrictEqual(serializePipeline([sLimit, sSkip]), [
-      { $limit: 25 },
-      { $skip: 10 },
-    ]);
+    assert.deepStrictEqual(serializePipeline([sLimit, sSkip]), [{ $limit: 25 }, { $skip: 10 }]);
   });
 
   it("serializes $lookup stage correctly", () => {
@@ -208,9 +205,7 @@ describe("MongoDB Aggregation Serializer", () => {
     sRaw.rawJson = '{"$facet": {"categorized": [{"$sortByCount": "$type"}]}}';
 
     const serialized = serializePipeline([sRaw]);
-    assert.deepStrictEqual(serialized, [
-      { $facet: { categorized: [{ $sortByCount: "$type" }] } },
-    ]);
+    assert.deepStrictEqual(serialized, [{ $facet: { categorized: [{ $sortByCount: "$type" }] } }]);
 
     // Raw mode on standard stage with full wrapper
     const sLimit = createStageItem("$limit");
@@ -229,10 +224,7 @@ describe("MongoDB Aggregation Serializer", () => {
 
     // Valid JS identifier
     const scriptStandard = formatPipelineScript("users", [s]);
-    assert.strictEqual(
-      scriptStandard,
-      'db.users.aggregate([\n  {\n    "$limit": 5\n  }\n])',
-    );
+    assert.strictEqual(scriptStandard, 'db.users.aggregate([\n  {\n    "$limit": 5\n  }\n])');
 
     // Identifier needing brackets
     const scriptSpecial = formatPipelineScript("order-items.2026", [s]);

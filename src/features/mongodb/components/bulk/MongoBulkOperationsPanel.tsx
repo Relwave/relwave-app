@@ -72,9 +72,7 @@ export function MongoBulkOperationsPanel({
   }, [dbOperations]);
 
   const failedOrCancelledCount = useMemo(() => {
-    return dbOperations.filter((op) =>
-      ["failed", "cancelled", "stale"].includes(op.status),
-    ).length;
+    return dbOperations.filter((op) => ["failed", "cancelled", "stale"].includes(op.status)).length;
   }, [dbOperations]);
 
   const expiredCount = useMemo(() => {

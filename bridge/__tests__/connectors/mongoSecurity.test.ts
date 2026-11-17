@@ -6,10 +6,7 @@ import {
   MongoApiError,
 } from "../../src/connectors/mongo";
 import type { MongoConfig } from "../../src/types/mongo";
-import {
-  MongoBulkEngine,
-  assertNotReadOnly,
-} from "../../src/services/mongoBulkEngine";
+import { MongoBulkEngine, assertNotReadOnly } from "../../src/services/mongoBulkEngine";
 import { MigrationHandlers } from "../../src/handlers/migrationHandlers";
 import { DBType } from "../../src/types";
 
@@ -46,10 +43,7 @@ describe("Mongo Security Test Suite", () => {
     test("throws on $where nested in arrays", () => {
       expect(() => {
         assertSafeExpressions({
-          items: [
-            { field: "valid" },
-            { $where: "sleep(5000)" },
-          ],
+          items: [{ field: "valid" }, { $where: "sleep(5000)" }],
         });
       }).toThrow(
         expect.objectContaining({
@@ -217,7 +211,10 @@ describe("Mongo Security Test Suite", () => {
 
     test("permits when conn.readonly is false or undefined", () => {
       expect(() => {
-        assertMongoNotReadOnly({ uri: "mongodb://localhost:27017/test", readonly: false }, "insertDocument");
+        assertMongoNotReadOnly(
+          { uri: "mongodb://localhost:27017/test", readonly: false },
+          "insertDocument",
+        );
       }).not.toThrow();
 
       expect(() => {
@@ -445,12 +442,7 @@ describe("Mongo Security Test Suite", () => {
         }),
       } as any;
 
-      const handlers = new MigrationHandlers(
-        mockRpc as any,
-        mockLogger,
-        mockDbService,
-        {} as any,
-      );
+      const handlers = new MigrationHandlers(mockRpc as any, mockLogger, mockDbService, {} as any);
 
       await handlers.handleApplyMigration({ dbId: "test_db", version: 1 }, 101);
 
@@ -472,12 +464,7 @@ describe("Mongo Security Test Suite", () => {
         }),
       } as any;
 
-      const handlers = new MigrationHandlers(
-        mockRpc as any,
-        mockLogger,
-        mockDbService,
-        {} as any,
-      );
+      const handlers = new MigrationHandlers(mockRpc as any, mockLogger, mockDbService, {} as any);
 
       await handlers.handleApplyMigration({ dbId: "test_db", version: 1 }, 102);
 
@@ -498,12 +485,7 @@ describe("Mongo Security Test Suite", () => {
         }),
       } as any;
 
-      const handlers = new MigrationHandlers(
-        mockRpc as any,
-        mockLogger,
-        mockDbService,
-        {} as any,
-      );
+      const handlers = new MigrationHandlers(mockRpc as any, mockLogger, mockDbService, {} as any);
 
       await handlers.handleRollbackMigration({ dbId: "test_db", version: 1 }, 201);
 
@@ -525,12 +507,7 @@ describe("Mongo Security Test Suite", () => {
         }),
       } as any;
 
-      const handlers = new MigrationHandlers(
-        mockRpc as any,
-        mockLogger,
-        mockDbService,
-        {} as any,
-      );
+      const handlers = new MigrationHandlers(mockRpc as any, mockLogger, mockDbService, {} as any);
 
       await handlers.handleRollbackMigration({ dbId: "test_db", version: 1 }, 202);
 

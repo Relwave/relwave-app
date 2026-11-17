@@ -10,11 +10,7 @@ export type MongoBulkFormat = "json" | "ndjson" | "csv";
 export type MongoBulkOperationType = "import" | "export";
 
 export type MongoBulkOperationStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "failed"
-  | "cancelled";
+  "pending" | "in_progress" | "completed" | "failed" | "cancelled";
 
 export interface MongoBulkOperation {
   operationId: string;

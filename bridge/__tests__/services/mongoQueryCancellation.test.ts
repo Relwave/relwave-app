@@ -8,7 +8,6 @@ import {
 } from "../../src/handlers/queryHandlers";
 import { SessionManager } from "../../src/sessionManager";
 import { OperationLifecycleHandle, TeardownOutcome } from "../../src/types/mongo";
-import { DatabaseService } from "../../src/services/databaseService";
 
 function createDeferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -48,7 +47,9 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
 
     const supervisor = new OperationLifecycleSupervisor(
       handle,
-      () => { releaseCount++; },
+      () => {
+        releaseCount++;
+      },
       {} as any,
       { uri: "mongodb://localhost:27017", database: "testdb" },
     );
@@ -89,7 +90,9 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
 
     const supervisor = new OperationLifecycleSupervisor(
       handle,
-      () => { releaseCount++; },
+      () => {
+        releaseCount++;
+      },
       mockDbService as any,
       { uri: "mongodb://localhost:27017", database: "testdb" },
     );
@@ -130,7 +133,9 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
 
     const supervisor = new OperationLifecycleSupervisor(
       handle,
-      () => { releaseCount++; },
+      () => {
+        releaseCount++;
+      },
       {} as any,
       { uri: "mongodb://localhost:27017", database: "testdb" },
     );
@@ -179,7 +184,9 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
 
     const supervisor = new OperationLifecycleSupervisor(
       handle,
-      () => { releaseCount++; },
+      () => {
+        releaseCount++;
+      },
       {} as any,
       { uri: "mongodb://localhost:27017", database: "testdb" },
     );
@@ -205,14 +212,7 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
       settlementSignal: signal,
     };
 
-    const outcome = await executeIndependentTeardown(
-      {} as any,
-      "db-fast",
-      {},
-      handle,
-      1,
-      3,
-    );
+    const outcome = await executeIndependentTeardown({} as any, "db-fast", {}, handle, 1, 3);
 
     expect(outcome.status).toBe("driver_settled");
   });
@@ -265,12 +265,10 @@ describe("MongoDB Stage 8 Phase 3 Query Cancellation & Lifecycle Supervision Sui
       connectionPool: { getActiveOperationsCount: () => 1 },
     };
 
-    const supervisor = new OperationLifecycleSupervisor(
-      handle,
-      () => {},
-      mockDbService as any,
-      { uri: "mongodb://localhost:27017", database: "testdb" },
-    );
+    const supervisor = new OperationLifecycleSupervisor(handle, () => {}, mockDbService as any, {
+      uri: "mongodb://localhost:27017",
+      database: "testdb",
+    });
 
     const teardownSpy = jest.spyOn(supervisor, "runTeardownLoop").mockResolvedValue();
 

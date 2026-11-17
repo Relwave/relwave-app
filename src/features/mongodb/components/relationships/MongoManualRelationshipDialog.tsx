@@ -122,12 +122,16 @@ export function MongoManualRelationshipDialog({
     }
 
     if (sourceCollection === targetCollection && trimmedSourceField === trimmedTargetField) {
-      setValidationError("Source and target cannot be the exact same field on the same collection.");
+      setValidationError(
+        "Source and target cannot be the exact same field on the same collection.",
+      );
       return;
     }
 
     const now = new Date().toISOString();
-    const relId = initialRelationship?.id || `${sourceCollection}.${trimmedSourceField}->${targetCollection}.${trimmedTargetField}`;
+    const relId =
+      initialRelationship?.id ||
+      `${sourceCollection}.${trimmedSourceField}->${targetCollection}.${trimmedTargetField}`;
 
     const rel: MongoRelationship = {
       id: relId,
@@ -161,7 +165,8 @@ export function MongoManualRelationshipDialog({
             {isEditMode ? "Edit Manual Relationship" : "Add Manual Relationship"}
           </DialogTitle>
           <DialogDescription>
-            Define reference metadata between collections. Manual relationships do not enforce database constraints.
+            Define reference metadata between collections. Manual relationships do not enforce
+            database constraints.
           </DialogDescription>
         </DialogHeader>
 
@@ -299,7 +304,8 @@ export function MongoManualRelationshipDialog({
           </div>
 
           <div className="p-2.5 rounded-md bg-muted/40 text-[11px] text-muted-foreground border">
-            Manual relationships are saved to RelWave metadata for ER diagrams and query builder assistance.
+            Manual relationships are saved to RelWave metadata for ER diagrams and query builder
+            assistance.
           </div>
 
           <DialogFooter className="flex items-center justify-between pt-2">

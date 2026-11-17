@@ -31,7 +31,9 @@ import type {
 } from "../types/bulk";
 
 export interface BulkOperationsStoreServiceContract {
-  getMongoBulkOperationStatus: (req: MongoBulkGetOperationStatusRequest) => Promise<MongoBulkOperationStatusResult>;
+  getMongoBulkOperationStatus: (
+    req: MongoBulkGetOperationStatusRequest,
+  ) => Promise<MongoBulkOperationStatusResult>;
   cancelMongoBulkOperation: (req: MongoBulkCancelRequest) => Promise<MongoBulkCancelResult>;
   cleanupMongoBulkOperation: (req: MongoBulkCleanupRequest) => Promise<MongoBulkCleanupResult>;
 }
@@ -107,7 +109,11 @@ export function createMongoBulkOperationsStore(
       const timer = setTimeout(() => {
         executePoll();
       }, delayMs);
-      if (typeof timer === "object" && timer !== null && typeof (timer as any).unref === "function") {
+      if (
+        typeof timer === "object" &&
+        timer !== null &&
+        typeof (timer as any).unref === "function"
+      ) {
         (timer as any).unref();
       }
       control.timerId = timer;
@@ -147,7 +153,8 @@ export function createMongoBulkOperationsStore(
       } catch (err: unknown) {
         if (control.isCancelled) return;
 
-        const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+        const errRecord =
+          typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
         const code = typeof errRecord?.code === "string" ? errRecord.code : "";
         const msg = err instanceof Error ? err.message : String(err);
 
@@ -186,7 +193,9 @@ export function createMongoBulkOperationsStore(
     control?: ImportExecutionControl,
   ) {
     const dbOps = operationsByDb[dbId] ? [...operationsByDb[dbId]] : [];
-    const existingIndex = dbOps.findIndex((o) => o.kind === "async" && o.operationId === op.operationId);
+    const existingIndex = dbOps.findIndex(
+      (o) => o.kind === "async" && o.operationId === op.operationId,
+    );
 
     const initialOp: TrackedAsyncBulkOperation = {
       ...op,
@@ -348,7 +357,8 @@ export function createMongoBulkOperationsStore(
       })
       .catch((err: unknown) => {
         if (control.isCancelled) return;
-        const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+        const errRecord =
+          typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
         if (errRecord?.code === "MONGO_NOT_FOUND" || String(err).includes("MONGO_NOT_FOUND")) {
           markOperationStale(operationId, "Operation session is no longer available.");
         }
@@ -390,7 +400,8 @@ export function createMongoBulkOperationsStore(
             updatedAt: new Date().toISOString(),
           });
         } catch (err: unknown) {
-          const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+          const errRecord =
+            typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
           if (errRecord?.code === "MONGO_NOT_FOUND" || String(err).includes("MONGO_NOT_FOUND")) {
             markOperationStale(
               operationId,

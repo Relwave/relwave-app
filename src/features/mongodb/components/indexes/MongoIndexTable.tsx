@@ -10,17 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import {
-  Info,
-  Eye,
-  EyeOff,
-  Trash2,
-  AlertTriangle,
-  Key,
-  Shield,
-  Clock,
-  Layers,
-} from "lucide-react";
+import { Info, Eye, EyeOff, Trash2, AlertTriangle, Shield, Clock, Layers } from "lucide-react";
 import { formatBytes, formatDirection, MongoIndexWithStats } from "../../utils/indexHelpers";
 import { formatTimestamp, formatRelativeTime } from "@/lib/utils";
 
@@ -255,7 +245,9 @@ export function MongoIndexTable({
                           Tracking since: {formatTimestamp(idx.stats.since)}
                         </p>
                         {idx.stats.host && (
-                          <p className="text-muted-foreground text-[11px]">Node: {idx.stats.host}</p>
+                          <p className="text-muted-foreground text-[11px]">
+                            Node: {idx.stats.host}
+                          </p>
                         )}
                         <p className="text-[10px] text-amber-500/90 font-medium border-t border-border/40 pt-1 mt-1">
                           Usage since last mongod start on this node; not lifetime counts.
@@ -318,8 +310,8 @@ export function MongoIndexTable({
                         isId
                           ? "Primary key cannot be hidden"
                           : idx.hidden
-                          ? "Unhide index"
-                          : "Hide index"
+                            ? "Unhide index"
+                            : "Hide index"
                       }
                     >
                       {idx.hidden ? (

@@ -52,14 +52,13 @@ export const PipelineStageCard: React.FC<PipelineStageCardProps> = ({
   onMoveDown,
   onPreviewStage,
 }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: stage.id,
-      data: {
-        type: "stage",
-        stage,
-      },
-    });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stage.id,
+    data: {
+      type: "stage",
+      stage,
+    },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -76,9 +75,7 @@ export const PipelineStageCard: React.FC<PipelineStageCardProps> = ({
       style={style}
       className={cn(
         "rounded-lg border bg-card/60 shadow-xs transition-all overflow-hidden",
-        stage.enabled
-          ? "border-border/80 hover:border-border"
-          : "border-border/40 bg-muted/20",
+        stage.enabled ? "border-border/80 hover:border-border" : "border-border/40 bg-muted/20",
         isDragging && "ring-2 ring-primary/40",
       )}
     >
@@ -101,14 +98,10 @@ export const PipelineStageCard: React.FC<PipelineStageCardProps> = ({
           </Badge>
 
           {/* Stage Operator */}
-          <span className="font-mono font-semibold text-xs text-primary">
-            {stage.type}
-          </span>
+          <span className="font-mono font-semibold text-xs text-primary">{stage.type}</span>
 
           {/* Stage Label */}
-          <span className="text-xs text-muted-foreground truncate">
-            {def?.label}
-          </span>
+          <span className="text-xs text-muted-foreground truncate">{def?.label}</span>
         </div>
 
         {/* Stage Actions */}

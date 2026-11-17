@@ -60,7 +60,8 @@ export function MongoInferDialog({
             <DialogTitle>Infer Relationships</DialogTitle>
           </div>
           <DialogDescription>
-            Heuristically discover references between collections using BSON type matching, field naming patterns, and data sampling.
+            Heuristically discover references between collections using BSON type matching, field
+            naming patterns, and data sampling.
           </DialogDescription>
         </DialogHeader>
 
@@ -146,7 +147,8 @@ export function MongoInferDialog({
           <div className="rounded-md border border-cyan-500/20 bg-cyan-500/5 p-2.5 text-[11px] text-muted-foreground flex gap-2">
             <Info className="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
             <span>
-              Inference runs non-blocking sample queries against collections. Existing saved relationships and manual definitions are preserved.
+              Inference runs non-blocking sample queries against collections. Existing saved
+              relationships and manual definitions are preserved.
             </span>
           </div>
         </div>

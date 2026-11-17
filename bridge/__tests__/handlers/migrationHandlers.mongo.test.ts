@@ -1,6 +1,5 @@
 import { describe, expect, test, beforeEach, jest } from "@jest/globals";
 import { MigrationHandlers } from "../../src/handlers/migrationHandlers";
-import { MongoApiError } from "../../src/connectors/mongo";
 import { DBType } from "../../src/types";
 import { mongoMigrationEngine } from "../../src/services/mongoMigrationEngine";
 
@@ -36,12 +35,7 @@ describe("MigrationHandlers MongoDB Unit Tests (bridge/src/handlers/migrationHan
       listSchemas: jest.fn(),
     };
 
-    handlers = new MigrationHandlers(
-      mockRpc,
-      mockLogger,
-      mockDbService,
-      mockQueryExecutor,
-    );
+    handlers = new MigrationHandlers(mockRpc, mockLogger, mockDbService, mockQueryExecutor);
   });
 
   describe("handleValidateMigration", () => {
@@ -113,7 +107,10 @@ describe("MigrationHandlers MongoDB Unit Tests (bridge/src/handlers/migrationHan
           pendingCount: 0,
         }));
 
-      await handlers.handleGetMigrationStatus({ dbId: "mongo-db-1", migrationId: "20261031120000" }, 3);
+      await handlers.handleGetMigrationStatus(
+        { dbId: "mongo-db-1", migrationId: "20261031120000" },
+        3,
+      );
 
       expect(spy).toHaveBeenCalled();
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(

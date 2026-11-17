@@ -15,9 +15,6 @@ import {
   Key,
   Shield,
   AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Hash,
   Loader2,
   Activity,
   Layers,
@@ -56,9 +53,7 @@ export function groupAndSortMigrationEvents(events: MongoMigrationEvent[]): Atte
 
   return sortedAttemptNumbers.map((attemptNumber) => {
     const group = groupsMap.get(attemptNumber)!;
-    const sortedEvents = [...group.events].sort(
-      (a, b) => a.sequenceNumber - b.sequenceNumber,
-    );
+    const sortedEvents = [...group.events].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
     return {
       attemptNumber,
       attemptId: group.attemptId || sortedEvents[0]?.attemptId || "",
@@ -199,7 +194,9 @@ export function MongoMigrationDetailDrawer({
           </SheetTitle>
 
           <SheetDescription className="text-xs text-muted-foreground">
-            Append-only chronological audit stream from <code className="font-mono text-[11px] text-foreground">_relwave_migration_events</code>.
+            Append-only chronological audit stream from{" "}
+            <code className="font-mono text-[11px] text-foreground">_relwave_migration_events</code>
+            .
           </SheetDescription>
         </SheetHeader>
 
@@ -227,7 +224,9 @@ export function MongoMigrationDetailDrawer({
             </div>
 
             <div>
-              <span className="text-[10px] uppercase text-muted-foreground/70 block">Fencing Token</span>
+              <span className="text-[10px] uppercase text-muted-foreground/70 block">
+                Fencing Token
+              </span>
               <span className="font-mono text-[11px] text-foreground font-medium mt-0.5 block">
                 {summary.fencingToken}
               </span>
@@ -291,7 +290,8 @@ export function MongoMigrationDetailDrawer({
                             className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background ${
                               hasError
                                 ? "bg-destructive"
-                                : ev.eventType.includes("COMPLETE") || ev.eventType.includes("APPLIED")
+                                : ev.eventType.includes("COMPLETE") ||
+                                    ev.eventType.includes("APPLIED")
                                   ? "bg-emerald-500"
                                   : "bg-blue-500"
                             }`}
@@ -312,7 +312,8 @@ export function MongoMigrationDetailDrawer({
                                 </Badge>
                                 {ev.stepType && (
                                   <span className="font-mono text-[10px] text-muted-foreground">
-                                    step {ev.stepIndex !== undefined ? `#${ev.stepIndex}` : ""}: {ev.stepType}
+                                    step {ev.stepIndex !== undefined ? `#${ev.stepIndex}` : ""}:{" "}
+                                    {ev.stepType}
                                   </span>
                                 )}
                               </div>
@@ -326,11 +327,20 @@ export function MongoMigrationDetailDrawer({
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/80 pt-0.5">
                               <span className="flex items-center gap-1">
                                 <Shield className="h-3 w-3 text-muted-foreground/50" />
-                                token: <span className="font-mono text-foreground/80">{ev.fencingToken}</span>
+                                token:{" "}
+                                <span className="font-mono text-foreground/80">
+                                  {ev.fencingToken}
+                                </span>
                               </span>
-                              <span className="flex items-center gap-1 truncate max-w-[200px]" title={ev.lockOwnerId}>
+                              <span
+                                className="flex items-center gap-1 truncate max-w-[200px]"
+                                title={ev.lockOwnerId}
+                              >
                                 <Key className="h-3 w-3 text-muted-foreground/50" />
-                                owner: <span className="font-mono text-foreground/80 truncate">{ev.lockOwnerId}</span>
+                                owner:{" "}
+                                <span className="font-mono text-foreground/80 truncate">
+                                  {ev.lockOwnerId}
+                                </span>
                               </span>
                               {ev.metadata?.durationMs !== undefined && (
                                 <span className="flex items-center gap-1">
@@ -342,7 +352,10 @@ export function MongoMigrationDetailDrawer({
 
                             {/* Metadata Error Details */}
                             {ev.metadata?.error && (
-                              <Alert variant="destructive" className="py-1.5 px-2 text-[11px] bg-destructive/10 border-destructive/20 mt-1">
+                              <Alert
+                                variant="destructive"
+                                className="py-1.5 px-2 text-[11px] bg-destructive/10 border-destructive/20 mt-1"
+                              >
                                 <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
                                 <AlertDescription className="font-mono break-all text-[10px]">
                                   {typeof ev.metadata.error === "string"
@@ -353,11 +366,13 @@ export function MongoMigrationDetailDrawer({
                             )}
 
                             {/* Non-error metadata payload if present */}
-                            {ev.metadata && !ev.metadata.error && Object.keys(ev.metadata).length > 0 && (
-                              <div className="text-[10px] font-mono bg-muted/40 p-1.5 rounded overflow-x-auto text-muted-foreground max-h-24">
-                                {JSON.stringify(ev.metadata)}
-                              </div>
-                            )}
+                            {ev.metadata &&
+                              !ev.metadata.error &&
+                              Object.keys(ev.metadata).length > 0 && (
+                                <div className="text-[10px] font-mono bg-muted/40 p-1.5 rounded overflow-x-auto text-muted-foreground max-h-24">
+                                  {JSON.stringify(ev.metadata)}
+                                </div>
+                              )}
                           </div>
                         </div>
                       );

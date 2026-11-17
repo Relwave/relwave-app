@@ -103,16 +103,20 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       assert.strictEqual(insertButtons.length, 1, "Must render exactly 1 Insert Document button");
       const [insertBtn] = insertButtons;
 
-      assert.strictEqual(insertBtn.props.disabled, true, "Insert Document must be disabled in read-only mode");
+      assert.strictEqual(
+        insertBtn.props.disabled,
+        true,
+        "Insert Document must be disabled in read-only mode",
+      );
       assert.strictEqual(
         insertBtn.props.title,
         "Database is read-only",
-        "Insert Document must display 'Database is read-only' title"
+        "Insert Document must display 'Database is read-only' title",
       );
       assert.ok(
         insertBtn.props.className?.includes("disabled:opacity-50") &&
           insertBtn.props.className?.includes("disabled:cursor-not-allowed"),
-        `Insert Document button must include disabled styling classes, got: ${insertBtn.props.className}`
+        `Insert Document button must include disabled styling classes, got: ${insertBtn.props.className}`,
       );
     });
 
@@ -132,8 +136,16 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       assert.strictEqual(insertButtons.length, 1);
       const [insertBtn] = insertButtons;
 
-      assert.strictEqual(insertBtn.props.disabled, false, "Insert Document must be enabled when writable");
-      assert.strictEqual(insertBtn.props.title, undefined, "Insert Document should have no read-only title");
+      assert.strictEqual(
+        insertBtn.props.disabled,
+        false,
+        "Insert Document must be enabled when writable",
+      );
+      assert.strictEqual(
+        insertBtn.props.title,
+        undefined,
+        "Insert Document should have no read-only title",
+      );
     });
 
     it("disables 'Insert Document' button on system collection regardless of isReadOnly", () => {
@@ -153,7 +165,11 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       assert.strictEqual(insertButtons.length, 1);
       const [insertBtn] = insertButtons;
 
-      assert.strictEqual(insertBtn.props.disabled, true, "Insert Document must be disabled on system collections");
+      assert.strictEqual(
+        insertBtn.props.disabled,
+        true,
+        "Insert Document must be disabled on system collections",
+      );
     });
 
     it("suppresses row-level inline Edit and Delete action handlers in DataTable when isReadOnly is true", () => {
@@ -169,12 +185,12 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       assert.strictEqual(
         table.props.onEditRow,
         undefined,
-        "DataTable must receive onEditRow=undefined when isReadOnly is true"
+        "DataTable must receive onEditRow=undefined when isReadOnly is true",
       );
       assert.strictEqual(
         table.props.onDeleteRow,
         undefined,
-        "DataTable must receive onDeleteRow=undefined when isReadOnly is true"
+        "DataTable must receive onDeleteRow=undefined when isReadOnly is true",
       );
     });
 
@@ -191,12 +207,12 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       assert.strictEqual(
         typeof table.props.onEditRow,
         "function",
-        "DataTable must receive onEditRow function when writable"
+        "DataTable must receive onEditRow function when writable",
       );
       assert.strictEqual(
         typeof table.props.onDeleteRow,
         "function",
-        "DataTable must receive onDeleteRow function when writable"
+        "DataTable must receive onDeleteRow function when writable",
       );
     });
   });
@@ -223,14 +239,18 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       });
 
       const createButtons = findVdomNodes(vdom, (n) => n.props?.title === "Database is read-only");
-      assert.strictEqual(createButtons.length, 1, "Must find Create Collection button with read-only title");
+      assert.strictEqual(
+        createButtons.length,
+        1,
+        "Must find Create Collection button with read-only title",
+      );
       const [btn] = createButtons;
 
       assert.strictEqual(btn.props.disabled, true, "Create Collection button must be disabled");
       assert.ok(
         btn.props.className?.includes("disabled:opacity-40") &&
           btn.props.className?.includes("disabled:cursor-not-allowed"),
-        `Create Collection button must have disabled classes, got: ${btn.props.className}`
+        `Create Collection button must have disabled classes, got: ${btn.props.className}`,
       );
     });
 
@@ -241,10 +261,18 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
       });
 
       const createButtons = findVdomNodes(vdom, (n) => n.props?.title === "Create new collection");
-      assert.strictEqual(createButtons.length, 1, "Must find Create Collection button with active title");
+      assert.strictEqual(
+        createButtons.length,
+        1,
+        "Must find Create Collection button with active title",
+      );
       const [btn] = createButtons;
 
-      assert.strictEqual(btn.props.disabled, false, "Create Collection button must not be disabled");
+      assert.strictEqual(
+        btn.props.disabled,
+        false,
+        "Create Collection button must not be disabled",
+      );
     });
 
     it("suppresses 'Drop Collection' context action buttons when isReadOnly is true", () => {
@@ -253,13 +281,14 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
         isReadOnly: true,
       });
 
-      const dropButtons = findVdomNodes(vdom, (n) =>
-        typeof n.props?.title === "string" && n.props.title.startsWith("Drop ")
+      const dropButtons = findVdomNodes(
+        vdom,
+        (n) => typeof n.props?.title === "string" && n.props.title.startsWith("Drop "),
       );
       assert.strictEqual(
         dropButtons.length,
         0,
-        "Drop Collection buttons must be completely omitted from the DOM when isReadOnly is true"
+        "Drop Collection buttons must be completely omitted from the DOM when isReadOnly is true",
       );
     });
 
@@ -269,15 +298,23 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
         isReadOnly: false,
       });
 
-      const dropButtons = findVdomNodes(vdom, (n) =>
-        typeof n.props?.title === "string" && n.props.title.startsWith("Drop ")
+      const dropButtons = findVdomNodes(
+        vdom,
+        (n) => typeof n.props?.title === "string" && n.props.title.startsWith("Drop "),
       );
       // 'users' and 'logs' should have drop buttons, 'system.views' should NOT
-      assert.strictEqual(dropButtons.length, 2, "Must render drop buttons for the 2 non-system collections");
+      assert.strictEqual(
+        dropButtons.length,
+        2,
+        "Must render drop buttons for the 2 non-system collections",
+      );
       const titles = dropButtons.map((b) => b.props.title);
       assert.ok(titles.includes("Drop users"));
       assert.ok(titles.includes("Drop logs"));
-      assert.ok(!titles.includes("Drop system.views"), "System collection must never render drop button");
+      assert.ok(
+        !titles.includes("Drop system.views"),
+        "System collection must never render drop button",
+      );
     });
   });
 
@@ -285,21 +322,21 @@ describe("MongoDB Stage 8 Phase 1: Frontend Read-Only Affordances", () => {
     it("propagates isEffectiveReadOnly down to MongoCollectionsSidebar and MongoDocumentViewer", () => {
       const dataViewPanelPath = path.resolve(
         process.cwd(),
-        "src/features/mongodb/components/MongoDataViewPanel.tsx"
+        "src/features/mongodb/components/MongoDataViewPanel.tsx",
       );
       const content = fs.readFileSync(dataViewPanelPath, "utf-8");
 
       assert.ok(
         content.includes("<MongoCollectionsSidebar"),
-        "Must render MongoCollectionsSidebar"
+        "Must render MongoCollectionsSidebar",
       );
       assert.ok(
         /<MongoCollectionsSidebar[\s\S]*?isReadOnly=\{isEffectiveReadOnly\}/.test(content),
-        "MongoCollectionsSidebar must receive isReadOnly={isEffectiveReadOnly}"
+        "MongoCollectionsSidebar must receive isReadOnly={isEffectiveReadOnly}",
       );
       assert.ok(
         /<MongoDocumentViewer[\s\S]*?isReadOnly=\{isEffectiveReadOnly\}/.test(content),
-        "MongoDocumentViewer must receive isReadOnly={isEffectiveReadOnly}"
+        "MongoDocumentViewer must receive isReadOnly={isEffectiveReadOnly}",
       );
     });
   });

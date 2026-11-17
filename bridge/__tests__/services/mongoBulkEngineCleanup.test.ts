@@ -1,4 +1,4 @@
-import { describe, expect, test, jest, beforeEach, afterEach } from "@jest/globals";
+import { describe, expect, test, beforeEach, afterEach } from "@jest/globals";
 import path from "path";
 import fs from "fs";
 import os from "os";
@@ -6,7 +6,6 @@ import {
   ExportCoordinationManager,
   MongoBulkEngine,
   EXPORT_ORPHAN_TTL_MS,
-  EXPORT_FILENAME_REGEX,
 } from "../../src/services/mongoBulkEngine";
 
 describe("MongoBulkEngine Export Orphan Cleanup & Coordination Suite (AUD-09)", () => {
@@ -35,15 +34,15 @@ describe("MongoBulkEngine Export Orphan Cleanup & Coordination Suite (AUD-09)", 
     const inst2 = ExportCoordinationManager.getInstance();
     expect(inst1).toBe(inst2);
 
-    const engineA = new MongoBulkEngine();
-    const engineB = new MongoBulkEngine();
+    const _engineA = new MongoBulkEngine();
+    const _engineB = new MongoBulkEngine();
     // Both engines interact with the same underlying singleton
     expect(ExportCoordinationManager.getInstance()).toBe(inst1);
   });
 
   test("2. Cross-engine job protection: Active job registered in Engine A is protected from purge by Engine B even when > 2 hours old", async () => {
     const manager = ExportCoordinationManager.getInstance();
-    const engineA = new MongoBulkEngine();
+    const _engineA = new MongoBulkEngine();
     const engineB = new MongoBulkEngine();
 
     const jobId = "job-active-cross-engine-12345";
@@ -84,7 +83,7 @@ describe("MongoBulkEngine Export Orphan Cleanup & Coordination Suite (AUD-09)", 
     await fs.promises.writeFile(filePath, "pre-created data");
 
     // Even if timestamp is artificially aged, active registry shield holds
-    const fourHoursAgo = Date.now() - (EXPORT_ORPHAN_TTL_MS * 2);
+    const fourHoursAgo = Date.now() - EXPORT_ORPHAN_TTL_MS * 2;
     await fs.promises.utimes(filePath, new Date(fourHoursAgo), new Date(fourHoursAgo));
 
     const purgeResult = await manager.purgeOrphanedExportsAsync(testExportDir);
@@ -149,7 +148,7 @@ describe("MongoBulkEngine Export Orphan Cleanup & Coordination Suite (AUD-09)", 
       await fs.promises.utimes(symlinkPath, new Date(threeHoursAgo), new Date(threeHoursAgo));
     } catch {}
 
-    const result = await manager.purgeOrphanedExportsAsync(testExportDir);
+    await manager.purgeOrphanedExportsAsync(testExportDir);
 
     // Symlinks are skipped
     expect(fs.existsSync(targetFile)).toBe(true);
@@ -194,7 +193,14 @@ describe("MongoBulkEngine Export Orphan Cleanup & Coordination Suite (AUD-09)", 
     await fs.promises.writeFile(invalidFile3, "6");
 
     const ancientTime = Date.now() - (EXPORT_ORPHAN_TTL_MS + 10000000);
-    for (const f of [validExport1, validExport2, validExport3, invalidFile1, invalidFile2, invalidFile3]) {
+    for (const f of [
+      validExport1,
+      validExport2,
+      validExport3,
+      invalidFile1,
+      invalidFile2,
+      invalidFile3,
+    ]) {
       await fs.promises.utimes(f, new Date(ancientTime), new Date(ancientTime));
     }
 

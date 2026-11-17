@@ -11,10 +11,7 @@ import {
   serializePipeline,
   formatPipelineScript,
 } from "../components/aggregation/pipelineSerializer";
-import {
-  validatePipeline,
-  canPrependSample,
-} from "../components/aggregation/pipelineValidation";
+import { validatePipeline, canPrependSample } from "../components/aggregation/pipelineValidation";
 
 describe("MongoDB Aggregation Builder Integration Lifecycle", () => {
   it("constructs, validates, and serializes a realistic multi-stage analytics pipeline", () => {
@@ -225,7 +222,11 @@ describe("MongoDB Aggregation Builder Integration Lifecycle", () => {
     s0.config = { filter: '{"active": true}' };
 
     const s1 = createStageItem("$group");
-    s1.config = { idType: "field", idField: "$category", accumulators: [{ name: "c", op: "$sum", expr: "1" }] };
+    s1.config = {
+      idType: "field",
+      idField: "$category",
+      accumulators: [{ name: "c", op: "$sum", expr: "1" }],
+    };
 
     const s2 = createStageItem("$sort");
     s2.config = { fields: [{ field: "c", direction: -1 }] };

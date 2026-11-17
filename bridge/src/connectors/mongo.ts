@@ -72,9 +72,7 @@ import {
   MongoMqlExecuteResult,
   MongoExplainRequest,
   MongoExplainResult,
-  MongoIndexDirection,
   MongoIndexCollation,
-  MongoIndexOptions,
   MongoIndexDetails,
   MongoIndexListRequest,
   MongoIndexListResult,
@@ -426,7 +424,7 @@ export const DEFAULT_MONGO_CLIENT_OPTIONS: MongoClientOptions = {
   maxPoolSize: 20,
 };
 
-export function getDriverOptions(cfg?: MongoConfig): MongoClientOptions {
+export function getDriverOptions(_cfg?: MongoConfig): MongoClientOptions {
   return {
     ...DEFAULT_MONGO_CLIENT_OPTIONS,
   };
@@ -532,10 +530,10 @@ export function closeMongoClientByKey(
     options?.globalDeadline !== undefined
       ? Math.max(0, options.globalDeadline - Date.now())
       : options?.timeoutMs !== undefined
-      ? options.timeoutMs
-      : options?.force
-      ? 100
-      : undefined;
+        ? options.timeoutMs
+        : options?.force
+          ? 100
+          : undefined;
 
   if (existingClose) {
     if (remainingMs === undefined) {
@@ -562,7 +560,8 @@ export function closeMongoClientByKey(
           clientRegistry.delete(clientKey);
         } else {
           entry.state = "close_failed";
-          entry.closeError = result.error || new Error(`Forced socket destruction state: ${result.status}`);
+          entry.closeError =
+            result.error || new Error(`Forced socket destruction state: ${result.status}`);
           logger.error(
             { clientKey, status: result.status, err: safeMongoError(entry.closeError) },
             "Forced socket destruction not confirmed; retaining MongoClient in close_failed state",
@@ -632,7 +631,7 @@ export async function closeAllMongoClients(options?: {
   timeoutMs?: number;
   globalDeadline?: number;
 }): Promise<void> {
-  const globalDeadline = options?.globalDeadline ?? (Date.now() + (options?.timeoutMs ?? 100));
+  const globalDeadline = options?.globalDeadline ?? Date.now() + (options?.timeoutMs ?? 100);
   const remainingBudget = Math.max(0, globalDeadline - Date.now());
 
   let globalTimer: NodeJS.Timeout | undefined;
@@ -663,7 +662,8 @@ export async function closeAllMongoClients(options?: {
       } else {
         entry.state = "close_failed";
         if (!entry.closeError) {
-          entry.closeError = result.error || new Error(`Forced socket destruction state: ${result.status}`);
+          entry.closeError =
+            result.error || new Error(`Forced socket destruction state: ${result.status}`);
         }
       }
     }
@@ -2172,7 +2172,10 @@ export class MongoConnector {
     const VALID_DIRECTIONS = new Set([1, -1, "text", "2dsphere", "hashed"]);
     for (const [field, dir] of keyEntries) {
       if (typeof field !== "string" || !field.trim()) {
-        throw new MongoApiError("MONGO_VALIDATION_ERROR", "key field name must be a non-empty string");
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "key field name must be a non-empty string",
+        );
       }
       if (!VALID_DIRECTIONS.has(dir as any)) {
         throw new MongoApiError(
@@ -2261,7 +2264,11 @@ export class MongoConnector {
         );
       }
       assertSafeExpressions(req.options.partialFilterExpression);
-      assertSize(req.options.partialFilterExpression, MAX_FILTER_SIZE_BYTES, "partialFilterExpression");
+      assertSize(
+        req.options.partialFilterExpression,
+        MAX_FILTER_SIZE_BYTES,
+        "partialFilterExpression",
+      );
     }
 
     if (req.options?.collation !== undefined) {
@@ -2270,12 +2277,12 @@ export class MongoConnector {
         req.options.collation === null ||
         Array.isArray(req.options.collation)
       ) {
-        throw new MongoApiError(
-          "MONGO_VALIDATION_ERROR",
-          "collation must be a non-null object",
-        );
+        throw new MongoApiError("MONGO_VALIDATION_ERROR", "collation must be a non-null object");
       }
-      if (typeof req.options.collation.locale !== "string" || !req.options.collation.locale.trim()) {
+      if (
+        typeof req.options.collation.locale !== "string" ||
+        !req.options.collation.locale.trim()
+      ) {
         throw new MongoApiError(
           "MONGO_VALIDATION_ERROR",
           "collation.locale must be a non-empty string",
@@ -2409,9 +2416,7 @@ export class MongoConnector {
     const started = Date.now();
 
     try {
-      await withMongoTimeout(timeout, () =>
-        coll.dropIndex(req.indexName, { maxTimeMS: timeout }),
-      );
+      await withMongoTimeout(timeout, () => coll.dropIndex(req.indexName, { maxTimeMS: timeout }));
     } catch (err: any) {
       if (err?.codeName === "IndexNotFound" || err?.code === 27) {
         throw new MongoApiError("MONGO_NOT_FOUND", `Index '${req.indexName}' not found`);
@@ -2457,9 +2462,7 @@ export class MongoConnector {
       const name = doc.name;
       if (!name) continue;
       const ops =
-        typeof doc.accesses?.ops === "number"
-          ? doc.accesses.ops
-          : Number(doc.accesses?.ops || 0);
+        typeof doc.accesses?.ops === "number" ? doc.accesses.ops : Number(doc.accesses?.ops || 0);
       const since =
         doc.accesses?.since instanceof Date
           ? doc.accesses.since.toISOString()
@@ -2497,10 +2500,7 @@ export class MongoConnector {
       throw new MongoApiError("MONGO_VALIDATION_ERROR", "indexName must be a non-empty string");
     }
     if (req.indexName === "_id_") {
-      throw new MongoApiError(
-        "MONGO_FORBIDDEN",
-        "Cannot hide default primary key index '_id_'",
-      );
+      throw new MongoApiError("MONGO_FORBIDDEN", "Cannot hide default primary key index '_id_'");
     }
     if (typeof req.hidden !== "boolean") {
       throw new MongoApiError("MONGO_VALIDATION_ERROR", "hidden must be a boolean");
@@ -2643,7 +2643,9 @@ export function evaluateIndexRedundancy(
 
     // 2. Special non-B-tree index types (text, 2dsphere, hashed) on target are never covered by B-tree prefixes
     const targetValues = Object.values(target.key);
-    if (targetValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))) {
+    if (
+      targetValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))
+    ) {
       return { ...target, isRedundant: false };
     }
 
@@ -2658,7 +2660,9 @@ export function evaluateIndexRedundancy(
       // 4. If other contains ANY special non-B-tree key (text, 2dsphere, hashed),
       // it cannot safely cover a standard B-tree index (different execution plans & query restrictions)
       const otherValues = Object.values(other.key);
-      if (otherValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))) {
+      if (
+        otherValues.some((v) => typeof v === "string" && ["text", "2dsphere", "hashed"].includes(v))
+      ) {
         continue;
       }
 
@@ -2744,7 +2748,6 @@ export function evaluateIndexRedundancy(
     return { ...target, isRedundant: false };
   });
 }
-
 
 export const mongoConnector = new MongoConnector();
 

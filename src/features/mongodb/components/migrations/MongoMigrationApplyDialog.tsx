@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Play, Loader2, Info, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Play, Loader2, Info, ShieldCheck } from "lucide-react";
 import { useApplyMongoMigration } from "../../hooks/useMongoMigrations";
 
 export const STATIC_PREFLIGHT_ADVISORY =
@@ -64,11 +64,14 @@ export function MongoMigrationApplyDialog({
           <DialogDescription className="text-xs text-muted-foreground">
             {migrationId ? (
               <span>
-                You are about to apply migration <strong className="text-foreground">{migrationId}</strong>
+                You are about to apply migration{" "}
+                <strong className="text-foreground">{migrationId}</strong>
                 {migrationName && ` (${migrationName})`}.
               </span>
             ) : (
-              <span>You are about to apply all discovered pending migrations forward in sequence.</span>
+              <span>
+                You are about to apply all discovered pending migrations forward in sequence.
+              </span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -77,8 +80,11 @@ export function MongoMigrationApplyDialog({
           <Alert className="py-2.5 bg-muted/40 border-border/60">
             <Info className="h-4 w-4 text-blue-500 shrink-0" />
             <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-              Applying acquires a fencing lease on <code className="font-mono text-foreground font-semibold">_relwave_migrations_lock</code>,
-              appends forward audit journal entries, and commits state sequentially.
+              Applying acquires a fencing lease on{" "}
+              <code className="font-mono text-foreground font-semibold">
+                _relwave_migrations_lock
+              </code>
+              , appends forward audit journal entries, and commits state sequentially.
             </AlertDescription>
           </Alert>
 
@@ -129,9 +135,7 @@ export function MongoMigrationApplyDialog({
             onClick={handleApply}
             disabled={isPending}
             className={`gap-2 text-white ${
-              dryRun
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
+              dryRun ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-600 hover:bg-emerald-700"
             }`}
           >
             {isPending ? (

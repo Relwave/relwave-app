@@ -1,4 +1,4 @@
-import test, { describe, it } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseBridge, databaseBridge } from "@/services/bridge/databaseBridge";
 import { databaseService } from "@/services/bridge/database";
@@ -9,7 +9,6 @@ import {
   type TrackedAsyncBulkOperation,
   type TrackedSyncBulkMutation,
   type MongoBulkDocument,
-  type MongoBulkValue,
   type MongoBulkFilter,
   type MongoBulkImportStartRequest,
   type MongoBulkImportStartResult,
@@ -169,7 +168,10 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
       assert.strictEqual(dispatchedMethod, "mongo.bulk.importChunk");
       assert.deepStrictEqual(dispatchedParams, request);
       assert.deepStrictEqual(result, expectedResult);
-      assert.strictEqual(Array.isArray((dispatchedParams as MongoBulkImportChunkRequest).payload), true);
+      assert.strictEqual(
+        Array.isArray((dispatchedParams as MongoBulkImportChunkRequest).payload),
+        true,
+      );
     });
 
     it("startMongoBulkExport dispatches mongo.bulk.exportStart with typed MongoBulkFilter and projection", async () => {
@@ -490,7 +492,10 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
       assert.strictEqual(dispatchedMethod, "mongo.bulk.exportSaveTo");
       assert.deepStrictEqual(dispatchedParams, request);
       assert.deepStrictEqual(result, expectedResult);
-      assert.strictEqual(result.warning, "Staging cleanup retry queued; file remains temporarily on disk");
+      assert.strictEqual(
+        result.warning,
+        "Staging cleanup retry queued; file remains temporarily on disk",
+      );
     });
   });
 
@@ -612,7 +617,12 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
       try {
         databaseBridge.startMongoBulkImport = async (req) => {
           calls.push(`startMongoBulkImport:${req.dbId}`);
-          return { operationId: "id-1", status: "pending", format: req.format, collection: req.collection };
+          return {
+            operationId: "id-1",
+            status: "pending",
+            format: req.format,
+            collection: req.collection,
+          };
         };
         databaseBridge.importMongoBulkChunk = async (req) => {
           calls.push(`importMongoBulkChunk:${req.operationId}:${req.chunkIndex}`);
@@ -629,7 +639,12 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
         };
         databaseBridge.startMongoBulkExport = async (req) => {
           calls.push(`startMongoBulkExport:${req.dbId}:${req.collection}`);
-          return { operationId: "id-2", status: "pending", collection: req.collection, format: req.format };
+          return {
+            operationId: "id-2",
+            status: "pending",
+            collection: req.collection,
+            format: req.format,
+          };
         };
         databaseBridge.getMongoBulkOperationStatus = async (req) => {
           calls.push(`getMongoBulkOperationStatus:${req.operationId}`);
@@ -657,7 +672,11 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
         };
         databaseBridge.bulkInsertMongoDocuments = async (req) => {
           calls.push(`bulkInsertMongoDocuments:${req.collection}`);
-          return { collection: req.collection, insertedCount: req.documents.length, failedCount: 0 };
+          return {
+            collection: req.collection,
+            insertedCount: req.documents.length,
+            failedCount: 0,
+          };
         };
         databaseBridge.bulkUpdateMongoDocuments = async (req) => {
           calls.push(`bulkUpdateMongoDocuments:${req.collection}`);
@@ -669,20 +688,53 @@ describe("MongoDB Bulk Operations — Bridge Service & Types (Stage 2)", () => {
         };
         databaseBridge.saveMongoBulkExportTo = async (req) => {
           calls.push(`saveMongoBulkExportTo:${req.operationId}`);
-          return { operationId: req.operationId, destinationPath: req.destinationPath, bytesWritten: 100, success: true };
+          return {
+            operationId: req.operationId,
+            destinationPath: req.destinationPath,
+            bytesWritten: 100,
+            success: true,
+          };
         };
 
         // Dispatch via databaseService
-        await databaseService.startMongoBulkImport({ dbId: "db1", collection: "c1", format: "json" });
-        await databaseService.importMongoBulkChunk({ operationId: "id-1", chunkIndex: 0, payload: "[]" });
-        await databaseService.startMongoBulkExport({ dbId: "db1", collection: "c1", format: "ndjson" });
+        await databaseService.startMongoBulkImport({
+          dbId: "db1",
+          collection: "c1",
+          format: "json",
+        });
+        await databaseService.importMongoBulkChunk({
+          operationId: "id-1",
+          chunkIndex: 0,
+          payload: "[]",
+        });
+        await databaseService.startMongoBulkExport({
+          dbId: "db1",
+          collection: "c1",
+          format: "ndjson",
+        });
         await databaseService.getMongoBulkOperationStatus({ operationId: "id-1" });
         await databaseService.cancelMongoBulkOperation({ operationId: "id-1" });
         await databaseService.cleanupMongoBulkOperation({ operationId: "id-1" });
-        await databaseService.bulkInsertMongoDocuments({ dbId: "db1", collection: "c1", documents: [{ a: 1 }] });
-        await databaseService.bulkUpdateMongoDocuments({ dbId: "db1", collection: "c1", filter: { a: 1 }, update: { $set: { b: 2 } } });
-        await databaseService.bulkDeleteMongoDocuments({ dbId: "db1", collection: "c1", filter: { a: 1 } });
-        await databaseService.saveMongoBulkExportTo({ operationId: "id-1", destinationPath: "/tmp/out.json" });
+        await databaseService.bulkInsertMongoDocuments({
+          dbId: "db1",
+          collection: "c1",
+          documents: [{ a: 1 }],
+        });
+        await databaseService.bulkUpdateMongoDocuments({
+          dbId: "db1",
+          collection: "c1",
+          filter: { a: 1 },
+          update: { $set: { b: 2 } },
+        });
+        await databaseService.bulkDeleteMongoDocuments({
+          dbId: "db1",
+          collection: "c1",
+          filter: { a: 1 },
+        });
+        await databaseService.saveMongoBulkExportTo({
+          operationId: "id-1",
+          destinationPath: "/tmp/out.json",
+        });
 
         assert.deepStrictEqual(calls, [
           "startMongoBulkImport:db1",

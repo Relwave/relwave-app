@@ -7,12 +7,8 @@ import {
   LARGE_TREE_NODE_LIMIT,
   LARGE_TREE_DEPTH_LIMIT,
 } from "../components/results/MongoTreeViewer";
-import {
-  analyzeExplainPlan,
-} from "../components/results/MongoExplainView";
-import {
-  isExplainResult,
-} from "../components/results/MongoResultsViewer";
+import { analyzeExplainPlan } from "../components/results/MongoExplainView";
+import { isExplainResult } from "../components/results/MongoResultsViewer";
 import {
   MongoExplainResult,
   MongoFindMqlResult,
@@ -27,18 +23,12 @@ describe("MongoDB Results Viewer Unit Tests", () => {
       // BSON Extended JSON v2 objects
       assert.strictEqual(isBsonObject({ $oid: "507f1f77bcf86cd799439011" }), true);
       assert.strictEqual(isBsonObject({ $date: "2026-10-30T10:00:00.000Z" }), true);
-      assert.strictEqual(
-        isBsonObject({ $date: { $numberLong: "1730282400000" } }),
-        true
-      );
+      assert.strictEqual(isBsonObject({ $date: { $numberLong: "1730282400000" } }), true);
       assert.strictEqual(isBsonObject({ $numberLong: "9007199254740993" }), true);
       assert.strictEqual(isBsonObject({ $numberDecimal: "123.456" }), true);
       assert.strictEqual(isBsonObject({ $numberInt: "42" }), true);
       assert.strictEqual(isBsonObject({ $numberDouble: "42.5" }), true);
-      assert.strictEqual(
-        isBsonObject({ $binary: { base64: "SGVsbG8=", subType: "00" } }),
-        true
-      );
+      assert.strictEqual(isBsonObject({ $binary: { base64: "SGVsbG8=", subType: "00" } }), true);
       assert.strictEqual(isBsonObject({ $timestamp: { t: 1, i: 2 } }), true);
       assert.strictEqual(isBsonObject({ $regex: "pattern", $options: "i" }), true);
       assert.strictEqual(isBsonObject({ $undefined: true }), true);
@@ -87,12 +77,7 @@ describe("MongoDB Results Viewer Unit Tests", () => {
       };
 
       const paths = getAllExpandablePaths(doc, "$", 0, 10);
-      assert.deepStrictEqual(paths, [
-        "$",
-        "$.items",
-        "$.items[0]",
-        "$.items[1]",
-      ]);
+      assert.deepStrictEqual(paths, ["$", "$.items", "$.items[0]", "$.items[1]"]);
     });
 
     it("respects large tree safeguard limits when expanding nodes", () => {

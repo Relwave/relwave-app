@@ -21,7 +21,7 @@ import {
   MongoBulkOperationsHistory,
   type MongoBulkOperationsHistoryProps,
 } from "../components/bulk/MongoBulkOperationsHistory";
-import type { BulkHistoryEntry, TrackedAsyncBulkOperation, TrackedSyncBulkMutation } from "../types/bulk";
+import type { BulkHistoryEntry } from "../types/bulk";
 
 function renderWithFilters(
   props: MongoBulkOperationsHistoryProps,
@@ -289,7 +289,10 @@ describe("MongoBulkOperationsHistory Component Tests", () => {
     }
     ReactDOMServer.renderToStaticMarkup(React.createElement(WrapperEnabled));
 
-    const clearBtn = findVdomNodes(vdomEnabled, (n) => n.props?.["data-testid"] === "clear-expired-button");
+    const clearBtn = findVdomNodes(
+      vdomEnabled,
+      (n) => n.props?.["data-testid"] === "clear-expired-button",
+    );
     assert.equal(clearBtn.length, 1);
     assert.equal(clearBtn[0].props.disabled, false);
     clearBtn[0].props.onClick();
@@ -307,7 +310,10 @@ describe("MongoBulkOperationsHistory Component Tests", () => {
     }
     ReactDOMServer.renderToStaticMarkup(React.createElement(WrapperDisabled));
 
-    const disabledBtn = findVdomNodes(vdomDisabled, (n) => n.props?.["data-testid"] === "clear-expired-button");
+    const disabledBtn = findVdomNodes(
+      vdomDisabled,
+      (n) => n.props?.["data-testid"] === "clear-expired-button",
+    );
     assert.equal(disabledBtn.length, 1);
     assert.equal(disabledBtn[0].props.disabled, true);
   });

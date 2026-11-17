@@ -81,9 +81,7 @@ export function MongoMigrationValidateDialog({
   onOpenChange,
   dbId,
 }: MongoMigrationValidateDialogProps) {
-  const [manifestText, setManifestText] = useState(() =>
-    JSON.stringify(SAMPLE_MANIFEST, null, 2),
-  );
+  const [manifestText, setManifestText] = useState(() => JSON.stringify(SAMPLE_MANIFEST, null, 2));
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<MongoMigrationValidateResult | null>(null);
 
@@ -124,7 +122,8 @@ export function MongoMigrationValidateDialog({
             Validate Migration Manifest
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Performs static AST and expression safety verification without acquiring locks or touching database state.
+            Performs static AST and expression safety verification without acquiring locks or
+            touching database state.
           </DialogDescription>
         </DialogHeader>
 
@@ -210,7 +209,9 @@ export function MongoMigrationValidateDialog({
                 {result.errors && result.errors.length > 0 && (
                   <Alert variant="destructive" className="py-2 text-xs">
                     <ShieldAlert className="h-4 w-4 shrink-0" />
-                    <AlertTitle className="text-xs font-semibold">Errors ({result.errors.length})</AlertTitle>
+                    <AlertTitle className="text-xs font-semibold">
+                      Errors ({result.errors.length})
+                    </AlertTitle>
                     <AlertDescription>
                       <ul className="list-disc pl-4 space-y-1 mt-1 text-[11px] font-mono">
                         {result.errors.map((err, i) => (
@@ -225,7 +226,9 @@ export function MongoMigrationValidateDialog({
                 {result.warnings && result.warnings.length > 0 && (
                   <Alert className="py-2 text-xs border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-                    <AlertTitle className="text-xs font-semibold">Warnings ({result.warnings.length})</AlertTitle>
+                    <AlertTitle className="text-xs font-semibold">
+                      Warnings ({result.warnings.length})
+                    </AlertTitle>
                     <AlertDescription>
                       <ul className="list-disc pl-4 space-y-1 mt-1 text-[11px] font-mono">
                         {result.warnings.map((w, i) => (

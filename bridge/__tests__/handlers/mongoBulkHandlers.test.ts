@@ -89,10 +89,7 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
   });
 
   test("handleImportStart dispatches successfully and validates params", async () => {
-    await handlers.handleImportStart(
-      { dbId: "db-1", collection: "users", format: "json" },
-      1
-    );
+    await handlers.handleImportStart({ dbId: "db-1", collection: "users", format: "json" }, 1);
     expect(mockEngine.importStart).toHaveBeenCalledWith({
       dbId: "db-1",
       collection: "users",
@@ -105,10 +102,7 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
     });
 
     // Invalid format
-    await handlers.handleImportStart(
-      { dbId: "db-1", collection: "users", format: "xml" },
-      2
-    );
+    await handlers.handleImportStart({ dbId: "db-1", collection: "users", format: "xml" }, 2);
     expect(mockRpc.sendError).toHaveBeenCalledWith(2, {
       code: "BAD_REQUEST",
       message: expect.stringContaining("format must be 'json', 'ndjson', or 'csv'"),
@@ -116,10 +110,7 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
   });
 
   test("handleImportChunk validates UUIDv4 and dispatches", async () => {
-    await handlers.handleImportChunk(
-      { operationId: validUuid, chunkIndex: 0, payload: "[]" },
-      3
-    );
+    await handlers.handleImportChunk({ operationId: validUuid, chunkIndex: 0, payload: "[]" }, 3);
     expect(mockEngine.importChunk).toHaveBeenCalledWith({
       operationId: validUuid,
       chunkIndex: 0,
@@ -134,7 +125,7 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
     // Invalid operationId (path traversal attempt)
     await handlers.handleImportChunk(
       { operationId: "../malicious", chunkIndex: 0, payload: "[]" },
-      4
+      4,
     );
     expect(mockRpc.sendError).toHaveBeenCalledWith(4, {
       code: "BAD_REQUEST",
@@ -143,10 +134,7 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
   });
 
   test("handleExportStart validates params and dispatches", async () => {
-    await handlers.handleExportStart(
-      { dbId: "db-1", collection: "orders", format: "csv" },
-      5
-    );
+    await handlers.handleExportStart({ dbId: "db-1", collection: "orders", format: "csv" }, 5);
     expect(mockEngine.exportStart).toHaveBeenCalled();
     expect(mockRpc.sendResponse).toHaveBeenCalledWith(5, {
       ok: true,
@@ -177,31 +165,36 @@ describe("MongoBulkHandlers JSON-RPC Dispatch & Parameter Validation Tests", () 
   test("handleBulkInsert, handleBulkUpdate, handleBulkDelete validate mutations", async () => {
     await handlers.handleBulkInsert(
       { dbId: "db-1", collection: "products", documents: [{ sku: "A" }] },
-      9
+      9,
     );
     expect(mockEngine.bulkInsert).toHaveBeenCalled();
 
     await handlers.handleBulkUpdate(
-      { dbId: "db-1", collection: "products", filter: { sku: "A" }, update: { $set: { price: 10 } } },
-      10
+      {
+        dbId: "db-1",
+        collection: "products",
+        filter: { sku: "A" },
+        update: { $set: { price: 10 } },
+      },
+      10,
     );
     expect(mockEngine.bulkUpdate).toHaveBeenCalled();
 
     await handlers.handleBulkDelete(
       { dbId: "db-1", collection: "products", filter: { sku: "A" } },
-      11
+      11,
     );
     expect(mockEngine.bulkDelete).toHaveBeenCalled();
   });
 
   test("propagates MongoApiError code and message correctly", async () => {
     mockEngine.bulkInsert.mockRejectedValueOnce(
-      new MongoApiError("MONGO_READ_ONLY", "Database is in read-only mode")
+      new MongoApiError("MONGO_READ_ONLY", "Database is in read-only mode"),
     );
 
     await handlers.handleBulkInsert(
       { dbId: "db-1", collection: "products", documents: [{ sku: "A" }] },
-      12
+      12,
     );
 
     expect(mockRpc.sendError).toHaveBeenCalledWith(12, {

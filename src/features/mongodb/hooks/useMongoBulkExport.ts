@@ -54,10 +54,14 @@ export interface ExportProgress {
 
 export interface BulkExportServiceContract {
   startMongoBulkExport: (req: MongoBulkExportStartRequest) => Promise<MongoBulkExportStartResult>;
-  getMongoBulkOperationStatus: (req: MongoBulkGetOperationStatusRequest) => Promise<MongoBulkOperationStatusResult>;
+  getMongoBulkOperationStatus: (
+    req: MongoBulkGetOperationStatusRequest,
+  ) => Promise<MongoBulkOperationStatusResult>;
   cancelMongoBulkOperation: (req: MongoBulkCancelRequest) => Promise<MongoBulkCancelResult>;
   cleanupMongoBulkOperation: (req: MongoBulkCleanupRequest) => Promise<MongoBulkCleanupResult>;
-  saveMongoBulkExportTo: (req: MongoBulkExportSaveToRequest) => Promise<MongoBulkExportSaveToResult>;
+  saveMongoBulkExportTo: (
+    req: MongoBulkExportSaveToRequest,
+  ) => Promise<MongoBulkExportSaveToResult>;
 }
 
 export interface ExportConfig {
@@ -81,7 +85,10 @@ export interface UseMongoBulkExportReturn {
   destinationPath: string | null;
   startExport: (config: ExportConfig) => Promise<void>;
   cancelExport: () => Promise<void>;
-  saveToFile: (destinationPath: string, overwrite?: boolean) => Promise<MongoBulkExportSaveToResult>;
+  saveToFile: (
+    destinationPath: string,
+    overwrite?: boolean,
+  ) => Promise<MongoBulkExportSaveToResult>;
   reset: () => Promise<void>;
   unmount: () => void;
   syncExternalStatus: (statusUpdate: {
@@ -109,15 +116,15 @@ export function useMongoBulkExport(
   service: BulkExportServiceContract = databaseService,
   options?: MongoBulkExportOptions,
 ): UseMongoBulkExportReturn {
-  const [state, setState] = useState<ExportState>("idle");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("not_saved");
-  const [progress, setProgress] = useState<ExportProgress>(INITIAL_EXPORT_PROGRESS);
-  const [operationId, setOperationId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [format, setFormat] = useState<MongoBulkFormat | null>(null);
-  const [collection, setCollection] = useState<string | null>(null);
-  const [destinationPath, setDestinationPath] = useState<string | null>(null);
+  const [, setState] = useState<ExportState>("idle");
+  const [, setSaveStatus] = useState<SaveStatus>("not_saved");
+  const [, setProgress] = useState<ExportProgress>(INITIAL_EXPORT_PROGRESS);
+  const [, setOperationId] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
+  const [, setWarning] = useState<string | null>(null);
+  const [, setFormat] = useState<MongoBulkFormat | null>(null);
+  const [, setCollection] = useState<string | null>(null);
+  const [, setDestinationPath] = useState<string | null>(null);
 
   const stateRef = useRef<ExportState>("idle");
   const saveStatusRef = useRef<SaveStatus>("not_saved");
@@ -134,7 +141,9 @@ export function useMongoBulkExport(
   const isPollingInFlightRef = useRef<boolean>(false);
   const pollSequenceRef = useRef<number>(0);
   const pollingStartTimeRef = useRef<number>(0);
-  const currentIntervalRef = useRef<number>(options?.initialIntervalMs ?? DEFAULT_POLLING_INITIAL_INTERVAL_MS);
+  const currentIntervalRef = useRef<number>(
+    options?.initialIntervalMs ?? DEFAULT_POLLING_INITIAL_INTERVAL_MS,
+  );
   const isCancelledRef = useRef<boolean>(false);
 
   const activeExecutionPromiseRef = useRef<Promise<void> | null>(null);
@@ -144,21 +153,31 @@ export function useMongoBulkExport(
   const initialIntervalMs = options?.initialIntervalMs ?? DEFAULT_POLLING_INITIAL_INTERVAL_MS;
   const maxIntervalMs = options?.maxIntervalMs ?? DEFAULT_POLLING_MAX_INTERVAL_MS;
 
-  const safeSetState = useCallback((stateOrUpdater: ExportState | ((prev: ExportState) => ExportState)) => {
-    const next = typeof stateOrUpdater === "function" ? stateOrUpdater(stateRef.current) : stateOrUpdater;
-    stateRef.current = next;
-    if (isMountedRef.current) {
-      setState(next);
-    }
-  }, []);
+  const safeSetState = useCallback(
+    (stateOrUpdater: ExportState | ((prev: ExportState) => ExportState)) => {
+      const next =
+        typeof stateOrUpdater === "function" ? stateOrUpdater(stateRef.current) : stateOrUpdater;
+      stateRef.current = next;
+      if (isMountedRef.current) {
+        setState(next);
+      }
+    },
+    [],
+  );
 
-  const safeSetSaveStatus = useCallback((statusOrUpdater: SaveStatus | ((prev: SaveStatus) => SaveStatus)) => {
-    const next = typeof statusOrUpdater === "function" ? statusOrUpdater(saveStatusRef.current) : statusOrUpdater;
-    saveStatusRef.current = next;
-    if (isMountedRef.current) {
-      setSaveStatus(next);
-    }
-  }, []);
+  const safeSetSaveStatus = useCallback(
+    (statusOrUpdater: SaveStatus | ((prev: SaveStatus) => SaveStatus)) => {
+      const next =
+        typeof statusOrUpdater === "function"
+          ? statusOrUpdater(saveStatusRef.current)
+          : statusOrUpdater;
+      saveStatusRef.current = next;
+      if (isMountedRef.current) {
+        setSaveStatus(next);
+      }
+    },
+    [],
+  );
 
   const safeSetProgress = useCallback((updater: (prev: ExportProgress) => ExportProgress) => {
     const next = updater(progressRef.current);
@@ -215,7 +234,9 @@ export function useMongoBulkExport(
           ...prev,
           processedDocuments: statusUpdate.processedDocuments ?? prev.processedDocuments,
           successfulDocuments:
-            statusUpdate.successfulDocuments ?? statusUpdate.processedDocuments ?? prev.successfulDocuments,
+            statusUpdate.successfulDocuments ??
+            statusUpdate.processedDocuments ??
+            prev.successfulDocuments,
           failedDocuments: statusUpdate.failedDocuments ?? prev.failedDocuments,
           fileSizeBytes: statusUpdate.fileSizeBytes ?? prev.fileSizeBytes,
         }));
@@ -328,7 +349,8 @@ export function useMongoBulkExport(
           return;
         }
 
-        const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+        const errRecord =
+          typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
         const code = typeof errRecord?.code === "string" ? errRecord.code : "";
         const msg = err instanceof Error ? err.message : String(err);
 
@@ -573,10 +595,7 @@ export function useMongoBulkExport(
   );
 
   const saveToFile = useCallback(
-    async (
-      destPath: string,
-      overwrite?: boolean,
-    ): Promise<MongoBulkExportSaveToResult> => {
+    async (destPath: string, overwrite?: boolean): Promise<MongoBulkExportSaveToResult> => {
       const opId = operationIdRef.current;
       if (!opId) {
         throw new Error("Cannot save: export operation ID is missing");
@@ -618,11 +637,16 @@ export function useMongoBulkExport(
 
         return res;
       } catch (err: unknown) {
-        const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+        const errRecord =
+          typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
         const code = typeof errRecord?.code === "string" ? errRecord.code : "";
         const msg = err instanceof Error ? err.message : String(err);
 
-        if (code === "MONGO_FILE_EXISTS" || msg.includes("MONGO_FILE_EXISTS") || msg.includes("already exists")) {
+        if (
+          code === "MONGO_FILE_EXISTS" ||
+          msg.includes("MONGO_FILE_EXISTS") ||
+          msg.includes("already exists")
+        ) {
           safeSetSaveStatus("not_saved");
           safeSetState("ready-to-save");
           throw err;

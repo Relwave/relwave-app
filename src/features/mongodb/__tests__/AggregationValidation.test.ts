@@ -34,15 +34,9 @@ describe("MongoDB Aggregation Validation", () => {
         "$where",
       );
 
-      assert.strictEqual(
-        findForbiddenOperator({ total: { $accumulator: {} } }),
-        "$accumulator",
-      );
+      assert.strictEqual(findForbiddenOperator({ total: { $accumulator: {} } }), "$accumulator");
 
-      assert.strictEqual(
-        findForbiddenOperator({ status: "active", count: { $gt: 5 } }),
-        null,
-      );
+      assert.strictEqual(findForbiddenOperator({ status: "active", count: { $gt: 5 } }), null);
     });
 
     it("rejects $raw stage attempting $out or $merge writes", () => {
@@ -51,7 +45,9 @@ describe("MongoDB Aggregation Validation", () => {
         s.rawJson = JSON.stringify({ [writeOp]: "target_collection" });
         const res = validatePipeline([s]);
         assert.strictEqual(res.isValid, false);
-        assert.ok(res.errors.some((e) => e.message.includes(`Write stage '${writeOp}' is forbidden`)));
+        assert.ok(
+          res.errors.some((e) => e.message.includes(`Write stage '${writeOp}' is forbidden`)),
+        );
       }
     });
 

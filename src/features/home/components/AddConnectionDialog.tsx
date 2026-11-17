@@ -149,7 +149,7 @@ export function AddConnectionDialog({
       setFormData((prev) => ({
         ...prev,
         type: parsed.type,
-        url: parsed.type === "mongodb" ? (parsed.originalUri || url) : prev.url,
+        url: parsed.type === "mongodb" ? parsed.originalUri || url : prev.url,
         host: parsed.host,
         port: parsed.port,
         user: parsed.user,

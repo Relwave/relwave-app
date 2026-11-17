@@ -36,12 +36,7 @@ export function isEjsonScalar(val: any): boolean {
 }
 
 export function isPlainObject(val: any): boolean {
-  return (
-    val !== null &&
-    typeof val === "object" &&
-    !Array.isArray(val) &&
-    !isEjsonScalar(val)
-  );
+  return val !== null && typeof val === "object" && !Array.isArray(val) && !isEjsonScalar(val);
 }
 
 export function deepEqual(a: any, b: any): boolean {

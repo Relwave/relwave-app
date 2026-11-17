@@ -2,14 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Layers,
-  Plus,
-  RefreshCw,
-  Search,
-  AlertTriangle,
-  HardDrive,
-} from "lucide-react";
+import { Layers, Plus, RefreshCw, Search, AlertTriangle, HardDrive } from "lucide-react";
 import { useMongoIndexes } from "../../hooks/useMongoIndexes";
 import { MongoIndexTable } from "./MongoIndexTable";
 import { MongoCreateIndexDialog } from "./MongoCreateIndexDialog";
@@ -32,13 +25,10 @@ export function MongoIndexesPanel({ dbId, collection }: MongoIndexesPanelProps) 
   const [dropIndexTarget, setDropIndexTarget] = useState<MongoIndexWithStats | null>(null);
   const [hideIndexTarget, setHideIndexTarget] = useState<MongoIndexWithStats | null>(null);
 
-  const {
-    indexes,
-    totalSizeBytes,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useMongoIndexes(dbId, collection);
+  const { indexes, totalSizeBytes, isLoading, isFetching, refetch } = useMongoIndexes(
+    dbId,
+    collection,
+  );
 
   // Filter indexes by name or key path
   const filteredIndexes = useMemo(() => {

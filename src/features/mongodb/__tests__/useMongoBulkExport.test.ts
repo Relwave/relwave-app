@@ -35,19 +35,17 @@ import {
 import { createMongoBulkOperationsStore } from "../hooks/useMongoBulkOperationsStore";
 import type {
   MongoBulkExportStartRequest,
-  MongoBulkExportStartResult,
   MongoBulkGetOperationStatusRequest,
   MongoBulkOperationStatusResult,
   MongoBulkCancelRequest,
-  MongoBulkCancelResult,
   MongoBulkCleanupRequest,
-  MongoBulkCleanupResult,
   MongoBulkExportSaveToRequest,
-  MongoBulkExportSaveToResult,
   TrackedAsyncBulkOperation,
 } from "../types/bulk";
 
-function createMockExportService(overrides?: Partial<BulkExportServiceContract>): BulkExportServiceContract & {
+function createMockExportService(
+  overrides?: Partial<BulkExportServiceContract>,
+): BulkExportServiceContract & {
   calls: {
     start: MongoBulkExportStartRequest[];
     status: MongoBulkGetOperationStatusRequest[];
@@ -224,12 +222,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     }
     ReactDOMServer.renderToString(React.createElement(TestComp));
 
-    await assert.rejects(
-      async () => {
-        await hook.startExport({ collection: "locked", format: "ndjson" });
-      },
-      /Target collection is locked or inaccessible/,
-    );
+    await assert.rejects(async () => {
+      await hook.startExport({ collection: "locked", format: "ndjson" });
+    }, /Target collection is locked or inaccessible/);
 
     assert.equal(hook.state, "failed");
     assert.equal(hook.error, "Target collection is locked or inaccessible");
@@ -390,12 +385,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
 
     const p1 = hook.startExport({ collection: "users", format: "json" });
 
-    await assert.rejects(
-      async () => {
-        await hook.startExport({ collection: "users", format: "json" });
-      },
-      /An export operation is already in progress/,
-    );
+    await assert.rejects(async () => {
+      await hook.startExport({ collection: "users", format: "json" });
+    }, /An export operation is already in progress/);
 
     await p1;
   });
@@ -516,12 +508,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     await hook.startExport({ collection: "users", format: "json" });
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    await assert.rejects(
-      async () => {
-        await hook.saveToFile("/exports/existing.json", false);
-      },
-      /Destination file already exists/,
-    );
+    await assert.rejects(async () => {
+      await hook.saveToFile("/exports/existing.json", false);
+    }, /Destination file already exists/);
 
     assert.equal(hook.state, "ready-to-save");
     assert.equal(hook.saveStatus, "not_saved");
@@ -565,12 +554,9 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     await hook.startExport({ collection: "users", format: "json" });
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    await assert.rejects(
-      async () => {
-        await hook.saveToFile("/restricted/file.json", false);
-      },
-      /Permission denied or disk full/,
-    );
+    await assert.rejects(async () => {
+      await hook.saveToFile("/restricted/file.json", false);
+    }, /Permission denied or disk full/);
 
     assert.equal(hook.state, "failed");
     assert.equal(hook.saveStatus, "save_failed");
@@ -730,7 +716,11 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     assert.equal(mockService.calls.start.length, 1);
 
     await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.equal(mockService.calls.status.length, 0, "Internal hook poller must remain suppressed when externalPolling is true");
+    assert.equal(
+      mockService.calls.status.length,
+      0,
+      "Internal hook poller must remain suppressed when externalPolling is true",
+    );
   });
 
   it("centralized store continues polling after export dialog unmounts (cancelOnUnmount: false)", async () => {
@@ -791,7 +781,11 @@ describe("useMongoBulkExport Hook & Polling Engine", () => {
     // Terminal completion stops centralized polling
     const opRecord = store.getSnapshot().operationsByDb["db-1"][0] as TrackedAsyncBulkOperation;
     assert.equal(opRecord.status, "completed");
-    assert.equal(store._activePollers.has(opId), false, "Centralized poller must halt upon terminal status");
+    assert.equal(
+      store._activePollers.has(opId),
+      false,
+      "Centralized poller must halt upon terminal status",
+    );
 
     store.getSnapshot().resetStore();
   });

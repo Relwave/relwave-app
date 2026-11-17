@@ -18,19 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Check,
-  X,
-  Info,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Link2,
-} from "lucide-react";
-import type {
-  MongoInferredRelationship,
-  MongoRelationship,
-} from "../../types/relationship";
+import { Check, X, Info, CheckCircle2, XCircle, HelpCircle, Link2 } from "lucide-react";
+import type { MongoInferredRelationship, MongoRelationship } from "../../types/relationship";
 import { formatMongoCardinality } from "../../adapters/mongoErAdapter";
 
 export interface MongoRelationshipDetailDrawerProps {
@@ -106,11 +95,17 @@ export function MongoRelationshipDetailDrawer({
             </Badge>
 
             {isInferred ? (
-              <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20">
+              <Badge
+                variant="secondary"
+                className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20"
+              >
                 Inferred Discovery
               </Badge>
             ) : (
-              <Badge variant="secondary" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
+              <Badge
+                variant="secondary"
+                className="bg-purple-500/10 text-purple-500 border-purple-500/20"
+              >
                 User Defined Manual
               </Badge>
             )}
@@ -122,8 +117,8 @@ export function MongoRelationshipDetailDrawer({
                   inferredRel.status === "confirmed"
                     ? "border-emerald-500/40 text-emerald-500"
                     : inferredRel.status === "rejected"
-                    ? "border-destructive/40 text-destructive"
-                    : "border-cyan-500/40 text-cyan-500"
+                      ? "border-destructive/40 text-destructive"
+                      : "border-cyan-500/40 text-cyan-500"
                 }
               >
                 Status: {inferredRel.status}
@@ -138,7 +133,9 @@ export function MongoRelationshipDetailDrawer({
                 <Info className="h-4 w-4 shrink-0" />
                 Heuristic Discovery Notice
               </div>
-              Inferred relationships are discoveries derived from data sampling and pattern matching, not database-enforced foreign key constraints. Verify relationships before relying on them in applications.
+              Inferred relationships are discoveries derived from data sampling and pattern
+              matching, not database-enforced foreign key constraints. Verify relationships before
+              relying on them in applications.
             </div>
           )}
 
@@ -150,7 +147,9 @@ export function MongoRelationshipDetailDrawer({
                   <HelpCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   Low Confidence Diagnostic Candidate
                 </div>
-                Confidence ({confidencePct}%) is below the actionable 0.65 threshold (or hit ratio is below 0.50). This relationship did not meet heuristic verification standards and cannot be confirmed without explicit acknowledgment.
+                Confidence ({confidencePct}%) is below the actionable 0.65 threshold (or hit ratio
+                is below 0.50). This relationship did not meet heuristic verification standards and
+                cannot be confirmed without explicit acknowledgment.
               </div>
               <div className="flex items-center space-x-2 pt-1 border-t border-amber-500/20">
                 <Checkbox
@@ -186,12 +185,16 @@ export function MongoRelationshipDetailDrawer({
             <div className="space-y-1 p-3 rounded-lg border bg-muted/20">
               <span className="text-muted-foreground block">Source Reference</span>
               <div className="font-mono font-semibold">{relationship.sourceCollection}</div>
-              <div className="font-mono text-muted-foreground">Field: {relationship.sourceField}</div>
+              <div className="font-mono text-muted-foreground">
+                Field: {relationship.sourceField}
+              </div>
             </div>
             <div className="space-y-1 p-3 rounded-lg border bg-muted/20">
               <span className="text-muted-foreground block">Target Reference</span>
               <div className="font-mono font-semibold">{relationship.targetCollection}</div>
-              <div className="font-mono text-muted-foreground">Field: {relationship.targetField}</div>
+              <div className="font-mono text-muted-foreground">
+                Field: {relationship.targetField}
+              </div>
             </div>
           </div>
 
@@ -213,7 +216,8 @@ export function MongoRelationshipDetailDrawer({
                     <TableRow>
                       <TableCell className="font-medium">Hit Ratio</TableCell>
                       <TableCell className="text-right font-mono">
-                        {hitRatioPct}% ({inferredRel.evidence.hitCount} / {inferredRel.evidence.sampleCount} matches)
+                        {hitRatioPct}% ({inferredRel.evidence.hitCount} /{" "}
+                        {inferredRel.evidence.sampleCount} matches)
                       </TableCell>
                     </TableRow>
                     <TableRow>

@@ -8,10 +8,7 @@
 
 import { Db } from "mongodb";
 import { MongoApiError } from "../connectors/mongo";
-import {
-  MongoMigrationLockDoc,
-  MongoMigrationLockStatus,
-} from "../types/mongoMigration";
+import { MongoMigrationLockDoc, MongoMigrationLockStatus } from "../types/mongoMigration";
 
 export const LOCK_COLLECTION = "_relwave_migrations_lock";
 export const LOCK_DOC_ID = "migration_lock";
@@ -43,11 +40,7 @@ export async function acquireLock(
       const result = await collection.findOneAndUpdate(
         {
           _id: LOCK_DOC_ID,
-          $or: [
-            { ownerId },
-            { ownerId: null },
-            { expiresAt: { $lt: now } },
-          ],
+          $or: [{ ownerId }, { ownerId: null }, { expiresAt: { $lt: now } }],
         },
         {
           $set: {
@@ -161,11 +154,7 @@ export async function renewLockHeartbeat(
  * Release lock atomically if ownerId and fencingToken match.
  * Preserves fencingToken across releases.
  */
-export async function releaseLock(
-  db: Db,
-  ownerId: string,
-  fencingToken: number,
-): Promise<boolean> {
+export async function releaseLock(db: Db, ownerId: string, fencingToken: number): Promise<boolean> {
   const collection = db.collection<MongoMigrationLockDoc>(LOCK_COLLECTION);
   const result = await collection.updateOne(
     { _id: LOCK_DOC_ID, ownerId, fencingToken },
@@ -213,11 +202,7 @@ export async function checkLockStatus(db: Db): Promise<MongoMigrationLockStatus>
  * Pre-step fencing guard: verifies the current client still holds the lease.
  * Returns true if the doc exists matching ownerId and fencingToken and expiresAt > now.
  */
-export async function verifyLock(
-  db: Db,
-  ownerId: string,
-  fencingToken: number,
-): Promise<boolean> {
+export async function verifyLock(db: Db, ownerId: string, fencingToken: number): Promise<boolean> {
   const collection = db.collection<MongoMigrationLockDoc>(LOCK_COLLECTION);
   const now = new Date();
 

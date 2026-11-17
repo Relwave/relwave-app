@@ -2,10 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
-import {
-  MongoMigrationCard,
-  MigrationCardData,
-} from "../components/migrations/MongoMigrationCard";
+import { MongoMigrationCard, MigrationCardData } from "../components/migrations/MongoMigrationCard";
 
 test("MongoMigrationCard - renders amber 'Drift Detected' badge with CHECKSUM_MISMATCH explanation and checksum hashes", () => {
   const migration: MigrationCardData = {
@@ -25,13 +22,16 @@ test("MongoMigrationCard - renders amber 'Drift Detected' badge with CHECKSUM_MI
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration })
+    React.createElement(MongoMigrationCard, { migration }),
   );
 
   assert.ok(html.includes('data-testid="migration-drift-badge"'), "Must render drift badge");
   assert.ok(html.includes("Drift Detected"), "Badge label must say 'Drift Detected'");
   assert.ok(html.includes("text-amber-500"), "Must have amber styling");
-  assert.ok(html.includes("Manifest Checksum Mismatch"), "Tooltip title must be Manifest Checksum Mismatch");
+  assert.ok(
+    html.includes("Manifest Checksum Mismatch"),
+    "Tooltip title must be Manifest Checksum Mismatch",
+  );
   assert.ok(html.includes("a1b2c3d4e5"), "Tooltip must include applied checksum prefix");
   assert.ok(html.includes("f6e5d4c3b2"), "Tooltip must include on-disk checksum prefix");
   assert.ok(html.includes("APPLIED"), "Execution status APPLIED badge must remain visible");
@@ -53,13 +53,19 @@ test("MongoMigrationCard - renders neutral 'Unverifiable' badge with MANIFEST_MI
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration })
+    React.createElement(MongoMigrationCard, { migration }),
   );
 
-  assert.ok(html.includes('data-testid="migration-unverifiable-badge"'), "Must render unverifiable badge");
+  assert.ok(
+    html.includes('data-testid="migration-unverifiable-badge"'),
+    "Must render unverifiable badge",
+  );
   assert.ok(html.includes("Unverifiable"), "Badge label must say 'Unverifiable'");
   assert.ok(html.includes("text-muted-foreground"), "Must have neutral styling");
-  assert.ok(html.includes("Manifest File Missing"), "Tooltip title must be 'Manifest File Missing'");
+  assert.ok(
+    html.includes("Manifest File Missing"),
+    "Tooltip title must be 'Manifest File Missing'",
+  );
   assert.ok(html.includes("not found on disk"), "Tooltip description must explain file absence");
   assert.ok(html.includes("APPLIED"), "Execution status APPLIED badge must remain visible");
 });
@@ -80,10 +86,13 @@ test("MongoMigrationCard - renders neutral 'Unverifiable' badge with RECORDED_CH
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration })
+    React.createElement(MongoMigrationCard, { migration }),
   );
 
-  assert.ok(html.includes('data-testid="migration-unverifiable-badge"'), "Must render unverifiable badge");
+  assert.ok(
+    html.includes('data-testid="migration-unverifiable-badge"'),
+    "Must render unverifiable badge",
+  );
   assert.ok(html.includes("Unverifiable"), "Badge label must say 'Unverifiable'");
   assert.ok(html.includes("No Recorded Checksum"), "Tooltip title must be 'No Recorded Checksum'");
   assert.ok(html.includes("legacy migration"), "Tooltip description must explain legacy migration");
@@ -106,10 +115,13 @@ test("MongoMigrationCard - renders neutral 'Unverifiable' badge with MANIFEST_PA
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration })
+    React.createElement(MongoMigrationCard, { migration }),
   );
 
-  assert.ok(html.includes('data-testid="migration-unverifiable-badge"'), "Must render unverifiable badge");
+  assert.ok(
+    html.includes('data-testid="migration-unverifiable-badge"'),
+    "Must render unverifiable badge",
+  );
   assert.ok(html.includes("Manifest Parse Error"), "Tooltip title must be 'Manifest Parse Error'");
   assert.ok(html.includes("exceeds 1MB limit"), "Tooltip description must include error message");
   assert.ok(html.includes("APPLIED"), "Execution status APPLIED badge must remain visible");
@@ -132,18 +144,18 @@ test("MongoMigrationCard - suppresses drift and unverifiable badges when driftSt
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration })
+    React.createElement(MongoMigrationCard, { migration }),
   );
 
   assert.strictEqual(
     html.includes('data-testid="migration-drift-badge"'),
     false,
-    "Must NOT render drift badge when VERIFIED"
+    "Must NOT render drift badge when VERIFIED",
   );
   assert.strictEqual(
     html.includes('data-testid="migration-unverifiable-badge"'),
     false,
-    "Must NOT render unverifiable badge when VERIFIED"
+    "Must NOT render unverifiable badge when VERIFIED",
   );
   assert.ok(html.includes("APPLIED"), "Execution status APPLIED badge must remain visible");
 });
@@ -157,7 +169,7 @@ test("MongoMigrationCard - preserves canonical status badge (APPLIED, PENDING) u
   };
 
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MongoMigrationCard, { migration: pendingMigration })
+    React.createElement(MongoMigrationCard, { migration: pendingMigration }),
   );
 
   assert.ok(html.includes("PENDING"), "Must render PENDING badge");

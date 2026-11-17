@@ -1,4 +1,4 @@
-import test, { describe, it } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   parseJsonArrayStream,
@@ -8,13 +8,8 @@ import {
   previewImportFile,
   coerceCsvValue,
   setDottedPath,
-  assertNoPrototypePollution,
 } from "../utils/importReader";
-import {
-  ZeroDocumentImportError,
-  ImportLimitExceededError,
-  ImportSerializationError,
-} from "../utils/payloadAccounting";
+import { ZeroDocumentImportError, ImportLimitExceededError } from "../utils/payloadAccounting";
 import type { MongoBulkDocument } from "../types/bulk";
 
 describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
@@ -50,101 +45,74 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
 
     it("rejects non-array root (e.g. object root)", async () => {
       const file = new File(['{ "a": 1 }'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Invalid JSON array: Expected '\['/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Invalid JSON array: Expected '\['/);
     });
 
     it("rejects missing comma between root array elements", async () => {
       const file = new File(['[{"id": 1} {"id": 2}]'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Syntax error: Missing comma separator between array elements/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Syntax error: Missing comma separator between array elements/);
     });
 
     it("rejects trailing comma before closing bracket ]", async () => {
       const file = new File(['[{"id": 1},]'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Syntax error: Trailing comma before ']' is not permitted/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Syntax error: Trailing comma before ']' is not permitted/);
     });
 
     it("rejects unexpected non-whitespace content after root array closure", async () => {
       const file = new File(['[{"id": 1}] trailing garbage'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Syntax error: Unexpected non-whitespace content after root array closure/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Syntax error: Unexpected non-whitespace content after root array closure/);
     });
 
     it("rejects primitive elements in root array", async () => {
       const file = new File(['[{"id": 1}, 123]'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Root array must contain only JSON objects; encountered primitive or array/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Root array must contain only JSON objects; encountered primitive or array/);
     });
 
     it("rejects nested arrays at root level", async () => {
-      const file = new File(['[[1, 2, 3]]'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Root array must contain only JSON objects; encountered primitive or array/,
-      );
+      const file = new File(["[[1, 2, 3]]"], "test.json");
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Root array must contain only JSON objects; encountered primitive or array/);
     });
 
     it("rejects prototype pollution attempts in JSON documents", async () => {
-      const file = new File(
-        ['[{"name": "admin", "__proto__": {"polluted": true}}]'],
-        "test.json",
-      );
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Prototype pollution attempt detected with property '__proto__'/,
-      );
+      const file = new File(['[{"name": "admin", "__proto__": {"polluted": true}}]'], "test.json");
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Prototype pollution attempt detected with property '__proto__'/);
     });
 
     it("rejects unexpected EOF during unclosed document", async () => {
       const file = new File(['[{"name": "unfinished"'], "test.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        /Unexpected end of input/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, /Unexpected end of input/);
     });
   });
 
@@ -173,27 +141,21 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
     it("rejects non-object line in NDJSON", async () => {
       const ndjson = '{"id": 1}\n12345\n{"id": 3}';
       const file = new File([ndjson], "test.ndjson");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseNdjsonStream(file)) {
-            // no-op
-          }
-        },
-        /NDJSON line 2 must be a JSON object/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseNdjsonStream(file)) {
+          // no-op
+        }
+      }, /NDJSON line 2 must be a JSON object/);
     });
 
     it("rejects prototype pollution in NDJSON", async () => {
       const ndjson = '{"id": 1}\n{"constructor": {"evil": true}}';
       const file = new File([ndjson], "test.ndjson");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseNdjsonStream(file)) {
-            // no-op
-          }
-        },
-        /Prototype pollution attempt detected with property 'constructor'/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseNdjsonStream(file)) {
+          // no-op
+        }
+      }, /Prototype pollution attempt detected with property 'constructor'/);
     });
   });
 
@@ -203,7 +165,7 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
   describe("CSV Parser", () => {
     it("parses RFC 4180 CSV with quotes, newlines in quotes, and un-flattens dotted headers", async () => {
       const csv =
-        'id,user.name,user.address.city,notes,active,price,tags\n' +
+        "id,user.name,user.address.city,notes,active,price,tags\n" +
         '1,Alice,"New York, NY","Multi\nline\nnote",true,19.99,"[""electronics"",""gadgets""]"\n' +
         '2,Bob,London,"Escaped ""quotes""",false,42,\n';
 
@@ -238,40 +200,31 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
     it("rejects empty column header in CSV", async () => {
       const csv = "id,,name\n1,2,Alice\n";
       const file = new File([csv], "test.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file)) {
-            // no-op
-          }
-        },
-        /CSV contains empty column header/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file)) {
+          // no-op
+        }
+      }, /CSV contains empty column header/);
     });
 
     it("rejects duplicate column header in CSV", async () => {
       const csv = "id,name,id\n1,Alice,2\n";
       const file = new File([csv], "test.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file)) {
-            // no-op
-          }
-        },
-        /CSV contains duplicate column header: id/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file)) {
+          // no-op
+        }
+      }, /CSV contains duplicate column header: id/);
     });
 
     it("rejects prototype pollution in CSV headers", async () => {
       const csv = "id,__proto__.polluted\n1,evil\n";
       const file = new File([csv], "test.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file)) {
-            // no-op
-          }
-        },
-        /Prototype pollution attempt detected in CSV header/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file)) {
+          // no-op
+        }
+      }, /Prototype pollution attempt detected in CSV header/);
     });
 
     it("rejects path collision in dotted headers (nesting into scalar)", () => {
@@ -329,14 +282,11 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
       // Next slice starts with 'abc,world\n'
       const csv = 'a,b\n"val"abc,world\n';
       const file = new File([csv], "test.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file, { sliceSize: 9 })) {
-            // no-op
-          }
-        },
-        /CSV syntax error: Unexpected character 'a' after closing quote/,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file, { sliceSize: 9 })) {
+          // no-op
+        }
+      }, /CSV syntax error: Unexpected character 'a' after closing quote/);
     });
 
     it("correctly parses CRLF sequence split across slice boundaries", async () => {
@@ -355,14 +305,11 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
     it("rejects unquoted field containing a quote (RFC 4180 violation)", async () => {
       const csv = 'id,name\n1,hel"lo\n';
       const file = new File([csv], "test.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file)) {
-            // no-op
-          }
-        },
-        /CSV syntax error: Unexpected quote at line 2, column 6\. Quotes inside unquoted fields are forbidden by RFC 4180\./,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file)) {
+          // no-op
+        }
+      }, /CSV syntax error: Unexpected quote at line 2, column 6\. Quotes inside unquoted fields are forbidden by RFC 4180\./);
     });
 
     it("rejects data row with extra fields (row-width mismatch)", async () => {
@@ -375,10 +322,7 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
           }
         },
         (err: Error) => {
-          assert.strictEqual(
-            err.message,
-            "CSV syntax error: Row 1 has 4 fields, expected 3",
-          );
+          assert.strictEqual(err.message, "CSV syntax error: Row 1 has 4 fields, expected 3");
           return true;
         },
       );
@@ -394,10 +338,7 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
           }
         },
         (err: Error) => {
-          assert.strictEqual(
-            err.message,
-            "CSV syntax error: Row 1 has 2 fields, expected 3",
-          );
+          assert.strictEqual(err.message, "CSV syntax error: Row 1 has 2 fields, expected 3");
           return true;
         },
       );
@@ -410,50 +351,38 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
   describe("Zero-Document Rejection", () => {
     it("rejects 0-byte file immediately", async () => {
       const file = new File([], "empty.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        ZeroDocumentImportError,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, ZeroDocumentImportError);
     });
 
     it("rejects empty JSON array []", async () => {
       const file = new File(["   [ \n\t ]  "], "empty-array.json");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseJsonArrayStream(file)) {
-            // no-op
-          }
-        },
-        ZeroDocumentImportError,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseJsonArrayStream(file)) {
+          // no-op
+        }
+      }, ZeroDocumentImportError);
     });
 
     it("rejects empty NDJSON file (only whitespace lines)", async () => {
       const file = new File(["  \n\r\n \t\n  "], "empty.ndjson");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseNdjsonStream(file)) {
-            // no-op
-          }
-        },
-        ZeroDocumentImportError,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseNdjsonStream(file)) {
+          // no-op
+        }
+      }, ZeroDocumentImportError);
     });
 
     it("rejects header-only CSV file (0 data rows)", async () => {
       const file = new File(["id,name,email\n"], "header-only.csv");
-      await assert.rejects(
-        async () => {
-          for await (const _ of parseCsvStream(file)) {
-            // no-op
-          }
-        },
-        ZeroDocumentImportError,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of parseCsvStream(file)) {
+          // no-op
+        }
+      }, ZeroDocumentImportError);
     });
   });
 
@@ -519,14 +448,11 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
       const docs = [{ id: 1, content: largeString }];
       const file = new File([JSON.stringify(docs)], "oversized.json");
 
-      await assert.rejects(
-        async () => {
-          for await (const _ of createIncrementalChunkReader(file, "json")) {
-            // no-op
-          }
-        },
-        ImportLimitExceededError,
-      );
+      await assert.rejects(async () => {
+        for await (const _ of createIncrementalChunkReader(file, "json")) {
+          // no-op
+        }
+      }, ImportLimitExceededError);
     });
 
     it("supports AbortSignal to cancel reader mid-stream", async () => {
@@ -540,7 +466,9 @@ describe("MongoDB Bulk Import — Incremental Streaming Reader", () => {
       let chunksCount = 0;
 
       try {
-        for await (const chunk of createIncrementalChunkReader(file, "json", { signal: controller.signal })) {
+        for await (const _chunk of createIncrementalChunkReader(file, "json", {
+          signal: controller.signal,
+        })) {
           chunksCount++;
           if (chunksCount === 1) {
             controller.abort();

@@ -250,7 +250,7 @@ export function validateAndParseSubtype(rawSubtype: unknown): number {
   if (typeof rawSubtype === "number") {
     if (!Number.isSafeInteger(rawSubtype) || rawSubtype < 0 || rawSubtype > 255) {
       throw new TypeError(
-        `Invalid EJSON $binary: subtype must be a safe integer between 0 and 255, received ${rawSubtype}`
+        `Invalid EJSON $binary: subtype must be a safe integer between 0 and 255, received ${rawSubtype}`,
       );
     }
     return rawSubtype;
@@ -259,24 +259,22 @@ export function validateAndParseSubtype(rawSubtype: unknown): number {
   if (typeof rawSubtype === "string") {
     if (!/^(?:0x)?[0-9a-fA-F]{1,2}$/i.test(rawSubtype)) {
       throw new TypeError(
-        `Invalid EJSON $binary: subtype must be a valid 1-2 digit hexadecimal string (0x00-0xFF), received '${rawSubtype}'`
+        `Invalid EJSON $binary: subtype must be a valid 1-2 digit hexadecimal string (0x00-0xFF), received '${rawSubtype}'`,
       );
     }
     const cleanHex =
-      rawSubtype.startsWith("0x") || rawSubtype.startsWith("0X")
-        ? rawSubtype.slice(2)
-        : rawSubtype;
+      rawSubtype.startsWith("0x") || rawSubtype.startsWith("0X") ? rawSubtype.slice(2) : rawSubtype;
     const val = parseInt(cleanHex, 16);
     if (!Number.isSafeInteger(val) || val < 0 || val > 255) {
       throw new TypeError(
-        `Invalid EJSON $binary: subtype must be between 0 and 255, received '${rawSubtype}'`
+        `Invalid EJSON $binary: subtype must be between 0 and 255, received '${rawSubtype}'`,
       );
     }
     return val;
   }
 
   throw new TypeError(
-    `Invalid EJSON $binary: subtype must be a number or hexadecimal string, received ${typeof rawSubtype}`
+    `Invalid EJSON $binary: subtype must be a number or hexadecimal string, received ${typeof rawSubtype}`,
   );
 }
 
@@ -287,7 +285,7 @@ export function validateAndParseSubtype(rawSubtype: unknown): number {
 export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
   if (typeof rawBase64 !== "string") {
     throw new TypeError(
-      `Invalid EJSON $binary: base64 payload must be a string, received ${typeof rawBase64}`
+      `Invalid EJSON $binary: base64 payload must be a string, received ${typeof rawBase64}`,
     );
   }
 
@@ -298,7 +296,7 @@ export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
   // Reject truncated base64 (modulo 4 cannot be 1 in RFC 4648)
   if (rawBase64.length % 4 === 1) {
     throw new TypeError(
-      `Invalid EJSON $binary: invalid base64 length (${rawBase64.length}), modulo 4 cannot be 1`
+      `Invalid EJSON $binary: invalid base64 length (${rawBase64.length}), modulo 4 cannot be 1`,
     );
   }
 
@@ -308,15 +306,14 @@ export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
     // Padded base64 must have total length divisible by 4
     if (rawBase64.length % 4 !== 0) {
       throw new TypeError(
-        `Invalid EJSON $binary: padded base64 length (${rawBase64.length}) must be a multiple of 4`
+        `Invalid EJSON $binary: padded base64 length (${rawBase64.length}) must be a multiple of 4`,
       );
     }
     // Must match valid padded base64 structure: blocks of 4 chars ending with == (preceded by 2 chars) or = (preceded by 3 chars)
-    const PADDED_BASE64_REGEX =
-      /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$/;
+    const PADDED_BASE64_REGEX = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$/;
     if (!PADDED_BASE64_REGEX.test(rawBase64)) {
       throw new TypeError(
-        `Invalid EJSON $binary: invalid base64 padding or characters in '${rawBase64}'`
+        `Invalid EJSON $binary: invalid base64 padding or characters in '${rawBase64}'`,
       );
     }
     paddedStr = rawBase64;
@@ -324,7 +321,7 @@ export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
     // Unpadded base64: characters must be strictly RFC 4648 alphabet without padding
     if (!/^[A-Za-z0-9+/]+$/.test(rawBase64)) {
       throw new TypeError(
-        `Invalid EJSON $binary: invalid characters in unpadded base64 '${rawBase64}'`
+        `Invalid EJSON $binary: invalid characters in unpadded base64 '${rawBase64}'`,
       );
     }
     const remainder = rawBase64.length % 4;
@@ -342,7 +339,7 @@ export function validateAndDecodeBase64(rawBase64: unknown): Buffer {
   // Canonical re-encoding validation post-decoding (unused pad bits must be zero)
   if (buf.toString("base64") !== paddedStr) {
     throw new TypeError(
-      "Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)"
+      "Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)",
     );
   }
 
@@ -449,7 +446,7 @@ export function mongoEJSONtoBSON(value: EJsonValue): unknown {
             for (let i = 1; i < parsedSubtypes.length; i++) {
               if (parsedSubtypes[i] !== firstSubtype) {
                 throw new TypeError(
-                  "Invalid EJSON $binary: conflicting subtype payload properties"
+                  "Invalid EJSON $binary: conflicting subtype payload properties",
                 );
               }
             }

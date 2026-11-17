@@ -21,13 +21,8 @@ import ReactDOMServer from "react-dom/server";
 import { MongoBulkMutationDialog } from "../components/bulk/MongoBulkMutationDialog";
 import { MongoBulkOperationsPanel } from "../components/bulk/MongoBulkOperationsPanel";
 import { MongoBulkOperationsHistory } from "../components/bulk/MongoBulkOperationsHistory";
-import {
-  defaultMongoBulkOperationsStore,
-} from "../hooks/useMongoBulkOperationsStore";
-import type {
-  TrackedSyncBulkMutation,
-  TrackedAsyncBulkOperation,
-} from "../types/bulk";
+import { defaultMongoBulkOperationsStore } from "../hooks/useMongoBulkOperationsStore";
+import type { TrackedSyncBulkMutation, TrackedAsyncBulkOperation } from "../types/bulk";
 
 function findVdomNodes(node: any, predicate: (node: any) => boolean): any[] {
   const matches: any[] = [];
@@ -74,16 +69,28 @@ describe("MongoBulkMutationDialog Component Tests", () => {
     const dialogRoots = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-dialog");
     assert.equal(dialogRoots.length, 1);
 
-    const tabUpdate = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-tab-update");
+    const tabUpdate = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-tab-update",
+    );
     assert.equal(tabUpdate.length, 1);
 
-    const tabDelete = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-tab-delete");
+    const tabDelete = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-tab-delete",
+    );
     assert.equal(tabDelete.length, 1);
 
-    const tabInsert = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-tab-insert");
+    const tabInsert = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-tab-insert",
+    );
     assert.equal(tabInsert.length, 1);
 
-    const colSelect = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-collection-select");
+    const colSelect = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-collection-select",
+    );
     assert.equal(colSelect.length, 1);
   });
 
@@ -98,7 +105,10 @@ describe("MongoBulkMutationDialog Component Tests", () => {
       collections: ["products", "orders", "system.views", "system.profile"],
     });
 
-    const selectNodes = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-collection-select");
+    const selectNodes = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-collection-select",
+    );
     assert.equal(selectNodes.length, 1);
     assert.equal(selectNodes[0].props.value, "products");
 
@@ -122,7 +132,10 @@ describe("MongoBulkMutationDialog Component Tests", () => {
     });
 
     // Submit button is disabled by default because filter is {} and checkbox is unchecked
-    const buttons = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-submit-button");
+    const buttons = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-submit-button",
+    );
     assert.equal(buttons.length, 1);
     assert.equal(buttons[0].props.disabled, true);
 
@@ -146,7 +159,10 @@ describe("MongoBulkMutationDialog Component Tests", () => {
     });
 
     // Submit button is rendered as destructive and disabled
-    const buttons = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-submit-button");
+    const buttons = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-submit-button",
+    );
     assert.equal(buttons.length, 1);
     assert.equal(buttons[0].props.disabled, true);
     assert.equal(buttons[0].props.variant, "destructive");
@@ -175,8 +191,13 @@ describe("MongoBulkMutationDialog Component Tests", () => {
       defaultCollection: "users",
     });
 
-    assert.ok(findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-filter-input").length >= 1);
-    assert.ok(findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-collection-select").length >= 1);
+    assert.ok(
+      findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-filter-input").length >= 1,
+    );
+    assert.ok(
+      findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-collection-select")
+        .length >= 1,
+    );
   });
 
   // 6. Read-Only Mode Lock
@@ -193,7 +214,10 @@ describe("MongoBulkMutationDialog Component Tests", () => {
     const banner = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "read-only-banner");
     assert.equal(banner.length, 1);
 
-    const submitButtons = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "mutation-submit-button");
+    const submitButtons = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "mutation-submit-button",
+    );
     assert.equal(submitButtons.length, 1);
     assert.equal(submitButtons[0].props.disabled, true);
   });
@@ -208,7 +232,10 @@ describe("MongoBulkMutationDialog Component Tests", () => {
       defaultCollection: "users",
     });
 
-    const buttons = findVdomNodes(vdom, (n) => n.type?.name === "Button" && n.props?.children === "Cancel");
+    const buttons = findVdomNodes(
+      vdom,
+      (n) => n.type?.name === "Button" && n.props?.children === "Cancel",
+    );
     assert.ok(buttons.length >= 1);
   });
 
@@ -283,7 +310,9 @@ describe("MongoBulkMutationDialog Component Tests", () => {
     };
 
     defaultMongoBulkOperationsStore.getSnapshot().registerAsyncOperation("db-approach-a", opActive);
-    defaultMongoBulkOperationsStore.getSnapshot().registerSyncMutation("db-approach-a", opCompleted);
+    defaultMongoBulkOperationsStore
+      .getSnapshot()
+      .registerSyncMutation("db-approach-a", opCompleted);
     defaultMongoBulkOperationsStore.getSnapshot().registerSyncMutation("db-approach-a", opPartial);
     defaultMongoBulkOperationsStore.getSnapshot().registerSyncMutation("db-approach-a", opFailed);
 

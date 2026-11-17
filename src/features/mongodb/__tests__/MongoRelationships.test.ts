@@ -9,10 +9,7 @@ import {
   MANUAL_COLOR,
 } from "../adapters/mongoErAdapter";
 import type { ERNode } from "@/features/project/types";
-import type {
-  MongoInferredRelationship,
-  MongoRelationship,
-} from "../types/relationship";
+import type { MongoInferredRelationship, MongoRelationship } from "../types/relationship";
 
 test("MongoRelationships - Cardinality label formatting", () => {
   assert.strictEqual(formatMongoCardinality("one-to-one"), "1:1");
@@ -148,7 +145,9 @@ test("MongoErAdapter - Generates foreignKeys and uniqueConstraints on TableNode 
   assert.strictEqual(ordersNode.data.foreignKeys.length, 2);
 
   // Check foreign key fields for source handles
-  const fkCustomer = ordersNode.data.foreignKeys.find((fk: any) => fk.source_column === "customer_id");
+  const fkCustomer = ordersNode.data.foreignKeys.find(
+    (fk: any) => fk.source_column === "customer_id",
+  );
   assert.ok(fkCustomer);
   assert.strictEqual(fkCustomer.target_table, "customers");
   assert.strictEqual(fkCustomer.target_column, "_id");
@@ -296,10 +295,19 @@ test("MongoERDiagramView - Position preservation logic across dynamic node updat
 
   assert.strictEqual(synchronizedNodes.length, 3);
   // Preserved user-adjusted positions
-  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "orders")?.position, { x: 500, y: 350 });
-  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "customers")?.position, { x: 100, y: 150 });
+  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "orders")?.position, {
+    x: 500,
+    y: 350,
+  });
+  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "customers")?.position, {
+    x: 100,
+    y: 150,
+  });
   // New node keeps initial layout position
-  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "products")?.position, { x: 300, y: 200 });
+  assert.deepStrictEqual(synchronizedNodes.find((n) => n.id === "products")?.position, {
+    x: 300,
+    y: 200,
+  });
 });
 
 test("MongoCollectionRelationshipsTab - Excludes rejected relationships from incoming and outgoing lists", () => {
@@ -363,7 +371,10 @@ test("MongoCollectionRelationshipsTab - Excludes rejected relationships from inc
 
 test("MongoRelationshipDetailDrawer - Diagnostic candidate confirmation gating logic", () => {
   const isCandidateInsufficient = (cardinality: string, confidence?: number) => {
-    return cardinality === "insufficient-evidence" || (typeof confidence === "number" && confidence < 0.65);
+    return (
+      cardinality === "insufficient-evidence" ||
+      (typeof confidence === "number" && confidence < 0.65)
+    );
   };
 
   // High confidence candidate -> not insufficient
@@ -426,16 +437,10 @@ test("MongoManualRelationshipDialog - Self-referencing field validation logic", 
   );
 
   // Different field on same collection (e.g. parent_id -> _id) succeeds
-  assert.strictEqual(
-    validateRelationship("categories", "parent_id", "categories", "_id"),
-    null,
-  );
+  assert.strictEqual(validateRelationship("categories", "parent_id", "categories", "_id"), null);
 
   // Different collection succeeds
-  assert.strictEqual(
-    validateRelationship("orders", "customer_id", "customers", "_id"),
-    null,
-  );
+  assert.strictEqual(validateRelationship("orders", "customer_id", "customers", "_id"), null);
 });
 
 test("SQL ER Diagram - Zero regression on relational database panel items and schemas", () => {

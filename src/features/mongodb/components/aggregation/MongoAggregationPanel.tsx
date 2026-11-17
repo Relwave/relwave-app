@@ -231,8 +231,8 @@ export function MongoAggregationPanel({
                     collectionsLoading
                       ? "Loading collections..."
                       : collections.length === 0
-                      ? "No collections"
-                      : "Select collection"
+                        ? "No collections"
+                        : "Select collection"
                   }
                 />
               </SelectTrigger>
@@ -277,7 +277,8 @@ export function MongoAggregationPanel({
               <AlertDialogHeader>
                 <AlertDialogTitle>Clear Aggregation Pipeline?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will remove all {stages.length} configured pipeline stages. This action cannot be undone.
+                  This will remove all {stages.length} configured pipeline stages. This action
+                  cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -336,13 +337,12 @@ export function MongoAggregationPanel({
               <h3 className="text-sm font-semibold text-foreground">Empty Pipeline</h3>
               <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
                 Add stages to filter, reshape, join, and aggregate documents from{" "}
-                <span className="font-mono text-foreground">{selectedCollection || "collection"}</span>.
+                <span className="font-mono text-foreground">
+                  {selectedCollection || "collection"}
+                </span>
+                .
               </p>
-              <Button
-                size="sm"
-                className="text-xs gap-1.5"
-                onClick={() => setAddDialogOpen(true)}
-              >
+              <Button size="sm" className="text-xs gap-1.5" onClick={() => setAddDialogOpen(true)}>
                 <Plus className="h-3.5 w-3.5" />
                 Add First Stage
               </Button>
@@ -369,7 +369,9 @@ export function MongoAggregationPanel({
                       onToggleRaw={(id) => setStages((p) => toggleStageRaw(p, id))}
                       onToggleCollapsed={(id) => setStages((p) => toggleStageCollapsed(p, id))}
                       onUpdateConfig={(id, cfg) => setStages((p) => updateStageConfig(p, id, cfg))}
-                      onUpdateRawJson={(id, raw) => setStages((p) => updateStageRawJson(p, id, raw))}
+                      onUpdateRawJson={(id, raw) =>
+                        setStages((p) => updateStageRawJson(p, id, raw))
+                      }
                       onDuplicate={(st) => setStages((p) => [...p, duplicateStage(st)])}
                       onDelete={(id) => setStages((p) => deleteStage(p, id))}
                       onMoveUp={(i) => setStages((p) => moveStageUp(p, i))}
@@ -390,9 +392,7 @@ export function MongoAggregationPanel({
             <PipelinePreviewPane
               script={formattedScript}
               onExportScratchpad={
-                onNavigateToWorkspace
-                  ? () => onNavigateToWorkspace(formattedScript)
-                  : undefined
+                onNavigateToWorkspace ? () => onNavigateToWorkspace(formattedScript) : undefined
               }
             />
           </div>

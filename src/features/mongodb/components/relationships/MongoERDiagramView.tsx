@@ -15,10 +15,7 @@ import { transformMongoToER } from "../../adapters/mongoErAdapter";
 import { useProjectERDiagram } from "@/features/project/hooks/useProjectQueries";
 import { projectService } from "@/services/bridge/project";
 import type { ERNode } from "@/features/project/types";
-import type {
-  MongoInferredRelationship,
-  MongoRelationship,
-} from "../../types/relationship";
+import type { MongoInferredRelationship, MongoRelationship } from "../../types/relationship";
 
 const nodeTypes = {
   table: TableNode,
@@ -74,7 +71,16 @@ export function MongoERDiagramViewContent({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [collections, confirmed, inferred, manual, savedLayout, reactFlowInstance, setNodes, setEdges]);
+  }, [
+    collections,
+    confirmed,
+    inferred,
+    manual,
+    savedLayout,
+    reactFlowInstance,
+    setNodes,
+    setEdges,
+  ]);
 
   // Debounced auto-save of ER node positions to project er.json
   const erSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

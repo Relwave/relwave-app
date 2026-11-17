@@ -7,11 +7,7 @@ import { MongoHistoryDrawer } from "../history";
 import { addHistoryEntry, REDACTED_TEMPLATE_ADVISORY } from "../../history";
 import { parseMongoshQuery, MongoshParseResult } from "../../parser";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -26,7 +22,6 @@ import {
   FileSearch,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   History,
 } from "lucide-react";
 import type {
@@ -38,11 +33,7 @@ import type {
 import type { MqlHistoryEntry } from "../../history/types";
 
 export type MongoWorkspaceOpType =
-  | "find"
-  | "aggregate"
-  | "countDocuments"
-  | "estimatedDocumentCount"
-  | "distinct";
+  "find" | "aggregate" | "countDocuments" | "estimatedDocumentCount" | "distinct";
 
 export type MongoWorkspaceInputMode = "json" | "mongosh";
 
@@ -85,7 +76,9 @@ export function MongoWorkspacePanel({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Active result state (supports find, aggregate, count, distinct, and explain)
-  const [lastResult, setLastResult] = useState<MongoMqlExecuteResult | MongoExplainResult | null>(null);
+  const [lastResult, setLastResult] = useState<MongoMqlExecuteResult | MongoExplainResult | null>(
+    null,
+  );
 
   // History drawer state
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -115,14 +108,11 @@ export function MongoWorkspacePanel({
   }, [collections, selectedCollection]);
 
   // Handle operation change in JSON mode
-  const handleOperationChange = useCallback(
-    (newOp: MongoWorkspaceOpType) => {
-      setOperation(newOp);
-      setValidationError(null);
-      setQueryText(OPERATION_TEMPLATES[newOp]);
-    },
-    []
-  );
+  const handleOperationChange = useCallback((newOp: MongoWorkspaceOpType) => {
+    setOperation(newOp);
+    setValidationError(null);
+    setQueryText(OPERATION_TEMPLATES[newOp]);
+  }, []);
 
   // Handle switching between JSON and Mongosh input modes
   const handleModeChange = useCallback(
@@ -133,7 +123,7 @@ export function MongoWorkspacePanel({
 
       if (newMode === "mongosh") {
         const isDefaultJson = Object.values(OPERATION_TEMPLATES).some(
-          (t) => t.trim() === queryText.trim()
+          (t) => t.trim() === queryText.trim(),
         );
         if (isDefaultJson || !queryText.trim()) {
           const col = selectedCollection || (collections[0]?.name ?? "users");
@@ -145,7 +135,7 @@ export function MongoWorkspacePanel({
         }
       }
     },
-    [inputMode, queryText, selectedCollection, collections, operation]
+    [inputMode, queryText, selectedCollection, collections, operation],
   );
 
   const isExecuting = executeMqlMutation.isPending || explainMqlMutation.isPending;
@@ -213,7 +203,9 @@ export function MongoWorkspacePanel({
         };
       } else if (operation === "estimatedDocumentCount") {
         if (parsedPayload && Object.keys(parsedPayload).length > 0) {
-          setValidationError("estimatedDocumentCount does not accept a filter; payload must be empty `{}`.");
+          setValidationError(
+            "estimatedDocumentCount does not accept a filter; payload must be empty `{}`.",
+          );
           return;
         }
         opPayload = {
@@ -250,15 +242,15 @@ export function MongoWorkspacePanel({
 
           if (res.operation === "find" || res.operation === "aggregate") {
             setStatusMessage(
-              `Query completed successfully in ${res.executionTimeMs}ms. (${res.documents.length} documents returned)`
+              `Query completed successfully in ${res.executionTimeMs}ms. (${res.documents.length} documents returned)`,
             );
           } else if (res.operation === "distinct") {
             setStatusMessage(
-              `Distinct completed successfully in ${res.executionTimeMs}ms. (${res.count} unique values)`
+              `Distinct completed successfully in ${res.executionTimeMs}ms. (${res.count} unique values)`,
             );
           } else {
             setStatusMessage(
-              `Count completed successfully in ${res.executionTimeMs}ms. (Total: ${res.count})`
+              `Count completed successfully in ${res.executionTimeMs}ms. (Total: ${res.count})`,
             );
           }
 
@@ -291,7 +283,7 @@ export function MongoWorkspacePanel({
             errorMessage: errMsg,
           });
         },
-      }
+      },
     );
   }, [inputMode, selectedCollection, queryText, operation, executeMqlMutation, dbId]);
 
@@ -331,7 +323,7 @@ export function MongoWorkspacePanel({
       } else {
         setValidationError(
           getExplainDisabledReason(parsed.op.operation as MongoWorkspaceOpType) ||
-            "Explain is only supported for 'find' and 'aggregate' operations."
+            "Explain is only supported for 'find' and 'aggregate' operations.",
         );
         return;
       }
@@ -361,7 +353,9 @@ export function MongoWorkspacePanel({
         };
       } else if (operation === "aggregate") {
         if (!Array.isArray(parsedPayload)) {
-          setValidationError("Aggregation pipeline must be a JSON array of stage objects to explain.");
+          setValidationError(
+            "Aggregation pipeline must be a JSON array of stage objects to explain.",
+          );
           return;
         }
         target = {
@@ -370,7 +364,8 @@ export function MongoWorkspacePanel({
         };
       } else {
         setValidationError(
-          getExplainDisabledReason(operation) || "Explain is only supported for 'find' and 'aggregate' operations."
+          getExplainDisabledReason(operation) ||
+            "Explain is only supported for 'find' and 'aggregate' operations.",
         );
         return;
       }
@@ -388,7 +383,7 @@ export function MongoWorkspacePanel({
           setStatusMessage(
             `Explain plan calculated in ${res.executionTimeMs}ms. Winning plan: ${
               (res.queryPlanner.winningPlan as any)?.stage || "OPTIMAL"
-            }`
+            }`,
           );
 
           addHistoryEntry(dbId, {
@@ -414,7 +409,7 @@ export function MongoWorkspacePanel({
             errorMessage: errMsg,
           });
         },
-      }
+      },
     );
   }, [inputMode, selectedCollection, queryText, operation, explainMqlMutation, dbId]);
 
@@ -446,7 +441,7 @@ export function MongoWorkspacePanel({
         setStatusMessage("Loaded query from history into editor.");
       }
     },
-    [collections]
+    [collections],
   );
 
   const handleCancel = useCallback(async () => {
@@ -491,8 +486,8 @@ export function MongoWorkspacePanel({
                     collectionsLoading
                       ? "Loading collections..."
                       : collections.length === 0
-                      ? "No collections"
-                      : "Select collection"
+                        ? "No collections"
+                        : "Select collection"
                   }
                 />
               </SelectTrigger>
@@ -515,7 +510,11 @@ export function MongoWorkspacePanel({
             >
               <SelectTrigger
                 className="h-8 text-xs bg-muted/50 font-mono"
-                title={inputMode === "mongosh" ? "In mongosh mode, operation is declared in query (e.g. db.coll.find())" : undefined}
+                title={
+                  inputMode === "mongosh"
+                    ? "In mongosh mode, operation is declared in query (e.g. db.coll.find())"
+                    : undefined
+                }
               >
                 <SelectValue />
               </SelectTrigger>
@@ -562,7 +561,11 @@ export function MongoWorkspacePanel({
                   variant="outline"
                   size="sm"
                   onClick={handleExplain}
-                  disabled={isExecuting || (inputMode === "json" && !isExplainSupported(operation)) || !selectedCollection}
+                  disabled={
+                    isExecuting ||
+                    (inputMode === "json" && !isExplainSupported(operation)) ||
+                    !selectedCollection
+                  }
                   className="h-8 text-xs gap-1.5"
                 >
                   <FileSearch className="h-3.5 w-3.5 text-muted-foreground" />
@@ -572,7 +575,8 @@ export function MongoWorkspacePanel({
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs text-xs">
               {inputMode === "json" && !isExplainSupported(operation)
-                ? (getExplainDisabledReason(operation) ?? "Explain is unavailable for this operation.")
+                ? (getExplainDisabledReason(operation) ??
+                  "Explain is unavailable for this operation.")
                 : "Explain execution plan (queryPlanner & executionStats)"}
             </TooltipContent>
           </Tooltip>

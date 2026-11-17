@@ -11,7 +11,12 @@ import {
 import { dbStoreInstance } from "./dbStore";
 import { connectionPool, ConnectionPool } from "./connectionPool";
 import { keyringServiceInstance } from "./keyringService";
-import { getClientKey, closeAllMongoClients, setMongoShuttingDown, safeMongoError } from "../connectors/mongo";
+import {
+  getClientKey,
+  closeAllMongoClients,
+  setMongoShuttingDown,
+  safeMongoError,
+} from "../connectors/mongo";
 import logger from "./logger";
 
 export class DatabaseService {
@@ -69,7 +74,9 @@ export class DatabaseService {
           }
 
           if (this.isShuttingDown || this.getGeneration(dbId) !== buildGeneration) {
-            throw new Error("Connection build aborted: profile was invalidated or bridge is shutting down");
+            throw new Error(
+              "Connection build aborted: profile was invalidated or bridge is shutting down",
+            );
           }
 
           if (dbType === DBType.MONGODB && !db.ssh) {
@@ -110,7 +117,9 @@ export class DatabaseService {
               await this.connectionPool.safeCloseMongoClient(builtConfig);
             }
 
-            throw new Error("Connection build aborted: profile was invalidated or bridge is shutting down");
+            throw new Error(
+              "Connection build aborted: profile was invalidated or bridge is shutting down",
+            );
           }
 
           this.connectionPool.set(dbId, builtConfig, builtDbType, builtTunnel);
@@ -466,10 +475,7 @@ export class DatabaseService {
       drainTimer = setTimeout(resolve, 1500);
     });
 
-    await Promise.race([
-      Promise.all([leaseDrainPromise, builderDrainPromise]),
-      timeoutPromise,
-    ]);
+    await Promise.race([Promise.all([leaseDrainPromise, builderDrainPromise]), timeoutPromise]);
     if (drainTimer) clearTimeout(drainTimer);
 
     await this.executePhase4Teardown();

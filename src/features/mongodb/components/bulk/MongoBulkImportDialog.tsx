@@ -69,10 +69,7 @@ export interface MongoBulkImportDialogProps {
     abortController: AbortController,
     cancelFn: () => Promise<void>,
   ) => void;
-  onChunkAcknowledged?: (
-    progress: ImportProgress,
-    chunkResult: MongoBulkImportChunkResult,
-  ) => void;
+  onChunkAcknowledged?: (progress: ImportProgress, chunkResult: MongoBulkImportChunkResult) => void;
   onTerminalState?: (operationId: string, status: MongoBulkOperationStatus, error?: string) => void;
 }
 
@@ -156,11 +153,7 @@ export function MongoBulkImportDialog({
   // Transition to summary when import reaches a terminal state
   useEffect(() => {
     if (step === "uploading") {
-      if (
-        importState === "completed" ||
-        importState === "failed" ||
-        importState === "cancelled"
-      ) {
+      if (importState === "completed" || importState === "failed" || importState === "cancelled") {
         setStep("summary");
       }
     }
@@ -188,12 +181,10 @@ export function MongoBulkImportDialog({
 
       // Default collection from file name if none selected
       if (!targetCollection) {
-        const cleanName = file.name
-          .replace(/\.[^/.]+$/, "")
-          .replace(/[^a-zA-Z0-9_-]/g, "_");
+        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
         setTargetCollection(cleanName);
         const nameValidation = validateCollectionName(cleanName);
-        setCollectionError(nameValidation.valid ? null : nameValidation.error ?? null);
+        setCollectionError(nameValidation.valid ? null : (nameValidation.error ?? null));
       }
     },
     [targetCollection],
@@ -202,7 +193,7 @@ export function MongoBulkImportDialog({
   const handleCollectionChange = (val: string) => {
     setTargetCollection(val);
     const res = validateCollectionName(val);
-    setCollectionError(res.valid ? null : res.error ?? "Invalid collection name");
+    setCollectionError(res.valid ? null : (res.error ?? "Invalid collection name"));
   };
 
   const handleProceedToPreview = async () => {
@@ -397,9 +388,7 @@ export function MongoBulkImportDialog({
                     placeholder="e.g. users or audit_logs"
                     className="h-9"
                   />
-                  {collectionError && (
-                    <p className="text-xs text-destructive">{collectionError}</p>
-                  )}
+                  {collectionError && <p className="text-xs text-destructive">{collectionError}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -441,10 +430,7 @@ export function MongoBulkImportDialog({
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button
@@ -512,17 +498,11 @@ export function MongoBulkImportDialog({
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setStep("select-file")}
-              >
+              <Button variant="outline" onClick={() => setStep("select-file")}>
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
-              <Button
-                onClick={handleStartUpload}
-                disabled={isPreviewLoading || !!previewError}
-              >
+              <Button onClick={handleStartUpload} disabled={isPreviewLoading || !!previewError}>
                 Start Import
                 <Upload className="h-4 w-4 ml-1" />
               </Button>
@@ -693,9 +673,7 @@ export function MongoBulkImportDialog({
             </div>
 
             <DialogFooter>
-              <Button onClick={handleFinish}>
-                Done
-              </Button>
+              <Button onClick={handleFinish}>Done</Button>
             </DialogFooter>
           </>
         )}

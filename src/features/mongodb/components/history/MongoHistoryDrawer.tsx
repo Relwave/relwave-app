@@ -84,7 +84,9 @@ export const MongoHistoryDrawer: React.FC<MongoHistoryDrawerProps> = ({
     const updated = updateHistorySettings(dbId, { storeRawQueries: checked });
     setSettings(updated);
     if (checked) {
-      toast.warning("Raw query storage enabled. Sensitive literals will be stored in your browser.");
+      toast.warning(
+        "Raw query storage enabled. Sensitive literals will be stored in your browser.",
+      );
     } else {
       toast.info("Literal value redaction enabled for future queries.");
     }
@@ -124,7 +126,7 @@ export const MongoHistoryDrawer: React.FC<MongoHistoryDrawerProps> = ({
         side="right"
         className={cn(
           "w-full sm:max-w-xl p-0 flex flex-col h-full bg-background border-l border-border/40",
-          className
+          className,
         )}
       >
         {/* Drawer Header */}
@@ -158,7 +160,8 @@ export const MongoHistoryDrawer: React.FC<MongoHistoryDrawerProps> = ({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Clear Query History</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to clear all query history for this connection? This action cannot be undone.
+                      Are you sure you want to clear all query history for this connection? This
+                      action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -203,7 +206,8 @@ export const MongoHistoryDrawer: React.FC<MongoHistoryDrawerProps> = ({
 
           {settings.storeRawQueries && (
             <div className="rounded p-2 bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-400">
-              <strong>Privacy Warning:</strong> Storing raw queries may persist sensitive personal data, authorization tokens, or passwords to your browser's unencrypted local storage.
+              <strong>Privacy Warning:</strong> Storing raw queries may persist sensitive personal
+              data, authorization tokens, or passwords to your browser's unencrypted local storage.
             </div>
           )}
         </div>

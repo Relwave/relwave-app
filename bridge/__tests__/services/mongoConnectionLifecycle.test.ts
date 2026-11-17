@@ -13,14 +13,12 @@ import {
   testConnection,
   setMongoShuttingDown,
   mongoConnector,
-  MongoApiError,
 } from "../../src/connectors/mongo";
-import { ConnectionPool, PoolEntry, ConnectionLease } from "../../src/services/connectionPool";
+import { ConnectionPool, PoolEntry } from "../../src/services/connectionPool";
 import { DatabaseService } from "../../src/services/databaseService";
 import { ConnectionBuilder } from "../../src/services/connectionBuilder";
 import { dbStoreInstance } from "../../src/services/dbStore";
 import { keyringServiceInstance } from "../../src/services/keyringService";
-import { SSHTunnelService } from "../../src/services/sshTunnelService";
 import { MongoBulkEngine } from "../../src/services/mongoBulkEngine";
 import { MigrationHandlers } from "../../src/handlers/migrationHandlers";
 import { DBType } from "../../src/types";
@@ -88,7 +86,7 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     });
 
     const callers = barriers.map((barrier, index) =>
-      dbService.withConnection(dbId, async (conn, db, type) => {
+      dbService.withConnection(dbId, async (_conn, _db, _type) => {
         await barrier.promise;
         return index;
       }),
@@ -212,7 +210,10 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // 3. test_new_profile_acquire_during_final_reference_cleanup
   // ---------------------------------------------------------------------------
   test("3. test_new_profile_acquire_during_final_reference_cleanup", async () => {
-    const clientKey = getClientKey({ uri: "mongodb://localhost:27017/shared_db", database: "shared_db" });
+    const clientKey = getClientKey({
+      uri: "mongodb://localhost:27017/shared_db",
+      database: "shared_db",
+    });
     const closeBarrier = createDeferred<void>();
 
     const mockOldClient: any = {
@@ -252,7 +253,10 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // 4. test_single_flight_force_close_recovery_and_single_replacement_client
   // ---------------------------------------------------------------------------
   test("4. test_single_flight_force_close_recovery_and_single_replacement_client", async () => {
-    const cfg: MongoConfig = { uri: "mongodb://localhost:27017/recovery_db", database: "recovery_db" };
+    const cfg: MongoConfig = {
+      uri: "mongodb://localhost:27017/recovery_db",
+      database: "recovery_db",
+    };
     const key = getClientKey(cfg);
     const closeBarrier = createDeferred<void>();
 
@@ -263,7 +267,11 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       topology: { s: { servers: new Map() } },
     };
 
-    clientRegistry.set(key, { client: mockFailedClient, state: "close_failed", closeError: new Error("Previous hang") });
+    clientRegistry.set(key, {
+      client: mockFailedClient,
+      state: "close_failed",
+      closeError: new Error("Previous hang"),
+    });
 
     // Launch two concurrent callers
     const caller1Promise = getMongoClient(cfg);
@@ -291,7 +299,9 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     };
     clientRegistry.set(key, { client: unconfirmedClient, state: "close_failed" });
 
-    await expect(getMongoClient(cfg)).rejects.toThrow(/prior client for key .* failed to force-close/);
+    await expect(getMongoClient(cfg)).rejects.toThrow(
+      /prior client for key .* failed to force-close/,
+    );
     expect(clientRegistry.get(key)?.state).toBe("close_failed");
   });
 
@@ -316,7 +326,9 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       ssh: { host: "bastion", port: 22, user: "tunnel", authMethod: "password" },
     };
 
-    jest.spyOn(dbStoreInstance, "getDB").mockImplementation(async (id) => (id === "ssh_db_a" ? dbA : dbB) as any);
+    jest
+      .spyOn(dbStoreInstance, "getDB")
+      .mockImplementation(async (id) => (id === "ssh_db_a" ? dbA : dbB) as any);
     jest.spyOn(dbStoreInstance, "getPasswordFor").mockResolvedValue(null as any);
     jest.spyOn(keyringServiceInstance, "getCredential").mockResolvedValue("ssh_secret");
 
@@ -326,7 +338,10 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     jest.spyOn(ConnectionBuilder, "buildConnection").mockImplementation(async (db: any) => {
       const tunnel = db.id === "ssh_db_a" ? mockTunnelA : mockTunnelB;
       return {
-        config: { uri: `mongodb://127.0.0.1:${tunnel.localPort}/${db.database}`, database: db.database },
+        config: {
+          uri: `mongodb://127.0.0.1:${tunnel.localPort}/${db.database}`,
+          database: db.database,
+        },
         tunnel,
       };
     });
@@ -360,12 +375,19 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       const builtConfig = { uri: "mongodb://127.0.0.1:50001/unshared_db", database: "unshared_db" };
 
       // Adopted in pool under distinct profile
-      pool.set("other_profile", { uri: "mongodb://127.0.0.1:50001/other_db", database: "other_db" }, DBType.MONGODB, builtTunnel as any);
+      pool.set(
+        "other_profile",
+        { uri: "mongodb://127.0.0.1:50001/other_db", database: "other_db" },
+        DBType.MONGODB,
+        builtTunnel as any,
+      );
 
       const safeCloseSpy = jest.spyOn(pool, "safeCloseMongoClient");
 
       // Builder runs check 3 logic
-      const isTunnelAdopted = Array.from(pool.getAllEntries()).some((e) => e.tunnel === builtTunnel);
+      const isTunnelAdopted = Array.from(pool.getAllEntries()).some(
+        (e) => e.tunnel === builtTunnel,
+      );
       expect(isTunnelAdopted).toBe(true);
       if (!isTunnelAdopted) builtTunnel.close();
 
@@ -379,10 +401,17 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       const builtTunnel = { localPort: 50002, close: jest.fn() };
       const otherTunnel = { localPort: 50002, close: jest.fn() };
 
-      pool.set("other_profile", { uri: "mongodb://127.0.0.1:50002/db", database: "db" }, DBType.MONGODB, otherTunnel as any);
+      pool.set(
+        "other_profile",
+        { uri: "mongodb://127.0.0.1:50002/db", database: "db" },
+        DBType.MONGODB,
+        otherTunnel as any,
+      );
 
       // Identity check: must be strict object equality
-      const isTunnelAdopted = Array.from(pool.getAllEntries()).some((e) => e.tunnel === builtTunnel);
+      const isTunnelAdopted = Array.from(pool.getAllEntries()).some(
+        (e) => e.tunnel === builtTunnel,
+      );
       expect(isTunnelAdopted).toBe(false);
 
       if (!isTunnelAdopted) builtTunnel.close();
@@ -398,7 +427,9 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       // Other profile shares clientKey but has different or no tunnel
       pool.set("adopting_profile", sharedConfig, DBType.MONGODB, undefined);
 
-      const isTunnelAdopted = Array.from(pool.getAllEntries()).some((e) => e.tunnel === builtTunnel);
+      const isTunnelAdopted = Array.from(pool.getAllEntries()).some(
+        (e) => e.tunnel === builtTunnel,
+      );
       if (!isTunnelAdopted) builtTunnel.close();
 
       const closeKeySpy = jest.spyOn(pool, "safeCloseMongoClient");
@@ -410,11 +441,21 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
 
     test("Sub-scenario D: Shared tunnel, unshared MongoClient", async () => {
       const builtTunnel = { localPort: 50004, close: jest.fn() };
-      const unsharedConfig = { uri: "mongodb://127.0.0.1:50004/distinct_d", database: "distinct_d" };
+      const unsharedConfig = {
+        uri: "mongodb://127.0.0.1:50004/distinct_d",
+        database: "distinct_d",
+      };
 
-      pool.set("tunnel_holder", { uri: "mongodb://127.0.0.1:50004/holder_db", database: "holder_db" }, DBType.MONGODB, builtTunnel as any);
+      pool.set(
+        "tunnel_holder",
+        { uri: "mongodb://127.0.0.1:50004/holder_db", database: "holder_db" },
+        DBType.MONGODB,
+        builtTunnel as any,
+      );
 
-      const isTunnelAdopted = Array.from(pool.getAllEntries()).some((e) => e.tunnel === builtTunnel);
+      const isTunnelAdopted = Array.from(pool.getAllEntries()).some(
+        (e) => e.tunnel === builtTunnel,
+      );
       expect(isTunnelAdopted).toBe(true);
       if (!isTunnelAdopted) builtTunnel.close();
 
@@ -471,7 +512,12 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // ---------------------------------------------------------------------------
   test("8. test_non_settling_client_close_forced_socket_destruction_and_bounded_shutdown", async () => {
     const key = "non_settling_key";
-    const mockSocket = { destroyed: false, destroy: jest.fn(() => { mockSocket.destroyed = true; }) };
+    const mockSocket = {
+      destroyed: false,
+      destroy: jest.fn(() => {
+        mockSocket.destroyed = true;
+      }),
+    };
 
     const mockClient: any = {
       close: jest.fn(() => new Promise(() => {})), // Never settles
@@ -498,7 +544,12 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // ---------------------------------------------------------------------------
   test("9. test_shutdown_escalates_inflight_normal_close_without_competing_operation", async () => {
     const key = "escalation_key";
-    const mockSocket = { destroyed: false, destroy: jest.fn(() => { mockSocket.destroyed = true; }) };
+    const mockSocket = {
+      destroyed: false,
+      destroy: jest.fn(() => {
+        mockSocket.destroyed = true;
+      }),
+    };
 
     const ordinaryCloseBarrier = createDeferred<void>();
     const mockClient: any = {
@@ -538,7 +589,12 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   test("10. test_multiple_non_settling_clients_global_bounded_teardown", async () => {
     const mockSockets: any[] = [];
     for (let i = 0; i < 5; i++) {
-      const sock = { destroyed: false, destroy: jest.fn(function (this: any) { this.destroyed = true; }) };
+      const sock = {
+        destroyed: false,
+        destroy: jest.fn(function (this: any) {
+          this.destroyed = true;
+        }),
+      };
       mockSockets.push(sock);
 
       const client: any = {
@@ -580,7 +636,10 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
       topology: {
         s: {
           servers: new Map([
-            ["server1", { pool: { connections: [{ socket: stubbornSocket }], checkedOut: new Set() } }],
+            [
+              "server1",
+              { pool: { connections: [{ socket: stubbornSocket }], checkedOut: new Set() } },
+            ],
           ]),
         },
       },
@@ -630,9 +689,18 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // 13. test_canonical_client_key_identity_across_sanitization_and_casing
   // ---------------------------------------------------------------------------
   test("13. test_canonical_client_key_identity_across_sanitization_and_casing", async () => {
-    const key1 = getClientKey({ uri: "mongodb://user:secret@localhost:27017/ProductionDB", database: "ProductionDB" });
-    const key2 = getClientKey({ uri: "mongodb://user@localhost:27017/ProductionDB", database: "  productiondb  " });
-    const key3 = getClientKey({ uri: "mongodb://user:secret@localhost:27017/productiondb", database: "productiondb" });
+    const key1 = getClientKey({
+      uri: "mongodb://user:secret@localhost:27017/ProductionDB",
+      database: "ProductionDB",
+    });
+    const key2 = getClientKey({
+      uri: "mongodb://user@localhost:27017/ProductionDB",
+      database: "  productiondb  ",
+    });
+    const key3 = getClientKey({
+      uri: "mongodb://user:secret@localhost:27017/productiondb",
+      database: "productiondb",
+    });
 
     expect(key1).toBe(key2);
     expect(key2).toBe(key3);
@@ -721,7 +789,9 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
 
     // Invalidation 2: fatal error in withConnection
     jest.spyOn(dbStoreInstance, "getDB").mockResolvedValue({ id: dbId, database: "test" } as any);
-    jest.spyOn(ConnectionBuilder, "buildConnection").mockResolvedValue({ config: { database: "test" } });
+    jest
+      .spyOn(ConnectionBuilder, "buildConnection")
+      .mockResolvedValue({ config: { database: "test" } });
 
     const fatal = new Error("ECONNRESET");
     (fatal as any).name = "MongoNetworkError";
@@ -751,32 +821,49 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     };
 
     // 1-9: Connector Guards in mongo.ts
-    await expect(mongoConnector.insertDocument(readOnlyConn, { collection: "c", document: { a: 1 } }))
-      .rejects.toThrow("Database is configured as read-only. 'insertDocument' is prohibited.");
+    await expect(
+      mongoConnector.insertDocument(readOnlyConn, { collection: "c", document: { a: 1 } }),
+    ).rejects.toThrow("Database is configured as read-only. 'insertDocument' is prohibited.");
 
-    await expect(mongoConnector.updateDocument(readOnlyConn, { collection: "c", filter: { a: 1 }, update: { $set: { b: 2 } } }))
-      .rejects.toThrow("Database is configured as read-only. 'updateDocument' is prohibited.");
+    await expect(
+      mongoConnector.updateDocument(readOnlyConn, {
+        collection: "c",
+        filter: { a: 1 },
+        update: { $set: { b: 2 } },
+      }),
+    ).rejects.toThrow("Database is configured as read-only. 'updateDocument' is prohibited.");
 
-    await expect(mongoConnector.replaceDocument(readOnlyConn, { collection: "c", filter: { a: 1 }, replacement: { b: 2 } }))
-      .rejects.toThrow("Database is configured as read-only. 'replaceDocument' is prohibited.");
+    await expect(
+      mongoConnector.replaceDocument(readOnlyConn, {
+        collection: "c",
+        filter: { a: 1 },
+        replacement: { b: 2 },
+      }),
+    ).rejects.toThrow("Database is configured as read-only. 'replaceDocument' is prohibited.");
 
-    await expect(mongoConnector.deleteDocument(readOnlyConn, { collection: "c", filter: { a: 1 } }))
-      .rejects.toThrow("Database is configured as read-only. 'deleteDocument' is prohibited.");
+    await expect(
+      mongoConnector.deleteDocument(readOnlyConn, { collection: "c", filter: { a: 1 } }),
+    ).rejects.toThrow("Database is configured as read-only. 'deleteDocument' is prohibited.");
 
-    await expect(mongoConnector.createCollection(readOnlyConn, { collection: "c_new" }))
-      .rejects.toThrow("Database is configured as read-only. 'createCollection' is prohibited.");
+    await expect(
+      mongoConnector.createCollection(readOnlyConn, { collection: "c_new" }),
+    ).rejects.toThrow("Database is configured as read-only. 'createCollection' is prohibited.");
 
-    await expect(mongoConnector.dropCollection(readOnlyConn, { collection: "c_old" }))
-      .rejects.toThrow("Database is configured as read-only. 'dropCollection' is prohibited.");
+    await expect(
+      mongoConnector.dropCollection(readOnlyConn, { collection: "c_old" }),
+    ).rejects.toThrow("Database is configured as read-only. 'dropCollection' is prohibited.");
 
-    await expect(mongoConnector.createIndexes(readOnlyConn, { collection: "c", key: { a: 1 } }))
-      .rejects.toThrow("Database is configured as read-only. 'createIndexes' is prohibited.");
+    await expect(
+      mongoConnector.createIndexes(readOnlyConn, { collection: "c", key: { a: 1 } }),
+    ).rejects.toThrow("Database is configured as read-only. 'createIndexes' is prohibited.");
 
-    await expect(mongoConnector.dropIndex(readOnlyConn, { collection: "c", indexName: "idx_1" }))
-      .rejects.toThrow("Database is configured as read-only. 'dropIndex' is prohibited.");
+    await expect(
+      mongoConnector.dropIndex(readOnlyConn, { collection: "c", indexName: "idx_1" }),
+    ).rejects.toThrow("Database is configured as read-only. 'dropIndex' is prohibited.");
 
-    await expect(mongoConnector.hideIndex(readOnlyConn, { collection: "c", indexName: "idx_1", hidden: true }))
-      .rejects.toThrow("Database is configured as read-only. 'hideIndex' is prohibited.");
+    await expect(
+      mongoConnector.hideIndex(readOnlyConn, { collection: "c", indexName: "idx_1", hidden: true }),
+    ).rejects.toThrow("Database is configured as read-only. 'hideIndex' is prohibited.");
 
     // 10-13: Bulk Engine Guards in mongoBulkEngine.ts
     const mockDbService = {
@@ -788,18 +875,32 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     } as any;
     const bulkEngine = new MongoBulkEngine(mockDbService);
 
-    await expect(bulkEngine.bulkInsert({ dbId: "ro_bulk_db", collection: "c", documents: [{ a: 1 }] }))
-      .rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
+    await expect(
+      bulkEngine.bulkInsert({ dbId: "ro_bulk_db", collection: "c", documents: [{ a: 1 }] }),
+    ).rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
 
-    await expect(bulkEngine.bulkUpdate({ dbId: "ro_bulk_db", collection: "c", filter: { a: 1 }, update: { $set: { b: 2 } } }))
-      .rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
+    await expect(
+      bulkEngine.bulkUpdate({
+        dbId: "ro_bulk_db",
+        collection: "c",
+        filter: { a: 1 },
+        update: { $set: { b: 2 } },
+      }),
+    ).rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
 
-    await expect(bulkEngine.bulkDelete({ dbId: "ro_bulk_db", collection: "c", filter: { a: 1 } }))
-      .rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
+    await expect(
+      bulkEngine.bulkDelete({ dbId: "ro_bulk_db", collection: "c", filter: { a: 1 } }),
+    ).rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
 
     const opState = bulkEngine.opManager.createOperation("import", "ro_bulk_db", "c", "json");
-    await expect(bulkEngine.importChunk({ operationId: opState.operation.operationId, chunkIndex: 0, isLastChunk: true, payload: "[]" }))
-      .rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
+    await expect(
+      bulkEngine.importChunk({
+        operationId: opState.operation.operationId,
+        chunkIndex: 0,
+        isLastChunk: true,
+        payload: "[]",
+      }),
+    ).rejects.toMatchObject({ code: "MONGO_READ_ONLY" });
 
     // 14-15: Migration Handler Guards in migrationHandlers.ts
     const mockRpc = { sendResponse: jest.fn(), sendError: jest.fn() };
@@ -807,10 +908,16 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
     const migHandlers = new MigrationHandlers(mockRpc as any, mockLogger, mockDbService, {} as any);
 
     await migHandlers.handleApplyMigration({ dbId: "ro_bulk_db", version: 1 }, 101);
-    expect(mockRpc.sendError).toHaveBeenCalledWith(101, expect.objectContaining({ code: "MONGO_READ_ONLY" }));
+    expect(mockRpc.sendError).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({ code: "MONGO_READ_ONLY" }),
+    );
 
     await migHandlers.handleRollbackMigration({ dbId: "ro_bulk_db", version: 1 }, 102);
-    expect(mockRpc.sendError).toHaveBeenCalledWith(102, expect.objectContaining({ code: "MONGO_READ_ONLY" }));
+    expect(mockRpc.sendError).toHaveBeenCalledWith(
+      102,
+      expect.objectContaining({ code: "MONGO_READ_ONLY" }),
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -818,7 +925,7 @@ describe("MongoDB Connection Lifecycle & Concurrency Deterministic Test Suite", 
   // ---------------------------------------------------------------------------
   test("18. test_implementation_time_driver_version_verification", async () => {
     // 1. Check resolved mongodb version
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const driverPackage = require("mongodb/package.json");
     expect(driverPackage.version).toBe("6.21.0");
 

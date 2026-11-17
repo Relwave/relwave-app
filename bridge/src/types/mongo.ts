@@ -608,7 +608,6 @@ export interface MongoIndexHideResult {
   hidden: boolean;
 }
 
-
 // ===========================================================================
 // M7 Phase 1 — MongoDB Relationship Inference & Management Types
 // ===========================================================================
@@ -745,12 +744,7 @@ export interface MongoDeleteRelationshipResult {
 // ===========================================================================
 
 export type CursorCloseState =
-  | "none"
-  | "open"
-  | "closing"
-  | "closed_confirmed"
-  | "closed_failed"
-  | "closed_timed_out";
+  "none" | "open" | "closing" | "closed_confirmed" | "closed_failed" | "closed_timed_out";
 
 export type CursorCloseOutcome =
   | { status: "closed_confirmed"; durationMs: number }

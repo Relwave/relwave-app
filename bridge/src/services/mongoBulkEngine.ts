@@ -19,8 +19,13 @@ import { v4 as uuidv4 } from "uuid";
 import { Collection, Db, Document } from "mongodb";
 import { DatabaseService } from "./databaseService";
 import logger from "./logger";
-import { selectDb, MongoApiError, assertCollectionName, safeMongoError, mongodbCache } from "../connectors/mongo";
-import { serializeMongoEJSONDocument, mongoBSONtoEJSON, serializeMongoFilter, serializeMongoUpdateOperand } from "../connectors/mongoBson";
+import { selectDb, MongoApiError, safeMongoError, mongodbCache } from "../connectors/mongo";
+import {
+  serializeMongoEJSONDocument,
+  mongoBSONtoEJSON,
+  serializeMongoFilter,
+  serializeMongoUpdateOperand,
+} from "../connectors/mongoBson";
 import { DBType } from "../types";
 import {
   MongoBulkFormat,
@@ -209,8 +214,7 @@ export class ExportCoordinationManager {
   }
 }
 
-const UUID_V4_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isValidUuidV4(id: unknown): id is string {
   return typeof id === "string" && UUID_V4_REGEX.test(id);
@@ -233,7 +237,10 @@ export function assertValidCollectionName(collection: unknown): asserts collecti
     throw new MongoApiError("MONGO_VALIDATION_ERROR", "collection name must not exceed 120 bytes");
   }
   if (collection.includes("$") || collection.includes("\0")) {
-    throw new MongoApiError("MONGO_VALIDATION_ERROR", "collection name must not contain '$' or null bytes");
+    throw new MongoApiError(
+      "MONGO_VALIDATION_ERROR",
+      "collection name must not contain '$' or null bytes",
+    );
   }
   if (collection.startsWith("system.")) {
     throw new MongoApiError("MONGO_FORBIDDEN", "Operations on system collections are forbidden");
@@ -260,12 +267,7 @@ export function assertNoPrototypePollution(value: unknown): void {
 }
 
 export function assertNotReadOnly(db: any, conn: any): void {
-  const isReadOnly = Boolean(
-    db?.readonly ||
-    db?.readOnly ||
-    conn?.readonly ||
-    conn?.readOnly
-  );
+  const isReadOnly = Boolean(db?.readonly || db?.readOnly || conn?.readonly || conn?.readOnly);
   if (isReadOnly) {
     throw new MongoApiError("MONGO_READ_ONLY", "Database is in read-only mode");
   }
@@ -312,10 +314,16 @@ export function parseNdjson(text: string): Record<string, any>[] {
     try {
       doc = JSON.parse(line);
     } catch (err: any) {
-      throw new MongoApiError("MONGO_VALIDATION_ERROR", `Invalid NDJSON at line ${i + 1}: ${err.message}`);
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        `Invalid NDJSON at line ${i + 1}: ${err.message}`,
+      );
     }
     if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
-      throw new MongoApiError("MONGO_VALIDATION_ERROR", `NDJSON line ${i + 1} must be a JSON object`);
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        `NDJSON line ${i + 1} must be a JSON object`,
+      );
     }
     assertNoPrototypePollution(doc);
     docs.push(doc);
@@ -329,7 +337,10 @@ function setDottedPath(target: Record<string, any>, pathStr: string, value: any)
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
     if (part === "__proto__" || part === "constructor" || part === "prototype") {
-      throw new MongoApiError("SECURITY_VIOLATION", `Prototype pollution attempt with key '${part}'`);
+      throw new MongoApiError(
+        "SECURITY_VIOLATION",
+        `Prototype pollution attempt with key '${part}'`,
+      );
     }
     if (cur[part] === undefined || cur[part] === null || typeof cur[part] !== "object") {
       cur[part] = {};
@@ -354,7 +365,10 @@ function coerceCsvValue(val: string): any {
     const num = Number(trimmed);
     if (Number.isFinite(num)) return num;
   }
-  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
     try {
       const parsed = JSON.parse(trimmed);
       assertNoPrototypePollution(parsed);
@@ -443,7 +457,10 @@ export function parseCsv(csvText: string): Record<string, any>[] {
       throw new MongoApiError("MONGO_VALIDATION_ERROR", "CSV contains empty column header");
     }
     if (h.includes("__proto__") || h.includes("constructor") || h.includes("prototype")) {
-      throw new MongoApiError("SECURITY_VIOLATION", `Prototype pollution attempt detected in CSV header: ${h}`);
+      throw new MongoApiError(
+        "SECURITY_VIOLATION",
+        `Prototype pollution attempt detected in CSV header: ${h}`,
+      );
     }
   }
 
@@ -464,7 +481,10 @@ export function parseCsv(csvText: string): Record<string, any>[] {
   return documents;
 }
 
-export function parseImportPayload(payload: unknown, format: MongoBulkFormat): Record<string, any>[] {
+export function parseImportPayload(
+  payload: unknown,
+  format: MongoBulkFormat,
+): Record<string, any>[] {
   if (payload === undefined || payload === null) {
     throw new MongoApiError("MONGO_VALIDATION_ERROR", "Payload cannot be null or undefined");
   }
@@ -485,14 +505,22 @@ export function parseImportPayload(payload: unknown, format: MongoBulkFormat): R
     );
   }
 
-  const text = typeof payload === "string" ? payload : Buffer.isBuffer(payload) ? payload.toString("utf8") : "";
+  const text =
+    typeof payload === "string"
+      ? payload
+      : Buffer.isBuffer(payload)
+        ? payload.toString("utf8")
+        : "";
 
   let docs: Record<string, any>[];
   if (format === "json") {
     docs = parseJsonArray(text || payload);
   } else if (format === "ndjson") {
     if (typeof payload !== "string" && !Buffer.isBuffer(payload)) {
-      throw new MongoApiError("MONGO_VALIDATION_ERROR", "NDJSON payload must be a string or buffer");
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "NDJSON payload must be a string or buffer",
+      );
     }
     docs = parseNdjson(text);
   } else if (format === "csv") {
@@ -598,18 +626,18 @@ export class BulkOperationManager {
   private sweepTimer: NodeJS.Timeout | null = null;
 
   constructor(private ttlMs: number = OPERATION_TTL_MS) {
-    this.sweepTimer = setInterval(() => {
-      this.sweepExpired().catch(() => {});
-    }, 5 * 60 * 1000);
+    this.sweepTimer = setInterval(
+      () => {
+        this.sweepExpired().catch(() => {});
+      },
+      5 * 60 * 1000,
+    );
     if (this.sweepTimer.unref) {
       this.sweepTimer.unref();
     }
   }
 
-  recordPendingStagingCleanup(
-    stagingPath: string,
-    identity?: StagingFileIdentity,
-  ): boolean {
+  recordPendingStagingCleanup(stagingPath: string, identity?: StagingFileIdentity): boolean {
     // Duplicate path registration: idempotent no-op, preserves original authoritative identity and does not consume extra capacity
     if (this.pendingStagingCleanups.has(stagingPath)) {
       return true;
@@ -713,32 +741,38 @@ export class BulkOperationManager {
     return state;
   }
 
-  transition(
-    operationId: string,
-    newStatus: MongoBulkOperationStatus,
-    error?: string,
-  ): void {
+  transition(operationId: string, newStatus: MongoBulkOperationStatus, error?: string): void {
     const state = this.getOperation(operationId);
     if (!state) {
       throw new MongoApiError("MONGO_NOT_FOUND", `Operation '${operationId}' not found or expired`);
     }
 
     const currentStatus = state.operation.status;
-    if (currentStatus === "completed" || currentStatus === "failed" || currentStatus === "cancelled") {
+    if (
+      currentStatus === "completed" ||
+      currentStatus === "failed" ||
+      currentStatus === "cancelled"
+    ) {
       throw new MongoApiError(
         "MONGO_INVALID_STATE",
         `Cannot transition terminal operation '${operationId}' from '${currentStatus}' to '${newStatus}'`,
       );
     }
 
-    if (currentStatus === "pending" && !["in_progress", "cancelled", "failed"].includes(newStatus)) {
+    if (
+      currentStatus === "pending" &&
+      !["in_progress", "cancelled", "failed"].includes(newStatus)
+    ) {
       throw new MongoApiError(
         "MONGO_INVALID_STATE",
         `Invalid transition from '${currentStatus}' to '${newStatus}'`,
       );
     }
 
-    if (currentStatus === "in_progress" && !["completed", "cancelled", "failed"].includes(newStatus)) {
+    if (
+      currentStatus === "in_progress" &&
+      !["completed", "cancelled", "failed"].includes(newStatus)
+    ) {
       throw new MongoApiError(
         "MONGO_INVALID_STATE",
         `Invalid transition from '${currentStatus}' to '${newStatus}'`,
@@ -852,10 +886,16 @@ export class BulkOperationManager {
           if (statErr?.code === "ENOENT") {
             // File already removed externally; safely evict stale entry and free capacity
             this.pendingStagingCleanups.delete(stagingPath);
-            logger.info({ stagingPath }, "Staging file already absent (ENOENT); evicted from cleanup queue");
+            logger.info(
+              { stagingPath },
+              "Staging file already absent (ENOENT); evicted from cleanup queue",
+            );
             continue;
           }
-          logger.warn({ err: statErr, stagingPath }, "Failed to lstat staging path during retry verification; retaining");
+          logger.warn(
+            { err: statErr, stagingPath },
+            "Failed to lstat staging path during retry verification; retaining",
+          );
           continue;
         }
 
@@ -863,7 +903,11 @@ export class BulkOperationManager {
         // Filesystem entry is left untouched on disk (never moved or isolated) and evicted from cleanup tracking
         if (!currentStat.isFile() || currentStat.isSymbolicLink()) {
           logger.error(
-            { stagingPath, isSymbolicLink: currentStat.isSymbolicLink(), isDirectory: currentStat.isDirectory() },
+            {
+              stagingPath,
+              isSymbolicLink: currentStat.isSymbolicLink(),
+              isDirectory: currentStat.isDirectory(),
+            },
             "SECURITY ALERT: Staging path is no longer a regular file (symlink or directory substituted); unlinking aborted, filesystem entry left untouched on disk, and entry evicted from automated cleanup tracking",
           );
           this.pendingStagingCleanups.delete(stagingPath);
@@ -902,7 +946,10 @@ export class BulkOperationManager {
         // Step D: Authoritative unlink of verified staging file
         await fs.promises.unlink(stagingPath);
         this.pendingStagingCleanups.delete(stagingPath);
-        logger.info({ stagingPath }, "Successfully verified identity and unlinked leftover staging file on retry");
+        logger.info(
+          { stagingPath },
+          "Successfully verified identity and unlinked leftover staging file on retry",
+        );
       } catch (retryErr: any) {
         if (retryErr?.code === "ENOENT") {
           this.pendingStagingCleanups.delete(stagingPath);
@@ -915,7 +962,10 @@ export class BulkOperationManager {
             );
             this.pendingStagingCleanups.delete(stagingPath);
           } else {
-            logger.warn({ err: retryErr, stagingPath }, "Staging cleanup retry failed; retaining in retry queue");
+            logger.warn(
+              { err: retryErr, stagingPath },
+              "Staging cleanup retry failed; retaining in retry queue",
+            );
           }
         }
       }
@@ -1006,7 +1056,10 @@ export class MongoBulkEngine {
     assertValidOperationId(operationId);
 
     if (typeof chunkIndex !== "number" || !Number.isInteger(chunkIndex) || chunkIndex < 0) {
-      throw new MongoApiError("MONGO_VALIDATION_ERROR", "chunkIndex must be a non-negative integer");
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        "chunkIndex must be a non-negative integer",
+      );
     }
 
     const state = this.opManager.getOperation(operationId);
@@ -1015,7 +1068,10 @@ export class MongoBulkEngine {
     }
 
     if (state.operation.type !== "import") {
-      throw new MongoApiError("MONGO_VALIDATION_ERROR", `Operation '${operationId}' is not an import operation`);
+      throw new MongoApiError(
+        "MONGO_VALIDATION_ERROR",
+        `Operation '${operationId}' is not an import operation`,
+      );
     }
 
     if (state.operation.status === "cancelled") {
@@ -1023,7 +1079,10 @@ export class MongoBulkEngine {
     }
 
     if (state.operation.status === "failed") {
-      throw new MongoApiError("MONGO_OPERATION_FAILED", `Operation has failed: ${state.operation.error}`);
+      throw new MongoApiError(
+        "MONGO_OPERATION_FAILED",
+        `Operation has failed: ${state.operation.error}`,
+      );
     }
 
     // Replay protection: repeated chunkIndex returns cached result without double write
@@ -1097,7 +1156,11 @@ export class MongoBulkEngine {
     coll: Collection,
     docs: Record<string, any>[],
     controller: AbortController,
-  ): Promise<{ insertedCount: number; failedCount: number; errors: Array<{ index: number; code: string; message: string }> }> {
+  ): Promise<{
+    insertedCount: number;
+    failedCount: number;
+    errors: Array<{ index: number; code: string; message: string }>;
+  }> {
     let insertedCount = 0;
     let failedCount = 0;
     const errors: Array<{ index: number; code: string; message: string }> = [];
@@ -1114,7 +1177,11 @@ export class MongoBulkEngine {
         const res = await coll.insertMany(bsonDocs, { ordered: false });
         insertedCount += res.insertedCount ?? Object.keys(res.insertedIds || {}).length;
       } catch (err: any) {
-        if (err?.name === "MongoBulkWriteError" || err?.name === "BulkWriteError" || err?.writeErrors) {
+        if (
+          err?.name === "MongoBulkWriteError" ||
+          err?.name === "BulkWriteError" ||
+          err?.writeErrors
+        ) {
           const nInserted = err.result?.nInserted ?? err.insertedCount ?? 0;
           insertedCount += nInserted;
           const writeErrors = err.writeErrors || [];
@@ -1127,7 +1194,7 @@ export class MongoBulkEngine {
               message: safeMongoError(we.errmsg || we.message || "Write error"),
             });
           }
-          failedCount += (batch.length - nInserted);
+          failedCount += batch.length - nInserted;
         } else {
           throw err;
         }
@@ -1141,7 +1208,9 @@ export class MongoBulkEngine {
   // 2. Bulk Export Engine (Streaming directly to temporary file)
   // =========================================================================
 
-  async purgeOrphanedExports(exportDir: string = EXPORT_DIR): Promise<{ purged: number; skipped: number }> {
+  async purgeOrphanedExports(
+    exportDir: string = EXPORT_DIR,
+  ): Promise<{ purged: number; skipped: number }> {
     return ExportCoordinationManager.getInstance().purgeOrphanedExportsAsync(exportDir);
   }
 
@@ -1378,9 +1447,7 @@ export class MongoBulkEngine {
     return this.opManager.cleanup(operationId);
   }
 
-  async exportSaveTo(
-    params: MongoBulkExportSaveToRequest,
-  ): Promise<MongoBulkExportSaveToResult> {
+  async exportSaveTo(params: MongoBulkExportSaveToRequest): Promise<MongoBulkExportSaveToResult> {
     const { operationId, destinationPath, options } = params || {};
     assertValidOperationId(operationId);
 
@@ -1397,17 +1464,11 @@ export class MongoBulkEngine {
 
     const state = this.opManager.getOperation(operationId);
     if (!state) {
-      throw new MongoApiError(
-        "MONGO_NOT_FOUND",
-        `Operation '${operationId}' not found or expired`,
-      );
+      throw new MongoApiError("MONGO_NOT_FOUND", `Operation '${operationId}' not found or expired`);
     }
 
     if (state.operation.type !== "export") {
-      throw new MongoApiError(
-        "MONGO_INVALID_STATE",
-        "Cannot save: operation is not an export",
-      );
+      throw new MongoApiError("MONGO_INVALID_STATE", "Cannot save: operation is not an export");
     }
 
     if (state.operation.status !== "completed") {
@@ -1419,10 +1480,7 @@ export class MongoBulkEngine {
 
     const sourceFilePath = state.operation.tempFilePath;
     if (!sourceFilePath || !fs.existsSync(sourceFilePath)) {
-      throw new MongoApiError(
-        "MONGO_NOT_FOUND",
-        "Export source temporary file does not exist",
-      );
+      throw new MongoApiError("MONGO_NOT_FOUND", "Export source temporary file does not exist");
     }
 
     if (state.isSaving === true) {
@@ -1459,10 +1517,7 @@ export class MongoBulkEngine {
         );
       }
       if (!parentStat.isDirectory()) {
-        throw new MongoApiError(
-          "MONGO_SAVE_FAILED",
-          "Parent path is not a directory",
-        );
+        throw new MongoApiError("MONGO_SAVE_FAILED", "Parent path is not a directory");
       }
 
       // Destination Type Inspection (prior to staging) with strict error discrimination
@@ -1499,10 +1554,7 @@ export class MongoBulkEngine {
           );
         }
         if (options?.overwrite !== true) {
-          throw new MongoApiError(
-            "MONGO_FILE_EXISTS",
-            "Destination file already exists",
-          );
+          throw new MongoApiError("MONGO_FILE_EXISTS", "Destination file already exists");
         }
       }
 
@@ -1665,10 +1717,7 @@ export class MongoBulkEngine {
           }
 
           if (linkErr?.code === "EEXIST") {
-            throw new MongoApiError(
-              "MONGO_FILE_EXISTS",
-              "Destination file already exists",
-            );
+            throw new MongoApiError("MONGO_FILE_EXISTS", "Destination file already exists");
           }
 
           if (
@@ -1790,7 +1839,10 @@ export class MongoBulkEngine {
 
     for (const doc of documents) {
       if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
-        throw new MongoApiError("MONGO_VALIDATION_ERROR", "Each item in documents must be an object");
+        throw new MongoApiError(
+          "MONGO_VALIDATION_ERROR",
+          "Each item in documents must be an object",
+        );
       }
       assertNoPrototypePollution(doc);
     }
@@ -1812,7 +1864,11 @@ export class MongoBulkEngine {
         const res = await coll.insertMany(bsonDocs, { ordered });
         insertedCount += res.insertedCount ?? Object.keys(res.insertedIds || {}).length;
       } catch (err: any) {
-        if (err?.name === "MongoBulkWriteError" || err?.name === "BulkWriteError" || err?.writeErrors) {
+        if (
+          err?.name === "MongoBulkWriteError" ||
+          err?.name === "BulkWriteError" ||
+          err?.writeErrors
+        ) {
           const nInserted = err.result?.nInserted ?? err.insertedCount ?? 0;
           insertedCount += nInserted;
           const writeErrors = err.writeErrors || [];
@@ -1824,7 +1880,7 @@ export class MongoBulkEngine {
               message: safeMongoError(we.errmsg || we.message || "Write error"),
             });
           }
-          failedCount += (batch.length - nInserted);
+          failedCount += batch.length - nInserted;
           if (ordered) {
             break;
           }
@@ -1853,7 +1909,10 @@ export class MongoBulkEngine {
     }
 
     if (typeof update !== "object" || update === null || Array.isArray(update)) {
-      throw new MongoApiError("MONGO_INVALID_UPDATE_OPERAND", "update must be an operator document");
+      throw new MongoApiError(
+        "MONGO_INVALID_UPDATE_OPERAND",
+        "update must be an operator document",
+      );
     }
 
     const updateKeys = Object.keys(update);

@@ -124,7 +124,9 @@ class DatabaseService {
         : isClickHouse
           ? ["name", "type"]
           : isMongo
-            ? (params.url ? ["name", "type"] : ["name", "type", "host", "port"])
+            ? params.url
+              ? ["name", "type"]
+              : ["name", "type", "host", "port"]
             : ["name", "type", "host", "port", "user", "database"];
       for (const field of required) {
         if (!params[field as keyof AddDatabaseParams]) {
@@ -776,10 +778,7 @@ class DatabaseService {
   /**
    * List applied and pending MongoDB migrations and lock state (migration.list)
    */
-  async listMongoMigrations(
-    dbId: string,
-    projectRoot?: string,
-  ): Promise<MongoMigrationListResult> {
+  async listMongoMigrations(dbId: string, projectRoot?: string): Promise<MongoMigrationListResult> {
     return databaseBridge.listMongoMigrations(dbId, projectRoot);
   }
 
@@ -886,9 +885,7 @@ class DatabaseService {
     return databaseBridge.getMongoBulkOperationStatus(request);
   }
 
-  async cancelMongoBulkOperation(
-    request: MongoBulkCancelRequest,
-  ): Promise<MongoBulkCancelResult> {
+  async cancelMongoBulkOperation(request: MongoBulkCancelRequest): Promise<MongoBulkCancelResult> {
     return databaseBridge.cancelMongoBulkOperation(request);
   }
 
@@ -898,21 +895,15 @@ class DatabaseService {
     return databaseBridge.cleanupMongoBulkOperation(request);
   }
 
-  async bulkInsertMongoDocuments(
-    request: MongoBulkInsertRequest,
-  ): Promise<MongoBulkInsertResult> {
+  async bulkInsertMongoDocuments(request: MongoBulkInsertRequest): Promise<MongoBulkInsertResult> {
     return databaseBridge.bulkInsertMongoDocuments(request);
   }
 
-  async bulkUpdateMongoDocuments(
-    request: MongoBulkUpdateRequest,
-  ): Promise<MongoBulkUpdateResult> {
+  async bulkUpdateMongoDocuments(request: MongoBulkUpdateRequest): Promise<MongoBulkUpdateResult> {
     return databaseBridge.bulkUpdateMongoDocuments(request);
   }
 
-  async bulkDeleteMongoDocuments(
-    request: MongoBulkDeleteRequest,
-  ): Promise<MongoBulkDeleteResult> {
+  async bulkDeleteMongoDocuments(request: MongoBulkDeleteRequest): Promise<MongoBulkDeleteResult> {
     return databaseBridge.bulkDeleteMongoDocuments(request);
   }
 

@@ -11,11 +11,7 @@ import { MongoDeleteDocumentDialog } from "./MongoDeleteDocumentDialog";
 import { MongoCreateCollectionDialog } from "./MongoCreateCollectionDialog";
 import { MongoDropCollectionDialog } from "./MongoDropCollectionDialog";
 import { MongoCollectionRelationshipsTab } from "./relationships";
-import {
-  MongoBulkImportDialog,
-  MongoBulkExportDialog,
-  MongoBulkMutationDialog,
-} from "./bulk";
+import { MongoBulkImportDialog, MongoBulkExportDialog, MongoBulkMutationDialog } from "./bulk";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, GitBranch, Database, Layers, Network } from "lucide-react";
 
@@ -33,8 +29,7 @@ export function MongoDataViewPanel({
   // Query database connection to resolve effective read-only mode if not explicitly passed
   const { data: dbConn } = useDatabase(dbId);
   const isEffectiveReadOnly =
-    isReadOnlyProp ||
-    Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
+    isReadOnlyProp || Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
 
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isBulkExportOpen, setIsBulkExportOpen] = useState(false);

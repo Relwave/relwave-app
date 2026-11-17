@@ -9,13 +9,7 @@ import React from "react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Loader2,
-  AlertTriangle,
-  Upload,
-  Download,
-  XCircle,
-} from "lucide-react";
+import { Loader2, AlertTriangle, Upload, Download, XCircle } from "lucide-react";
 import type { TrackedAsyncBulkOperation } from "../../types/bulk";
 import { formatBytes } from "./MongoBulkExportDialog";
 
@@ -25,18 +19,16 @@ export interface MongoBulkProgressProps {
   className?: string;
 }
 
-export function MongoBulkProgress({
-  operation,
-  onCancel,
-  className = "",
-}: MongoBulkProgressProps) {
+export function MongoBulkProgress({ operation, onCancel, className = "" }: MongoBulkProgressProps) {
   const isImport = operation.type === "import";
-  const isExport = operation.type === "export";
   const isActive = operation.status === "pending" || operation.status === "in_progress";
 
   const percent =
     operation.processedDocuments > 0
-      ? Math.min(100, Math.round((operation.successfulDocuments / operation.processedDocuments) * 100))
+      ? Math.min(
+          100,
+          Math.round((operation.successfulDocuments / operation.processedDocuments) * 100),
+        )
       : operation.status === "in_progress"
         ? 15
         : 5;

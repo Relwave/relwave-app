@@ -1,19 +1,19 @@
 export interface MqlHistoryEntry {
   id: string;
-  timestamp: string;          // ISO 8601 string
-  collection: string;         // Target MongoDB collection
-  operation: string;          // find, aggregate, countDocuments, estimatedDocumentCount, distinct
-  redactedQueryText: string;  // Query with literal values redacted into type placeholders
-  rawQueryText?: string;      // Present ONLY if user explicitly opted in to store raw queries
-  durationMs: number;         // Execution time in milliseconds
+  timestamp: string; // ISO 8601 string
+  collection: string; // Target MongoDB collection
+  operation: string; // find, aggregate, countDocuments, estimatedDocumentCount, distinct
+  redactedQueryText: string; // Query with literal values redacted into type placeholders
+  rawQueryText?: string; // Present ONLY if user explicitly opted in to store raw queries
+  durationMs: number; // Execution time in milliseconds
   status: "success" | "error";
-  resultCount?: number;       // Number of documents returned or numeric count result
-  errorMessage?: string;      // Sanitized error message (credentials & sensitive paths removed)
-  isRedacted: boolean;        // True if stored as a redacted template
+  resultCount?: number; // Number of documents returned or numeric count result
+  errorMessage?: string; // Sanitized error message (credentials & sensitive paths removed)
+  isRedacted: boolean; // True if stored as a redacted template
 }
 
 export interface MqlHistorySettings {
-  storeRawQueries: boolean;   // Opt-in setting to store raw query text (default: false)
+  storeRawQueries: boolean; // Opt-in setting to store raw query text (default: false)
 }
 
 export interface StoredMqlHistory {

@@ -138,11 +138,7 @@ export function MongoCreateCollectionDialog({
                   Fixed-size collection that automatically overwrites oldest documents.
                 </p>
               </div>
-              <Switch
-                id="capped-switch"
-                checked={isCapped}
-                onCheckedChange={setIsCapped}
-              />
+              <Switch id="capped-switch" checked={isCapped} onCheckedChange={setIsCapped} />
             </div>
 
             {/* Capped Options */}

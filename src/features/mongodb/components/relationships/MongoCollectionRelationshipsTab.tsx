@@ -9,16 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Check,
-  X,
-  Eye,
-  ExternalLink,
-  Plus,
-  Network,
-} from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, X, Eye, ExternalLink, Plus, Network } from "lucide-react";
 import {
   useMongoRelationships,
   useSetMongoRelationshipStatus,
@@ -29,10 +20,7 @@ import { formatMongoCardinality } from "../../adapters/mongoErAdapter";
 import { MongoRelationshipDetailDrawer } from "./MongoRelationshipDetailDrawer";
 import { MongoManualRelationshipDialog } from "./MongoManualRelationshipDialog";
 import { useMongoCollections } from "@/features/project/hooks/useDbQueries";
-import type {
-  MongoInferredRelationship,
-  MongoRelationship,
-} from "../../types/relationship";
+import type { MongoInferredRelationship, MongoRelationship } from "../../types/relationship";
 
 export interface MongoCollectionRelationshipsTabProps {
   dbId: string;

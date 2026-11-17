@@ -14,13 +14,10 @@ import { Logger } from "pino";
 import logger from "../services/logger";
 import { v4 as uuidv4 } from "uuid";
 import {
-  CursorCloseOutcome,
   DriverSettlementSignal,
   MongoExecutionContext,
   OperationLifecycleHandle,
-  OperationLifecycleState,
   TeardownOutcome,
-  TeardownOutcomeStatus,
 } from "../types/mongo";
 
 // ---------------------------------------------------------------------------
@@ -38,9 +35,11 @@ export function createDriverSettlementSignal(driverPromise?: Promise<any>): {
   let settledError: unknown;
   let resolveSettlement!: (val: { outcome: "fulfilled" | "rejected"; error?: unknown }) => void;
 
-  const settlementPromise = new Promise<{ outcome: "fulfilled" | "rejected"; error?: unknown }>((resolve) => {
-    resolveSettlement = resolve;
-  });
+  const settlementPromise = new Promise<{ outcome: "fulfilled" | "rejected"; error?: unknown }>(
+    (resolve) => {
+      resolveSettlement = resolve;
+    },
+  );
 
   const markSettled = (outcome: "fulfilled" | "rejected" = "fulfilled", error?: unknown) => {
     if (isSettled) return;
@@ -52,9 +51,7 @@ export function createDriverSettlementSignal(driverPromise?: Promise<any>): {
   };
 
   const attachPromise = (promise: Promise<any>) => {
-    promise
-      .then(() => markSettled("fulfilled"))
-      .catch((err) => markSettled("rejected", err));
+    promise.then(() => markSettled("fulfilled")).catch((err) => markSettled("rejected", err));
   };
 
   if (driverPromise) {
@@ -62,10 +59,18 @@ export function createDriverSettlementSignal(driverPromise?: Promise<any>): {
   }
 
   const signal: DriverSettlementSignal = {
-    get isSettled() { return isSettled; },
-    get settledAt() { return settledAt; },
-    get outcome() { return settledOutcome; },
-    get error() { return settledError; },
+    get isSettled() {
+      return isSettled;
+    },
+    get settledAt() {
+      return settledAt;
+    },
+    get outcome() {
+      return settledOutcome;
+    },
+    get error() {
+      return settledError;
+    },
     promise: settlementPromise,
     markSettled,
   };
@@ -273,7 +278,10 @@ export async function executeIndependentTeardown(
     invalidationSucceeded = true;
   } catch (err) {
     invalidationError = err;
-    logger.warn({ dbId, err }, "Pool invalidation threw; proceeding to independent socket teardown");
+    logger.warn(
+      { dbId, err },
+      "Pool invalidation threw; proceeding to independent socket teardown",
+    );
   }
 
   // 3. Post-Invalidation Settlement Check
@@ -285,7 +293,10 @@ export async function executeIndependentTeardown(
   let socketResult: { status: string; destroyedCount?: number; error?: unknown };
   try {
     const clientKey = getClientKey(conn);
-    const socketDestructionPromise = closeMongoClientByKey(clientKey, { force: true, timeoutMs: 100 });
+    const socketDestructionPromise = closeMongoClientByKey(clientKey, {
+      force: true,
+      timeoutMs: 100,
+    });
 
     const socketRace = await Promise.race([
       socketDestructionPromise.then((res: any) => ({ type: "destroyed" as const, res })),
@@ -473,14 +484,15 @@ export class OperationLifecycleSupervisor {
       const outcome = await this.zombieRegistry.executeDebouncedTeardown(
         this.handle.dbId,
         clientKey,
-        () => executeIndependentTeardown(
-          this.dbService,
-          this.handle.dbId,
-          this.conn,
-          this.handle,
-          attempt,
-          this.maxTeardownAttempts,
-        ),
+        () =>
+          executeIndependentTeardown(
+            this.dbService,
+            this.handle.dbId,
+            this.conn,
+            this.handle,
+            attempt,
+            this.maxTeardownAttempts,
+          ),
       );
 
       if (outcome.status === "driver_settled" || this.handle.settlementSignal.isSettled) {
@@ -1104,7 +1116,11 @@ export class QueryHandlers {
     }
 
     const abortController = new AbortController();
-    const { signal: settlementSignal, markSettled, attachPromise } = createDriverSettlementSignal();
+    const {
+      signal: settlementSignal,
+      markSettled: _markSettled,
+      attachPromise,
+    } = createDriverSettlementSignal();
 
     const handle: OperationLifecycleHandle = {
       id: sid,
@@ -1143,11 +1159,16 @@ export class QueryHandlers {
       },
     };
 
-    const outerPromise = this.queryExecutor.executeMql(lease.conn, lease.dbType, {
-      collection,
-      op,
-      options,
-    }, context);
+    const outerPromise = this.queryExecutor.executeMql(
+      lease.conn,
+      lease.dbType,
+      {
+        collection,
+        op,
+        options,
+      },
+      context,
+    );
 
     try {
       const data = await outerPromise;
@@ -1165,7 +1186,10 @@ export class QueryHandlers {
             code: "MONGO_OPERATION_CANCELLED",
             message: "Operation was cancelled by user",
           });
-        } else if (err?.code === "MONGO_OPERATION_TIMEOUT" || String(err?.message).includes("timed out")) {
+        } else if (
+          err?.code === "MONGO_OPERATION_TIMEOUT" ||
+          String(err?.message).includes("timed out")
+        ) {
           this.rpc.sendError(id, {
             code: "MONGO_OPERATION_TIMEOUT",
             message: "Operation timed out",
@@ -1175,7 +1199,11 @@ export class QueryHandlers {
         }
       }
 
-      if (abortController.signal.aborted || err?.code === "MONGO_OPERATION_TIMEOUT" || String(err?.message).includes("timed out")) {
+      if (
+        abortController.signal.aborted ||
+        err?.code === "MONGO_OPERATION_TIMEOUT" ||
+        String(err?.message).includes("timed out")
+      ) {
         await supervisor.superviseTimeoutOrCancel(driverPromiseRef, outerPromise);
       } else {
         supervisor.safeReleaseLease();
@@ -1214,7 +1242,11 @@ export class QueryHandlers {
     }
 
     const abortController = new AbortController();
-    const { signal: settlementSignal, markSettled, attachPromise } = createDriverSettlementSignal();
+    const {
+      signal: settlementSignal,
+      markSettled: _markSettled,
+      attachPromise,
+    } = createDriverSettlementSignal();
 
     const handle: OperationLifecycleHandle = {
       id: sid,
@@ -1275,7 +1307,10 @@ export class QueryHandlers {
             code: "MONGO_OPERATION_CANCELLED",
             message: "Operation was cancelled by user",
           });
-        } else if (err?.code === "MONGO_OPERATION_TIMEOUT" || String(err?.message).includes("timed out")) {
+        } else if (
+          err?.code === "MONGO_OPERATION_TIMEOUT" ||
+          String(err?.message).includes("timed out")
+        ) {
           this.rpc.sendError(id, {
             code: "MONGO_OPERATION_TIMEOUT",
             message: "Operation timed out",
@@ -1285,7 +1320,11 @@ export class QueryHandlers {
         }
       }
 
-      if (abortController.signal.aborted || err?.code === "MONGO_OPERATION_TIMEOUT" || String(err?.message).includes("timed out")) {
+      if (
+        abortController.signal.aborted ||
+        err?.code === "MONGO_OPERATION_TIMEOUT" ||
+        String(err?.message).includes("timed out")
+      ) {
         await supervisor.superviseTimeoutOrCancel(driverPromiseRef, outerPromise);
       } else {
         supervisor.safeReleaseLease();

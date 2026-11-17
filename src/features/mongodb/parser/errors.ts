@@ -14,13 +14,7 @@ export class MongoParserError extends Error {
   readonly column: number;
   readonly offset: number;
 
-  constructor(
-    message: string,
-    code: MongoParserErrorCode,
-    line = 1,
-    column = 1,
-    offset = 0
-  ) {
+  constructor(message: string, code: MongoParserErrorCode, line = 1, column = 1, offset = 0) {
     super(`${message} (line ${line}, col ${column})`);
     this.name = "MongoParserError";
     this.code = code;

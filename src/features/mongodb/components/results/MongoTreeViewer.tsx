@@ -69,7 +69,7 @@ export function getAllExpandablePaths(
   path = "$",
   depth = 0,
   maxDepth = 15,
-  maxNodes = 2000
+  maxNodes = 2000,
 ): string[] {
   const paths: string[] = [];
   if (value === null || value === undefined || typeof value !== "object") return paths;
@@ -86,7 +86,7 @@ export function getAllExpandablePaths(
         `${path}[${i}]`,
         depth + 1,
         maxDepth,
-        maxNodes - paths.length
+        maxNodes - paths.length,
       );
       paths.push(...childPaths);
     }
@@ -98,7 +98,7 @@ export function getAllExpandablePaths(
         `${path}.${key}`,
         depth + 1,
         maxDepth,
-        maxNodes - paths.length
+        maxNodes - paths.length,
       );
       paths.push(...childPaths);
     }
@@ -145,11 +145,12 @@ const MongoTreeNode: React.FC<MongoTreeNodeProps> = ({
 
   if (!isComplex) {
     const formatted = formatMongoValue(value);
-    const keyLabel = nodeKey !== undefined ? (
-      <span className="text-purple-600 dark:text-purple-400 font-medium select-text mr-1.5">
-        {typeof nodeKey === "number" ? `[${nodeKey}]` : `${nodeKey}:`}
-      </span>
-    ) : null;
+    const keyLabel =
+      nodeKey !== undefined ? (
+        <span className="text-purple-600 dark:text-purple-400 font-medium select-text mr-1.5">
+          {typeof nodeKey === "number" ? `[${nodeKey}]` : `${nodeKey}:`}
+        </span>
+      ) : null;
 
     let valueRender: React.ReactNode = null;
 
@@ -162,11 +163,7 @@ const MongoTreeNode: React.FC<MongoTreeNodeProps> = ({
         </span>
       );
     } else if (typeof value === "number") {
-      valueRender = (
-        <span className="text-blue-600 dark:text-blue-400 font-mono">
-          {value}
-        </span>
-      );
+      valueRender = <span className="text-blue-600 dark:text-blue-400 font-mono">{value}</span>;
     } else if (typeof value === "string") {
       valueRender = (
         <span className="text-emerald-600 dark:text-emerald-400 font-mono break-all">
@@ -190,7 +187,7 @@ const MongoTreeNode: React.FC<MongoTreeNodeProps> = ({
             variant="outline"
             className={cn(
               "text-[10px] px-1 py-0 h-4 border leading-none font-semibold",
-              formatted.badgeColor || "bg-muted/60 text-muted-foreground border-border/50"
+              formatted.badgeColor || "bg-muted/60 text-muted-foreground border-border/50",
             )}
           >
             {formatted.badgeText}
@@ -215,11 +212,12 @@ const MongoTreeNode: React.FC<MongoTreeNodeProps> = ({
   const itemCount = isArray ? value.length : keys.length;
   const descriptor = isArray ? `[${itemCount}]` : `{${itemCount}}`;
 
-  const keyLabel = nodeKey !== undefined ? (
-    <span className="text-purple-600 dark:text-purple-400 font-medium select-text mr-1.5">
-      {typeof nodeKey === "number" ? `[${nodeKey}]` : `${nodeKey}:`}
-    </span>
-  ) : null;
+  const keyLabel =
+    nodeKey !== undefined ? (
+      <span className="text-purple-600 dark:text-purple-400 font-medium select-text mr-1.5">
+        {typeof nodeKey === "number" ? `[${nodeKey}]` : `${nodeKey}:`}
+      </span>
+    ) : null;
 
   return (
     <div className="text-xs font-mono">
@@ -241,9 +239,7 @@ const MongoTreeNode: React.FC<MongoTreeNodeProps> = ({
 
         {keyLabel}
 
-        <span className="text-muted-foreground text-[11px] font-sans">
-          {descriptor}
-        </span>
+        <span className="text-muted-foreground text-[11px] font-sans">{descriptor}</span>
 
         {!isExpanded && (
           <span className="text-muted-foreground/60 text-[11px] italic truncate">
@@ -343,10 +339,10 @@ export const MongoTreeViewer: React.FC<MongoTreeViewerProps> = ({
         "$",
         0,
         LARGE_TREE_DEPTH_LIMIT - 1,
-        LARGE_TREE_NODE_LIMIT
+        LARGE_TREE_NODE_LIMIT,
       );
       toast.info(
-        `Large document detected (${totalCount} nodes). Expanded first ${paths.length} nodes to protect performance.`
+        `Large document detected (${totalCount} nodes). Expanded first ${paths.length} nodes to protect performance.`,
       );
     } else {
       paths = getAllExpandablePaths(data, "$", 0, 15, 2000);
@@ -368,11 +364,7 @@ export const MongoTreeViewer: React.FC<MongoTreeViewerProps> = ({
   }, [data]);
 
   if (data === undefined || data === null) {
-    return (
-      <div className={cn("p-4 text-xs text-muted-foreground font-mono", className)}>
-        null
-      </div>
-    );
+    return <div className={cn("p-4 text-xs text-muted-foreground font-mono", className)}>null</div>;
   }
 
   return (
@@ -406,7 +398,11 @@ export const MongoTreeViewer: React.FC<MongoTreeViewerProps> = ({
             onClick={handleCopyAll}
             className="h-6 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
           >
-            {copiedAll ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            {copiedAll ? (
+              <Check className="h-3 w-3 text-emerald-500" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
             Copy JSON
           </Button>
         </div>

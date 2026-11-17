@@ -6,7 +6,13 @@ import path from "path";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { v4 as uuidv4 } from "uuid";
-import { PROJECTS_FOLDER, PROJECTS_INDEX_FILE, getProjectDir, ensureDir, CONFIG_FOLDER } from "../utils/config";
+import {
+  PROJECTS_FOLDER,
+  PROJECTS_INDEX_FILE,
+  getProjectDir,
+  ensureDir,
+  CONFIG_FOLDER,
+} from "../utils/config";
 import { dbStoreInstance, DBMeta } from "./dbStore";
 import type { MongoRelationshipsFile } from "../types/mongo";
 
@@ -923,10 +929,7 @@ export class ProjectStore {
   // MongoDB Relationships (M7 Phase 1)
   // ==========================================
 
-  async getMongoRelationships(
-    projectId?: string,
-    dbId?: string,
-  ): Promise<MongoRelationshipsFile> {
+  async getMongoRelationships(projectId?: string, dbId?: string): Promise<MongoRelationshipsFile> {
     let resolvedProjectId = projectId;
     if (!resolvedProjectId && dbId) {
       const project = await this.getProjectByDatabaseId(dbId);
@@ -977,7 +980,9 @@ export class ProjectStore {
       confirmed: Array.isArray(data.confirmed) ? data.confirmed : [],
       rejectedIds: Array.isArray(data.rejectedIds) ? data.rejectedIds : [],
       manual: Array.isArray(data.manual) ? data.manual : [],
-      insufficientEvidence: Array.isArray(data.insufficientEvidence) ? data.insufficientEvidence : [],
+      insufficientEvidence: Array.isArray(data.insufficientEvidence)
+        ? data.insufficientEvidence
+        : [],
       updatedAt: data.updatedAt ?? new Date().toISOString(),
     };
   }
@@ -1010,7 +1015,9 @@ export class ProjectStore {
       ...file,
       projectId: resolvedProjectId || undefined,
       databaseId: resolvedDbId,
-      insufficientEvidence: Array.isArray(file.insufficientEvidence) ? file.insufficientEvidence : [],
+      insufficientEvidence: Array.isArray(file.insufficientEvidence)
+        ? file.insufficientEvidence
+        : [],
       updatedAt: new Date().toISOString(),
     };
 

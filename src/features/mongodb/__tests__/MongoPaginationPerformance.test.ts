@@ -19,10 +19,7 @@ describe("MongoPaginationPerformance & AST Canonicalizer", () => {
     });
 
     it("canonicalizes BigInt to ['bigint', string]", () => {
-      assert.deepEqual(canonicalizeValue(9223372036854775807n), [
-        "bigint",
-        "9223372036854775807",
-      ]);
+      assert.deepEqual(canonicalizeValue(9223372036854775807n), ["bigint", "9223372036854775807"]);
       assert.deepEqual(canonicalizeValue(-9223372036854775808n), [
         "bigint",
         "-9223372036854775808",
@@ -139,14 +136,22 @@ describe("MongoPaginationPerformance & AST Canonicalizer", () => {
     it("rejects invalid subtype values", () => {
       assert.throws(() => validateAndNormalizeEjsonBinary({ base64: "AQIDBA==", subType: 256 }));
       assert.throws(() => validateAndNormalizeEjsonBinary({ base64: "AQIDBA==", subType: -1 }));
-      assert.throws(() => validateAndNormalizeEjsonBinary({ base64: "AQIDBA==", subType: "invalidHex" }));
+      assert.throws(() =>
+        validateAndNormalizeEjsonBinary({ base64: "AQIDBA==", subType: "invalidHex" }),
+      );
     });
   });
 
   describe("EJSON Numeric Lexical & Range Validation", () => {
     it("canonicalizes valid $numberInt within 32-bit range", () => {
-      assert.deepEqual(canonicalizeValue({ $numberInt: "2147483647" }), ["ejson_int", "2147483647"]);
-      assert.deepEqual(canonicalizeValue({ $numberInt: "-2147483648" }), ["ejson_int", "-2147483648"]);
+      assert.deepEqual(canonicalizeValue({ $numberInt: "2147483647" }), [
+        "ejson_int",
+        "2147483647",
+      ]);
+      assert.deepEqual(canonicalizeValue({ $numberInt: "-2147483648" }), [
+        "ejson_int",
+        "-2147483648",
+      ]);
     });
 
     it("rejects out-of-range or malformed $numberInt", () => {
@@ -167,9 +172,15 @@ describe("MongoPaginationPerformance & AST Canonicalizer", () => {
     });
 
     it("canonicalizes valid $numberDecimal", () => {
-      assert.deepEqual(canonicalizeValue({ $numberDecimal: "123.456" }), ["ejson_decimal", "123.456"]);
+      assert.deepEqual(canonicalizeValue({ $numberDecimal: "123.456" }), [
+        "ejson_decimal",
+        "123.456",
+      ]);
       assert.deepEqual(canonicalizeValue({ $numberDecimal: "NaN" }), ["ejson_decimal", "NaN"]);
-      assert.deepEqual(canonicalizeValue({ $numberDecimal: "Infinity" }), ["ejson_decimal", "Infinity"]);
+      assert.deepEqual(canonicalizeValue({ $numberDecimal: "Infinity" }), [
+        "ejson_decimal",
+        "Infinity",
+      ]);
     });
 
     it("encodes objects with extra fields alongside markers as ordinary objects", () => {
@@ -194,7 +205,7 @@ describe("MongoPaginationPerformance & AST Canonicalizer", () => {
 
     it("derives Option A pagination using pageSize + 1 strategy with zero countDocuments", () => {
       let countDocumentsCalls = 0;
-      const mockCountDocuments = () => {
+      const _mockCountDocuments = () => {
         countDocumentsCalls++;
         return 1000;
       };

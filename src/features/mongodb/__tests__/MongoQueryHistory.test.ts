@@ -11,11 +11,7 @@ import {
   isValidHistoryEntry,
   StorageAdapter,
 } from "../history/historyStorage";
-import {
-  redactQueryText,
-  isRedactedQuery,
-  sanitizeErrorMessage,
-} from "../history/redaction";
+import { redactQueryText, isRedactedQuery, sanitizeErrorMessage } from "../history/redaction";
 import {
   MAX_HISTORY_ENTRIES,
   CURRENT_HISTORY_SCHEMA_VERSION,
@@ -23,7 +19,10 @@ import {
 } from "../history/types";
 
 // In-memory test storage adapter
-function createMockStorage(): StorageAdapter & { store: Map<string, string>; throwOnSet?: boolean } {
+function createMockStorage(): StorageAdapter & {
+  store: Map<string, string>;
+  throwOnSet?: boolean;
+} {
   const store = new Map<string, string>();
   return {
     store,
@@ -54,10 +53,7 @@ describe("MongoDB Query History & Privacy Storage", () => {
       const query = `{ email: "alice@company.com", status: "ACTIVE" }`;
       const redacted = redactQueryText(query);
 
-      assert.strictEqual(
-        redacted,
-        `{ email: "<string>", status: "<string>" }`
-      );
+      assert.strictEqual(redacted, `{ email: "<string>", status: "<string>" }`);
       assert.ok(!redacted.includes("alice@company.com"));
       assert.ok(!redacted.includes("ACTIVE"));
       assert.ok(redacted.includes("email:"));
@@ -70,7 +66,7 @@ describe("MongoDB Query History & Privacy Storage", () => {
 
       assert.strictEqual(
         redacted,
-        `{ age: { $gte: <number> }, score: <number>, isVerified: <boolean>, isBanned: <boolean> }`
+        `{ age: { $gte: <number> }, score: <number>, isVerified: <boolean>, isBanned: <boolean> }`,
       );
       assert.ok(!redacted.includes("21"));
       assert.ok(!redacted.includes("99.5"));
@@ -101,11 +97,15 @@ describe("MongoDB Query History & Privacy Storage", () => {
     });
 
     it("redacts EJSON v2 extended objects ($date, $oid, $numberLong)", () => {
-      const query = JSON.stringify({
-        _id: { $oid: "507f1f77bcf86cd799439011" },
-        created: { $date: "2026-10-30T10:00:00.000Z" },
-        bigInt: { $numberLong: "9999999999" },
-      }, null, 2);
+      const query = JSON.stringify(
+        {
+          _id: { $oid: "507f1f77bcf86cd799439011" },
+          created: { $date: "2026-10-30T10:00:00.000Z" },
+          bigInt: { $numberLong: "9999999999" },
+        },
+        null,
+        2,
+      );
       const redacted = redactQueryText(query);
 
       assert.ok(redacted.includes(`"$oid": "<string>"`));
@@ -275,10 +275,28 @@ describe("MongoDB Query History & Privacy Storage", () => {
         version: CURRENT_HISTORY_SCHEMA_VERSION,
         dbId,
         entries: [
-          { id: "valid-1", timestamp: "2026-10-30T10:00:00Z", collection: "c", operation: "find", redactedQueryText: "{}", durationMs: 1, status: "success", isRedacted: true },
+          {
+            id: "valid-1",
+            timestamp: "2026-10-30T10:00:00Z",
+            collection: "c",
+            operation: "find",
+            redactedQueryText: "{}",
+            durationMs: 1,
+            status: "success",
+            isRedacted: true,
+          },
           { id: 12345, missingFields: true }, // Corrupted
           null,
-          { id: "valid-2", timestamp: "2026-10-30T10:00:01Z", collection: "c", operation: "find", redactedQueryText: "{}", durationMs: 2, status: "success", isRedacted: true },
+          {
+            id: "valid-2",
+            timestamp: "2026-10-30T10:00:01Z",
+            collection: "c",
+            operation: "find",
+            redactedQueryText: "{}",
+            durationMs: 2,
+            status: "success",
+            isRedacted: true,
+          },
         ],
       };
       mockStorage.store.set(`relwave_mql_history_${dbId}`, JSON.stringify(malformedPayload));
@@ -428,7 +446,7 @@ describe("MongoDB Query History & Privacy Storage", () => {
     it("exposes the exact mandatory advisory string required by M5 specification", () => {
       assert.strictEqual(
         REDACTED_TEMPLATE_ADVISORY,
-        "Loaded query template from history with redacted placeholders. Replace <string> or <number> placeholders with actual query values before executing."
+        "Loaded query template from history with redacted placeholders. Replace <string> or <number> placeholders with actual query values before executing.",
       );
     });
 

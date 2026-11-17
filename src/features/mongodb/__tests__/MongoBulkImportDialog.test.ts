@@ -10,10 +10,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import {
-  detectFormatFromFileName,
-  formatBytes,
-} from "../components/bulk/MongoBulkImportDialog";
+import { detectFormatFromFileName, formatBytes } from "../components/bulk/MongoBulkImportDialog";
 import {
   validateFileSize,
   MAX_FILE_SIZE_BYTES,

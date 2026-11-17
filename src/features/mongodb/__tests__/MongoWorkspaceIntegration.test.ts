@@ -9,10 +9,7 @@ import {
   MongoWorkspaceOpType,
 } from "../components/workspace/MongoWorkspacePanel";
 import { parseMongoshQuery } from "../parser";
-import {
-  isExplainResult,
-  analyzeExplainPlan,
-} from "../components/results";
+import { isExplainResult, analyzeExplainPlan } from "../components/results";
 import {
   getHistory,
   addHistoryEntry,
@@ -88,10 +85,12 @@ describe("MongoWorkspacePanel — Step 4 Integration Tests", () => {
       assert.strictEqual(getExplainDisabledReason("find"), null);
       assert.strictEqual(getExplainDisabledReason("aggregate"), null);
       assert.ok(
-        getExplainDisabledReason("countDocuments")?.includes("only supported for find() and aggregate()")
+        getExplainDisabledReason("countDocuments")?.includes(
+          "only supported for find() and aggregate()",
+        ),
       );
       assert.ok(
-        getExplainDisabledReason("distinct")?.includes("only supported for find() and aggregate()")
+        getExplainDisabledReason("distinct")?.includes("only supported for find() and aggregate()"),
       );
 
       assert.strictEqual(EXPLAIN_SUPPORTED_OPERATIONS.size, 2);
@@ -141,15 +140,23 @@ describe("MongoWorkspacePanel — Step 4 Integration Tests", () => {
       // 3. Count in mongosh is NOT explainable in M5
       const countQuery = `db.users.countDocuments({ active: true })`;
       const countParsed = parseMongoshQuery(countQuery);
-      assert.strictEqual(isExplainSupported(countParsed.op.operation as MongoWorkspaceOpType), false);
+      assert.strictEqual(
+        isExplainSupported(countParsed.op.operation as MongoWorkspaceOpType),
+        false,
+      );
       assert.ok(
-        getExplainDisabledReason(countParsed.op.operation as MongoWorkspaceOpType)?.includes("only supported for find()")
+        getExplainDisabledReason(countParsed.op.operation as MongoWorkspaceOpType)?.includes(
+          "only supported for find()",
+        ),
       );
 
       // 4. Distinct in mongosh is NOT explainable in M5
       const distinctQuery = `db.users.distinct("email")`;
       const distinctParsed = parseMongoshQuery(distinctQuery);
-      assert.strictEqual(isExplainSupported(distinctParsed.op.operation as MongoWorkspaceOpType), false);
+      assert.strictEqual(
+        isExplainSupported(distinctParsed.op.operation as MongoWorkspaceOpType),
+        false,
+      );
     });
   });
 
@@ -277,10 +284,7 @@ describe("MongoWorkspacePanel — Step 4 Integration Tests", () => {
       assert.strictEqual(history[0].collection, "users");
       assert.strictEqual(history[0].status, "success");
       assert.strictEqual(history[0].isRedacted, true);
-      assert.strictEqual(
-        history[0].redactedQueryText,
-        `db.users.find({ email: "<string>" })`
-      );
+      assert.strictEqual(history[0].redactedQueryText, `db.users.find({ email: "<string>" })`);
       assert.ok(!history[0].redactedQueryText.includes("secret@company.com"));
     });
 
@@ -301,10 +305,7 @@ describe("MongoWorkspacePanel — Step 4 Integration Tests", () => {
       assert.strictEqual(history[0].status, "error");
       assert.ok(!history[0].errorMessage?.includes("secretPass"));
       assert.ok(history[0].errorMessage?.includes("<redacted-password>"));
-      assert.strictEqual(
-        history[0].redactedQueryText,
-        `db.accounts.find({ pin: <number> })`
-      );
+      assert.strictEqual(history[0].redactedQueryText, `db.accounts.find({ pin: <number> })`);
     });
 
     it("respects raw query opt-in preference when user explicitly toggles", () => {

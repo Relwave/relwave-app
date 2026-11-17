@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useMongoCollections, useMongoDocuments } from "../../project/hooks/useDbQueries";
-import { EJSONDocument, MongoFindRequest, MongoPaginatedResult, MongoQueryState } from "../types";
+import { EJSONDocument, MongoFindRequest } from "../types";
 
 export type CanonicalAST =
   | ["null", null]
@@ -38,7 +38,9 @@ export function validateAndNormalizeEjsonBinary(bin: any): { b: string; s: strin
   const allowedKeys = new Set(["base64", "subType", "subtype", "$base64", "$type"]);
   for (const k of Object.keys(bin)) {
     if (!allowedKeys.has(k)) {
-      throw new Error(`MONGO_INVALID_FILTER: Invalid EJSON $binary: unexpected nested field '${k}'`);
+      throw new Error(
+        `MONGO_INVALID_FILTER: Invalid EJSON $binary: unexpected nested field '${k}'`,
+      );
     }
   }
 
@@ -49,10 +51,14 @@ export function validateAndNormalizeEjsonBinary(bin: any): { b: string; s: strin
 
   const normalizedBase64 = rawBase64.trim();
   if (normalizedBase64.length % 4 === 1) {
-    throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: invalid base64 length (modulo 4 cannot be 1)");
+    throw new Error(
+      "MONGO_INVALID_FILTER: Invalid EJSON $binary: invalid base64 length (modulo 4 cannot be 1)",
+    );
   }
   if (!BASE64_ALPHABET_REGEX.test(normalizedBase64)) {
-    throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: invalid characters in base64 payload");
+    throw new Error(
+      "MONGO_INVALID_FILTER: Invalid EJSON $binary: invalid characters in base64 payload",
+    );
   }
 
   const padNeeded = (4 - (normalizedBase64.length % 4)) % 4;
@@ -61,13 +67,17 @@ export function validateAndNormalizeEjsonBinary(bin: any): { b: string; s: strin
   if (typeof Buffer !== "undefined") {
     const buf = Buffer.from(paddedBase64, "base64");
     if (buf.toString("base64") !== paddedBase64) {
-      throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)");
+      throw new Error(
+        "MONGO_INVALID_FILTER: Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)",
+      );
     }
   } else if (typeof atob !== "undefined" && typeof btoa !== "undefined") {
     try {
       const binStr = atob(paddedBase64);
       if (btoa(binStr) !== paddedBase64) {
-        throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)");
+        throw new Error(
+          "MONGO_INVALID_FILTER: Invalid EJSON $binary: non-canonical base64 encoding (unused pad bits must be zero)",
+        );
       }
     } catch {
       throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: invalid base64 encoding");
@@ -78,16 +88,22 @@ export function validateAndNormalizeEjsonBinary(bin: any): { b: string; s: strin
   let normalizedSubtype: string;
   if (typeof rawSubtype === "number") {
     if (!Number.isInteger(rawSubtype) || rawSubtype < 0 || rawSubtype > 255) {
-      throw new Error(`MONGO_INVALID_FILTER: Invalid EJSON $binary: integer subtype must be in range 0..255, received ${rawSubtype}`);
+      throw new Error(
+        `MONGO_INVALID_FILTER: Invalid EJSON $binary: integer subtype must be in range 0..255, received ${rawSubtype}`,
+      );
     }
     normalizedSubtype = rawSubtype.toString(16).padStart(2, "0").toLowerCase();
   } else if (typeof rawSubtype === "string") {
     if (!HEX2_REGEX.test(rawSubtype)) {
-      throw new Error(`MONGO_INVALID_FILTER: Invalid EJSON $binary: string subtype must be a 2-character hex string, received '${rawSubtype}'`);
+      throw new Error(
+        `MONGO_INVALID_FILTER: Invalid EJSON $binary: string subtype must be a 2-character hex string, received '${rawSubtype}'`,
+      );
     }
     normalizedSubtype = rawSubtype.toLowerCase();
   } else {
-    throw new Error("MONGO_INVALID_FILTER: Invalid EJSON $binary: subtype must be an integer (0..255) or 2-char hex string");
+    throw new Error(
+      "MONGO_INVALID_FILTER: Invalid EJSON $binary: subtype must be an integer (0..255) or 2-char hex string",
+    );
   }
 
   return { b: paddedBase64, s: normalizedSubtype };
@@ -187,9 +203,14 @@ export function canonicalizeValue(val: unknown, visitedStack = new Set<object>()
           const raw = record.$numberDecimal;
           if (
             typeof raw !== "string" ||
-            (!DECIMAL128_REGEX.test(raw) && raw !== "NaN" && raw !== "Infinity" && raw !== "-Infinity")
+            (!DECIMAL128_REGEX.test(raw) &&
+              raw !== "NaN" &&
+              raw !== "Infinity" &&
+              raw !== "-Infinity")
           ) {
-            throw new Error(`MONGO_INVALID_FILTER: Malformed $numberDecimal representation: ${raw}`);
+            throw new Error(
+              `MONGO_INVALID_FILTER: Malformed $numberDecimal representation: ${raw}`,
+            );
           }
           return ["ejson_decimal", raw];
         }
@@ -224,10 +245,18 @@ export function canonicalizeValue(val: unknown, visitedStack = new Set<object>()
 
 export function isExplicitEmptyFilter(filter: unknown): boolean {
   if (filter === undefined || filter === null) return true;
-  if (typeof filter === "object" && !Array.isArray(filter) && !(filter instanceof Date) && !(filter instanceof RegExp)) {
+  if (
+    typeof filter === "object" &&
+    !Array.isArray(filter) &&
+    !(filter instanceof Date) &&
+    !(filter instanceof RegExp)
+  ) {
     const proto = Object.getPrototypeOf(filter);
     if (proto === Object.prototype || proto === null) {
-      return Object.getOwnPropertyNames(filter).length === 0 && Object.getOwnPropertySymbols(filter).length === 0;
+      return (
+        Object.getOwnPropertyNames(filter).length === 0 &&
+        Object.getOwnPropertySymbols(filter).length === 0
+      );
     }
   }
   return false;
@@ -249,11 +278,12 @@ export function useMongoDatabaseDetails(dbId: string) {
   const [sortDirection, setSortDirection] = useState<1 | -1 | null>(null);
   const [filterInput, setFilterInput] = useState<string>("");
   const [appliedFilter, setAppliedFilter] = useState<EJSONDocument | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<"documents" | "schema" | "indexes" | "relationships">("documents");
+  const [activeTab, setActiveTab] = useState<"documents" | "schema" | "indexes" | "relationships">(
+    "documents",
+  );
 
   // Count Cache with Generation Tracking
   const [cacheGeneration, setCacheGeneration] = useState(0);
-  const countCacheRef = useRef<Map<string, { count: number; generation: number }>>(new Map());
 
   // M4 Mutation Dialog States
   const [isInsertDialogOpen, setIsInsertDialogOpen] = useState(false);
@@ -340,26 +370,32 @@ export function useMongoDatabaseDetails(dbId: string) {
     refetchDocumentsQuery();
   }, [refetchDocumentsQuery]);
 
-  const handleCollectionCreated = useCallback((name: string) => {
-    setCacheGeneration((gen) => gen + 1);
-    refetchCollections();
-    handleSelectCollection(name);
-  }, [refetchCollections, handleSelectCollection]);
+  const handleCollectionCreated = useCallback(
+    (name: string) => {
+      setCacheGeneration((gen) => gen + 1);
+      refetchCollections();
+      handleSelectCollection(name);
+    },
+    [refetchCollections, handleSelectCollection],
+  );
 
-  const handleCollectionDropped = useCallback((name: string) => {
-    setCacheGeneration((gen) => gen + 1);
-    refetchCollections();
-    if (selectedCollection === name) {
-      const remaining = collections.filter((c) => c.name !== name);
-      setSelectedCollection(remaining.length > 0 ? remaining[0].name : null);
-      setPage(1);
-    }
-  }, [refetchCollections, selectedCollection, collections]);
+  const handleCollectionDropped = useCallback(
+    (name: string) => {
+      setCacheGeneration((gen) => gen + 1);
+      refetchCollections();
+      if (selectedCollection === name) {
+        const remaining = collections.filter((c) => c.name !== name);
+        setSelectedCollection(remaining.length > 0 ? remaining[0].name : null);
+        setPage(1);
+      }
+    },
+    [refetchCollections, selectedCollection, collections],
+  );
 
   // Option A Unknown-Count Navigation Properties
   const documents = docResult?.documents || [];
   const hasMore = docResult?.hasMore ?? false;
-  const countOmitted = docResult?.countOmitted ?? (docResult?.total === undefined);
+  const countOmitted = docResult?.countOmitted ?? docResult?.total === undefined;
   const totalDocuments = docResult?.total;
   const totalPages = docResult?.totalPages;
 

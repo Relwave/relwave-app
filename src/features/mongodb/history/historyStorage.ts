@@ -82,18 +82,18 @@ function generateEntryId(): string {
 export function isValidHistoryEntry(entry: any): entry is MqlHistoryEntry {
   return Boolean(
     entry &&
-      typeof entry === "object" &&
-      typeof entry.id === "string" &&
-      entry.id.length > 0 &&
-      typeof entry.timestamp === "string" &&
-      typeof entry.collection === "string" &&
-      entry.collection.length > 0 &&
-      typeof entry.operation === "string" &&
-      typeof entry.redactedQueryText === "string" &&
-      typeof entry.durationMs === "number" &&
-      entry.durationMs >= 0 &&
-      (entry.status === "success" || entry.status === "error") &&
-      typeof entry.isRedacted === "boolean"
+    typeof entry === "object" &&
+    typeof entry.id === "string" &&
+    entry.id.length > 0 &&
+    typeof entry.timestamp === "string" &&
+    typeof entry.collection === "string" &&
+    entry.collection.length > 0 &&
+    typeof entry.operation === "string" &&
+    typeof entry.redactedQueryText === "string" &&
+    typeof entry.durationMs === "number" &&
+    entry.durationMs >= 0 &&
+    (entry.status === "success" || entry.status === "error") &&
+    typeof entry.isRedacted === "boolean",
   );
 }
 
@@ -117,11 +117,7 @@ export function getHistory(dbId: string): MqlHistoryEntry[] {
     let candidateEntries: any[] = [];
     if (Array.isArray(parsed)) {
       candidateEntries = parsed;
-    } else if (
-      parsed &&
-      typeof parsed === "object" &&
-      Array.isArray(parsed.entries)
-    ) {
+    } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.entries)) {
       candidateEntries = parsed.entries;
     }
 
@@ -161,7 +157,7 @@ export function getHistorySettings(dbId: string): MqlHistorySettings {
  */
 export function updateHistorySettings(
   dbId: string,
-  settings: Partial<MqlHistorySettings>
+  settings: Partial<MqlHistorySettings>,
 ): MqlHistorySettings {
   const current = getHistorySettings(dbId);
   const updated: MqlHistorySettings = {
@@ -200,10 +196,7 @@ export interface AddHistoryEntryParams {
  * Adds an execution entry to connection history.
  * Enforces 50-item FIFO limit, default literal value redaction, and sanitization.
  */
-export function addHistoryEntry(
-  dbId: string,
-  params: AddHistoryEntryParams
-): MqlHistoryEntry {
+export function addHistoryEntry(dbId: string, params: AddHistoryEntryParams): MqlHistoryEntry {
   const settings = getHistorySettings(dbId);
   const id = params.id || generateEntryId();
   const timestamp = params.timestamp || new Date().toISOString();

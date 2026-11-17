@@ -31,12 +31,9 @@ describe("MongoWorkspaceCancellation Wiring", () => {
   });
 
   it("handles cancel when sessionId is missing by throwing error", async () => {
-    await assert.rejects(
-      async () => {
-        await queryService.cancelQuery("");
-      },
-      /sessionId is required/
-    );
+    await assert.rejects(async () => {
+      await queryService.cancelQuery("");
+    }, /sessionId is required/);
   });
 
   it("proves explain-view cancellation reaches active session and aborts correctly", async () => {

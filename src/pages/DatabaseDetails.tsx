@@ -128,9 +128,12 @@ const DatabaseDetail = () => {
               queryClient.invalidateQueries({ queryKey: ["mongoSchema", op.dbId] });
             }
           } else if (op.kind === "async" && op.type === "import") {
-            const prev = prevOps.find((p) => p.kind === "async" && p.operationId === op.operationId);
+            const prev = prevOps.find(
+              (p) => p.kind === "async" && p.operationId === op.operationId,
+            );
             const wasActive = prev && (prev.status === "pending" || prev.status === "in_progress");
-            const isTerminal = op.status === "completed" || op.status === "failed" || op.status === "cancelled";
+            const isTerminal =
+              op.status === "completed" || op.status === "failed" || op.status === "cancelled";
             if (wasActive && isTerminal && op.successfulDocuments > 0) {
               queryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
               queryClient.invalidateQueries({ queryKey: ["mongoCollections", op.dbId] });

@@ -1,17 +1,5 @@
 import { useState } from "react";
-import {
-  Activity,
-  Home,
-  Database,
-  Search,
-  GitBranch,
-  GitCommitHorizontal,
-  Layers,
-  Terminal,
-  History,
-  Sparkles,
-  Settings,
-} from "lucide-react";
+import { Home, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

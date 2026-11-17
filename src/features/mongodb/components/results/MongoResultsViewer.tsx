@@ -45,10 +45,7 @@ export interface MongoResultsViewerProps {
  */
 export function isExplainResult(result: any): result is MongoExplainResult {
   return Boolean(
-    result &&
-      typeof result === "object" &&
-      "queryPlanner" in result &&
-      "rawExplain" in result
+    result && typeof result === "object" && "queryPlanner" in result && "rawExplain" in result,
   );
 }
 
@@ -112,13 +109,14 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
       <div
         className={cn(
           "flex flex-col items-center justify-center h-full min-h-[220px] p-8 text-center text-muted-foreground bg-background select-none",
-          className
+          className,
         )}
       >
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
         <p className="text-sm font-medium text-foreground">Executing MongoDB Operation...</p>
         <p className="text-xs text-muted-foreground/80 mt-1 max-w-sm">
-          Processing request through bridge MQL engine. Cursor documents and metrics will appear once finished.
+          Processing request through bridge MQL engine. Cursor documents and metrics will appear
+          once finished.
         </p>
       </div>
     );
@@ -130,7 +128,7 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
       <div
         className={cn(
           "flex flex-col items-center justify-center h-full min-h-[220px] p-6 text-center bg-background",
-          className
+          className,
         )}
       >
         <div className="max-w-xl w-full rounded-lg border border-destructive/40 bg-destructive/10 p-5 text-left text-destructive space-y-3">
@@ -167,7 +165,7 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
       <div
         className={cn(
           "flex flex-col items-center justify-center h-full min-h-[220px] p-8 text-center text-muted-foreground bg-background select-none",
-          className
+          className,
         )}
       >
         <div className="h-12 w-12 rounded-xl bg-muted/40 border border-border/50 flex items-center justify-center mb-3">
@@ -175,7 +173,8 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
         </div>
         <p className="text-sm font-semibold text-foreground">No Results</p>
         <p className="text-xs text-muted-foreground/80 mt-1 max-w-sm">
-          Execute an MQL operation or Explain above to inspect query results and execution statistics.
+          Execute an MQL operation or Explain above to inspect query results and execution
+          statistics.
         </p>
       </div>
     );
@@ -222,7 +221,11 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
               onClick={handleCopyAll}
               className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
             >
-              {copiedAll ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+              {copiedAll ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
               Copy Explain JSON
             </Button>
           </div>
@@ -278,7 +281,11 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
               onClick={handleCopyAll}
               className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
             >
-              {copiedAll ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+              {copiedAll ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
               Copy JSON
             </Button>
           </div>
@@ -324,9 +331,7 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
             <Badge variant="outline" className="text-[11px] px-1.5 py-0 h-5 font-mono">
               distinct("{distinctResult.field}")
             </Badge>
-            <span className="text-muted-foreground">
-              {distinctResult.count} distinct values
-            </span>
+            <span className="text-muted-foreground">{distinctResult.count} distinct values</span>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               <span>{distinctResult.executionTimeMs}ms</span>
@@ -376,7 +381,11 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
               onClick={handleCopyAll}
               className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
             >
-              {copiedAll ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+              {copiedAll ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
               Copy JSON
             </Button>
           </div>
@@ -409,7 +418,7 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
                             variant="outline"
                             className={cn(
                               "text-[10px] px-1 py-0 h-4 border leading-none font-semibold select-none",
-                              formatted.badgeColor || "bg-muted/60 text-muted-foreground"
+                              formatted.badgeColor || "bg-muted/60 text-muted-foreground",
                             )}
                           >
                             {formatted.badgeText}
@@ -420,7 +429,7 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            typeof val === "object" ? JSON.stringify(val) : String(val)
+                            typeof val === "object" ? JSON.stringify(val) : String(val),
                           );
                           toast.success("Copied value");
                         }}
@@ -512,7 +521,11 @@ export const MongoResultsViewer: React.FC<MongoResultsViewerProps> = ({
             disabled={!documents || documents.length === 0}
             className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
           >
-            {copiedAll ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            {copiedAll ? (
+              <Check className="h-3 w-3 text-emerald-500" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
             Copy All JSON
           </Button>
         </div>

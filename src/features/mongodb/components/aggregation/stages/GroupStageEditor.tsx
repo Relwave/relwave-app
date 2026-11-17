@@ -11,16 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
-const ACCUMULATORS = [
-  "$sum",
-  "$avg",
-  "$min",
-  "$max",
-  "$first",
-  "$last",
-  "$push",
-  "$addToSet",
-];
+const ACCUMULATORS = ["$sum", "$avg", "$min", "$max", "$first", "$last", "$push", "$addToSet"];
 
 export const GroupStageEditor: FC<StageEditorProps> = ({ stage, onChange }) => {
   const idType = stage.config.idType || "field";
@@ -109,10 +100,7 @@ export const GroupStageEditor: FC<StageEditorProps> = ({ stage, onChange }) => {
                 placeholder="totalAmount"
                 className="h-8 text-xs font-mono w-1/3"
               />
-              <Select
-                value={acc.op}
-                onValueChange={(val) => handleAccChange(i, "op", val)}
-              >
+              <Select value={acc.op} onValueChange={(val) => handleAccChange(i, "op", val)}>
                 <SelectTrigger className="h-8 text-xs w-28 font-mono">
                   <SelectValue />
                 </SelectTrigger>

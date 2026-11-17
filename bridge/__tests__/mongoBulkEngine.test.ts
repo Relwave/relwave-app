@@ -8,8 +8,6 @@ import {
   MongoBulkEngine,
   parseImportPayload,
   parseCsv,
-  flattenObject,
-  escapeCsvValue,
   isValidUuidV4,
   MAX_IMPORT_CHUNK_DOCS,
   MAX_IMPORT_CHUNK_SIZE_BYTES,
@@ -102,7 +100,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
       // terminal state cannot transition again
       expect(() => opManager.transition(id, "in_progress")).toThrow(
-        /Cannot transition terminal operation/
+        /Cannot transition terminal operation/,
       );
     });
 
@@ -121,12 +119,8 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
     });
 
     test("rejects path traversal attempts in operationId", () => {
-      expect(() => opManager.getOperation("../etc/passwd")).toThrow(
-        /Invalid operationId format/
-      );
-      expect(() => opManager.cleanup("invalid-uuid\0")).toThrow(
-        /Invalid operationId format/
-      );
+      expect(() => opManager.getOperation("../etc/passwd")).toThrow(/Invalid operationId format/);
+      expect(() => opManager.cleanup("invalid-uuid\0")).toThrow(/Invalid operationId format/);
     });
 
     test("respects 1-hour TTL expiration", () => {
@@ -150,7 +144,10 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
   // =========================================================================
   describe("Parsing & Payload Guards", () => {
     test("parses JSON array format correctly", () => {
-      const payload = JSON.stringify([{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }]);
+      const payload = JSON.stringify([
+        { name: "Alice", age: 30 },
+        { name: "Bob", age: 25 },
+      ]);
       const docs = parseImportPayload(payload, "json");
       expect(docs).toHaveLength(2);
       expect(docs[0].name).toBe("Alice");
@@ -158,9 +155,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
     test("rejects non-array JSON payloads", () => {
       const payload = JSON.stringify({ name: "Alice" });
-      expect(() => parseImportPayload(payload, "json")).toThrow(
-        /must be an array of documents/
-      );
+      expect(() => parseImportPayload(payload, "json")).toThrow(/must be an array of documents/);
     });
 
     test("parses NDJSON format correctly", () => {
@@ -177,9 +172,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
     test("parses CSV with un-flattened dot notation, types, quotes, and newlines", () => {
       const csv =
-        'user.name,user.age,active,notes\n' +
+        "user.name,user.age,active,notes\n" +
         '"Smith, Alice",30,true,"Line 1\nLine 2"\n' +
-        'Bob,25,false,null\n';
+        "Bob,25,false,null\n";
 
       const docs = parseCsv(csv);
       expect(docs).toHaveLength(2);
@@ -196,16 +191,14 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
         { title: "Normal" },
         JSON.parse('{"__proto__": {"admin": true}, "title": "Hacked"}'),
       ]);
-      expect(() => parseImportPayload(payloadWithProto, "json")).toThrow(
-        /Prototype pollution/
-      );
+      expect(() => parseImportPayload(payloadWithProto, "json")).toThrow(/Prototype pollution/);
 
       const payloadWithConstructor = JSON.stringify([
         { title: "Normal" },
         { constructor: { name: "Evil" } },
       ]);
       expect(() => parseImportPayload(payloadWithConstructor, "json")).toThrow(
-        /Prototype pollution/
+        /Prototype pollution/,
       );
 
       const csvWithProto = "name,__proto__.isAdmin\nAlice,true\n";
@@ -215,20 +208,20 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
     test("enforces chunk document limit (max 1,000 docs)", () => {
       const oversizedArray = new Array(MAX_IMPORT_CHUNK_DOCS + 1).fill({ item: "test" });
       expect(() => parseImportPayload(JSON.stringify(oversizedArray), "json")).toThrow(
-        /exceeds maximum limit of 1000 documents/
+        /exceeds maximum limit of 1000 documents/,
       );
     });
 
     test("enforces chunk payload size limit (max 4MB)", () => {
       const largeDoc = "x".repeat(MAX_IMPORT_CHUNK_SIZE_BYTES + 10);
       expect(() => parseImportPayload(largeDoc, "json")).toThrow(
-        /exceeds maximum limit of 4194304 bytes/
+        /exceeds maximum limit of 4194304 bytes/,
       );
     });
 
     test("blocks system collections (system.*)", async () => {
       await expect(
-        engine.importStart({ dbId: "db-1", collection: "system.views", format: "json" })
+        engine.importStart({ dbId: "db-1", collection: "system.views", format: "json" }),
       ).rejects.toThrow(/Operations on system collections are forbidden/);
     });
   });
@@ -300,7 +293,8 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           {
             index: 1,
             code: 11000,
-            errmsg: "E11000 duplicate key error collection: test.items index: _id_ dup key: { _id: 2 }",
+            errmsg:
+              "E11000 duplicate key error collection: test.items index: _id_ dup key: { _id: 2 }",
           },
         ],
       });
@@ -339,7 +333,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           operationId: startRes.operationId,
           chunkIndex: 0,
           payload: JSON.stringify([{ id: 1 }]),
-        })
+        }),
       ).rejects.toThrow(/Operation was cancelled/);
     });
 
@@ -352,7 +346,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
       });
 
       await expect(
-        engine.importStart({ dbId: "readonly-db", collection: "items", format: "json" })
+        engine.importStart({ dbId: "readonly-db", collection: "items", format: "json" }),
       ).rejects.toThrow(/Database is in read-only mode/);
     });
   });
@@ -362,7 +356,10 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
   // =========================================================================
   describe("Export Engine Cursor Streaming", () => {
     test("streams JSON array directly to file and closes cursor in all paths", async () => {
-      const mockCursorDocs = [{ _id: "1", name: "Alpha" }, { _id: "2", name: "Beta" }];
+      const mockCursorDocs = [
+        { _id: "1", name: "Alpha" },
+        { _id: "2", name: "Beta" },
+      ];
       let cursorClosed = false;
 
       const mockCursor = {
@@ -452,12 +449,12 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
     test("bulkInsert rejects > 5,000 documents and protects against prototype pollution", async () => {
       const oversized = new Array(MAX_BULK_INSERT_DOCS + 1).fill({ a: 1 });
       await expect(
-        engine.bulkInsert({ dbId: "test-db", collection: "items", documents: oversized })
+        engine.bulkInsert({ dbId: "test-db", collection: "items", documents: oversized }),
       ).rejects.toThrow(/exceeds maximum allowed of 5000/);
 
       const polluted = [{ normal: true }, JSON.parse('{"__proto__": {"admin": true}}')];
       await expect(
-        engine.bulkInsert({ dbId: "test-db", collection: "items", documents: polluted })
+        engine.bulkInsert({ dbId: "test-db", collection: "items", documents: polluted }),
       ).rejects.toThrow(/Prototype pollution/);
     });
 
@@ -469,7 +466,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           collection: "items",
           filter: { status: "pending" },
           update: { status: "processed" }, // Missing $set!
-        })
+        }),
       ).rejects.toThrow(/top-level operators must begin with '\$'/);
 
       // Empty filter without allowUnrestricted is forbidden
@@ -479,7 +476,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           collection: "items",
           filter: {},
           update: { $set: { status: "processed" } },
-        })
+        }),
       ).rejects.toThrow(/allowUnrestricted: true/);
 
       // Empty filter with allowUnrestricted emits advisory warning
@@ -500,7 +497,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           dbId: "test-db",
           collection: "items",
           filter: {},
-        })
+        }),
       ).rejects.toThrow(/allowUnrestricted: true/);
 
       // Large delete count warning
@@ -511,7 +508,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
         filter: { obsolete: true },
       });
       expect(res.deletedCount).toBe(150);
-      expect(res.advisoryWarning).toContain("Broad delete operation affected more than 100 documents");
+      expect(res.advisoryWarning).toContain(
+        "Broad delete operation affected more than 100 documents",
+      );
     });
   });
 
@@ -604,7 +603,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
             operationId: state.operation.operationId,
             destinationPath: path.join(testDestDir, "out.json"),
           }),
-        ).rejects.toThrow(/Cannot save export file: operation status is 'pending', expected 'completed'/);
+        ).rejects.toThrow(
+          /Cannot save export file: operation status is 'pending', expected 'completed'/,
+        );
       });
 
       test("rejects missing export source temporary file", async () => {
@@ -665,7 +666,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
         await expect(
           engine.exportSaveTo({ operationId: id, destinationPath: dirDest }),
-        ).rejects.toThrow(/Destination is an existing directory; cannot overwrite a directory with a file/);
+        ).rejects.toThrow(
+          /Destination is an existing directory; cannot overwrite a directory with a file/,
+        );
       });
 
       test("rejects when destination is a special device", async () => {
@@ -832,7 +835,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
         await expect(
           engine.exportSaveTo({ operationId: id, destinationPath: dest }),
-        ).rejects.toThrow(/The destination filesystem does not support atomic hard-link publication/);
+        ).rejects.toThrow(
+          /The destination filesystem does not support atomic hard-link publication/,
+        );
 
         expect(copyFileSpy).not.toHaveBeenCalled();
         expect(fs.existsSync(dest)).toBe(false);
@@ -852,7 +857,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
         await expect(
           engine.exportSaveTo({ operationId: id, destinationPath: dest }),
-        ).rejects.toThrow(/Permission denied or operation not permitted during hard-link publication \(EPERM\)/);
+        ).rejects.toThrow(
+          /Permission denied or operation not permitted during hard-link publication \(EPERM\)/,
+        );
       });
 
       test("pre-publication link failure with EXDEV throws MONGO_SAVE_FAILED without claiming unsupported filesystem", async () => {
@@ -1130,7 +1137,9 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
         await expect(
           engine.exportSaveTo({ operationId: id, destinationPath: dest }),
-        ).rejects.toThrow(/Failed to stream export data to staging file: Disk I\/O error during read/);
+        ).rejects.toThrow(
+          /Failed to stream export data to staging file: Disk I\/O error during read/,
+        );
 
         expect(stagingUnlinked).toBe(true);
         expect(fs.existsSync(sourceFilePath)).toBe(true); // Source file preserved
@@ -1384,7 +1393,10 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
           registeredAt: 2000,
           retryCount: 1,
         };
-        const res2 = opManager.recordPendingStagingCleanup("/tmp/staging-dup.tmp", modifiedIdentity);
+        const res2 = opManager.recordPendingStagingCleanup(
+          "/tmp/staging-dup.tmp",
+          modifiedIdentity,
+        );
         expect(res2).toBe(true);
         expect(opManager.getPendingStagingCleanupsCount()).toBe(1);
 
@@ -1611,7 +1623,7 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
       });
 
       test("dispose() during an active save does not prematurely unlink the source", () => {
-        const { id, state, sourceFilePath } = createCompletedExport();
+        const { state, sourceFilePath } = createCompletedExport();
         state.isSaving = true;
 
         opManager.dispose();

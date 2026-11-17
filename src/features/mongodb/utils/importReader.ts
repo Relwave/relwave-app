@@ -55,7 +55,9 @@ export function assertNoPrototypePollution(value: unknown): void {
   const obj = value as Record<string, unknown>;
   for (const key of Object.getOwnPropertyNames(obj)) {
     if (key === "__proto__" || key === "constructor" || key === "prototype") {
-      throw new Error(`SECURITY_VIOLATION: Prototype pollution attempt detected with property '${key}'`);
+      throw new Error(
+        `SECURITY_VIOLATION: Prototype pollution attempt detected with property '${key}'`,
+      );
     }
     assertNoPrototypePollution(obj[key]);
   }
@@ -217,7 +219,11 @@ export async function* parseJsonArrayStream(
                   throw formatSyntaxError(`Invalid JSON document syntax: ${msg}`, currentPos());
                 }
 
-                if (typeof parsedDoc !== "object" || parsedDoc === null || Array.isArray(parsedDoc)) {
+                if (
+                  typeof parsedDoc !== "object" ||
+                  parsedDoc === null ||
+                  Array.isArray(parsedDoc)
+                ) {
                   throw formatSyntaxError(
                     "Root array must contain only JSON objects; encountered primitive or array",
                     currentPos(),
@@ -429,7 +435,11 @@ export function coerceCsvValue(raw: string): MongoBulkValue {
   return raw;
 }
 
-export function setDottedPath(target: MongoBulkDocument, pathStr: string, value: MongoBulkValue): void {
+export function setDottedPath(
+  target: MongoBulkDocument,
+  pathStr: string,
+  value: MongoBulkValue,
+): void {
   const parts = pathStr.split(".");
   let cur: MongoBulkDocument = target;
 
@@ -439,9 +449,16 @@ export function setDottedPath(target: MongoBulkDocument, pathStr: string, value:
       throw new Error(`SECURITY_VIOLATION: Prototype pollution attempt with key '${part}'`);
     }
     const existing = cur[part];
-    if (existing === undefined || existing === null || typeof existing !== "object" || Array.isArray(existing)) {
+    if (
+      existing === undefined ||
+      existing === null ||
+      typeof existing !== "object" ||
+      Array.isArray(existing)
+    ) {
       if (existing !== undefined && existing !== null && typeof existing !== "object") {
-        throw new Error(`Path collision in CSV headers: cannot nest into scalar at path '${parts.slice(0, i + 1).join(".")}'`);
+        throw new Error(
+          `Path collision in CSV headers: cannot nest into scalar at path '${parts.slice(0, i + 1).join(".")}'`,
+        );
       }
       const newChild: MongoBulkDocument = {};
       cur[part] = newChild;
@@ -456,7 +473,9 @@ export function setDottedPath(target: MongoBulkDocument, pathStr: string, value:
     throw new Error(`SECURITY_VIOLATION: Prototype pollution attempt with key '${last}'`);
   }
   if (cur[last] !== undefined && typeof cur[last] === "object" && cur[last] !== null) {
-    throw new Error(`Path collision in CSV headers: cannot overwrite object with value at path '${pathStr}'`);
+    throw new Error(
+      `Path collision in CSV headers: cannot overwrite object with value at path '${pathStr}'`,
+    );
   }
   cur[last] = value;
 }
@@ -806,7 +825,9 @@ function processCsvHeaders(row: string[]): string[] {
     seen.add(h);
 
     if (h.includes("__proto__") || h.includes("constructor") || h.includes("prototype")) {
-      throw new Error(`SECURITY_VIOLATION: Prototype pollution attempt detected in CSV header: ${h}`);
+      throw new Error(
+        `SECURITY_VIOLATION: Prototype pollution attempt detected in CSV header: ${h}`,
+      );
     }
   }
   return headers;
@@ -1030,7 +1051,9 @@ export async function* createIncrementalChunkReader(
       // Add to pending
       pending.documents.push(doc);
       if (format === "csv") {
-        pending.rawCsvRows = pending.rawCsvRows ? [...pending.rawCsvRows, rawCsvRow!] : [rawCsvRow!];
+        pending.rawCsvRows = pending.rawCsvRows
+          ? [...pending.rawCsvRows, rawCsvRow!]
+          : [rawCsvRow!];
         pending.headerRow = csvHeaders ? csvHeaders.map(escapeCsvField).join(",") : undefined;
       }
       pendingSerializedPayload = testChunk ? buildPayload(pending).payload : "";

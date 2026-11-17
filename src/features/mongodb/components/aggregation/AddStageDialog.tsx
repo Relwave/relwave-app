@@ -1,12 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { SupportedStageType } from "./types";
 import { STAGE_DEFINITIONS } from "./stages/registry";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
@@ -40,9 +35,7 @@ export const AddStageDialog: React.FC<AddStageDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
         <DialogHeader className="p-4 border-b border-border/40">
-          <DialogTitle className="text-sm font-semibold">
-            Add Aggregation Stage
-          </DialogTitle>
+          <DialogTitle className="text-sm font-semibold">Add Aggregation Stage</DialogTitle>
           <div className="relative mt-2">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -79,12 +72,8 @@ export const AddStageDialog: React.FC<AddStageDialogProps> = ({
                   {st.type}
                 </Badge>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium text-foreground">
-                    {st.label}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {st.description}
-                  </div>
+                  <div className="text-xs font-medium text-foreground">{st.label}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{st.description}</div>
                 </div>
               </button>
             ))

@@ -88,9 +88,7 @@ export function MongoHideIndexDialog({
                 <div className="flex items-center gap-1.5 font-semibold text-foreground">
                   <Info className="h-4 w-4 text-blue-500 shrink-0" />
                   <span>
-                    {targetHidden
-                      ? "Query Planner Isolation"
-                      : "Restore Query Planner Visibility"}
+                    {targetHidden ? "Query Planner Isolation" : "Restore Query Planner Visibility"}
                   </span>
                 </div>
                 <p className="text-muted-foreground leading-relaxed">

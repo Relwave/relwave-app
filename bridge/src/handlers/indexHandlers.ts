@@ -83,12 +83,7 @@ export class IndexHandlers {
           (conn as any)?.readonly ||
           (conn as any)?.readOnly,
         );
-        return this.queryExecutor.dropIndex(
-          conn,
-          dbType,
-          { collection, indexName },
-          { readOnly },
-        );
+        return this.queryExecutor.dropIndex(conn, dbType, { collection, indexName }, { readOnly });
       });
       this.rpc.sendResponse(id, { ok: true, data });
     } catch (e) {

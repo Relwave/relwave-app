@@ -158,7 +158,7 @@ export function transformMongoToER({
 
     const savedNode = layoutMap.get(collName);
     const width = savedNode?.width || 240;
-    const height = savedNode?.height || (40 + columns.length * 28 + 20);
+    const height = savedNode?.height || 40 + columns.length * 28 + 20;
     const x = savedNode ? savedNode.x : (index % 3) * 320;
     const y = savedNode ? savedNode.y : Math.floor(index / 3) * 260;
 

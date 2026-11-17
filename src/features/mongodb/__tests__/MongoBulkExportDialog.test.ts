@@ -14,14 +14,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
-import {
-  MongoBulkExportDialog,
-  formatBytes,
-} from "../components/bulk/MongoBulkExportDialog";
+import { MongoBulkExportDialog, formatBytes } from "../components/bulk/MongoBulkExportDialog";
 import { validateCollectionName } from "../utils/validation";
 import type { BulkExportServiceContract } from "../hooks/useMongoBulkExport";
 
-function createMockService(overrides?: Partial<BulkExportServiceContract>): BulkExportServiceContract {
+function createMockService(
+  overrides?: Partial<BulkExportServiceContract>,
+): BulkExportServiceContract {
   return {
     startMongoBulkExport: async (req) => ({
       operationId: "mock-op-1",
@@ -124,7 +123,7 @@ describe("MongoBulkExportDialog Helpers & Validation", () => {
       assert.equal(parsed.name, 1);
       assert.equal(parsed._id, 0);
 
-      const invalidProjection = '{ name: 1 }';
+      const invalidProjection = "{ name: 1 }";
       assert.throws(() => JSON.parse(invalidProjection));
     });
 
@@ -182,7 +181,10 @@ describe("MongoBulkExportDialog Helpers & Validation", () => {
       const saveCalls: Array<{ destinationPath: string; overwrite?: boolean }> = [];
       const mockService = createMockService({
         saveMongoBulkExportTo: async (req) => {
-          saveCalls.push({ destinationPath: req.destinationPath, overwrite: req.options?.overwrite });
+          saveCalls.push({
+            destinationPath: req.destinationPath,
+            overwrite: req.options?.overwrite,
+          });
           if (req.destinationPath.includes("collision") && !req.options?.overwrite) {
             const err = new Error("Destination file already exists");
             (err as unknown as Record<string, unknown>).code = "MONGO_FILE_EXISTS";

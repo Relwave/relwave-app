@@ -9,9 +9,8 @@ import path from "path";
 const TEST_RELWAVE_HOME = path.join(os.tmpdir(), `mongo-db-service-test-${Date.now()}`);
 process.env.RELWAVE_HOME = TEST_RELWAVE_HOME;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { DatabaseService } = require("../src/services/databaseService");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const { dbStoreInstance } = require("../src/services/dbStore");
 
 const SECRET = "sup3r-s3cret-pw";

@@ -54,8 +54,14 @@ describe("MongoRelationshipHandlers Dispatch & Validation Tests (M7 Phase 1 Reme
   describe("handleInfer", () => {
     test("dispatches infer successfully with valid params", async () => {
       await handlers.handleInfer(
-        { dbId: "mongo-1", projectId: "proj-1", collections: ["users", "orders"], sampleSize: 50, timeoutMs: 15000 },
-        1
+        {
+          dbId: "mongo-1",
+          projectId: "proj-1",
+          collections: ["users", "orders"],
+          sampleSize: 50,
+          timeoutMs: 15000,
+        },
+        1,
       );
       expect(mockEngine.inferRelationships).toHaveBeenCalledWith("mongo-1", {
         projectId: "proj-1",
@@ -162,9 +168,14 @@ describe("MongoRelationshipHandlers Dispatch & Validation Tests (M7 Phase 1 Reme
     test("confirms relationship status successfully", async () => {
       await handlers.handleSetStatus(
         { dbId: "mongo-1", relationshipId: "rel-1", status: "confirmed" },
-        13
+        13,
       );
-      expect(mockEngine.setRelationshipStatus).toHaveBeenCalledWith("mongo-1", "rel-1", "confirmed", undefined);
+      expect(mockEngine.setRelationshipStatus).toHaveBeenCalledWith(
+        "mongo-1",
+        "rel-1",
+        "confirmed",
+        undefined,
+      );
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(13, {
         ok: true,
         data: { relationshipId: "test-rel", status: "confirmed" },
@@ -174,7 +185,7 @@ describe("MongoRelationshipHandlers Dispatch & Validation Tests (M7 Phase 1 Reme
     test("rejects invalid status", async () => {
       await handlers.handleSetStatus(
         { dbId: "mongo-1", relationshipId: "rel-1", status: "invalid_status" },
-        14
+        14,
       );
       expect(mockRpc.sendError).toHaveBeenCalledWith(14, {
         code: "BAD_REQUEST",
@@ -233,11 +244,13 @@ describe("MongoRelationshipHandlers Dispatch & Validation Tests (M7 Phase 1 Reme
     test("rejects incomplete relationship object", async () => {
       await handlers.handleSave(
         { dbId: "mongo-1", relationship: { id: "rel-1", sourceCollection: "orders" } },
-        18
+        18,
       );
       expect(mockRpc.sendError).toHaveBeenCalledWith(18, {
         code: "BAD_REQUEST",
-        message: expect.stringContaining("Relationship object missing required non-empty string fields"),
+        message: expect.stringContaining(
+          "Relationship object missing required non-empty string fields",
+        ),
       });
     });
   });

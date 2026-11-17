@@ -6,10 +6,7 @@ import {
   mongodbCache,
   MongoApiError,
 } from "../../src/connectors/mongo";
-import type {
-  MongoConfig,
-  EJSONDocument,
-} from "../../src/types/mongo";
+import type { MongoConfig, EJSONDocument } from "../../src/types/mongo";
 import { QueryExecutor } from "../../src/services/queryExecutor";
 import { DBType } from "../../src/types";
 
@@ -208,9 +205,9 @@ describe("M4 dropCollection validation", () => {
   });
 
   test("rejects invalid collection name", async () => {
-    await expect(
-      mongoConnector.dropCollection(dummy, { collection: "" }),
-    ).rejects.toMatchObject({ code: "MONGO_VALIDATION_ERROR" });
+    await expect(mongoConnector.dropCollection(dummy, { collection: "" })).rejects.toMatchObject({
+      code: "MONGO_VALIDATION_ERROR",
+    });
   });
 });
 

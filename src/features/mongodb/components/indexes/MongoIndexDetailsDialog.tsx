@@ -75,7 +75,9 @@ export function MongoIndexDetailsDialog({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-lg border border-border/50 bg-muted/20">
             <div>
               <span className="text-[11px] text-muted-foreground block">Collection</span>
-              <span className="font-mono font-semibold text-foreground break-all">{collection}</span>
+              <span className="font-mono font-semibold text-foreground break-all">
+                {collection}
+              </span>
             </div>
             <div>
               <span className="text-[11px] text-muted-foreground block">Physical Size</span>
@@ -85,9 +87,7 @@ export function MongoIndexDetailsDialog({
             </div>
             <div>
               <span className="text-[11px] text-muted-foreground block">Version</span>
-              <span className="font-mono font-semibold text-foreground">
-                v{index.v ?? 2}
-              </span>
+              <span className="font-mono font-semibold text-foreground">v{index.v ?? 2}</span>
             </div>
             <div>
               <span className="text-[11px] text-muted-foreground block">Type</span>
@@ -236,20 +236,26 @@ export function MongoIndexDetailsDialog({
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {index.default_language && (
                   <div>
-                    <span className="text-[11px] text-muted-foreground block">Default Language</span>
+                    <span className="text-[11px] text-muted-foreground block">
+                      Default Language
+                    </span>
                     <span className="font-mono font-medium">{index.default_language}</span>
                   </div>
                 )}
                 {index.language_override && (
                   <div>
-                    <span className="text-[11px] text-muted-foreground block">Language Override</span>
+                    <span className="text-[11px] text-muted-foreground block">
+                      Language Override
+                    </span>
                     <span className="font-mono font-medium">{index.language_override}</span>
                   </div>
                 )}
               </div>
               {index.weights && (
                 <div className="pt-2">
-                  <span className="text-[11px] text-muted-foreground block mb-1">Field Weights</span>
+                  <span className="text-[11px] text-muted-foreground block mb-1">
+                    Field Weights
+                  </span>
                   <pre className="p-2 rounded border border-border/30 bg-muted/30 font-mono text-xs overflow-x-auto">
                     {JSON.stringify(index.weights, null, 2)}
                   </pre>
@@ -280,12 +286,7 @@ export function MongoIndexDetailsDialog({
             )}
           </Button>
 
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="default" size="sm" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </DialogFooter>

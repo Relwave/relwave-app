@@ -148,15 +148,9 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   // ==========================================
   // MONGO BULK OPERATIONS HANDLERS (M7 Phase 3)
   // ==========================================
-  rpcRegister(rpc, "mongo.bulk.importStart", (p, id) =>
-    mongoBulkHandlers.handleImportStart(p, id),
-  );
-  rpcRegister(rpc, "mongo.bulk.importChunk", (p, id) =>
-    mongoBulkHandlers.handleImportChunk(p, id),
-  );
-  rpcRegister(rpc, "mongo.bulk.exportStart", (p, id) =>
-    mongoBulkHandlers.handleExportStart(p, id),
-  );
+  rpcRegister(rpc, "mongo.bulk.importStart", (p, id) => mongoBulkHandlers.handleImportStart(p, id));
+  rpcRegister(rpc, "mongo.bulk.importChunk", (p, id) => mongoBulkHandlers.handleImportChunk(p, id));
+  rpcRegister(rpc, "mongo.bulk.exportStart", (p, id) => mongoBulkHandlers.handleExportStart(p, id));
   rpcRegister(rpc, "mongo.bulk.getOperationStatus", (p, id) =>
     mongoBulkHandlers.handleGetOperationStatus(p, id),
   );
@@ -169,15 +163,9 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "mongo.bulk.exportSaveTo", (p, id) =>
     mongoBulkHandlers.handleExportSaveTo(p, id),
   );
-  rpcRegister(rpc, "mongo.bulk.insert", (p, id) =>
-    mongoBulkHandlers.handleBulkInsert(p, id),
-  );
-  rpcRegister(rpc, "mongo.bulk.update", (p, id) =>
-    mongoBulkHandlers.handleBulkUpdate(p, id),
-  );
-  rpcRegister(rpc, "mongo.bulk.delete", (p, id) =>
-    mongoBulkHandlers.handleBulkDelete(p, id),
-  );
+  rpcRegister(rpc, "mongo.bulk.insert", (p, id) => mongoBulkHandlers.handleBulkInsert(p, id));
+  rpcRegister(rpc, "mongo.bulk.update", (p, id) => mongoBulkHandlers.handleBulkUpdate(p, id));
+  rpcRegister(rpc, "mongo.bulk.delete", (p, id) => mongoBulkHandlers.handleBulkDelete(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS

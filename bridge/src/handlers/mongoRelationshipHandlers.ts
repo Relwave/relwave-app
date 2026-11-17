@@ -162,7 +162,14 @@ export class MongoRelationshipHandlers {
         });
       }
 
-      const { id: relId, sourceCollection, sourceField, targetCollection, targetField, cardinality } = relationship;
+      const {
+        id: relId,
+        sourceCollection,
+        sourceField,
+        targetCollection,
+        targetField,
+        cardinality,
+      } = relationship;
       if (
         !isNonEmptyString(relId) ||
         !isNonEmptyString(sourceCollection) ||
@@ -172,7 +179,8 @@ export class MongoRelationshipHandlers {
       ) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: "Relationship object missing required non-empty string fields (id, sourceCollection, sourceField, targetCollection, targetField)",
+          message:
+            "Relationship object missing required non-empty string fields (id, sourceCollection, sourceField, targetCollection, targetField)",
         });
       }
 
@@ -187,7 +195,8 @@ export class MongoRelationshipHandlers {
       if (!validCardinalities.includes(cardinality)) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: 'Invalid cardinality: must be one of "one-to-one", "one-to-many", "many-to-one", "many-to-many", "unknown", "insufficient-evidence"',
+          message:
+            'Invalid cardinality: must be one of "one-to-one", "one-to-many", "many-to-one", "many-to-many", "unknown", "insufficient-evidence"',
         });
       }
 

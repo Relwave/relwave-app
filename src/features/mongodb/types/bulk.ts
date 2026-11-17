@@ -12,24 +12,14 @@ export type MongoBulkFormat = "json" | "ndjson" | "csv";
 export type MongoBulkOperationType = "import" | "export";
 
 export type MongoBulkOperationStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "failed"
-  | "cancelled";
+  "pending" | "in_progress" | "completed" | "failed" | "cancelled";
 
 // ===========================================================================
 // Reusable Recursive Document & Value Types
 // ===========================================================================
 
 export type MongoBulkValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | MongoBulkValue[]
-  | MongoBulkDocument;
+  string | number | boolean | null | undefined | MongoBulkValue[] | MongoBulkDocument;
 
 export interface MongoBulkDocument {
   [key: string]: MongoBulkValue;
@@ -312,10 +302,7 @@ export interface BulkImportOptions {
     abortController: AbortController,
     cancelFn: () => Promise<void>,
   ) => void;
-  onChunkAcknowledged?: (
-    progress: ImportProgress,
-    chunkResult: MongoBulkImportChunkResult,
-  ) => void;
+  onChunkAcknowledged?: (progress: ImportProgress, chunkResult: MongoBulkImportChunkResult) => void;
   onTerminalState?: (operationId: string, status: MongoBulkOperationStatus, error?: string) => void;
 }
 
@@ -356,14 +343,10 @@ export interface MongoBulkOperationsState {
 // Type Discrimination Helpers
 // ===========================================================================
 
-export function isAsyncBulkOperation(
-  entry: BulkHistoryEntry,
-): entry is TrackedAsyncBulkOperation {
+export function isAsyncBulkOperation(entry: BulkHistoryEntry): entry is TrackedAsyncBulkOperation {
   return entry.kind === "async";
 }
 
-export function isSyncBulkMutation(
-  entry: BulkHistoryEntry,
-): entry is TrackedSyncBulkMutation {
+export function isSyncBulkMutation(entry: BulkHistoryEntry): entry is TrackedSyncBulkMutation {
   return entry.kind === "sync";
 }

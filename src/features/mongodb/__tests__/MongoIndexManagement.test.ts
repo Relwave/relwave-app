@@ -7,7 +7,7 @@ import {
   validateIndexSpec,
   IndexKeyField,
 } from "../utils/indexHelpers";
-import { databaseBridge, DatabaseBridge } from "@/services/bridge/databaseBridge";
+import { databaseBridge } from "@/services/bridge/databaseBridge";
 import { databaseService } from "@/services/bridge/database";
 
 describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
@@ -69,10 +69,7 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
   // ==========================================
   describe("generateIndexName", () => {
     it("generates correct canonical name for single-field ascending and descending keys", () => {
-      assert.strictEqual(
-        generateIndexName([{ field: "email", direction: 1 }]),
-        "email_1",
-      );
+      assert.strictEqual(generateIndexName([{ field: "email", direction: 1 }]), "email_1");
       assert.strictEqual(
         generateIndexName([{ field: "createdAt", direction: -1 }]),
         "createdAt_-1",
@@ -85,10 +82,7 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
         { field: "status", direction: 1 },
         { field: "createdAt", direction: -1 },
       ];
-      assert.strictEqual(
-        generateIndexName(compoundFields),
-        "tenantId_1_status_1_createdAt_-1",
-      );
+      assert.strictEqual(generateIndexName(compoundFields), "tenantId_1_status_1_createdAt_-1");
     });
 
     it("generates correct name for special types (text, 2dsphere, hashed)", () => {
@@ -140,10 +134,7 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
   // ==========================================
   describe("validateIndexSpec", () => {
     it("accepts valid single-field and compound specifications", () => {
-      assert.strictEqual(
-        validateIndexSpec([{ field: "username", direction: 1 }]).valid,
-        true,
-      );
+      assert.strictEqual(validateIndexSpec([{ field: "username", direction: 1 }]).valid, true);
       assert.strictEqual(
         validateIndexSpec([
           { field: "orgId", direction: 1 },
@@ -174,7 +165,7 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
         { field: "email", direction: -1 },
       ]);
       assert.strictEqual(res.valid, false);
-      assert.ok(res.error?.includes("Duplicate field path: \"email\""));
+      assert.ok(res.error?.includes('Duplicate field path: "email"'));
     });
 
     it("rejects duplicate field paths with surrounding whitespace", () => {
@@ -183,31 +174,19 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
         { field: "  userId  ", direction: -1 },
       ]);
       assert.strictEqual(res.valid, false);
-      assert.ok(res.error?.includes("Duplicate field path: \"userId\""));
+      assert.ok(res.error?.includes('Duplicate field path: "userId"'));
     });
 
     it("rejects unique constraint on hashed indexes", () => {
-      const res = validateIndexSpec(
-        [{ field: "userId", direction: "hashed" }],
-        { unique: true },
-      );
+      const res = validateIndexSpec([{ field: "userId", direction: "hashed" }], { unique: true });
       assert.strictEqual(res.valid, false);
-      assert.strictEqual(
-        res.error,
-        "Hashed indexes do not support unique constraints",
-      );
+      assert.strictEqual(res.error, "Hashed indexes do not support unique constraints");
     });
 
     it("rejects sparse option on hashed indexes", () => {
-      const res = validateIndexSpec(
-        [{ field: "userId", direction: "hashed" }],
-        { sparse: true },
-      );
+      const res = validateIndexSpec([{ field: "userId", direction: "hashed" }], { sparse: true });
       assert.strictEqual(res.valid, false);
-      assert.strictEqual(
-        res.error,
-        "Hashed indexes do not support sparse option",
-      );
+      assert.strictEqual(res.error, "Hashed indexes do not support sparse option");
     });
 
     it("rejects combining hashed field with other hashed, text, or geo fields", () => {
@@ -235,15 +214,11 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
     });
 
     it("rejects unique constraint on 2dsphere geospatial indexes", () => {
-      const res = validateIndexSpec(
-        [{ field: "location", direction: "2dsphere" }],
-        { unique: true },
-      );
+      const res = validateIndexSpec([{ field: "location", direction: "2dsphere" }], {
+        unique: true,
+      });
       assert.strictEqual(res.valid, false);
-      assert.strictEqual(
-        res.error,
-        "2dsphere indexes do not support unique constraints",
-      );
+      assert.strictEqual(res.error, "2dsphere indexes do not support unique constraints");
     });
 
     it("validates TTL expireAfterSeconds to be a non-negative integer", () => {
@@ -347,10 +322,7 @@ describe("MongoDB Index Management — Phase 2 Frontend Tests", () => {
         return true;
       };
 
-      assert.throws(
-        () => hideSafeguard("_id_"),
-        /The default _id_ index cannot be hidden/,
-      );
+      assert.throws(() => hideSafeguard("_id_"), /The default _id_ index cannot be hidden/);
       assert.throws(
         () => hideSafeguard("my_id_idx", true),
         /The default _id_ index cannot be hidden/,

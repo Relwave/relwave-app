@@ -7,7 +7,6 @@ import {
   OPERATION_TEMPLATES,
   isExplainSupported,
   getExplainDisabledReason,
-  EXPLAIN_SUPPORTED_OPERATIONS,
 } from "../components/workspace/MongoWorkspacePanel";
 
 test("Navigation Routing - MongoDB returns dedicated panel items", () => {
@@ -36,19 +35,30 @@ test("Navigation Routing - MongoDB returns dedicated panel items", () => {
 
   // Case-insensitive test
   const mongoUpperItems = getDatabasePanelItems("MongoDB");
-  assert.deepStrictEqual(mongoUpperItems.map((i) => i.panel), [
-    "data",
-    "mongo-workspace",
-    "mongo-aggregation",
-    "mongo-migrations",
-    "mongo-relationships",
-    "mongo-bulk",
-    "git-status",
-  ]);
+  assert.deepStrictEqual(
+    mongoUpperItems.map((i) => i.panel),
+    [
+      "data",
+      "mongo-workspace",
+      "mongo-aggregation",
+      "mongo-migrations",
+      "mongo-relationships",
+      "mongo-bulk",
+      "git-status",
+    ],
+  );
 });
 
 test("Navigation Routing - Relational databases retain full SQL suite without regression", () => {
-  const relationalDbs = ["postgres", "postgresql", "mysql", "mariadb", "sqlite", "clickhouse", "duckdb"];
+  const relationalDbs = [
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mariadb",
+    "sqlite",
+    "clickhouse",
+    "duckdb",
+  ];
 
   for (const db of relationalDbs) {
     const items = getDatabasePanelItems(db);
@@ -101,23 +111,59 @@ test("MongoWorkspace - Explain restriction to supported operations (find & aggre
   assert.strictEqual(isExplainSupported("estimatedDocumentCount"), false);
   assert.strictEqual(isExplainSupported("distinct"), false);
 
-  assert.ok(getExplainDisabledReason("countDocuments")?.includes("only supported for find() and aggregate()"));
-  assert.ok(getExplainDisabledReason("estimatedDocumentCount")?.includes("only supported for find() and aggregate()"));
-  assert.ok(getExplainDisabledReason("distinct")?.includes("only supported for find() and aggregate()"));
+  assert.ok(
+    getExplainDisabledReason("countDocuments")?.includes(
+      "only supported for find() and aggregate()",
+    ),
+  );
+  assert.ok(
+    getExplainDisabledReason("estimatedDocumentCount")?.includes(
+      "only supported for find() and aggregate()",
+    ),
+  );
+  assert.ok(
+    getExplainDisabledReason("distinct")?.includes("only supported for find() and aggregate()"),
+  );
 });
 
 test("Isolation Guarantee - Zero SQL execution services or hooks in MongoDB panels", () => {
-  const workspacePath = path.resolve(process.cwd(), "src/features/mongodb/components/workspace/MongoWorkspacePanel.tsx");
-  const aggregationPath = path.resolve(process.cwd(), "src/features/mongodb/components/aggregation/MongoAggregationPanel.tsx");
+  const workspacePath = path.resolve(
+    process.cwd(),
+    "src/features/mongodb/components/workspace/MongoWorkspacePanel.tsx",
+  );
+  const aggregationPath = path.resolve(
+    process.cwd(),
+    "src/features/mongodb/components/aggregation/MongoAggregationPanel.tsx",
+  );
 
   const workspaceContent = fs.readFileSync(workspacePath, "utf-8");
   const aggregationContent = fs.readFileSync(aggregationPath, "utf-8");
 
   // Assert no SQL query execution or SQL workspace components are referenced
-  assert.strictEqual(workspaceContent.includes("runQuery"), false, "MongoWorkspacePanel must not call SQL runQuery");
-  assert.strictEqual(workspaceContent.includes("SQLWorkspacePanel"), false, "MongoWorkspacePanel must not import SQLWorkspacePanel");
-  assert.strictEqual(workspaceContent.includes("useDatabaseDetails"), false, "MongoWorkspacePanel must not use SQL useDatabaseDetails");
+  assert.strictEqual(
+    workspaceContent.includes("runQuery"),
+    false,
+    "MongoWorkspacePanel must not call SQL runQuery",
+  );
+  assert.strictEqual(
+    workspaceContent.includes("SQLWorkspacePanel"),
+    false,
+    "MongoWorkspacePanel must not import SQLWorkspacePanel",
+  );
+  assert.strictEqual(
+    workspaceContent.includes("useDatabaseDetails"),
+    false,
+    "MongoWorkspacePanel must not use SQL useDatabaseDetails",
+  );
 
-  assert.strictEqual(aggregationContent.includes("runQuery"), false, "MongoAggregationPanel must not call SQL runQuery");
-  assert.strictEqual(aggregationContent.includes("QueryBuilderPanel"), false, "MongoAggregationPanel must not import QueryBuilderPanel");
+  assert.strictEqual(
+    aggregationContent.includes("runQuery"),
+    false,
+    "MongoAggregationPanel must not call SQL runQuery",
+  );
+  assert.strictEqual(
+    aggregationContent.includes("QueryBuilderPanel"),
+    false,
+    "MongoAggregationPanel must not import QueryBuilderPanel",
+  );
 });

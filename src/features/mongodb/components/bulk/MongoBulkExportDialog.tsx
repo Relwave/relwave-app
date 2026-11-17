@@ -34,7 +34,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
   Download,
   FileText,
@@ -51,10 +50,7 @@ import {
 import { toast } from "sonner";
 import { hasTauriInvoke } from "@/services/bridge/bridgeClient";
 import type { MongoBulkFormat, TrackedAsyncBulkOperation } from "../../types/bulk";
-import {
-  useMongoBulkExport,
-  type BulkExportServiceContract,
-} from "../../hooks/useMongoBulkExport";
+import { useMongoBulkExport, type BulkExportServiceContract } from "../../hooks/useMongoBulkExport";
 import { useMongoBulkOperationsStore } from "../../hooks/useMongoBulkOperationsStore";
 import { validateCollectionName } from "../../utils/validation";
 
@@ -161,7 +157,9 @@ export function MongoBulkExportDialog({
     if (open) {
       setCollection(defaultCollection);
       const nameVal = validateCollectionName(defaultCollection);
-      setCollectionError(defaultCollection ? (nameVal.valid ? null : nameVal.error ?? null) : null);
+      setCollectionError(
+        defaultCollection ? (nameVal.valid ? null : (nameVal.error ?? null)) : null,
+      );
       setFormat("json");
       const hasInit = Boolean(initialFilter && Object.keys(initialFilter).length > 0);
       setInheritFilter(hasInit);
@@ -194,7 +192,7 @@ export function MongoBulkExportDialog({
   const handleCollectionChange = (val: string) => {
     setCollection(val);
     const res = validateCollectionName(val);
-    setCollectionError(res.valid ? null : res.error ?? "Invalid collection name");
+    setCollectionError(res.valid ? null : (res.error ?? "Invalid collection name"));
   };
 
   const handleFilterChange = (val: string) => {
@@ -320,11 +318,16 @@ export function MongoBulkExportDialog({
         toast.warning(res.warning);
       }
     } catch (err: unknown) {
-      const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
+      const errRecord =
+        typeof err === "object" && err !== null ? (err as Record<string, unknown>) : null;
       const code = typeof errRecord?.code === "string" ? errRecord.code : "";
       const msg = err instanceof Error ? err.message : String(err);
 
-      if (code === "MONGO_FILE_EXISTS" || msg.includes("MONGO_FILE_EXISTS") || msg.includes("already exists")) {
+      if (
+        code === "MONGO_FILE_EXISTS" ||
+        msg.includes("MONGO_FILE_EXISTS") ||
+        msg.includes("already exists")
+      ) {
         setPendingSavePath(destPath);
         setShowOverwriteAlert(true);
       } else {
@@ -344,7 +347,8 @@ export function MongoBulkExportDialog({
             : format === "ndjson"
               ? "NDJSON (*.ndjson, *.jsonl)"
               : "CSV (*.csv)";
-        const extensions = format === "json" ? ["json"] : format === "ndjson" ? ["ndjson", "jsonl"] : ["csv"];
+        const extensions =
+          format === "json" ? ["json"] : format === "ndjson" ? ["ndjson", "jsonl"] : ["csv"];
 
         const selectedPath = await save({
           defaultPath: `${collection || "export"}.${ext}`,
@@ -411,7 +415,11 @@ export function MongoBulkExportDialog({
   );
 
   const isConfigValid =
-    Boolean(collection.trim()) && !collectionError && !filterError && !projectionError && !limitError;
+    Boolean(collection.trim()) &&
+    !collectionError &&
+    !filterError &&
+    !projectionError &&
+    !limitError;
 
   return (
     <>
@@ -444,7 +452,9 @@ export function MongoBulkExportDialog({
                     placeholder="e.g. orders"
                     value={collection}
                     onChange={(e) => handleCollectionChange(e.target.value)}
-                    className={collectionError ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={
+                      collectionError ? "border-destructive focus-visible:ring-destructive" : ""
+                    }
                   />
                   {collectionError && (
                     <p className="text-xs text-destructive font-medium">{collectionError}</p>
@@ -466,7 +476,9 @@ export function MongoBulkExportDialog({
                     >
                       <FileCode className="h-5 w-5 mb-1.5 text-primary" />
                       <span className="text-xs font-bold">JSON Array</span>
-                      <span className="text-[10px] text-muted-foreground">Standard JSON document array</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Standard JSON document array
+                      </span>
                     </button>
 
                     <button
@@ -480,7 +492,9 @@ export function MongoBulkExportDialog({
                     >
                       <FileText className="h-5 w-5 mb-1.5 text-primary" />
                       <span className="text-xs font-bold">NDJSON / JSONL</span>
-                      <span className="text-[10px] text-muted-foreground">Newline-delimited documents</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Newline-delimited documents
+                      </span>
                     </button>
 
                     <button
@@ -494,7 +508,9 @@ export function MongoBulkExportDialog({
                     >
                       <FileSpreadsheet className="h-5 w-5 mb-1.5 text-primary" />
                       <span className="text-xs font-bold">CSV</span>
-                      <span className="text-[10px] text-muted-foreground">RFC 4180 flattened fields</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        RFC 4180 flattened fields
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -549,7 +565,9 @@ export function MongoBulkExportDialog({
                         projectionError ? "border-destructive focus-visible:ring-destructive" : ""
                       }`}
                     />
-                    {projectionError && <p className="text-xs text-destructive">{projectionError}</p>}
+                    {projectionError && (
+                      <p className="text-xs text-destructive">{projectionError}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -674,7 +692,8 @@ export function MongoBulkExportDialog({
                   Export Stream Ready
                 </DialogTitle>
                 <DialogDescription>
-                  Collection data has been streamed to bridge storage. Choose a destination to publish the file.
+                  Collection data has been streamed to bridge storage. Choose a destination to
+                  publish the file.
                 </DialogDescription>
               </DialogHeader>
 
@@ -684,7 +703,10 @@ export function MongoBulkExportDialog({
                   <div className="rounded-lg border border-border/70 bg-card/60 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Total Exported</div>
                     <div className="text-xl font-bold text-emerald-500 mt-1">
-                      {(progress.successfulDocuments || progress.processedDocuments).toLocaleString()} docs
+                      {(
+                        progress.successfulDocuments || progress.processedDocuments
+                      ).toLocaleString()}{" "}
+                      docs
                     </div>
                   </div>
                   <div className="rounded-lg border border-border/70 bg-card/60 p-3 text-center">
@@ -775,7 +797,9 @@ export function MongoBulkExportDialog({
                   <div className="rounded-lg border border-border/70 bg-card/60 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Documents Exported</div>
                     <div className="text-2xl font-bold text-emerald-500 mt-1">
-                      {(progress.successfulDocuments || progress.processedDocuments).toLocaleString()}
+                      {(
+                        progress.successfulDocuments || progress.processedDocuments
+                      ).toLocaleString()}
                     </div>
                   </div>
                   <div className="rounded-lg border border-border/70 bg-card/60 p-3 text-center">
@@ -789,7 +813,9 @@ export function MongoBulkExportDialog({
                 {/* Destination File Path */}
                 {(savedDestinationPath || progress.destinationPath) && (
                   <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground font-semibold">Saved Destination</div>
+                    <div className="text-xs text-muted-foreground font-semibold">
+                      Saved Destination
+                    </div>
                     <div className="text-xs font-mono font-medium text-foreground break-all mt-1">
                       {savedDestinationPath || progress.destinationPath}
                     </div>
@@ -816,13 +842,15 @@ export function MongoBulkExportDialog({
                   Export Cancelled
                 </DialogTitle>
                 <DialogDescription>
-                  The bulk export operation was cancelled. All temporary bridge streaming files have been cleaned up.
+                  The bulk export operation was cancelled. All temporary bridge streaming files have
+                  been cleaned up.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="py-4 text-center">
                 <div className="text-sm text-muted-foreground">
-                  No changes were written to your destination disk. You can configure and run a new export at any time.
+                  No changes were written to your destination disk. You can configure and run a new
+                  export at any time.
                 </div>
               </div>
 
@@ -865,7 +893,9 @@ export function MongoBulkExportDialog({
 
                 {saveStatus === "save_failed" && (
                   <div className="text-xs text-muted-foreground rounded-lg border border-border/60 bg-muted/20 p-3">
-                    Your export stream file remains safe in bridge temporary storage. You may retry saving to a different destination path or filename without repeating the database export.
+                    Your export stream file remains safe in bridge temporary storage. You may retry
+                    saving to a different destination path or filename without repeating the
+                    database export.
                   </div>
                 )}
               </div>
@@ -875,7 +905,10 @@ export function MongoBulkExportDialog({
                   Close
                 </Button>
                 {saveStatus === "save_failed" ? (
-                  <Button onClick={handleSaveToDisk} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Button
+                    onClick={handleSaveToDisk}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
                     <HardDrive className="h-4 w-4 mr-1.5" />
                     Retry Save to Disk
                   </Button>
@@ -921,9 +954,7 @@ export function MongoBulkExportDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelOverwrite}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={handleCancelOverwrite}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmOverwrite}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

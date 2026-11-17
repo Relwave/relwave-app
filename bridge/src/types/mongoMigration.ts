@@ -141,11 +141,7 @@ export type MongoMigrationStatus =
   | "FAILED_MANUAL_INTERVENTION_REQUIRED";
 
 export type MongoMigrationStepStatus =
-  | "STEP_PENDING"
-  | "STEP_RUNNING"
-  | "STEP_COMPLETED"
-  | "STEP_FAILED"
-  | "STEP_UNCERTAIN";
+  "STEP_PENDING" | "STEP_RUNNING" | "STEP_COMPLETED" | "STEP_FAILED" | "STEP_UNCERTAIN";
 
 export type MongoMigrationDriftStatus = "VERIFIED" | "DRIFTED" | "UNVERIFIABLE";
 

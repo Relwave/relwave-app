@@ -25,7 +25,7 @@ function createMockLockDb(): { db: Db; store: Map<string, MongoMigrationLockDoc>
 
       if (!existing) {
         // Document does not exist: upsert
-        const fencingToken = (update.$inc?.fencingToken || 1);
+        const fencingToken = update.$inc?.fencingToken || 1;
         const newDoc: MongoMigrationLockDoc = {
           _id: LOCK_DOC_ID,
           ownerId: update.$set?.ownerId || null,
@@ -58,7 +58,8 @@ function createMockLockDb(): { db: Db; store: Map<string, MongoMigrationLockDoc>
         const updatedDoc: MongoMigrationLockDoc = {
           ...existing,
           ownerId: update.$set?.ownerId !== undefined ? update.$set.ownerId : existing.ownerId,
-          migrationId: update.$set?.migrationId !== undefined ? update.$set.migrationId : existing.migrationId,
+          migrationId:
+            update.$set?.migrationId !== undefined ? update.$set.migrationId : existing.migrationId,
           acquiredAt: update.$set?.acquiredAt || now,
           heartbeatAt: update.$set?.heartbeatAt || now,
           expiresAt: update.$set?.expiresAt || existing.expiresAt,
@@ -85,9 +86,13 @@ function createMockLockDb(): { db: Db; store: Map<string, MongoMigrationLockDoc>
         if (!doc) return null;
 
         if (filter.ownerId && doc.ownerId !== filter.ownerId) return null;
-        if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken) return null;
+        if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken)
+          return null;
         if (filter.expiresAt?.$gt) {
-          if (!doc.expiresAt || new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()) {
+          if (
+            !doc.expiresAt ||
+            new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()
+          ) {
             return null;
           }
         }
@@ -100,12 +105,16 @@ function createMockLockDb(): { db: Db; store: Map<string, MongoMigrationLockDoc>
       const doc = store.get(LOCK_DOC_ID);
       if (!doc) return { matchedCount: 0, modifiedCount: 0 };
 
-      if (filter.ownerId && doc.ownerId !== filter.ownerId) return { matchedCount: 0, modifiedCount: 0 };
+      if (filter.ownerId && doc.ownerId !== filter.ownerId)
+        return { matchedCount: 0, modifiedCount: 0 };
       if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken) {
         return { matchedCount: 0, modifiedCount: 0 };
       }
       if (filter.expiresAt?.$gt) {
-        if (!doc.expiresAt || new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()) {
+        if (
+          !doc.expiresAt ||
+          new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()
+        ) {
           return { matchedCount: 0, modifiedCount: 0 };
         }
       }
@@ -167,9 +176,9 @@ describe("mongoMigrationLock Unit Tests (M6 Spec §6)", () => {
   test("second client is blocked while lock is owned by an active lease", async () => {
     await acquireLock(mockDb, "client-A", "20261031120000", 60000);
 
-    await expect(
-      acquireLock(mockDb, "client-B", "20261031120000", 60000, 1),
-    ).rejects.toThrow(MongoApiError);
+    await expect(acquireLock(mockDb, "client-B", "20261031120000", 60000, 1)).rejects.toThrow(
+      MongoApiError,
+    );
 
     try {
       await acquireLock(mockDb, "client-B", "20261031120000", 60000, 1);
@@ -235,11 +244,21 @@ describe("mongoMigrationLock Unit Tests (M6 Spec §6)", () => {
     expect(new Date(doc!.expiresAt!).getTime()).toBeGreaterThan(initialExpires.getTime());
 
     // Wrong owner cannot renew
-    const wrongOwnerRenewed = await renewLockHeartbeat(mockDb, "impostor", lock.fencingToken, 60000);
+    const wrongOwnerRenewed = await renewLockHeartbeat(
+      mockDb,
+      "impostor",
+      lock.fencingToken,
+      60000,
+    );
     expect(wrongOwnerRenewed).toBe(false);
 
     // Wrong fencing token cannot renew
-    const wrongTokenRenewed = await renewLockHeartbeat(mockDb, "client-A", lock.fencingToken + 99, 60000);
+    const wrongTokenRenewed = await renewLockHeartbeat(
+      mockDb,
+      "client-A",
+      lock.fencingToken + 99,
+      60000,
+    );
     expect(wrongTokenRenewed).toBe(false);
   });
 

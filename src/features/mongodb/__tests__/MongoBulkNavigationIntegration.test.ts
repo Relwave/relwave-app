@@ -99,7 +99,7 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
       assert.strictEqual(
         hasMongoBulk,
         false,
-        `Relational engine ${engine} must strictly exclude mongo-bulk panel item`
+        `Relational engine ${engine} must strictly exclude mongo-bulk panel item`,
       );
     }
   });
@@ -112,13 +112,13 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     // Assert file imports MongoBulkOperationsPanel
     assert.ok(
       content.includes("MongoBulkOperationsPanel"),
-      "DatabaseDetails.tsx must import MongoBulkOperationsPanel"
+      "DatabaseDetails.tsx must import MongoBulkOperationsPanel",
     );
 
     // Assert case 'mongo-bulk': is present in renderPanel router
     assert.ok(
       content.includes('case "mongo-bulk":'),
-      "DatabaseDetails.tsx renderPanel must contain case \"mongo-bulk\":"
+      'DatabaseDetails.tsx renderPanel must contain case "mongo-bulk":',
     );
 
     // Verify component renders without errors when given props
@@ -198,7 +198,11 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
 
     // User is typing in input
     simulateKeyDown({ key: "6", altKey: true, targetIsInput: true });
-    assert.strictEqual(activePanel, "data", "Active panel must remain unchanged when input is focused");
+    assert.strictEqual(
+      activePanel,
+      "data",
+      "Active panel must remain unchanged when input is focused",
+    );
   });
 
   // Scenario 5: Keyboard Shortcut Modal Dialog Suppression
@@ -231,7 +235,11 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
 
     // Modal dialog is open in DOM
     simulateKeyDown({ key: "6", altKey: true, isDialogOpen: true });
-    assert.strictEqual(activePanel, "data", "Active panel must remain unchanged when dialog is open");
+    assert.strictEqual(
+      activePanel,
+      "data",
+      "Active panel must remain unchanged when dialog is open",
+    );
   });
 
   // Scenario 6: Contextual Collection Toolbar Buttons Rendering
@@ -260,9 +268,18 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
       onBulkMutationClick: () => {},
     });
 
-    const importBtn = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button");
-    const exportBtn = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button");
-    const mutationBtn = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button");
+    const importBtn = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button",
+    );
+    const exportBtn = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button",
+    );
+    const mutationBtn = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button",
+    );
 
     assert.strictEqual(importBtn.length, 1, "Must render toolbar-bulk-import-button");
     assert.strictEqual(exportBtn.length, 1, "Must render toolbar-bulk-export-button");
@@ -294,14 +311,29 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
       onResetFilter: () => {},
       isFilterApplied: false,
       onRefresh: () => {},
-      onImportClick: () => { importClicked = true; },
-      onExportClick: () => { exportClicked = true; },
-      onBulkMutationClick: () => { mutationClicked = true; },
+      onImportClick: () => {
+        importClicked = true;
+      },
+      onExportClick: () => {
+        exportClicked = true;
+      },
+      onBulkMutationClick: () => {
+        mutationClicked = true;
+      },
     });
 
-    const [importBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button");
-    const [exportBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button");
-    const [mutationBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button");
+    const [importBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button",
+    );
+    const [exportBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button",
+    );
+    const [mutationBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button",
+    );
 
     importBtn.props.onClick();
     exportBtn.props.onClick();
@@ -338,25 +370,46 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
       onBulkMutationClick: () => {},
     });
 
-    const [importBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button");
-    const [exportBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button");
-    const [mutationBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button");
+    const [importBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button",
+    );
+    const [exportBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button",
+    );
+    const [mutationBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button",
+    );
 
-    assert.strictEqual(importBtn.props.disabled, true, "Import must be disabled on system collection");
+    assert.strictEqual(
+      importBtn.props.disabled,
+      true,
+      "Import must be disabled on system collection",
+    );
     assert.strictEqual(
       importBtn.props.title,
       "System collections are protected against imports",
-      "Import must carry explanation title"
+      "Import must carry explanation title",
     );
 
-    assert.strictEqual(mutationBtn.props.disabled, true, "Bulk Mutations must be disabled on system collection");
+    assert.strictEqual(
+      mutationBtn.props.disabled,
+      true,
+      "Bulk Mutations must be disabled on system collection",
+    );
     assert.strictEqual(
       mutationBtn.props.title,
       "System collections cannot be modified",
-      "Bulk Mutations must carry explanation title"
+      "Bulk Mutations must carry explanation title",
     );
 
-    assert.strictEqual(exportBtn.props.disabled, false, "Export must remain enabled for system collection inspection");
+    assert.strictEqual(
+      exportBtn.props.disabled,
+      false,
+      "Export must remain enabled for system collection inspection",
+    );
   });
 
   // Scenario 9: Read-Only Mode Lock & Connection Propagation
@@ -414,29 +467,46 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
       isReadOnly: true,
     });
 
-    const [importBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button");
-    const [exportBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button");
-    const [mutationBtn] = findVdomNodes(vdom, (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button");
+    const [importBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-import-button",
+    );
+    const [exportBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-export-button",
+    );
+    const [mutationBtn] = findVdomNodes(
+      vdom,
+      (n) => n.props?.["data-testid"] === "toolbar-bulk-mutation-button",
+    );
 
     assert.strictEqual(importBtn.props.disabled, true, "Import must be disabled in read-only mode");
-    assert.strictEqual(mutationBtn.props.disabled, true, "Bulk Mutations must be disabled in read-only mode");
-    assert.strictEqual(exportBtn.props.disabled, false, "Export must remain enabled in read-only mode");
+    assert.strictEqual(
+      mutationBtn.props.disabled,
+      true,
+      "Bulk Mutations must be disabled in read-only mode",
+    );
+    assert.strictEqual(
+      exportBtn.props.disabled,
+      false,
+      "Export must remain enabled in read-only mode",
+    );
   });
 
   it("9d. MongoDataViewPanel propagates effective read-only to MongoDocumentViewer and MongoBulkMutationDialog", () => {
     const dataViewPanelPath = path.resolve(
       process.cwd(),
-      "src/features/mongodb/components/MongoDataViewPanel.tsx"
+      "src/features/mongodb/components/MongoDataViewPanel.tsx",
     );
     const content = fs.readFileSync(dataViewPanelPath, "utf-8");
 
     assert.ok(
       content.includes("isEffectiveReadOnly"),
-      "MongoDataViewPanel must compute isEffectiveReadOnly"
+      "MongoDataViewPanel must compute isEffectiveReadOnly",
     );
     assert.ok(
       content.includes("isReadOnly={isEffectiveReadOnly}"),
-      "MongoDataViewPanel must pass isEffectiveReadOnly to delegated components"
+      "MongoDataViewPanel must pass isEffectiveReadOnly to delegated components",
     );
   });
 
@@ -444,7 +514,7 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
   it("10. MongoDataViewPanel pre-fills defaultCollection with the active selected collection", () => {
     const dataViewPanelPath = path.resolve(
       process.cwd(),
-      "src/features/mongodb/components/MongoDataViewPanel.tsx"
+      "src/features/mongodb/components/MongoDataViewPanel.tsx",
     );
     const content = fs.readFileSync(dataViewPanelPath, "utf-8");
 
@@ -459,14 +529,14 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
   it("11. Dialogs forward cancelOnUnmount={false} and useMongoBulkOperationsStore enforces single poller authority", async () => {
     const dataViewPanelPath = path.resolve(
       process.cwd(),
-      "src/features/mongodb/components/MongoDataViewPanel.tsx"
+      "src/features/mongodb/components/MongoDataViewPanel.tsx",
     );
     const content = fs.readFileSync(dataViewPanelPath, "utf-8");
 
     // Verify cancelOnUnmount={false} is wired to delegated dialogs
     assert.ok(
       content.includes("cancelOnUnmount={false}"),
-      "MongoDataViewPanel must pass cancelOnUnmount={false} to delegated bulk dialogs"
+      "MongoDataViewPanel must pass cancelOnUnmount={false} to delegated bulk dialogs",
     );
 
     // Verify store deduplicates pollers and maintains single poller authority
@@ -488,7 +558,9 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     };
 
     store.getSnapshot().registerAsyncOperation("db-unmount", op);
-    const registered = store.getSnapshot().operationsByDb["db-unmount"]?.[0] as TrackedAsyncBulkOperation;
+    const registered = store.getSnapshot().operationsByDb[
+      "db-unmount"
+    ]?.[0] as TrackedAsyncBulkOperation;
     assert.strictEqual(registered?.status, "in_progress");
 
     // Starting poller multiple times does not create duplicates
@@ -507,10 +579,10 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     let documentRefreshed = 0;
     let collectionsRefreshed = 0;
 
-    const refetchDocuments = () => {
+    const _refetchDocuments = () => {
       documentRefreshed++;
     };
-    const refetchCollections = () => {
+    const _refetchCollections = () => {
       collectionsRefreshed++;
     };
 
@@ -523,18 +595,26 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
 
     onOpenChange(false);
     assert.strictEqual(isBulkMutationOpen, false);
-    assert.strictEqual(documentRefreshed, 0, "Closing mutation dialog must not trigger document refetch");
-    assert.strictEqual(collectionsRefreshed, 0, "Closing mutation dialog must not trigger collection refetch");
+    assert.strictEqual(
+      documentRefreshed,
+      0,
+      "Closing mutation dialog must not trigger document refetch",
+    );
+    assert.strictEqual(
+      collectionsRefreshed,
+      0,
+      "Closing mutation dialog must not trigger collection refetch",
+    );
 
     // Source audit confirms no refetch inside onOpenChange of MongoBulkMutationDialog
     const dataViewPanelPath = path.resolve(
       process.cwd(),
-      "src/features/mongodb/components/MongoDataViewPanel.tsx"
+      "src/features/mongodb/components/MongoDataViewPanel.tsx",
     );
     const content = fs.readFileSync(dataViewPanelPath, "utf-8");
     assert.ok(
       content.includes("onOpenChange={setIsBulkMutationOpen}"),
-      "MongoBulkMutationDialog onOpenChange must only toggle modal open state without triggering refetch"
+      "MongoBulkMutationDialog onOpenChange must only toggle modal open state without triggering refetch",
     );
   });
 
@@ -703,7 +783,7 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
   // Scenario 15: Multiple chunk acknowledgements do not trigger refetch
   it("15. Multiple chunk acknowledgements do not trigger refetch; only track cumulative count", () => {
     let documentRefreshed = 0;
-    const refetchDocuments = () => {
+    const _refetchDocuments = () => {
       documentRefreshed++;
     };
 
@@ -721,12 +801,12 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     assert.strictEqual(
       importCommittedCountRef.current,
       5000,
-      "Cumulative inserted count must be tracked"
+      "Cumulative inserted count must be tracked",
     );
     assert.strictEqual(
       documentRefreshed,
       0,
-      "Streaming chunk acknowledgements must never invoke refetchDocuments"
+      "Streaming chunk acknowledgements must never invoke refetchDocuments",
     );
   });
 
@@ -790,9 +870,21 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     dialogProps.onTerminalState("op-success-1", "completed");
 
     // 3. Verify exactly one document refresh and one collection refresh
-    assert.strictEqual(documentRefreshed, 1, "Terminal completed must trigger exactly 1 document refresh");
-    assert.strictEqual(collectionsRefreshed, 1, "Terminal completed must trigger exactly 1 collection refresh");
-    assert.strictEqual(importCommittedCountRef.current, 0, "Committed count ref must be reset to 0");
+    assert.strictEqual(
+      documentRefreshed,
+      1,
+      "Terminal completed must trigger exactly 1 document refresh",
+    );
+    assert.strictEqual(
+      collectionsRefreshed,
+      1,
+      "Terminal completed must trigger exactly 1 collection refresh",
+    );
+    assert.strictEqual(
+      importCommittedCountRef.current,
+      0,
+      "Committed count ref must be reset to 0",
+    );
 
     // 4. Simulate user clicking Finish on the summary screen and dialog closing
     simulateDialogFinish();
@@ -802,49 +894,73 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     assert.strictEqual(
       documentRefreshed,
       1,
-      "Clicking Finish must not trigger a second document refresh"
+      "Clicking Finish must not trigger a second document refresh",
     );
     assert.strictEqual(
       collectionsRefreshed,
       1,
-      "Clicking Finish must not trigger a second collection refresh"
+      "Clicking Finish must not trigger a second collection refresh",
     );
 
     // 6. Verify cancellation with committed chunks refreshes once and resets ref
     isBulkImportOpen = true;
     dialogProps.onChunkAcknowledged({ totalInserted: 80 });
     dialogProps.onTerminalState("op-cancel-1", "cancelled");
-    assert.strictEqual(documentRefreshed, 2, "Cancelled import with committed docs must trigger 1 refresh");
+    assert.strictEqual(
+      documentRefreshed,
+      2,
+      "Cancelled import with committed docs must trigger 1 refresh",
+    );
     assert.strictEqual(collectionsRefreshed, 2);
-    assert.strictEqual(importCommittedCountRef.current, 0, "Ref must reset to 0 after cancellation refresh");
+    assert.strictEqual(
+      importCommittedCountRef.current,
+      0,
+      "Ref must reset to 0 after cancellation refresh",
+    );
 
     // 7. Verify failure with committed chunks refreshes once and resets ref
     dialogProps.onChunkAcknowledged({ totalInserted: 40 });
     dialogProps.onTerminalState("op-fail-1", "failed");
-    assert.strictEqual(documentRefreshed, 3, "Failed import with committed docs must trigger 1 refresh");
+    assert.strictEqual(
+      documentRefreshed,
+      3,
+      "Failed import with committed docs must trigger 1 refresh",
+    );
     assert.strictEqual(collectionsRefreshed, 3);
-    assert.strictEqual(importCommittedCountRef.current, 0, "Ref must reset to 0 after failure refresh");
+    assert.strictEqual(
+      importCommittedCountRef.current,
+      0,
+      "Ref must reset to 0 after failure refresh",
+    );
 
     // 8. Verify failure with zero committed documents does not refresh
     dialogProps.onChunkAcknowledged({ totalInserted: 0 });
     dialogProps.onTerminalState("op-fail-zero", "failed");
-    assert.strictEqual(documentRefreshed, 3, "Failed import with 0 committed docs must NOT refresh");
+    assert.strictEqual(
+      documentRefreshed,
+      3,
+      "Failed import with 0 committed docs must NOT refresh",
+    );
     assert.strictEqual(collectionsRefreshed, 3);
 
     // 9. Verify cancellation with zero committed documents does not refresh
     dialogProps.onTerminalState("op-cancel-zero", "cancelled");
-    assert.strictEqual(documentRefreshed, 3, "Cancelled import with 0 committed docs must NOT refresh");
+    assert.strictEqual(
+      documentRefreshed,
+      3,
+      "Cancelled import with 0 committed docs must NOT refresh",
+    );
     assert.strictEqual(collectionsRefreshed, 3);
 
     // 10. Source verification confirms onImportComplete is omitted from MongoBulkImportDialog
     const dataViewPanelPath = path.resolve(
       process.cwd(),
-      "src/features/mongodb/components/MongoDataViewPanel.tsx"
+      "src/features/mongodb/components/MongoDataViewPanel.tsx",
     );
     const content = fs.readFileSync(dataViewPanelPath, "utf-8");
     assert.ok(
       !content.includes("onImportComplete="),
-      "MongoDataViewPanel must not pass onImportComplete to MongoBulkImportDialog"
+      "MongoDataViewPanel must not pass onImportComplete to MongoBulkImportDialog",
     );
   });
 
@@ -877,9 +993,12 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
               mockQueryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
             }
           } else if (op.kind === "async" && op.type === "import") {
-            const prev = prevOps.find((p) => p.kind === "async" && p.operationId === op.operationId);
+            const prev = prevOps.find(
+              (p) => p.kind === "async" && p.operationId === op.operationId,
+            );
             const wasActive = prev && (prev.status === "pending" || prev.status === "in_progress");
-            const isTerminal = op.status === "completed" || op.status === "failed" || op.status === "cancelled";
+            const isTerminal =
+              op.status === "completed" || op.status === "failed" || op.status === "cancelled";
             if (wasActive && isTerminal && op.successfulDocuments > 0) {
               mockQueryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
             }
@@ -913,7 +1032,7 @@ describe("MongoDB M7 Stage 7: Bulk Navigation & Contextual Integration Tests", (
     assert.strictEqual(
       invalidatedKeys.length,
       0,
-      "Export operations must never trigger cache invalidations"
+      "Export operations must never trigger cache invalidations",
     );
 
     unsubscribe();

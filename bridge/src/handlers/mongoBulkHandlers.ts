@@ -60,7 +60,8 @@ export class MongoBulkHandlers {
       if (!isNonEmptyString(format) || !["json", "ndjson", "csv"].includes(format)) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: "Missing or invalid required parameter: format must be 'json', 'ndjson', or 'csv'",
+          message:
+            "Missing or invalid required parameter: format must be 'json', 'ndjson', or 'csv'",
         });
       }
 
@@ -88,7 +89,8 @@ export class MongoBulkHandlers {
       if (typeof chunkIndex !== "number" || !Number.isInteger(chunkIndex) || chunkIndex < 0) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: "Missing or invalid required parameter: chunkIndex must be a non-negative integer",
+          message:
+            "Missing or invalid required parameter: chunkIndex must be a non-negative integer",
         });
       }
       if (payload === undefined || payload === null) {
@@ -128,7 +130,8 @@ export class MongoBulkHandlers {
       if (!isNonEmptyString(format) || !["json", "ndjson", "csv"].includes(format)) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: "Missing or invalid required parameter: format must be 'json', 'ndjson', or 'csv'",
+          message:
+            "Missing or invalid required parameter: format must be 'json', 'ndjson', or 'csv'",
         });
       }
 
@@ -210,7 +213,8 @@ export class MongoBulkHandlers {
       if (!isNonEmptyString(destinationPath)) {
         return this.rpc.sendError(id, {
           code: "BAD_REQUEST",
-          message: "Missing or invalid required parameter: destinationPath must be a non-empty string",
+          message:
+            "Missing or invalid required parameter: destinationPath must be a non-empty string",
         });
       }
       if (

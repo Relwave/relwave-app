@@ -57,13 +57,7 @@ const SUPPORTED_ROOT_OPERATIONS = new Set([
   "distinct",
 ]);
 
-const SUPPORTED_MODIFIERS = new Set([
-  "sort",
-  "skip",
-  "limit",
-  "project",
-  "allowDiskUse",
-]);
+const SUPPORTED_MODIFIERS = new Set(["sort", "skip", "limit", "project", "allowDiskUse"]);
 
 const PROTOTYPE_PROPERTIES = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -74,13 +68,7 @@ const MAX_PROJECTION_FIELDS = 128;
 export function parseMongoshQuery(source: string): MongoshParseResult {
   const trimmed = source.trim();
   if (!trimmed) {
-    throw new MongoParserError(
-      "Query string is empty.",
-      "INVALID_SYNTAX",
-      1,
-      1,
-      0
-    );
+    throw new MongoParserError("Query string is empty.", "INVALID_SYNTAX", 1, 1, 0);
   }
 
   const tokens = tokenize(trimmed);
@@ -93,7 +81,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "COMPOUND_STATEMENT",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
   }
@@ -106,7 +94,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "SECURITY_VIOLATION",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
   }
@@ -154,7 +142,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
     return advance();
@@ -168,7 +156,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "INVALID_SYNTAX",
       dbToken.line,
       dbToken.column,
-      dbToken.offset
+      dbToken.offset,
     );
   }
   advance(); // consume `db`
@@ -187,14 +175,11 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         collToken.line,
         collToken.column,
-        collToken.offset
+        collToken.offset,
       );
     }
 
-    if (
-      collToken.value === "getCollection" ||
-      collToken.value === "collection"
-    ) {
+    if (collToken.value === "getCollection" || collToken.value === "collection") {
       advance(); // consume method name
       expect("Punctuator", "(");
       const nameToken = current();
@@ -204,7 +189,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           nameToken.line,
           nameToken.column,
-          nameToken.offset
+          nameToken.offset,
         );
       }
       collectionName = nameToken.value;
@@ -232,7 +217,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_COLLECTION_NAME",
           peek().line,
           peek().column,
-          peek().offset
+          peek().offset,
         );
       }
     }
@@ -245,7 +230,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         nameToken.line,
         nameToken.column,
-        nameToken.offset
+        nameToken.offset,
       );
     }
     collectionName = nameToken.value;
@@ -257,7 +242,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "INVALID_SYNTAX",
       sepToken.line,
       sepToken.column,
-      sepToken.offset
+      sepToken.offset,
     );
   }
 
@@ -274,7 +259,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "SECURITY_VIOLATION",
       opToken.line,
       opToken.column,
-      opToken.offset
+      opToken.offset,
     );
   }
 
@@ -284,7 +269,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "UNSUPPORTED_METHOD",
       opToken.line,
       opToken.column,
-      opToken.offset
+      opToken.offset,
     );
   }
 
@@ -310,7 +295,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "UNSUPPORTED_OPERATION",
       opToken.line,
       opToken.column,
-      opToken.offset
+      opToken.offset,
     );
   }
 
@@ -327,7 +312,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "SECURITY_VIOLATION",
         modToken.line,
         modToken.column,
-        modToken.offset
+        modToken.offset,
       );
     }
 
@@ -337,7 +322,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "UNSUPPORTED_METHOD",
         modToken.line,
         modToken.column,
-        modToken.offset
+        modToken.offset,
       );
     }
 
@@ -349,7 +334,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         modToken.line,
         modToken.column,
-        modToken.offset
+        modToken.offset,
       );
     }
     seenModifiers.add(modName);
@@ -367,7 +352,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "INVALID_SYNTAX",
       trailing.line,
       trailing.column,
-      trailing.offset
+      trailing.offset,
     );
   }
 
@@ -390,7 +375,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           fToken.line,
           fToken.column,
-          fToken.offset
+          fToken.offset,
         );
       }
       filter = parseObjectLiteral(0);
@@ -404,7 +389,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_SYNTAX",
             pToken.line,
             pToken.column,
-            pToken.offset
+            pToken.offset,
           );
         }
         const parsedProj = parseObjectLiteral(0);
@@ -434,7 +419,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           pipeToken.line,
           pipeToken.column,
-          pipeToken.offset
+          pipeToken.offset,
         );
       }
       pipeline = parseArrayLiteral(0);
@@ -447,7 +432,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_SYNTAX",
             pipeToken.line,
             pipeToken.column,
-            pipeToken.offset
+            pipeToken.offset,
           );
         }
         const keys = Object.keys(stage);
@@ -457,7 +442,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_SYNTAX",
             pipeToken.line,
             pipeToken.column,
-            pipeToken.offset
+            pipeToken.offset,
           );
         }
       }
@@ -471,7 +456,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_SYNTAX",
             optsToken.line,
             optsToken.column,
-            optsToken.offset
+            optsToken.offset,
           );
         }
         const opts = parseObjectLiteral(0);
@@ -504,7 +489,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           fToken.line,
           fToken.column,
-          fToken.offset
+          fToken.offset,
         );
       }
       filter = parseObjectLiteral(0);
@@ -518,7 +503,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_SYNTAX",
             optsToken.line,
             optsToken.column,
-            optsToken.offset
+            optsToken.offset,
           );
         }
         const opts = parseObjectLiteral(0);
@@ -547,7 +532,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           fToken.line,
           fToken.column,
-          fToken.offset
+          fToken.offset,
         );
       }
       const obj = parseObjectLiteral(0);
@@ -557,7 +542,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           fToken.line,
           fToken.column,
-          fToken.offset
+          fToken.offset,
         );
       }
     }
@@ -577,7 +562,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         fToken.line,
         fToken.column,
-        fToken.offset
+        fToken.offset,
       );
     }
     const field = fToken.value;
@@ -587,7 +572,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         fToken.line,
         fToken.column,
-        fToken.offset
+        fToken.offset,
       );
     }
     advance();
@@ -602,7 +587,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           filterToken.line,
           filterToken.column,
-          filterToken.offset
+          filterToken.offset,
         );
       }
       filter = parseObjectLiteral(0);
@@ -618,11 +603,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
     };
   }
 
-  function applyModifier(
-    modName: string,
-    modToken: Token,
-    op: MongoMqlOperation
-  ): void {
+  function applyModifier(modName: string, modToken: Token, op: MongoMqlOperation): void {
     if (op.operation === "aggregate") {
       if (modName !== "allowDiskUse") {
         throw new MongoParserError(
@@ -630,7 +611,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "UNSUPPORTED_METHOD",
           modToken.line,
           modToken.column,
-          modToken.offset
+          modToken.offset,
         );
       }
       const bToken = current();
@@ -640,11 +621,10 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           bToken.line,
           bToken.column,
-          bToken.offset
+          bToken.offset,
         );
       }
-      (op.payload as MongoAggregateOpPayload).allowDiskUse =
-        bToken.value === "true";
+      (op.payload as MongoAggregateOpPayload).allowDiskUse = bToken.value === "true";
       advance();
       return;
     }
@@ -656,7 +636,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "UNSUPPORTED_METHOD",
           modToken.line,
           modToken.column,
-          modToken.offset
+          modToken.offset,
         );
       }
       const nToken = current();
@@ -675,7 +655,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "UNSUPPORTED_METHOD",
         modToken.line,
         modToken.column,
-        modToken.offset
+        modToken.offset,
       );
     }
 
@@ -689,7 +669,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           sToken.line,
           sToken.column,
-          sToken.offset
+          sToken.offset,
         );
       }
       const sortObj = parseObjectLiteral(0);
@@ -707,7 +687,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           modToken.line,
           modToken.column,
-          modToken.offset
+          modToken.offset,
         );
       }
       const pToken = current();
@@ -717,7 +697,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           pToken.line,
           pToken.column,
-          pToken.offset
+          pToken.offset,
         );
       }
       const projObj = parseObjectLiteral(0);
@@ -728,23 +708,19 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "UNSUPPORTED_METHOD",
         modToken.line,
         modToken.column,
-        modToken.offset
+        modToken.offset,
       );
     }
   }
 
-  function parseIntegerLiteral(
-    token: Token,
-    name: string,
-    min = 0
-  ): number {
+  function parseIntegerLiteral(token: Token, name: string, min = 0): number {
     if (token.type !== "Number" || !/^[+-]?\d+$/.test(token.value)) {
       throw new MongoParserError(
         `${name}() argument must be an integer (received '${token.value}').`,
         "INVALID_SYNTAX",
         token.line,
         token.column,
-        token.offset
+        token.offset,
       );
     }
     const val = parseInt(token.value, 10);
@@ -754,17 +730,14 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         token.line,
         token.column,
-        token.offset
+        token.offset,
       );
     }
     advance();
     return val;
   }
 
-  function validateSortObject(
-    obj: Record<string, any>,
-    token: Token
-  ): Record<string, 1 | -1> {
+  function validateSortObject(obj: Record<string, any>, token: Token): Record<string, 1 | -1> {
     const keys = Object.keys(obj);
     if (keys.length === 0) {
       throw new MongoParserError(
@@ -772,7 +745,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         token.line,
         token.column,
-        token.offset
+        token.offset,
       );
     }
     if (keys.length > MAX_SORT_FIELDS) {
@@ -781,7 +754,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         token.line,
         token.column,
-        token.offset
+        token.offset,
       );
     }
     const res: Record<string, 1 | -1> = {};
@@ -796,17 +769,14 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           token.line,
           token.column,
-          token.offset
+          token.offset,
         );
       }
     }
     return res;
   }
 
-  function validateProjectionObject(
-    obj: Record<string, any>,
-    token: Token
-  ): Record<string, 0 | 1> {
+  function validateProjectionObject(obj: Record<string, any>, token: Token): Record<string, 0 | 1> {
     const keys = Object.keys(obj);
     if (keys.length > MAX_PROJECTION_FIELDS) {
       throw new MongoParserError(
@@ -814,7 +784,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_SYNTAX",
         token.line,
         token.column,
-        token.offset
+        token.offset,
       );
     }
     const res: Record<string, 0 | 1> = {};
@@ -829,7 +799,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           token.line,
           token.column,
-          token.offset
+          token.offset,
         );
       }
     }
@@ -844,7 +814,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "DEPTH_LIMIT_EXCEEDED",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
 
@@ -864,7 +834,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "INVALID_SYNTAX",
           keyToken.line,
           keyToken.column,
-          keyToken.offset
+          keyToken.offset,
         );
       }
 
@@ -875,7 +845,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "SECURITY_VIOLATION",
           keyToken.line,
           keyToken.column,
-          keyToken.offset
+          keyToken.offset,
         );
       }
 
@@ -901,7 +871,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "DEPTH_LIMIT_EXCEEDED",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
 
@@ -930,7 +900,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "DEPTH_LIMIT_EXCEEDED",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
 
@@ -977,7 +947,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             arg.line,
             arg.column,
-            arg.offset
+            arg.offset,
           );
         }
         const parsed = parseObjectId(arg.value, arg.line, arg.column, arg.offset);
@@ -995,7 +965,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             arg.line,
             arg.column,
-            arg.offset
+            arg.offset,
           );
         }
         const parsed = parseISODate(arg.value, arg.line, arg.column, arg.offset);
@@ -1013,10 +983,10 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             arg.line,
             arg.column,
-            arg.offset
+            arg.offset,
           );
         }
-        const rawStr = arg.type === "String" ? arg.value : (arg.raw || arg.value);
+        const rawStr = arg.type === "String" ? arg.value : arg.raw || arg.value;
         const parsed = parseNumberLong(rawStr, arg.line, arg.column, arg.offset);
         advance();
         expect("Punctuator", ")");
@@ -1032,10 +1002,10 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             arg.line,
             arg.column,
-            arg.offset
+            arg.offset,
           );
         }
-        const rawStr = arg.type === "String" ? arg.value : (arg.raw || arg.value);
+        const rawStr = arg.type === "String" ? arg.value : arg.raw || arg.value;
         const parsed = parseNumberDecimal(rawStr, arg.line, arg.column, arg.offset);
         advance();
         expect("Punctuator", ")");
@@ -1051,7 +1021,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             arg.line,
             arg.column,
-            arg.offset
+            arg.offset,
           );
         }
         const parsed = parseUUID(arg.value, arg.line, arg.column, arg.offset);
@@ -1068,7 +1038,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "SECURITY_VIOLATION",
             nextId.line,
             nextId.column,
-            nextId.offset
+            nextId.offset,
           );
         }
         advance(); // consume 'Date'
@@ -1085,7 +1055,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
             "INVALID_BSON_CONSTRUCTOR",
             badArg.line,
             badArg.column,
-            badArg.offset
+            badArg.offset,
           );
         }
         const parsed = parseISODate(dateVal, t.line, t.column, t.offset);
@@ -1099,7 +1069,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
           "SECURITY_VIOLATION",
           t.line,
           t.column,
-          t.offset
+          t.offset,
         );
       }
 
@@ -1108,7 +1078,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "UNSUPPORTED_METHOD",
         t.line,
         t.column,
-        t.offset
+        t.offset,
       );
     }
 
@@ -1117,23 +1087,18 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
       "INVALID_SYNTAX",
       t.line,
       t.column,
-      t.offset
+      t.offset,
     );
   }
 
-  function validateCollectionName(
-    name: string,
-    line: number,
-    col: number,
-    off: number
-  ): void {
+  function validateCollectionName(name: string, line: number, col: number, off: number): void {
     if (!name || name.trim().length === 0) {
       throw new MongoParserError(
         "Collection name cannot be empty.",
         "INVALID_COLLECTION_NAME",
         line,
         col,
-        off
+        off,
       );
     }
 
@@ -1144,7 +1109,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_COLLECTION_NAME",
         line,
         col,
-        off
+        off,
       );
     }
 
@@ -1154,7 +1119,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_COLLECTION_NAME",
         line,
         col,
-        off
+        off,
       );
     }
 
@@ -1164,7 +1129,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_COLLECTION_NAME",
         line,
         col,
-        off
+        off,
       );
     }
 
@@ -1174,7 +1139,7 @@ export function parseMongoshQuery(source: string): MongoshParseResult {
         "INVALID_COLLECTION_NAME",
         line,
         col,
-        off
+        off,
       );
     }
   }

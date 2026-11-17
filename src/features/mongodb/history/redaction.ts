@@ -18,20 +18,17 @@ export function sanitizeErrorMessage(message?: string): string | undefined {
   // Redact MongoDB connection URIs: mongodb://user:pass@host...
   let sanitized = message.replace(
     /(mongodb(?:\+srv)?:\/\/[^:]+:)[^@]+(@[^\s"'`]+)/gi,
-    "$1<redacted-password>$2"
+    "$1<redacted-password>$2",
   );
 
   // Redact generic protocol connection URIs: proto://user:pass@host...
   sanitized = sanitized.replace(
     /([a-zA-Z0-9_-]+:\/\/[^:]+:)[^@]+(@[^\s"'`]+)/gi,
-    "$1<redacted-password>$2"
+    "$1<redacted-password>$2",
   );
 
   // Redact credentials in query string or key-value format (password=..., secret=...)
-  sanitized = sanitized.replace(
-    /(password|pwd|secret|auth|token)=([^&\s"'`]+)/gi,
-    "$1=<redacted>"
-  );
+  sanitized = sanitized.replace(/(password|pwd|secret|auth|token)=([^&\s"'`]+)/gi, "$1=<redacted>");
 
   // Cap message length to 500 characters
   if (sanitized.length > 500) {
@@ -45,11 +42,7 @@ export function sanitizeErrorMessage(message?: string): string | undefined {
  * Determines whether a specific token in the token stream is a literal value that must be redacted.
  * Returns the placeholder string if it should be redacted, or null if it must be preserved.
  */
-function getReplacementForToken(
-  token: Token,
-  index: number,
-  tokens: Token[]
-): string | null {
+function getReplacementForToken(token: Token, index: number, tokens: Token[]): string | null {
   if (token.type === "EOF") return null;
 
   // 1. Structural check: Object property keys are NEVER redacted.
@@ -63,10 +56,7 @@ function getReplacementForToken(
   if (index >= 2) {
     const prev1 = tokens[index - 1];
     const prev2 = tokens[index - 2];
-    if (
-      prev1.value === "(" &&
-      (prev2.value === "getCollection" || prev2.value === "collection")
-    ) {
+    if (prev1.value === "(" && (prev2.value === "getCollection" || prev2.value === "collection")) {
       return null;
     }
     // 3. Field name argument in distinct("fieldName")
@@ -79,10 +69,7 @@ function getReplacementForToken(
   if (index >= 2) {
     const prev1 = tokens[index - 1];
     const prev2 = tokens[index - 2];
-    if (
-      prev1.value === "(" &&
-      (prev2.value === "ISODate" || prev2.value === "Date")
-    ) {
+    if (prev1.value === "(" && (prev2.value === "ISODate" || prev2.value === "Date")) {
       return '"<date>"';
     }
   }
@@ -105,9 +92,7 @@ function getReplacementForToken(
     const prev2 = tokens[index - 2];
     if (
       prev1.value === "(" &&
-      (prev2.value === "NumberLong" ||
-        prev2.value === "NumberDecimal" ||
-        prev2.value === "Int32")
+      (prev2.value === "NumberLong" || prev2.value === "NumberDecimal" || prev2.value === "Int32")
     ) {
       return '"<number>"';
     }
@@ -136,10 +121,7 @@ function getReplacementForToken(
   if (index >= 2) {
     const prev1 = tokens[index - 1];
     const prev2 = tokens[index - 2];
-    if (
-      prev1.value === "(" &&
-      (prev2.value === "ObjectId" || prev2.value === "UUID")
-    ) {
+    if (prev1.value === "(" && (prev2.value === "ObjectId" || prev2.value === "UUID")) {
       return '"<string>"';
     }
   }
@@ -148,10 +130,7 @@ function getReplacementForToken(
   if (index >= 2) {
     const prev1 = tokens[index - 1];
     const prev2 = tokens[index - 2];
-    if (
-      prev1.value === ":" &&
-      (prev2.value === '"$oid"' || prev2.value === "$oid")
-    ) {
+    if (prev1.value === ":" && (prev2.value === '"$oid"' || prev2.value === "$oid")) {
       return '"<string>"';
     }
   }

@@ -46,17 +46,11 @@ export function duplicateStage(stage: PipelineStageItem): PipelineStageItem {
   };
 }
 
-export function toggleStageEnabled(
-  stages: PipelineStageItem[],
-  id: string,
-): PipelineStageItem[] {
+export function toggleStageEnabled(stages: PipelineStageItem[], id: string): PipelineStageItem[] {
   return stages.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
 }
 
-export function toggleStageRaw(
-  stages: PipelineStageItem[],
-  id: string,
-): PipelineStageItem[] {
+export function toggleStageRaw(stages: PipelineStageItem[], id: string): PipelineStageItem[] {
   return stages.map((s) => {
     if (s.id !== id) return s;
     const nextIsRaw = !s.isRaw;
@@ -76,10 +70,7 @@ export function toggleStageRaw(
   });
 }
 
-export function toggleStageCollapsed(
-  stages: PipelineStageItem[],
-  id: string,
-): PipelineStageItem[] {
+export function toggleStageCollapsed(stages: PipelineStageItem[], id: string): PipelineStageItem[] {
   return stages.map((s) => (s.id === id ? { ...s, collapsed: !s.collapsed } : s));
 }
 
@@ -112,10 +103,7 @@ export function updateStageRawJson(
   return stages.map((s) => (s.id === id ? { ...s, rawJson } : s));
 }
 
-export function deleteStage(
-  stages: PipelineStageItem[],
-  id: string,
-): PipelineStageItem[] {
+export function deleteStage(stages: PipelineStageItem[], id: string): PipelineStageItem[] {
   return stages.filter((s) => s.id !== id);
 }
 
@@ -124,12 +112,7 @@ export function reorderStages(
   oldIndex: number,
   newIndex: number,
 ): PipelineStageItem[] {
-  if (
-    oldIndex < 0 ||
-    oldIndex >= stages.length ||
-    newIndex < 0 ||
-    newIndex >= stages.length
-  ) {
+  if (oldIndex < 0 || oldIndex >= stages.length || newIndex < 0 || newIndex >= stages.length) {
     return stages;
   }
   const result = [...stages];
@@ -138,18 +121,12 @@ export function reorderStages(
   return result;
 }
 
-export function moveStageUp(
-  stages: PipelineStageItem[],
-  index: number,
-): PipelineStageItem[] {
+export function moveStageUp(stages: PipelineStageItem[], index: number): PipelineStageItem[] {
   if (index <= 0) return stages;
   return reorderStages(stages, index, index - 1);
 }
 
-export function moveStageDown(
-  stages: PipelineStageItem[],
-  index: number,
-): PipelineStageItem[] {
+export function moveStageDown(stages: PipelineStageItem[], index: number): PipelineStageItem[] {
   if (index >= stages.length - 1) return stages;
   return reorderStages(stages, index, index + 1);
 }

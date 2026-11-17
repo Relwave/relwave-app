@@ -17,12 +17,10 @@ import {
   RefreshCw,
   XCircle,
   FileText,
-  AlertTriangle,
   HardDrive,
 } from "lucide-react";
-import type { BulkHistoryEntry, TrackedAsyncBulkOperation } from "../../types/bulk";
+import type { BulkHistoryEntry } from "../../types/bulk";
 import { isAsyncBulkOperation } from "../../types/bulk";
-import { formatBytes } from "./MongoBulkExportDialog";
 
 export interface MongoBulkOperationsHistoryProps {
   operations: BulkHistoryEntry[];
@@ -184,8 +182,12 @@ export function MongoBulkOperationsHistory({
                       {/* Type */}
                       <td className="px-3.5 py-2.5 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 font-semibold capitalize">
-                          {entry.type === "import" && <Upload className="h-3.5 w-3.5 text-primary" />}
-                          {entry.type === "export" && <Download className="h-3.5 w-3.5 text-emerald-500" />}
+                          {entry.type === "import" && (
+                            <Upload className="h-3.5 w-3.5 text-primary" />
+                          )}
+                          {entry.type === "export" && (
+                            <Download className="h-3.5 w-3.5 text-emerald-500" />
+                          )}
                           {!isAsync && <FileText className="h-3.5 w-3.5 text-amber-500" />}
                           <span>{entry.type}</span>
                         </div>
@@ -221,7 +223,10 @@ export function MongoBulkOperationsHistory({
                             </Badge>
                           )}
                           {isAsync && entry.isUnreachable && (
-                            <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/40">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-amber-500 border-amber-500/40"
+                            >
                               Unreachable
                             </Badge>
                           )}
@@ -248,17 +253,21 @@ export function MongoBulkOperationsHistory({
                           </span>
                         ) : (
                           <span>
-                            {entry.modifiedCount ?? entry.insertedCount ?? entry.deletedCount ?? 0} docs
+                            {entry.modifiedCount ?? entry.insertedCount ?? entry.deletedCount ?? 0}{" "}
+                            docs
                           </span>
                         )}
                       </td>
 
                       {/* Created */}
                       <td className="px-3.5 py-2.5 whitespace-nowrap text-muted-foreground text-[11px]">
-                        {new Date(isAsync ? entry.createdAt : entry.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(isAsync ? entry.createdAt : entry.timestamp).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
                       </td>
 
                       {/* Expires */}

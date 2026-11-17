@@ -4,7 +4,6 @@ import {
   validateAndParseSubtype,
   validateAndDecodeBase64,
   mongoEJSONtoBSON,
-  mongoBSONtoEJSON,
   serializeMongoValue,
 } from "../../src/connectors/mongoBson";
 
@@ -221,9 +220,9 @@ describe("mongoBsonRoundTrip", () => {
 
     test("never converts malformed input into an empty Binary", () => {
       expect(() => mongoEJSONtoBSON({ $binary: { base64: "invalid!base64" } })).toThrow(TypeError);
-      expect(() => mongoEJSONtoBSON({ $binary: { base64: "aGVsbG8=", subtype: "invalid" } })).toThrow(
-        TypeError
-      );
+      expect(() =>
+        mongoEJSONtoBSON({ $binary: { base64: "aGVsbG8=", subtype: "invalid" } }),
+      ).toThrow(TypeError);
     });
   });
 
@@ -260,7 +259,10 @@ describe("mongoBsonRoundTrip", () => {
     });
 
     test("losslessly preserves 16-byte UUIDs (subtype 0x04) and MD5 hashes (subtype 0x05) across round-trips", () => {
-      const uuidBytes = Buffer.from("c3ca6eaa-a103-49fe-a436-0ddb0e4b1eb6".replace(/-/g, ""), "hex");
+      const uuidBytes = Buffer.from(
+        "c3ca6eaa-a103-49fe-a436-0ddb0e4b1eb6".replace(/-/g, ""),
+        "hex",
+      );
       expect(uuidBytes.length).toBe(16);
       const uuidBinary = new Binary(uuidBytes, 4);
 

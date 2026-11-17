@@ -85,8 +85,8 @@ export function MongoDeleteDocumentDialog({
           </DialogTitle>
           <DialogDescription>
             Are you sure you want to delete this document from{" "}
-            <span className="font-mono text-foreground font-semibold">{collection}</span>?
-            This action cannot be undone.
+            <span className="font-mono text-foreground font-semibold">{collection}</span>? This
+            action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 

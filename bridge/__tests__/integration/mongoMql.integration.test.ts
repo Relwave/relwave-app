@@ -1,10 +1,6 @@
 import { describe, expect, test, beforeAll, afterAll } from "@jest/globals";
 import { MongoClient } from "mongodb";
-import {
-  executeMql,
-  explainMql,
-  closeAllMongoClients,
-} from "../../src/connectors/mongo";
+import { executeMql, explainMql, closeAllMongoClients } from "../../src/connectors/mongo";
 import type { MongoConfig } from "../../src/types/mongo";
 
 const mongoUri = process.env.MONGO_TEST_URI;

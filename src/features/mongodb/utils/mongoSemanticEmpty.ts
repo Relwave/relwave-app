@@ -92,7 +92,8 @@ export function parseAndValidateFilter(raw: string): FilterValidationResult {
   if (typeof raw !== "string" || raw.trim().length === 0) {
     return {
       valid: false,
-      error: "Filter query is required. Specify a filter object or enter {} to target all documents.",
+      error:
+        "Filter query is required. Specify a filter object or enter {} to target all documents.",
     };
   }
 
@@ -116,7 +117,8 @@ export function parseAndValidateFilter(raw: string): FilterValidationResult {
   if (hasPrototypePollution(parsed)) {
     return {
       valid: false,
-      error: "Security violation: filter contains forbidden keys (__proto__, constructor, prototype)",
+      error:
+        "Security violation: filter contains forbidden keys (__proto__, constructor, prototype)",
     };
   }
 
@@ -178,7 +180,8 @@ export function parseAndValidateUpdate(raw: string): UpdateValidationResult {
   if (hasPrototypePollution(parsed)) {
     return {
       valid: false,
-      error: "Security violation: update document contains forbidden keys (__proto__, constructor, prototype)",
+      error:
+        "Security violation: update document contains forbidden keys (__proto__, constructor, prototype)",
     };
   }
 
@@ -196,6 +199,7 @@ export function sanitizeErrorMessage(raw: unknown): string {
     return "Unknown error";
   }
   let sanitized = raw.replace(/(mongodb(?:\+srv)?:\/\/)[^@\s]+@/gi, "$1<credentials>@");
+  // eslint-disable-next-line no-control-regex
   sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "");
   if (sanitized.length > 200) {
     sanitized = sanitized.slice(0, 197) + "...";

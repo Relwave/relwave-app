@@ -3,19 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Clock,
-  RotateCcw,
-  Play,
-  FileText,
-  AlertTriangle,
-  HelpCircle,
-  CheckCircle2,
-  XCircle,
-  ShieldAlert,
-  Layers,
-  ArrowRight,
-} from "lucide-react";
+import { Clock, RotateCcw, Play, FileText, AlertTriangle, HelpCircle, Layers } from "lucide-react";
 import type {
   MongoMigrationStatus,
   MongoMigrationDriftStatus,
@@ -103,7 +91,8 @@ export function getMigrationStatusBadgeConfig(status: MongoMigrationStatus): {
       return {
         label: "ROLLING_BACK",
         variant: "outline",
-        className: "bg-purple-500/10 text-purple-500 border-purple-500/40 animate-pulse font-medium",
+        className:
+          "bg-purple-500/10 text-purple-500 border-purple-500/40 animate-pulse font-medium",
         description: "Executing reverse compensation steps",
       };
     case "ROLLED_BACK":
@@ -124,7 +113,8 @@ export function getMigrationStatusBadgeConfig(status: MongoMigrationStatus): {
       return {
         label: "FAILED_MANUAL_INTERVENTION_REQUIRED",
         variant: "destructive",
-        className: "bg-destructive text-destructive-foreground font-bold border-2 border-red-700 shadow-sm",
+        className:
+          "bg-destructive text-destructive-foreground font-bold border-2 border-red-700 shadow-sm",
         description: "Unrecoverable condition. Operator inspection required.",
       };
     default:
@@ -202,40 +192,41 @@ export function MongoMigrationCard({
               </Badge>
             )}
 
-            {migration.driftStatus === "UNVERIFIABLE" && (() => {
-              const reason = migration.driftDetails?.reason;
-              let tooltipTitle = "Unverifiable";
-              let tooltipDesc =
-                migration.driftDetails?.message ||
-                "Migration integrity cannot be verified against on-disk files.";
-
-              if (reason === "MANIFEST_MISSING") {
-                tooltipTitle = "Manifest File Missing";
-                tooltipDesc =
-                  "The migration manifest file was not found on disk in the migrations directory.";
-              } else if (reason === "RECORDED_CHECKSUM_MISSING") {
-                tooltipTitle = "No Recorded Checksum";
-                tooltipDesc =
-                  "No baseline checksum was recorded when this migration was applied (legacy migration).";
-              } else if (reason === "MANIFEST_PARSE_ERROR") {
-                tooltipTitle = "Manifest Parse Error";
-                tooltipDesc =
+            {migration.driftStatus === "UNVERIFIABLE" &&
+              (() => {
+                const reason = migration.driftDetails?.reason;
+                let tooltipTitle = "Unverifiable";
+                let tooltipDesc =
                   migration.driftDetails?.message ||
-                  "The on-disk manifest file failed validation, exceeded 1MB, or has duplicate collisions.";
-              }
+                  "Migration integrity cannot be verified against on-disk files.";
 
-              return (
-                <Badge
-                  variant="outline"
-                  data-testid="migration-unverifiable-badge"
-                  className="text-[10px] px-1.5 py-0 text-muted-foreground border-border/60 bg-muted/40 flex items-center gap-1 cursor-help"
-                  title={`${tooltipTitle}: ${tooltipDesc}`}
-                >
-                  <HelpCircle className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span>Unverifiable</span>
-                </Badge>
-              );
-            })()}
+                if (reason === "MANIFEST_MISSING") {
+                  tooltipTitle = "Manifest File Missing";
+                  tooltipDesc =
+                    "The migration manifest file was not found on disk in the migrations directory.";
+                } else if (reason === "RECORDED_CHECKSUM_MISSING") {
+                  tooltipTitle = "No Recorded Checksum";
+                  tooltipDesc =
+                    "No baseline checksum was recorded when this migration was applied (legacy migration).";
+                } else if (reason === "MANIFEST_PARSE_ERROR") {
+                  tooltipTitle = "Manifest Parse Error";
+                  tooltipDesc =
+                    migration.driftDetails?.message ||
+                    "The on-disk manifest file failed validation, exceeded 1MB, or has duplicate collisions.";
+                }
+
+                return (
+                  <Badge
+                    variant="outline"
+                    data-testid="migration-unverifiable-badge"
+                    className="text-[10px] px-1.5 py-0 text-muted-foreground border-border/60 bg-muted/40 flex items-center gap-1 cursor-help"
+                    title={`${tooltipTitle}: ${tooltipDesc}`}
+                  >
+                    <HelpCircle className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span>Unverifiable</span>
+                  </Badge>
+                );
+              })()}
 
             {migration.isReversible !== undefined && (
               <Badge
@@ -331,7 +322,10 @@ export function MongoMigrationCard({
 
         {/* Error Callout */}
         {errorMessage && (
-          <Alert variant="destructive" className="py-2 px-3 text-xs bg-destructive/10 border-destructive/30">
+          <Alert
+            variant="destructive"
+            className="py-2 px-3 text-xs bg-destructive/10 border-destructive/30"
+          >
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
             <AlertDescription className="font-mono text-[11px] break-all leading-relaxed">
               {errorMessage}

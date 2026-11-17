@@ -27,12 +27,11 @@ import {
   createMongoBulkOperationsStore,
   type BulkOperationsStoreServiceContract,
 } from "../hooks/useMongoBulkOperationsStore";
-import type {
-  TrackedAsyncBulkOperation,
-  MongoBulkOperationStatusResult,
-} from "../types/bulk";
+import type { TrackedAsyncBulkOperation, MongoBulkOperationStatusResult } from "../types/bulk";
 
-function createMockService(overrides?: Partial<BulkOperationsStoreServiceContract>): BulkOperationsStoreServiceContract & {
+function createMockService(
+  overrides?: Partial<BulkOperationsStoreServiceContract>,
+): BulkOperationsStoreServiceContract & {
   calls: {
     status: string[];
     cancel: string[];
@@ -114,7 +113,9 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
 
     store.getSnapshot().registerAsyncOperation("db-alpha", op);
 
-    const registered = store.getSnapshot().operationsByDb["db-alpha"][0] as TrackedAsyncBulkOperation;
+    const registered = store.getSnapshot().operationsByDb[
+      "db-alpha"
+    ][0] as TrackedAsyncBulkOperation;
     assert.equal(registered.operationId, "op-test-1");
     assert.equal(registered.status, "pending");
     assert.equal(registered.hasAuthoritativeExpiresAt, false);
@@ -187,7 +188,9 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
     };
 
     store.getSnapshot().registerAsyncOperation("db-alpha", op);
-    store.getSnapshot().markOperationStale("op-test-stale", "Operation session is no longer available.");
+    store
+      .getSnapshot()
+      .markOperationStale("op-test-stale", "Operation session is no longer available.");
 
     const entry = store.getSnapshot().operationsByDb["db-alpha"][0] as TrackedAsyncBulkOperation;
     assert.equal(entry.status, "stale");
@@ -255,10 +258,21 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
 
     store.getSnapshot().clearExpiredOperations("db-alpha");
 
-    const remaining = store.getSnapshot().operationsByDb["db-alpha"].map((o) => (o as TrackedAsyncBulkOperation).operationId);
-    assert.ok(remaining.includes("op-active-clock-skew"), "Active operation must be immune from pruning");
-    assert.ok(remaining.includes("op-terminal-valid"), "Non-expired terminal operation must remain");
-    assert.ok(!remaining.includes("op-terminal-expired"), "Expired terminal operation must be pruned");
+    const remaining = store
+      .getSnapshot()
+      .operationsByDb["db-alpha"].map((o) => (o as TrackedAsyncBulkOperation).operationId);
+    assert.ok(
+      remaining.includes("op-active-clock-skew"),
+      "Active operation must be immune from pruning",
+    );
+    assert.ok(
+      remaining.includes("op-terminal-valid"),
+      "Non-expired terminal operation must remain",
+    );
+    assert.ok(
+      !remaining.includes("op-terminal-expired"),
+      "Expired terminal operation must be pruned",
+    );
   });
 
   it("strictly sequenced import cancellation coordinates chunk settlement and single bridge RPC", async () => {
@@ -308,11 +322,19 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
     const p1 = store.getSnapshot().cancelOperation("import-op-cancel-seq");
     const p2 = store.getSnapshot().cancelOperation("import-op-cancel-seq");
 
-    assert.equal(p1, p2, "Concurrent cancel requests must share the identical single-flight promise");
+    assert.equal(
+      p1,
+      p2,
+      "Concurrent cancel requests must share the identical single-flight promise",
+    );
 
     await p1;
 
-    assert.equal(abortController.signal.aborted, true, "AbortController must be signaled immediately");
+    assert.equal(
+      abortController.signal.aborted,
+      true,
+      "AbortController must be signaled immediately",
+    );
     assert.equal(cancelFnInvoked, true);
     assert.equal(inFlightChunkFinished, true);
     assert.equal(cancelCalls, 1, "cancelMongoBulkOperation must be dispatched exactly once");
@@ -383,7 +405,11 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
 
       // Now call retryPolling again while inFlight is true
       store.getSnapshot().retryPolling("op-inflight-guard");
-      assert.equal(statusCallCount, 1, "Duplicate RPC must not be dispatched while request is in flight");
+      assert.equal(
+        statusCallCount,
+        1,
+        "Duplicate RPC must not be dispatched while request is in flight",
+      );
 
       // Resolve the pending status
       resolveStatus({
@@ -550,8 +576,15 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
         assert.ok(store._activePollers.has(opId));
 
         const control = store._activePollers.get(opId)!;
-        assert.ok(control.timerId !== null, `Timer must be active for ${opId} prior to terminal transition`);
-        assert.equal(control.isCancelled, false, `Poller must not be cancelled for ${opId} prior to transition`);
+        assert.ok(
+          control.timerId !== null,
+          `Timer must be active for ${opId} prior to terminal transition`,
+        );
+        assert.equal(
+          control.isCancelled,
+          false,
+          `Poller must not be cancelled for ${opId} prior to transition`,
+        );
 
         if (termStatus === "stale") {
           store.getSnapshot().markOperationStale(opId, "session expired");
@@ -559,8 +592,16 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
           store.getSnapshot().updateAsyncOperation(opId, { status: termStatus });
         }
 
-        assert.equal(control.timerId, null, `Timer must be cleared for ${opId} upon transition to ${termStatus}`);
-        assert.equal(control.isCancelled, true, `Poller must be marked cancelled for ${opId} upon transition to ${termStatus}`);
+        assert.equal(
+          control.timerId,
+          null,
+          `Timer must be cleared for ${opId} upon transition to ${termStatus}`,
+        );
+        assert.equal(
+          control.isCancelled,
+          true,
+          `Poller must be marked cancelled for ${opId} upon transition to ${termStatus}`,
+        );
         assert.equal(
           store._activePollers.has(opId),
           false,
@@ -615,9 +656,17 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
       assert.ok(updatedOp.error?.includes("no longer available"));
 
       // Poller and timer must be cleared
-      assert.equal(control.timerId, null, "Timer must be cleared upon MONGO_NOT_FOUND stale transition");
+      assert.equal(
+        control.timerId,
+        null,
+        "Timer must be cleared upon MONGO_NOT_FOUND stale transition",
+      );
       assert.equal(control.isCancelled, true, "Poller control must be marked cancelled");
-      assert.equal(store._activePollers.has("op-not-found-poll"), false, "Poller must be removed from active pollers map");
+      assert.equal(
+        store._activePollers.has("op-not-found-poll"),
+        false,
+        "Poller must be removed from active pollers map",
+      );
     } finally {
       mock.timers.reset();
       store.getSnapshot().resetStore();
@@ -713,7 +762,10 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
       const snapshot = store.getSnapshot();
       assert.equal(snapshot.operationsByDb["db-1"].length, 1);
       assert.equal(snapshot.operationsByDb["db-2"].length, 1);
-      assert.equal((snapshot.operationsByDb["db-1"][0] as TrackedAsyncBulkOperation).processedDocuments, 100);
+      assert.equal(
+        (snapshot.operationsByDb["db-1"][0] as TrackedAsyncBulkOperation).processedDocuments,
+        100,
+      );
 
       // Complete db-1 op
       store.getSnapshot().updateAsyncOperation("op-db1-1", { status: "completed" });
@@ -765,7 +817,9 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
       // Cancel operation while poll request is in flight
       await store.getSnapshot().cancelOperation("op-delayed-res");
 
-      const opAfterCancel = store.getSnapshot().operationsByDb["db-1"][0] as TrackedAsyncBulkOperation;
+      const opAfterCancel = store.getSnapshot().operationsByDb[
+        "db-1"
+      ][0] as TrackedAsyncBulkOperation;
       assert.equal(opAfterCancel.status, "cancelled");
 
       // Now resolve the delayed status with an older 'in_progress' result
@@ -787,7 +841,11 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
       await Promise.resolve();
 
       const opFinal = store.getSnapshot().operationsByDb["db-1"][0] as TrackedAsyncBulkOperation;
-      assert.equal(opFinal.status, "cancelled", "Delayed poll response must be discarded and cannot overwrite cancelled state");
+      assert.equal(
+        opFinal.status,
+        "cancelled",
+        "Delayed poll response must be discarded and cannot overwrite cancelled state",
+      );
     } finally {
       store.getSnapshot().resetStore();
     }
@@ -800,7 +858,11 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
     // Initial snapshot should be reference-equal on repeated calls
     const snapshot1 = store.getSnapshot();
     const snapshot2 = store.getSnapshot();
-    assert.strictEqual(snapshot1, snapshot2, "getSnapshot must return cached reference when store has not mutated");
+    assert.strictEqual(
+      snapshot1,
+      snapshot2,
+      "getSnapshot must return cached reference when store has not mutated",
+    );
 
     // Mutation triggers a snapshot reference change
     const op: TrackedAsyncBulkOperation = {
@@ -822,11 +884,19 @@ describe("useMongoBulkOperationsStore Unit Tests", { concurrency: 1 }, () => {
     store.getSnapshot().registerAsyncOperation("db-snap", op);
 
     const snapshot3 = store.getSnapshot();
-    assert.notStrictEqual(snapshot3, snapshot1, "getSnapshot must return a new snapshot reference upon state mutation");
+    assert.notStrictEqual(
+      snapshot3,
+      snapshot1,
+      "getSnapshot must return a new snapshot reference upon state mutation",
+    );
 
     // After mutation, repeated calls return the new stable cached reference
     const snapshot4 = store.getSnapshot();
-    assert.strictEqual(snapshot3, snapshot4, "getSnapshot must return identical reference on subsequent reads after mutation");
+    assert.strictEqual(
+      snapshot3,
+      snapshot4,
+      "getSnapshot must return identical reference on subsequent reads after mutation",
+    );
 
     store.getSnapshot().resetStore();
   });

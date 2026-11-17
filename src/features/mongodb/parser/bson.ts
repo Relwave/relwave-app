@@ -3,16 +3,12 @@ import { MongoParserError } from "./errors";
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const DECIMAL128_REGEX = /^(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|[+-]?Infinity|NaN)$/;
-const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|([+-]\d{2}(?::?\d{2})?))?)?$/;
+const ISO_DATE_REGEX =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|([+-]\d{2}(?::?\d{2})?))?)?$/;
 const INT64_MIN = BigInt("-9223372036854775808");
 const INT64_MAX = BigInt("9223372036854775807");
 
-export function parseObjectId(
-  raw: string,
-  line = 1,
-  column = 1,
-  offset = 0
-): { $oid: string } {
+export function parseObjectId(raw: string, line = 1, column = 1, offset = 0): { $oid: string } {
   const val = raw.trim();
   if (!OBJECT_ID_REGEX.test(val)) {
     throw new MongoParserError(
@@ -20,18 +16,13 @@ export function parseObjectId(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
   return { $oid: val.toLowerCase() };
 }
 
-export function parseISODate(
-  raw: string,
-  line = 1,
-  column = 1,
-  offset = 0
-): { $date: string } {
+export function parseISODate(raw: string, line = 1, column = 1, offset = 0): { $date: string } {
   const val = raw.trim();
   const match = ISO_DATE_REGEX.exec(val);
   if (!match) {
@@ -40,7 +31,7 @@ export function parseISODate(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 
@@ -54,7 +45,7 @@ export function parseISODate(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 
@@ -65,7 +56,7 @@ export function parseISODate(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 
@@ -74,20 +65,13 @@ export function parseISODate(
     const minute = parseInt(match[5], 10);
     const second = parseInt(match[6], 10);
 
-    if (
-      hour < 0 ||
-      hour > 23 ||
-      minute < 0 ||
-      minute > 59 ||
-      second < 0 ||
-      second > 59
-    ) {
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
       throw new MongoParserError(
         `Invalid time component in date '${val}'.`,
         "INVALID_BSON_CONSTRUCTOR",
         line,
         column,
-        offset
+        offset,
       );
     }
   }
@@ -102,7 +86,7 @@ export function parseISODate(
         "INVALID_BSON_CONSTRUCTOR",
         line,
         column,
-        offset
+        offset,
       );
     }
   }
@@ -114,7 +98,7 @@ export function parseISODate(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
   return { $date: d.toISOString() };
@@ -124,7 +108,7 @@ export function parseNumberLong(
   raw: string,
   line = 1,
   column = 1,
-  offset = 0
+  offset = 0,
 ): { $numberLong: string } {
   const val = raw.trim();
   if (!/^[+-]?\d+$/.test(val)) {
@@ -133,7 +117,7 @@ export function parseNumberLong(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 
@@ -149,7 +133,7 @@ export function parseNumberLong(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 }
@@ -158,7 +142,7 @@ export function parseNumberDecimal(
   raw: string,
   line = 1,
   column = 1,
-  offset = 0
+  offset = 0,
 ): { $numberDecimal: string } {
   const val = raw.trim();
   if (!DECIMAL128_REGEX.test(val)) {
@@ -167,7 +151,7 @@ export function parseNumberDecimal(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
   return { $numberDecimal: val };
@@ -177,7 +161,7 @@ export function parseUUID(
   raw: string,
   line = 1,
   column = 1,
-  offset = 0
+  offset = 0,
 ): { $binary: { base64: string; subType: "04" } } {
   const val = raw.trim();
   if (!UUID_REGEX.test(val)) {
@@ -186,7 +170,7 @@ export function parseUUID(
       "INVALID_BSON_CONSTRUCTOR",
       line,
       column,
-      offset
+      offset,
     );
   }
 

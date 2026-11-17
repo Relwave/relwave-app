@@ -14,10 +14,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
 import { MongoBulkOperationsPanel } from "../components/bulk/MongoBulkOperationsPanel";
-import {
-  defaultMongoBulkOperationsStore,
-  createMongoBulkOperationsStore,
-} from "../hooks/useMongoBulkOperationsStore";
+import { defaultMongoBulkOperationsStore } from "../hooks/useMongoBulkOperationsStore";
 import type { TrackedAsyncBulkOperation, TrackedSyncBulkMutation } from "../types/bulk";
 
 function findVdomNodes(node: any, predicate: (node: any) => boolean): any[] {
@@ -249,12 +246,18 @@ describe("MongoBulkOperationsPanel Component Tests", () => {
     ReactDOMServer.renderToStaticMarkup(React.createElement(Wrapper));
 
     // Find import dialog and verify delegated cancelOnUnmount: false
-    const importDialogs = findVdomNodes(capturedVdom, (n) => n.type?.name === "MongoBulkImportDialog");
+    const importDialogs = findVdomNodes(
+      capturedVdom,
+      (n) => n.type?.name === "MongoBulkImportDialog",
+    );
     assert.equal(importDialogs.length, 1);
     assert.equal(importDialogs[0].props.cancelOnUnmount, false);
 
     // Find export dialog and verify delegated cancelOnUnmount: false and externalPolling: true
-    const exportDialogs = findVdomNodes(capturedVdom, (n) => n.type?.name === "MongoBulkExportDialog");
+    const exportDialogs = findVdomNodes(
+      capturedVdom,
+      (n) => n.type?.name === "MongoBulkExportDialog",
+    );
     assert.equal(exportDialogs.length, 1);
     assert.equal(exportDialogs[0].props.cancelOnUnmount, false);
     assert.equal(exportDialogs[0].props.externalPolling, true);

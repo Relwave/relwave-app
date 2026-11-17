@@ -27,10 +27,7 @@ import type {
   BulkImportOptions,
   ImportProgress,
 } from "../types/bulk";
-import {
-  createIncrementalChunkReader,
-  type ImportChunk,
-} from "../utils/importReader";
+import { createIncrementalChunkReader, type ImportChunk } from "../utils/importReader";
 import {
   validateFileSize,
   MAX_IMPORT_TOTAL_SIZE_BYTES,
@@ -51,11 +48,17 @@ export type ImportState =
   | "failed";
 
 export interface BulkImportServiceContract {
-  startMongoBulkImport: (request: MongoBulkImportStartRequest) => Promise<MongoBulkImportStartResult>;
-  importMongoBulkChunk: (request: MongoBulkImportChunkRequest) => Promise<MongoBulkImportChunkResult>;
+  startMongoBulkImport: (
+    request: MongoBulkImportStartRequest,
+  ) => Promise<MongoBulkImportStartResult>;
+  importMongoBulkChunk: (
+    request: MongoBulkImportChunkRequest,
+  ) => Promise<MongoBulkImportChunkResult>;
   cancelMongoBulkOperation: (request: MongoBulkCancelRequest) => Promise<MongoBulkCancelResult>;
   cleanupMongoBulkOperation: (request: MongoBulkCleanupRequest) => Promise<MongoBulkCleanupResult>;
-  getMongoBulkOperationStatus?: (request: MongoBulkGetOperationStatusRequest) => Promise<MongoBulkOperationStatusResult>;
+  getMongoBulkOperationStatus?: (
+    request: MongoBulkGetOperationStatusRequest,
+  ) => Promise<MongoBulkOperationStatusResult>;
 }
 
 export interface BulkImportCallbacks {
@@ -474,16 +477,12 @@ export async function executeMongoBulkImport(
     }
   } catch (err: unknown) {
     if (cancellationError || err === cancellationError) {
-      throw (cancellationError ?? err);
+      throw cancellationError ?? err;
     }
 
     if (abortController.signal.aborted) {
-      try {
-        await handleCancellation(currentOpId);
-        return;
-      } catch (cancelErr) {
-        throw cancelErr;
-      }
+      await handleCancellation(currentOpId);
+      return;
     }
 
     const msg = err instanceof Error ? err.message : String(err);
@@ -544,11 +543,14 @@ export function useMongoBulkImport(
     };
   }, [service, options?.cancelOnUnmount]);
 
-  const safeSetState = useCallback((stateOrUpdater: ImportState | ((prev: ImportState) => ImportState)) => {
-    if (isMountedRef.current) {
-      setState(stateOrUpdater);
-    }
-  }, []);
+  const safeSetState = useCallback(
+    (stateOrUpdater: ImportState | ((prev: ImportState) => ImportState)) => {
+      if (isMountedRef.current) {
+        setState(stateOrUpdater);
+      }
+    },
+    [],
+  );
 
   const safeSetProgress = useCallback((updater: (prev: ImportProgress) => ImportProgress) => {
     if (isMountedRef.current) {

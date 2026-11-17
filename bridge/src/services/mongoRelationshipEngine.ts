@@ -56,7 +56,13 @@ export class MongoRelationshipEngine {
     // Common pluralization / singularization rules
     if (lower.endsWith("y")) {
       candidates.add(`${lower.slice(0, -1)}ies`);
-    } else if (lower.endsWith("s") || lower.endsWith("sh") || lower.endsWith("ch") || lower.endsWith("x") || lower.endsWith("z")) {
+    } else if (
+      lower.endsWith("s") ||
+      lower.endsWith("sh") ||
+      lower.endsWith("ch") ||
+      lower.endsWith("x") ||
+      lower.endsWith("z")
+    ) {
       candidates.add(`${lower}es`);
       if (lower.endsWith("s") && lower.length > 2) {
         candidates.add(lower.slice(0, -1));
@@ -73,7 +79,10 @@ export class MongoRelationshipEngine {
    */
   isObjectIdOrHex(val: unknown): boolean {
     if (!val) return false;
-    if (val instanceof ObjectId || (typeof val === "object" && (val as any)._bsontype === "ObjectId")) {
+    if (
+      val instanceof ObjectId ||
+      (typeof val === "object" && (val as any)._bsontype === "ObjectId")
+    ) {
       return true;
     }
     if (typeof val === "object" && typeof (val as any).$oid === "string") {
@@ -148,7 +157,7 @@ export class MongoRelationshipEngine {
               !(el instanceof ObjectId) &&
               !(el as any)._bsontype &&
               !(el as any).$oid &&
-              !(el instanceof Date)
+              !(el instanceof Date),
           );
 
           if (isArrayOfObjects) {
@@ -166,7 +175,7 @@ export class MongoRelationshipEngine {
             }
           } else {
             const hasRefElements = sampleSlice.some(
-              (el) => this.isObjectIdOrHex(el) || (hasFkNamePattern && typeof el === "string")
+              (el) => this.isObjectIdOrHex(el) || (hasFkNamePattern && typeof el === "string"),
             );
             if (hasRefElements || hasFkNamePattern) {
               if (!fieldMap.has(currentPath)) {
@@ -304,11 +313,17 @@ export class MongoRelationshipEngine {
       }
       try {
         const queryTimeMs = Math.max(1, Math.min(5000, remainingMs));
-        const docs = await db.collection(colName).find({}, { limit: sampleSize, maxTimeMS: queryTimeMs }).toArray();
+        const docs = await db
+          .collection(colName)
+          .find({}, { limit: sampleSize, maxTimeMS: queryTimeMs })
+          .toArray();
         collectionDocs.set(colName, docs);
 
         // Scan indexes for single-field unconditional uniqueness (MED-01)
-        const indexes = await db.collection(colName).indexes().catch(() => []);
+        const indexes = await db
+          .collection(colName)
+          .indexes()
+          .catch(() => []);
         const uniqueFields = new Set<string>();
         for (const idx of indexes) {
           if (idx.unique && !idx.sparse && !idx.partialFilterExpression && idx.key) {
@@ -365,8 +380,8 @@ export class MongoRelationshipEngine {
           new Set(
             cand.sampleValues
               .map((v) => this.normalizeIdValue(v))
-              .filter((v): v is string => v !== null && v !== "")
-          )
+              .filter((v): v is string => v !== null && v !== ""),
+          ),
         ).slice(0, 50);
 
         if (distinctNormalized.length === 0) continue;
@@ -432,13 +447,15 @@ export class MongoRelationshipEngine {
               .toArray();
 
             const matchedIds = new Set<string>(
-              hits.map((h) => this.normalizeIdValue(h._id)).filter((id): id is string => id !== null)
+              hits
+                .map((h) => this.normalizeIdValue(h._id))
+                .filter((id): id is string => id !== null),
             );
             const hitCount = matchedIds.size;
             const hitRatio = hitCount / distinctNormalized.length;
 
             // Reject if hitRatio < 0.50
-            if (hitRatio < 0.50) continue;
+            if (hitRatio < 0.5) continue;
 
             // Construct sample match pairs
             const sampleMatches: Array<{ sourceValue: string; targetId: string }> = [];
@@ -482,29 +499,45 @@ export class MongoRelationshipEngine {
     const insufficientCandidates: MongoInferredRelationship[] = [];
 
     for (const hit of rawHits) {
-      const { sourceCol, candidate: cand, targetCol, hitRatio, hitCount, sampleMatches, matchedIds } = hit;
+      const {
+        sourceCol,
+        candidate: cand,
+        targetCol,
+        hitRatio,
+        hitCount,
+        sampleMatches,
+        matchedIds,
+      } = hit;
       const sourceDocs = collectionDocs.get(sourceCol) || [];
 
       // Check if source candidate values also matched in other target collections
       const matchingTargetCount = rawHits.filter(
-        (h) => h.sourceCol === sourceCol && h.candidate.sourcePath === cand.sourcePath
+        (h) => h.sourceCol === sourceCol && h.candidate.sourcePath === cand.sourcePath,
       ).length;
-      const ambiguityPenalty = matchingTargetCount > 1 ? 0.30 : 0.0;
+      const ambiguityPenalty = matchingTargetCount > 1 ? 0.3 : 0.0;
 
       // NameScore calculation
       let nameScore = 0.0;
       const targetLower = targetCol.toLowerCase();
-      const hasDirectNameMatch = cand.targetNameCandidates.some((c) => c.toLowerCase() === targetLower);
+      const hasDirectNameMatch = cand.targetNameCandidates.some(
+        (c) => c.toLowerCase() === targetLower,
+      );
       if (hasDirectNameMatch) {
         nameScore = 1.0;
-      } else if (/(_ids|_id|Ids|Id)$/i.test(cand.sourcePath) || cand.sourcePath.toLowerCase() === "id") {
+      } else if (
+        /(_ids|_id|Ids|Id)$/i.test(cand.sourcePath) ||
+        cand.sourcePath.toLowerCase() === "id"
+      ) {
         nameScore = 0.5;
       }
 
       // TypeScore calculation
       let typeScore = 0.3; // generic string default
       const sampleVal = cand.sampleValues.find((v) => v !== null && v !== undefined);
-      if (sampleVal instanceof ObjectId || (sampleVal && (sampleVal as any)._bsontype === "ObjectId")) {
+      if (
+        sampleVal instanceof ObjectId ||
+        (sampleVal && (sampleVal as any)._bsontype === "ObjectId")
+      ) {
         typeScore = 1.0;
       } else if (typeof sampleVal === "string" && /^[0-9a-fA-F]{24}$/.test(sampleVal)) {
         typeScore = 0.7;
@@ -512,7 +545,7 @@ export class MongoRelationshipEngine {
 
       // Final confidence formula:
       // C = 0.55 * HitRatio + 0.25 * NameScore + 0.20 * TypeScore - AmbiguityPenalty
-      let confidence = 0.55 * hitRatio + 0.25 * nameScore + 0.20 * typeScore - ambiguityPenalty;
+      let confidence = 0.55 * hitRatio + 0.25 * nameScore + 0.2 * typeScore - ambiguityPenalty;
       confidence = Math.max(0.0, Math.min(1.0, Math.round(confidence * 100) / 100));
 
       // 6. Rigorous Cardinality Inference
@@ -541,7 +574,9 @@ export class MongoRelationshipEngine {
         }
       }
 
-      const multipleSourcesPerTarget = Array.from(targetRefDocCounts.values()).some((count) => count > 1);
+      const multipleSourcesPerTarget = Array.from(targetRefDocCounts.values()).some(
+        (count) => count > 1,
+      );
 
       if (cand.isArray) {
         // DO NOT infer many-to-many from arrays alone!
@@ -690,7 +725,7 @@ export class MongoRelationshipEngine {
 
     const idx = inferred.findIndex((r) => r.id === relationshipId);
     const insIdx = insufficient.findIndex((r) => r.id === relationshipId);
-    const candidate = idx >= 0 ? inferred[idx] : (insIdx >= 0 ? insufficient[insIdx] : null);
+    const candidate = idx >= 0 ? inferred[idx] : insIdx >= 0 ? insufficient[insIdx] : null;
 
     if (status === "confirmed") {
       rejectedIds.delete(relationshipId);

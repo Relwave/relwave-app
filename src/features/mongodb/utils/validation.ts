@@ -22,15 +22,17 @@ export function validateCollectionName(name: string): { valid: boolean; error?: 
   if (!COLLECTION_NAME_REGEX.test(trimmed)) {
     return {
       valid: false,
-      error: "Must start with a letter or underscore and contain only alphanumeric, underscores, or hyphens",
+      error:
+        "Must start with a letter or underscore and contain only alphanumeric, underscores, or hyphens",
     };
   }
   return { valid: true };
 }
 
-export function validateCappedOptions(
-  options?: MongoCreateCollectionOptions,
-): { valid: boolean; error?: string } {
+export function validateCappedOptions(options?: MongoCreateCollectionOptions): {
+  valid: boolean;
+  error?: string;
+} {
   if (!options?.capped) {
     return { valid: true };
   }

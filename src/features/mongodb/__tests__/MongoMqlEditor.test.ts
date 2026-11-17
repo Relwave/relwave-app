@@ -42,7 +42,7 @@ test("MongoMqlEditor - Autocomplete Security Invariant", () => {
     assert.strictEqual(
       completionLabels.has(forbidden),
       false,
-      `SECURITY VIOLATION: Autocomplete must never contain ${forbidden}`
+      `SECURITY VIOLATION: Autocomplete must never contain ${forbidden}`,
     );
   }
 
@@ -63,7 +63,7 @@ test("MongoMqlEditor - JSON-Only Contract & Constructor Absence", () => {
     assert.strictEqual(
       completionLabels.has(constructorName),
       false,
-      `JSON VIOLATION: Autocomplete must not suggest mongosh constructor ${constructorName}() in JSON editor`
+      `JSON VIOLATION: Autocomplete must not suggest mongosh constructor ${constructorName}() in JSON editor`,
     );
   }
   assert.strictEqual(completionLabels.has("ObjectId"), false);
@@ -74,7 +74,10 @@ test("MongoMqlEditor - JSON-Only Contract & Constructor Absence", () => {
 
   // All completion labels must begin with '$' to conform to valid JSON keys
   for (const label of completionLabels) {
-    assert.ok(label.startsWith("$"), `Completion token "${label}" must start with '$' for JSON validity`);
+    assert.ok(
+      label.startsWith("$"),
+      `Completion token "${label}" must start with '$' for JSON validity`,
+    );
   }
 });
 

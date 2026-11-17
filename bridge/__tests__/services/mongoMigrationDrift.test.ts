@@ -9,8 +9,8 @@ import {
   MAX_MANIFEST_SIZE_BYTES,
   MIGRATIONS_COLLECTION,
 } from "../../src/services/mongoMigrationEngine";
-import { LOCK_COLLECTION, LOCK_DOC_ID } from "../../src/services/mongoMigrationLock";
-import { MongoMigrationSummary, MongoMigrationLockDoc } from "../../src/types/mongoMigration";
+import { LOCK_COLLECTION } from "../../src/services/mongoMigrationLock";
+import { MongoMigrationSummary } from "../../src/types/mongoMigration";
 
 function createDriftTestDb(summaries: MongoMigrationSummary[]) {
   const summaryMap = new Map<string, MongoMigrationSummary>();
@@ -125,8 +125,16 @@ describe("mongoMigrationDrift", () => {
         name: "Duplicate One",
         up: [{ type: "createCollection", collection: "test" }],
       });
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_a.mql.json"), manifestContent, "utf8");
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_b.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_a.mql.json"),
+        manifestContent,
+        "utf8",
+      );
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_b.mql.json"),
+        manifestContent,
+        "utf8",
+      );
 
       const db = createDriftTestDb([
         {
@@ -240,7 +248,11 @@ describe("mongoMigrationDrift", () => {
         name: "Legacy Migration",
         up: [{ type: "createCollection", collection: "orders" }],
       });
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_orders.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_orders.mql.json"),
+        manifestContent,
+        "utf8",
+      );
 
       const db = createDriftTestDb([
         {
@@ -271,7 +283,11 @@ describe("mongoMigrationDrift", () => {
         name: "Verified Migration",
         up: [{ type: "createCollection", collection: "users" }],
       });
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_users.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_users.mql.json"),
+        manifestContent,
+        "utf8",
+      );
       const computedHash = computeManifestChecksum(manifestContent);
 
       const db = createDriftTestDb([
@@ -303,7 +319,11 @@ describe("mongoMigrationDrift", () => {
         name: "Drifted Migration",
         up: [{ type: "createCollection", collection: "altered" }],
       });
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_drifted.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_drifted.mql.json"),
+        manifestContent,
+        "utf8",
+      );
       const onDiskHash = computeManifestChecksum(manifestContent);
 
       const db = createDriftTestDb([
@@ -325,7 +345,7 @@ describe("mongoMigrationDrift", () => {
       expect(applied.drifted).toBe(true);
       expect(applied.driftDetails?.reason).toBe("CHECKSUM_MISMATCH");
       expect(applied.driftDetails?.expectedChecksum).toBe(
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       );
       expect(applied.driftDetails?.actualChecksum).toBe(onDiskHash);
     });
@@ -339,7 +359,11 @@ describe("mongoMigrationDrift", () => {
         name: "Immutability Test",
         up: [],
       });
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_immut.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_immut.mql.json"),
+        manifestContent,
+        "utf8",
+      );
 
       const db = createDriftTestDb([
         {
@@ -360,7 +384,11 @@ describe("mongoMigrationDrift", () => {
 
     test("does not change migration execution status from APPLIED", async () => {
       const manifestContent = "altered content";
-      fs.writeFileSync(path.join(migrationsDir, "20261031120000_status.mql.json"), manifestContent, "utf8");
+      fs.writeFileSync(
+        path.join(migrationsDir, "20261031120000_status.mql.json"),
+        manifestContent,
+        "utf8",
+      );
 
       const db = createDriftTestDb([
         {

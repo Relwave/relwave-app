@@ -58,7 +58,9 @@ export function formatDirection(dir: MongoIndexDirection): string {
  * Auto-generates a canonical index name from a list of key field definitions.
  * e.g. [{ field: "username", direction: 1 }, { field: "createdAt", direction: -1 }] -> "username_1_createdAt_-1"
  */
-export function generateIndexName(fields: { field: string; direction: MongoIndexDirection }[]): string {
+export function generateIndexName(
+  fields: { field: string; direction: MongoIndexDirection }[],
+): string {
   if (!fields || !Array.isArray(fields)) return "";
   const validFields = fields.filter((f) => f && f.field && f.field.trim().length > 0);
   if (validFields.length === 0) return "";
@@ -114,7 +116,8 @@ export function validateIndexSpec(
     if (hashedCount > 1 || textCount > 0 || geoCount > 0) {
       return {
         valid: false,
-        error: "Hashed index field cannot be combined with other hashed, text, or geospatial fields",
+        error:
+          "Hashed index field cannot be combined with other hashed, text, or geospatial fields",
       };
     }
   }

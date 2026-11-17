@@ -38,14 +38,16 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
   describe("Candidate Name Derivation & Normalization", () => {
     test("derives candidate collection names and normalizes ObjectIds", () => {
       expect(engine.deriveCandidateCollectionNames("userId")).toEqual(
-        expect.arrayContaining(["user", "users"])
+        expect.arrayContaining(["user", "users"]),
       );
       expect(engine.deriveCandidateCollectionNames("items.productId")).toEqual(
-        expect.arrayContaining(["product", "products"])
+        expect.arrayContaining(["product", "products"]),
       );
       const oid = new ObjectId("507f1f77bcf86cd799439011");
       expect(engine.normalizeIdValue(oid)).toBe("507f1f77bcf86cd799439011");
-      expect(engine.normalizeIdValue({ $oid: "507f1f77bcf86cd799439011" })).toBe("507f1f77bcf86cd799439011");
+      expect(engine.normalizeIdValue({ $oid: "507f1f77bcf86cd799439011" })).toBe(
+        "507f1f77bcf86cd799439011",
+      );
       expect(engine.normalizeIdValue("507f1f77bcf86cd799439011")).toBe("507f1f77bcf86cd799439011");
     });
   });
@@ -93,7 +95,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockUsersCol = {
         find: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([{ _id: new ObjectId(), profile_id: targetOid }]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ _id: new ObjectId(), profile_id: targetOid }]),
           limit: jest.fn().mockReturnThis(),
         }),
         indexes: jest.fn<any>().mockResolvedValue([
@@ -133,7 +137,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockSourceCol = {
         find: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([{ _id: new ObjectId(), target_id: targetOid }]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ _id: new ObjectId(), target_id: targetOid }]),
           limit: jest.fn().mockReturnThis(),
         }),
         indexes: jest.fn<any>().mockResolvedValue([
@@ -237,13 +243,15 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockDb: any = {
         listCollections: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { name: "users" },
-            { name: "orders" },
-            { name: "logs" },
-            { name: "analytics" },
-            { name: "audit" },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([
+              { name: "users" },
+              { name: "orders" },
+              { name: "logs" },
+              { name: "analytics" },
+              { name: "audit" },
+            ]),
         }),
         collection: jest.fn((colName: string) => {
           if (colName === "users") return mockUsersCol;
@@ -262,11 +270,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
     test("scopes inference to requested collections when provided", async () => {
       const mockDb: any = {
         listCollections: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { name: "users" },
-            { name: "orders" },
-            { name: "products" },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ name: "users" }, { name: "orders" }, { name: "products" }]),
         }),
         collection: jest.fn().mockReturnValue({
           find: jest.fn().mockReturnValue({
@@ -290,9 +296,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
       // Source collection has an externalId field (ends in Id), but no collection named externals/external exists
       const mockSourcesCol = {
         find: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { _id: new ObjectId(), externalId: new ObjectId() },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ _id: new ObjectId(), externalId: new ObjectId() }]),
           limit: jest.fn().mockReturnThis(),
         }),
         indexes: jest.fn<any>().mockResolvedValue([]),
@@ -314,11 +320,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockDb: any = {
         listCollections: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { name: "sources" },
-            { name: "products" },
-            { name: "orders" },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ name: "sources" }, { name: "products" }, { name: "orders" }]),
         }),
         collection: jest.fn((colName: string) => {
           if (colName === "sources") return mockSourcesCol;
@@ -334,11 +338,11 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
       // Target collections should NOT be probed for externalId because neither products nor orders match "external"
       expect(mockProductsCol.find).not.toHaveBeenCalledWith(
         expect.objectContaining({ _id: expect.anything() }),
-        expect.anything()
+        expect.anything(),
       );
       expect(mockOrdersCol.find).not.toHaveBeenCalledWith(
         expect.objectContaining({ _id: expect.anything() }),
-        expect.anything()
+        expect.anything(),
       );
       expect(res.relationships.length).toBe(0);
     });
@@ -377,11 +381,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockDb: any = {
         listCollections: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { name: "col_1" },
-            { name: "col_2" },
-            { name: "col_3" },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ name: "col_1" }, { name: "col_2" }, { name: "col_3" }]),
         }),
         collection: jest.fn().mockReturnValue({
           find: jest.fn().mockReturnValue({
@@ -471,9 +473,7 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockInvoicesCol = {
         find: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { _id: new ObjectId(), customer_id: hexId },
-          ]),
+          toArray: jest.fn<any>().mockResolvedValue([{ _id: new ObjectId(), customer_id: hexId }]),
           limit: jest.fn().mockReturnThis(),
         }),
         indexes: jest.fn<any>().mockResolvedValue([]),
@@ -526,11 +526,9 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
 
       const mockDb: any = {
         listCollections: jest.fn().mockReturnValue({
-          toArray: jest.fn<any>().mockResolvedValue([
-            { name: "source" },
-            { name: "target" },
-            { name: "targets" },
-          ]),
+          toArray: jest
+            .fn<any>()
+            .mockResolvedValue([{ name: "source" }, { name: "target" }, { name: "targets" }]),
         }),
         collection: jest.fn((colName: string) => {
           if (colName === "source") return mockSourceCol;
@@ -546,8 +544,8 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
       // With ambiguity penalty: 1.00 - 0.30 = 0.70
       const res = await engine.inferRelationships("test-db");
       expect(res.relationships.length).toBe(2);
-      expect(res.relationships[0].confidence).toBe(0.70);
-      expect(res.relationships[1].confidence).toBe(0.70);
+      expect(res.relationships[0].confidence).toBe(0.7);
+      expect(res.relationships[1].confidence).toBe(0.7);
     });
   });
 
@@ -592,7 +590,7 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
           rejectedIds: ["orders.bad_id->products._id"],
         }),
         undefined,
-        "test-db"
+        "test-db",
       );
     });
 
@@ -612,11 +610,19 @@ describe("MongoRelationshipEngine Unit & Heuristic Tests (M7 Phase 1 Remediation
         },
       ];
 
-      const confRes = await engine.setRelationshipStatus("test-db", "orders.user_id->users._id", "confirmed");
+      const confRes = await engine.setRelationshipStatus(
+        "test-db",
+        "orders.user_id->users._id",
+        "confirmed",
+      );
       expect(confRes.status).toBe("confirmed");
       expect(storedRelationships.confirmed.length).toBe(1);
 
-      const rejRes = await engine.setRelationshipStatus("test-db", "orders.user_id->users._id", "rejected");
+      const rejRes = await engine.setRelationshipStatus(
+        "test-db",
+        "orders.user_id->users._id",
+        "rejected",
+      );
       expect(rejRes.status).toBe("rejected");
       expect(storedRelationships.rejectedIds).toContain("orders.user_id->users._id");
       expect(storedRelationships.confirmed.length).toBe(0);

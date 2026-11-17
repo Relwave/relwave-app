@@ -9,15 +9,7 @@ import {
 import { QueryExecutor } from "../src/services/queryExecutor";
 import { IndexHandlers } from "../src/handlers/indexHandlers";
 import { DBType } from "../src/types";
-import type {
-  MongoConfig,
-  MongoIndexDetails,
-  MongoIndexCreateRequest,
-  MongoIndexDropRequest,
-  MongoIndexHideRequest,
-  MongoIndexListRequest,
-  MongoIndexStatsRequest,
-} from "../src/types/mongo";
+import type { MongoConfig, MongoIndexDetails } from "../src/types/mongo";
 
 describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
   const dummyConfig: MongoConfig = {
@@ -609,9 +601,11 @@ describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
         listIndexes: jest.fn<any>().mockReturnValue({
           toArray: jest.fn<any>().mockImplementation(() => Promise.resolve(mockRawIndexes)),
         }),
-        createIndex: jest.fn<any>().mockImplementation((_key: any, opts: any) =>
-          Promise.resolve(opts?.name || "idx_created"),
-        ),
+        createIndex: jest
+          .fn<any>()
+          .mockImplementation((_key: any, opts: any) =>
+            Promise.resolve(opts?.name || "idx_created"),
+          ),
         dropIndex: jest.fn<any>().mockImplementation((_name: any) => Promise.resolve({ ok: 1 })),
         aggregate: jest.fn<any>().mockReturnValue({
           toArray: jest.fn<any>().mockImplementation(() => Promise.resolve(mockStatsDocs)),
@@ -675,18 +669,24 @@ describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
 
       test("handles NamespaceNotFound gracefully by returning empty indexes array", async () => {
         mockCollection.listIndexes = jest.fn<any>().mockReturnValue({
-          toArray: jest
-            .fn<any>()
-            .mockRejectedValue({ code: 26, codeName: "NamespaceNotFound", message: "ns not found" }),
+          toArray: jest.fn<any>().mockRejectedValue({
+            code: 26,
+            codeName: "NamespaceNotFound",
+            message: "ns not found",
+          }),
         });
 
-        const result = await mongoConnector.listIndexes(dummyConfig, { collection: "missing_coll" });
+        const result = await mongoConnector.listIndexes(dummyConfig, {
+          collection: "missing_coll",
+        });
         expect(result.indexes).toEqual([]);
         expect(result.totalSizeBytes).toBe(0);
       });
 
       test("handles collStats failure gracefully by defaulting sizes to 0", async () => {
-        mockDb.command = jest.fn<any>().mockRejectedValue(new Error("collStats not allowed on view"));
+        mockDb.command = jest
+          .fn<any>()
+          .mockRejectedValue(new Error("collStats not allowed on view"));
 
         const result = await mongoConnector.listIndexes(dummyConfig, { collection: "users" });
         expect(result.indexes).toHaveLength(3);
@@ -1358,11 +1358,9 @@ describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
 
     test("handleListIndexes dispatches successfully", async () => {
       await handlers.handleListIndexes({ dbId: "mongo-1", collection: "users" }, 1);
-      expect(mockQueryExecutor.listIndexes).toHaveBeenCalledWith(
-        dummyConfig,
-        DBType.MONGODB,
-        { collection: "users" },
-      );
+      expect(mockQueryExecutor.listIndexes).toHaveBeenCalledWith(dummyConfig, DBType.MONGODB, {
+        collection: "users",
+      });
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(1, {
         ok: true,
         data: expect.objectContaining({ collection: "users" }),
@@ -1454,11 +1452,9 @@ describe("MongoDB Index Management Unit Tests (M6 Spec §3, §9, §11)", () => {
 
     test("handleGetIndexStats dispatches successfully", async () => {
       await handlers.handleGetIndexStats({ dbId: "mongo-1", collection: "users" }, 9);
-      expect(mockQueryExecutor.getIndexStats).toHaveBeenCalledWith(
-        dummyConfig,
-        DBType.MONGODB,
-        { collection: "users" },
-      );
+      expect(mockQueryExecutor.getIndexStats).toHaveBeenCalledWith(dummyConfig, DBType.MONGODB, {
+        collection: "users",
+      });
       expect(mockRpc.sendResponse).toHaveBeenCalledWith(9, {
         ok: true,
         data: expect.objectContaining({ collection: "users" }),

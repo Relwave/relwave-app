@@ -35,10 +35,7 @@ import {
   PlusCircle,
   Database,
 } from "lucide-react";
-import {
-  parseAndValidateFilter,
-  parseAndValidateUpdate,
-} from "../../utils/mongoSemanticEmpty";
+import { parseAndValidateFilter, parseAndValidateUpdate } from "../../utils/mongoSemanticEmpty";
 import {
   useMongoBulkMutations,
   type BulkMutationsServiceContract,
@@ -139,10 +136,7 @@ export function MongoBulkMutationDialog({
     () => parseAndValidateFilter(updateFilterText),
     [updateFilterText],
   );
-  const updateDocValidation = useMemo(
-    () => parseAndValidateUpdate(updateDocText),
-    [updateDocText],
-  );
+  const updateDocValidation = useMemo(() => parseAndValidateUpdate(updateDocText), [updateDocText]);
 
   const deleteFilterValidation = useMemo(
     () => parseAndValidateFilter(deleteFilterText),
@@ -153,17 +147,32 @@ export function MongoBulkMutationDialog({
     try {
       const parsed = JSON.parse(insertDocsText);
       if (!Array.isArray(parsed)) {
-        return { valid: false, error: "Documents must be a JSON array (e.g. [{ ... }])", count: 0, bytes: 0 };
+        return {
+          valid: false,
+          error: "Documents must be a JSON array (e.g. [{ ... }])",
+          count: 0,
+          bytes: 0,
+        };
       }
       const bytes = new TextEncoder().encode(insertDocsText).length;
       if (parsed.length === 0) {
         return { valid: false, error: "Documents array cannot be empty", count: 0, bytes };
       }
       if (parsed.length > 5000) {
-        return { valid: false, error: `Exceeds 5,000 documents limit (${parsed.length} documents)`, count: parsed.length, bytes };
+        return {
+          valid: false,
+          error: `Exceeds 5,000 documents limit (${parsed.length} documents)`,
+          count: parsed.length,
+          bytes,
+        };
       }
       if (bytes > 16 * 1024 * 1024) {
-        return { valid: false, error: `Payload size exceeds 16 MB limit (${(bytes / (1024 * 1024)).toFixed(2)} MB)`, count: parsed.length, bytes };
+        return {
+          valid: false,
+          error: `Payload size exceeds 16 MB limit (${(bytes / (1024 * 1024)).toFixed(2)} MB)`,
+          count: parsed.length,
+          bytes,
+        };
       }
       return { valid: true, documents: parsed, count: parsed.length, bytes };
     } catch (err: any) {
@@ -173,7 +182,13 @@ export function MongoBulkMutationDialog({
 
   // Submission Handlers
   const handleUpdateSubmit = async () => {
-    if (!collection || !updateFilterValidation.valid || !updateDocValidation.valid || isReadOnly || isSubmitting) {
+    if (
+      !collection ||
+      !updateFilterValidation.valid ||
+      !updateDocValidation.valid ||
+      isReadOnly ||
+      isSubmitting
+    ) {
       return;
     }
     if (updateFilterValidation.isUnrestricted && !updateUnrestrictedConfirmed) {
@@ -305,7 +320,8 @@ export function MongoBulkMutationDialog({
             </Badge>
           </div>
           <DialogDescription>
-            Execute bulk update, delete, or insert operations with safety guards and pre-flight validation.
+            Execute bulk update, delete, or insert operations with safety guards and pre-flight
+            validation.
           </DialogDescription>
         </DialogHeader>
 
@@ -316,7 +332,9 @@ export function MongoBulkMutationDialog({
             data-testid="read-only-banner"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span className="font-semibold">Database connection is read-only. Mutation operations are disabled.</span>
+            <span className="font-semibold">
+              Database connection is read-only. Mutation operations are disabled.
+            </span>
           </div>
         )}
 
@@ -330,7 +348,8 @@ export function MongoBulkMutationDialog({
             <div>
               <div className="font-semibold">Operation in progress</div>
               <p className="mt-0.5 text-blue-500/90">
-                You may close this dialog; execution will continue in the background and record the final outcome in the Bulk Operations History table.
+                You may close this dialog; execution will continue in the background and record the
+                final outcome in the Bulk Operations History table.
               </p>
             </div>
           </div>
@@ -386,7 +405,11 @@ export function MongoBulkMutationDialog({
         </div>
 
         {/* Multi-Tab Mutation Workspace */}
-        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => setActiveTab(val as any)}
+          className="w-full"
+        >
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="update" data-testid="mutation-tab-update">
               Update
@@ -409,7 +432,10 @@ export function MongoBulkMutationDialog({
                   Filter Query (JSON)
                 </Label>
                 {updateFilterValidation.isUnrestricted && (
-                  <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/40">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-amber-500 border-amber-500/40"
+                  >
                     Unrestricted Filter
                   </Badge>
                 )}
@@ -464,8 +490,8 @@ export function MongoBulkMutationDialog({
                 <div className="flex items-start gap-2 text-xs text-amber-500">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold">Unrestricted Bulk Update:</span> No filter specified.
-                    This update will apply to every document in collection{" "}
+                    <span className="font-semibold">Unrestricted Bulk Update:</span> No filter
+                    specified. This update will apply to every document in collection{" "}
                     <span className="font-mono font-bold text-foreground">'{collection}'</span>.
                   </div>
                 </div>
@@ -524,7 +550,8 @@ export function MongoBulkMutationDialog({
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold">CRITICAL:</span> Empty filter will permanently{" "}
-                    <span className="font-bold uppercase underline">delete all documents</span> in collection{" "}
+                    <span className="font-bold uppercase underline">delete all documents</span> in
+                    collection{" "}
                     <span className="font-mono font-bold text-foreground">'{collection}'</span>!
                   </div>
                 </div>
@@ -532,7 +559,8 @@ export function MongoBulkMutationDialog({
                 <div className="space-y-1">
                   <Label htmlFor="delete-verify" className="text-xs text-muted-foreground">
                     To proceed, type the exact collection name{" "}
-                    <span className="font-mono font-semibold text-foreground">'{collection}'</span> to confirm:
+                    <span className="font-mono font-semibold text-foreground">'{collection}'</span>{" "}
+                    to confirm:
                   </Label>
                   <Input
                     id="delete-verify"
@@ -660,7 +688,9 @@ export function MongoBulkMutationDialog({
               ) : (
                 <>
                   <Trash2 className="h-3.5 w-3.5" />
-                  {deleteFilterValidation.isUnrestricted ? "Delete All Documents" : "Delete Documents"}
+                  {deleteFilterValidation.isUnrestricted
+                    ? "Delete All Documents"
+                    : "Delete Documents"}
                 </>
               )}
             </Button>

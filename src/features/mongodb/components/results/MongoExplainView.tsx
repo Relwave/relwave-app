@@ -38,10 +38,7 @@ export interface ExplainAnalysis {
 /**
  * Recursively inspects stages in winningPlan or executionStages to find stage types and index names.
  */
-function inspectStagesRecursive(
-  node: any,
-  stages: Array<{ stage: string; indexName?: string }>
-) {
+function inspectStagesRecursive(node: any, stages: Array<{ stage: string; indexName?: string }>) {
   if (!node || typeof node !== "object") return;
 
   if (typeof node.stage === "string") {
@@ -96,8 +93,7 @@ export function analyzeExplainPlan(explain: MongoExplainResult): ExplainAnalysis
     winningStage = collectedStages[0].stage;
   }
 
-  const executionTimeMs =
-    executionStats?.executionTimeMillis ?? explain.executionTimeMs ?? 0;
+  const executionTimeMs = executionStats?.executionTimeMillis ?? explain.executionTimeMs ?? 0;
   const hasExecutionStats = Boolean(executionStats);
 
   const totalDocsExamined = executionStats?.totalDocsExamined;
@@ -107,11 +103,7 @@ export function analyzeExplainPlan(explain: MongoExplainResult): ExplainAnalysis
   let efficiencyRatio: number | undefined;
   let highScanRatio = false;
 
-  if (
-    hasExecutionStats &&
-    typeof totalDocsExamined === "number" &&
-    typeof nReturned === "number"
-  ) {
+  if (hasExecutionStats && typeof totalDocsExamined === "number" && typeof nReturned === "number") {
     if (nReturned > 0) {
       efficiencyRatio = totalDocsExamined / nReturned;
       if (efficiencyRatio > 10) {
@@ -241,8 +233,8 @@ export const MongoExplainView: React.FC<MongoExplainViewProps> = ({
               {analysis.isIxScan
                 ? `Index: ${analysis.indexName || "Active"}`
                 : analysis.isCollScan
-                ? "Full collection scan"
-                : "Optimized plan"}
+                  ? "Full collection scan"
+                  : "Optimized plan"}
             </p>
           </CardContent>
         </Card>
@@ -330,7 +322,8 @@ export const MongoExplainView: React.FC<MongoExplainViewProps> = ({
         <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
           <Info className="h-3.5 w-3.5 shrink-0" />
           <span>
-            Execution statistics were not returned (queryPlanner verbosity). Run explain with executionStats to view docs examined.
+            Execution statistics were not returned (queryPlanner verbosity). Run explain with
+            executionStats to view docs examined.
           </span>
         </div>
       )}
@@ -345,7 +338,8 @@ export const MongoExplainView: React.FC<MongoExplainViewProps> = ({
             <FileSearch className="h-4 w-4 text-muted-foreground" />
             <span>Raw Explain Tree</span>
             <span className="text-muted-foreground font-normal text-[11px]">
-              ({explainResult.rawExplain ? Object.keys(explainResult.rawExplain).length : 0} root properties)
+              ({explainResult.rawExplain ? Object.keys(explainResult.rawExplain).length : 0} root
+              properties)
             </span>
           </div>
           {showRawTree ? (

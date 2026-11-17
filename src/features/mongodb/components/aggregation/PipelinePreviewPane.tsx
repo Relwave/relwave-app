@@ -38,11 +38,7 @@ export const PipelinePreviewPane: React.FC<PipelinePreviewPaneProps> = ({
             className="h-7 text-xs gap-1 px-2"
             onClick={handleCopy}
           >
-            {copied ? (
-              <Check className="h-3 w-3 text-emerald-500" />
-            ) : (
-              <Copy className="h-3 w-3" />
-            )}
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
             Copy Script
           </Button>
 
@@ -62,12 +58,7 @@ export const PipelinePreviewPane: React.FC<PipelinePreviewPaneProps> = ({
       </div>
 
       <div className="flex-1 min-h-0">
-        <MongoMqlEditor
-          value={script}
-          onChange={() => {}}
-          disabled={true}
-          minHeight="100%"
-        />
+        <MongoMqlEditor value={script} onChange={() => {}} disabled={true} minHeight="100%" />
       </div>
     </div>
   );

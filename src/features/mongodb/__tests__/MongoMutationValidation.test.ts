@@ -78,9 +78,9 @@ describe("validateJsonDocument", () => {
   });
 
   it("rejects JSON arrays or primitives", () => {
-    assert.equal(validateJsonDocument('[1, 2, 3]').valid, false);
+    assert.equal(validateJsonDocument("[1, 2, 3]").valid, false);
     assert.equal(validateJsonDocument('"hello"').valid, false);
-    assert.equal(validateJsonDocument('123').valid, false);
-    assert.equal(validateJsonDocument('null').valid, false);
+    assert.equal(validateJsonDocument("123").valid, false);
+    assert.equal(validateJsonDocument("null").valid, false);
   });
 });

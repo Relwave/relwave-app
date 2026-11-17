@@ -37,18 +37,16 @@ import {
 } from "../utils/payloadAccounting";
 import type {
   MongoBulkImportStartRequest,
-  MongoBulkImportStartResult,
   MongoBulkImportChunkRequest,
-  MongoBulkImportChunkResult,
   MongoBulkCancelRequest,
   MongoBulkCancelResult,
   MongoBulkCleanupRequest,
-  MongoBulkCleanupResult,
   MongoBulkGetOperationStatusRequest,
-  MongoBulkOperationStatusResult,
 } from "../types/bulk";
 
-function createMockService(overrides?: Partial<BulkImportServiceContract>): BulkImportServiceContract & {
+function createMockService(
+  overrides?: Partial<BulkImportServiceContract>,
+): BulkImportServiceContract & {
   calls: {
     start: MongoBulkImportStartRequest[];
     chunk: MongoBulkImportChunkRequest[];
@@ -208,7 +206,12 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     );
 
     // Verify state progression
-    assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "completed"]);
+    assert.deepEqual(tracker.stateTransitions, [
+      "validating",
+      "starting",
+      "uploading",
+      "completed",
+    ]);
     assert.equal(tracker.error, null);
     assert.equal(tracker.operationId, "mock-op-123");
 
@@ -265,7 +268,12 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
       mockService,
     );
 
-    assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "completed"]);
+    assert.deepEqual(tracker.stateTransitions, [
+      "validating",
+      "starting",
+      "uploading",
+      "completed",
+    ]);
     assert.equal(mockService.calls.chunk.length, 2);
 
     // Chunk 0
@@ -323,20 +331,17 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     const tracker = createCallbackTracker();
     const abortController = new AbortController();
 
-    await assert.rejects(
-      async () => {
-        await executeMongoBulkImport(
-          "db-1",
-          emptyFile,
-          "users",
-          "json",
-          abortController,
-          tracker.callbacks,
-          mockService,
-        );
-      },
-      ZeroDocumentImportError,
-    );
+    await assert.rejects(async () => {
+      await executeMongoBulkImport(
+        "db-1",
+        emptyFile,
+        "users",
+        "json",
+        abortController,
+        tracker.callbacks,
+        mockService,
+      );
+    }, ZeroDocumentImportError);
 
     assert.equal(mockService.calls.start.length, 0);
     assert.equal(mockService.calls.chunk.length, 0);
@@ -349,20 +354,17 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     const tracker = createCallbackTracker();
     const abortController = new AbortController();
 
-    await assert.rejects(
-      async () => {
-        await executeMongoBulkImport(
-          "db-1",
-          emptyArrayFile,
-          "users",
-          "json",
-          abortController,
-          tracker.callbacks,
-          mockService,
-        );
-      },
-      ZeroDocumentImportError,
-    );
+    await assert.rejects(async () => {
+      await executeMongoBulkImport(
+        "db-1",
+        emptyArrayFile,
+        "users",
+        "json",
+        abortController,
+        tracker.callbacks,
+        mockService,
+      );
+    }, ZeroDocumentImportError);
 
     assert.equal(mockService.calls.start.length, 0);
     assert.deepEqual(tracker.stateTransitions, ["validating", "failed"]);
@@ -374,27 +376,26 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     const tracker = createCallbackTracker();
     const abortController = new AbortController();
 
-    await assert.rejects(
-      async () => {
-        await executeMongoBulkImport(
-          "db-1",
-          headerOnlyCsv,
-          "users",
-          "csv",
-          abortController,
-          tracker.callbacks,
-          mockService,
-        );
-      },
-      ZeroDocumentImportError,
-    );
+    await assert.rejects(async () => {
+      await executeMongoBulkImport(
+        "db-1",
+        headerOnlyCsv,
+        "users",
+        "csv",
+        abortController,
+        tracker.callbacks,
+        mockService,
+      );
+    }, ZeroDocumentImportError);
 
     assert.equal(mockService.calls.start.length, 0);
     assert.deepEqual(tracker.stateTransitions, ["validating", "failed"]);
   });
 
   it("retries transient transport errors (e.g. ECONNRESET, socket hang up) up to 2 times and succeeds", async () => {
-    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", {
+      type: "application/json",
+    });
 
     let attempts = 0;
     const mockService = createMockService({
@@ -437,12 +438,19 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     assert.equal(mockService.calls.chunk[1].chunkIndex, 0);
     assert.equal(mockService.calls.chunk[0].payload, mockService.calls.chunk[1].payload);
 
-    assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "completed"]);
+    assert.deepEqual(tracker.stateTransitions, [
+      "validating",
+      "starting",
+      "uploading",
+      "completed",
+    ]);
     assert.equal(tracker.progress.totalInserted, 1);
   });
 
   it("halts immediately on terminal non-transient errors (e.g. MONGO_VALIDATION_ERROR) without retrying", async () => {
-    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", {
+      type: "application/json",
+    });
 
     let attempts = 0;
     const mockService = createMockService({
@@ -480,13 +488,17 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
   });
 
   it("halts immediately on MONGO_NOT_FOUND without retrying", async () => {
-    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }])], "single.json", {
+      type: "application/json",
+    });
 
     let attempts = 0;
     const mockService = createMockService({
       importMongoBulkChunk: async () => {
         attempts++;
-        const error = new Error("MONGO_NOT_FOUND: Operation session is no longer available in bridge memory");
+        const error = new Error(
+          "MONGO_NOT_FOUND: Operation session is no longer available in bridge memory",
+        );
         (error as unknown as Record<string, unknown>).code = "MONGO_NOT_FOUND";
         throw error;
       },
@@ -569,7 +581,9 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
   it("cancellation between chunks halts reader, submits zero subsequent chunks, and dispatches 1 cancel RPC", async () => {
     // 3000 documents -> 3 chunks (chunk 0, 1, 2)
     const docs = Array.from({ length: 3000 }, (_, i) => ({ id: i }));
-    const file = new File([JSON.stringify(docs)], "multi_cancel.json", { type: "application/json" });
+    const file = new File([JSON.stringify(docs)], "multi_cancel.json", {
+      type: "application/json",
+    });
     const abortController = new AbortController();
 
     const mockService = createMockService({
@@ -617,7 +631,9 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
   it("failed in-flight chunk preserves previous acknowledged counts and transitions to cancelled", async () => {
     const docs = Array.from({ length: 2500 }, (_, i) => ({ id: i }));
-    const file = new File([JSON.stringify(docs)], "chunk_fail_cancel.json", { type: "application/json" });
+    const file = new File([JSON.stringify(docs)], "chunk_fail_cancel.json", {
+      type: "application/json",
+    });
     const abortController = new AbortController();
 
     const mockService = createMockService({
@@ -726,20 +742,17 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const tracker = createCallbackTracker();
 
-    await assert.rejects(
-      async () => {
-        await executeMongoBulkImport(
-          "db-1",
-          file,
-          "users",
-          "json",
-          abortController,
-          tracker.callbacks,
-          mockService,
-        );
-      },
-      /Bridge failed to cancel operation/,
-    );
+    await assert.rejects(async () => {
+      await executeMongoBulkImport(
+        "db-1",
+        file,
+        "users",
+        "json",
+        abortController,
+        tracker.callbacks,
+        mockService,
+      );
+    }, /Bridge failed to cancel operation/);
 
     assert.equal(tracker.stateTransitions[tracker.stateTransitions.length - 1], "failed");
   });
@@ -787,7 +800,12 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     );
 
     assert.equal(mockService.calls.status.length, 1);
-    assert.deepEqual(tracker.stateTransitions, ["validating", "starting", "uploading", "completed"]);
+    assert.deepEqual(tracker.stateTransitions, [
+      "validating",
+      "starting",
+      "uploading",
+      "completed",
+    ]);
   });
 
   it("marks state as failed if final chunk reports status failed", async () => {
@@ -809,20 +827,17 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const tracker = createCallbackTracker();
 
-    await assert.rejects(
-      async () => {
-        await executeMongoBulkImport(
-          "db-1",
-          file,
-          "users",
-          "json",
-          abortController,
-          tracker.callbacks,
-          mockService,
-        );
-      },
-      /Bulk import failed on final chunk/,
-    );
+    await assert.rejects(async () => {
+      await executeMongoBulkImport(
+        "db-1",
+        file,
+        "users",
+        "json",
+        abortController,
+        tracker.callbacks,
+        mockService,
+      );
+    }, /Bulk import failed on final chunk/);
 
     assert.equal(tracker.stateTransitions[tracker.stateTransitions.length - 1], "failed");
   });
@@ -896,19 +911,18 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
     const firstPromise = hookInstance.startImport(file, "users", "json");
 
-    await assert.rejects(
-      async () => {
-        await hookInstance.startImport(file, "users", "json");
-      },
-      /An import operation is already in progress/,
-    );
+    await assert.rejects(async () => {
+      await hookInstance.startImport(file, "users", "json");
+    }, /An import operation is already in progress/);
 
     await firstPromise;
   });
 
   it("useMongoBulkImport hook deduplicates concurrent cancelImport calls", async () => {
     let hookInstance!: UseMongoBulkImportReturn;
-    const file = new File([JSON.stringify([{ id: 1 }, { id: 2 }])], "test.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }, { id: 2 }])], "test.json", {
+      type: "application/json",
+    });
 
     const mockService = createMockService({
       importMongoBulkChunk: async (req) => {
@@ -954,10 +968,13 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
 
   it("delegated unmount (cancelOnUnmount: false) does not abort or cancel background import", async () => {
     let cleanupFn: (() => void) | undefined;
-    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const internals = (React as any)
+      .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 
     let hookInstance!: UseMongoBulkImportReturn;
-    const file = new File([JSON.stringify([{ id: 1 }])], "delegated.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }])], "delegated.json", {
+      type: "application/json",
+    });
 
     const mockService = createMockService({
       importMongoBulkChunk: async (req) => {
@@ -999,15 +1016,22 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     await importPromise;
 
     // Zero cancel calls dispatched because cancelOnUnmount was false
-    assert.equal(mockService.calls.cancel.length, 0, "No cancel RPC should be sent when cancelOnUnmount is false");
+    assert.equal(
+      mockService.calls.cancel.length,
+      0,
+      "No cancel RPC should be sent when cancelOnUnmount is false",
+    );
   });
 
   it("standalone unmount (default cancelOnUnmount: true) dispatches cancel RPC to bridge", async () => {
     let cleanupFn: (() => void) | undefined;
-    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const internals = (React as any)
+      .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 
     let hookInstance!: UseMongoBulkImportReturn;
-    const file = new File([JSON.stringify([{ id: 1 }])], "standalone.json", { type: "application/json" });
+    const file = new File([JSON.stringify([{ id: 1 }])], "standalone.json", {
+      type: "application/json",
+    });
 
     const mockService = createMockService({
       importMongoBulkChunk: async (req) => {
@@ -1056,7 +1080,10 @@ describe("useMongoBulkImport / executeMongoBulkImport Workflow", () => {
     }
 
     // Cancel RPC was dispatched to bridge
-    assert.ok(mockService.calls.cancel.length >= 1, "Cancel RPC must be sent upon unmount when cancelOnUnmount is true");
+    assert.ok(
+      mockService.calls.cancel.length >= 1,
+      "Cancel RPC must be sent upon unmount when cancelOnUnmount is true",
+    );
     assert.equal(mockService.calls.cancel[0].operationId, "mock-op-123");
   });
 });

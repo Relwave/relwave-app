@@ -182,17 +182,23 @@ export function validateManifest(manifest: any): MongoMigrationValidateResult {
         ddlCount++;
         reversibleCount++;
         if (!step.collection || typeof step.collection !== "string") {
-          errors.push(`Step at index ${idx} (createCollection): requires non-empty collection name`);
+          errors.push(
+            `Step at index ${idx} (createCollection): requires non-empty collection name`,
+          );
         } else if (
           step.collection.includes("$") ||
           step.collection.includes("\0") ||
           step.collection.startsWith("system.")
         ) {
-          errors.push(`Step at index ${idx} (createCollection): invalid collection name '${step.collection}'`);
+          errors.push(
+            `Step at index ${idx} (createCollection): invalid collection name '${step.collection}'`,
+          );
         }
         if (step.options?.capped) {
           if (typeof step.options.size !== "number" || step.options.size < 4096) {
-            errors.push(`Step at index ${idx} (createCollection): capped collection requires size >= 4096`);
+            errors.push(
+              `Step at index ${idx} (createCollection): capped collection requires size >= 4096`,
+            );
           }
         }
         break;
@@ -395,7 +401,7 @@ export async function compensateStep(
     }
     case "dropIndex": {
       if (preState && preState.key) {
-        const { key, name, v, ns, ...restOptions } = preState;
+        const { key, name: _name, v: _v, ns: _ns, ...restOptions } = preState;
         await db
           .collection(step.collection)
           .createIndex(key, { ...restOptions, name: step.indexName });
@@ -527,7 +533,7 @@ async function applySingleManifest(
 
   let heartbeatInFlight = false;
   let lockLost = false;
-  let heartbeatTimer: NodeJS.Timeout | null = setInterval(async () => {
+  const heartbeatTimer: NodeJS.Timeout | null = setInterval(async () => {
     if (heartbeatInFlight || lockLost) return;
     heartbeatInFlight = true;
     try {
@@ -644,7 +650,7 @@ async function applySingleManifest(
           const indexes = await coll.indexes();
           const targetIdx = indexes.find((idx) => idx.name === step.indexName);
           if (targetIdx) {
-            const { v, ns, ...rest } = targetIdx;
+            const { v: _v, ns: _ns, ...rest } = targetIdx;
             preState = rest;
           }
         } catch {
@@ -690,9 +696,7 @@ async function applySingleManifest(
             break;
           }
           case "createIndex": {
-            await db
-              .collection(step.collection)
-              .createIndex(step.key as any, step.options as any);
+            await db.collection(step.collection).createIndex(step.key as any, step.options as any);
             break;
           }
           case "dropIndex": {
@@ -753,10 +757,9 @@ async function applySingleManifest(
 
         // Reverse compensation
         await recordEvent("COMPENSATION_START", i, step.type);
-        await db.collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION).updateOne(
-          { _id: manifest.id },
-          { $set: { status: "ROLLING_BACK" } },
-        );
+        await db
+          .collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION)
+          .updateOne({ _id: manifest.id }, { $set: { status: "ROLLING_BACK" } });
 
         let compensationFailed = false;
         let compError: any = null;
@@ -1172,7 +1175,9 @@ export async function applyMigration(
 
     const files = fs.readdirSync(migrationsDir);
     const targetFile = files.find(
-      (f) => (f.startsWith(version + "_") || f.startsWith(version + ".")) && MANIFEST_FILENAME_REGEX.test(f),
+      (f) =>
+        (f.startsWith(version + "_") || f.startsWith(version + ".")) &&
+        MANIFEST_FILENAME_REGEX.test(f),
     );
 
     if (!targetFile) {
@@ -1200,7 +1205,10 @@ export async function applyMigration(
     try {
       manifest = JSON.parse(rawContent);
     } catch (err: any) {
-      throw new MongoApiError("INVALID_MANIFEST", `Invalid JSON in manifest '${targetFile}': ${err.message}`);
+      throw new MongoApiError(
+        "INVALID_MANIFEST",
+        `Invalid JSON in manifest '${targetFile}': ${err.message}`,
+      );
     }
 
     const singleResult = await applySingleManifest(db, manifest, checksum, options);
@@ -1250,10 +1258,16 @@ export async function rollbackMigration(
     .findOne({ _id: migrationId });
 
   if (!summary) {
-    throw new MongoApiError("MIGRATION_NOT_FOUND", `Migration '${migrationId}' not found in database records`);
+    throw new MongoApiError(
+      "MIGRATION_NOT_FOUND",
+      `Migration '${migrationId}' not found in database records`,
+    );
   }
   if (summary.status === "ROLLED_BACK") {
-    throw new MongoApiError("ALREADY_ROLLED_BACK", `Migration '${migrationId}' has already been rolled back`);
+    throw new MongoApiError(
+      "ALREADY_ROLLED_BACK",
+      `Migration '${migrationId}' has already been rolled back`,
+    );
   }
 
   // Load manifest if projectRoot provided
@@ -1263,7 +1277,9 @@ export async function rollbackMigration(
     if (fs.existsSync(migrationsDir)) {
       const files = fs.readdirSync(migrationsDir);
       const file = files.find(
-        (f) => (f.startsWith(migrationId + "_") || f.startsWith(migrationId + ".")) && MANIFEST_FILENAME_REGEX.test(f),
+        (f) =>
+          (f.startsWith(migrationId + "_") || f.startsWith(migrationId + ".")) &&
+          MANIFEST_FILENAME_REGEX.test(f),
       );
       if (file) {
         const fullPath = path.join(migrationsDir, file);
@@ -1285,7 +1301,7 @@ export async function rollbackMigration(
 
   let heartbeatInFlight = false;
   let lockLost = false;
-  let heartbeatTimer: NodeJS.Timeout | null = setInterval(async () => {
+  const heartbeatTimer: NodeJS.Timeout | null = setInterval(async () => {
     if (heartbeatInFlight || lockLost) return;
     heartbeatInFlight = true;
     try {
@@ -1343,10 +1359,9 @@ export async function rollbackMigration(
 
   try {
     await recordEvent("COMPENSATION_START");
-    await db.collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION).updateOne(
-      { _id: migrationId },
-      { $set: { status: "ROLLING_BACK" } },
-    );
+    await db
+      .collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION)
+      .updateOne({ _id: migrationId }, { $set: { status: "ROLLING_BACK" } });
 
     // Retrieve events to find completed steps and pre-states
     const events = await db
@@ -1355,7 +1370,12 @@ export async function rollbackMigration(
       .sort({ attemptNumber: 1, sequenceNumber: 1 } as any)
       .toArray();
 
-    const completedSteps: Array<{ index: number; type: string; preState: any; step?: MongoMigrationStep }> = [];
+    const completedSteps: Array<{
+      index: number;
+      type: string;
+      preState: any;
+      step?: MongoMigrationStep;
+    }> = [];
     const completedStepIndices = new Set<number>();
 
     for (const ev of events) {
@@ -1448,7 +1468,9 @@ export async function rollbackMigration(
     };
   } catch (err: any) {
     await recordEvent("COMPENSATION_FAILED", undefined, undefined, { error: err.message });
-    await recordEvent("MANUAL_INTERVENTION_REQUIRED", undefined, undefined, { reason: err.message });
+    await recordEvent("MANUAL_INTERVENTION_REQUIRED", undefined, undefined, {
+      reason: err.message,
+    });
 
     await db.collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION).updateOne(
       { _id: migrationId },
@@ -1618,9 +1640,10 @@ export async function getMigrationStatus(
   let events: MongoMigrationEvent[] | undefined;
 
   if (migrationId) {
-    migration = (await db
-      .collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION)
-      .findOne({ _id: migrationId })) || undefined;
+    migration =
+      (await db
+        .collection<MongoMigrationSummary>(MIGRATIONS_COLLECTION)
+        .findOne({ _id: migrationId })) || undefined;
 
     events = await db
       .collection<MongoMigrationEvent>(EVENTS_COLLECTION)

@@ -200,13 +200,7 @@ export interface MongoDropCollectionResult {
 // ==========================================
 
 export type EJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | EJsonValue[]
-  | EJSONDocument
-  | Record<string, any>;
+  string | number | boolean | null | EJsonValue[] | EJSONDocument | Record<string, any>;
 
 export interface MongoFindOpPayload {
   filter: EJSONDocument;
@@ -282,10 +276,7 @@ export interface MongoDistinctMqlResult extends MongoMqlBaseResult {
 }
 
 export type MongoMqlExecuteResult =
-  | MongoFindMqlResult
-  | MongoAggregateMqlResult
-  | MongoCountMqlResult
-  | MongoDistinctMqlResult;
+  MongoFindMqlResult | MongoAggregateMqlResult | MongoCountMqlResult | MongoDistinctMqlResult;
 
 export type MongoExplainTarget =
   | {
@@ -349,4 +340,3 @@ export interface MongoshParseResult {
 export * from "./types/migration";
 export * from "./types/relationship";
 export * from "./types/bulk";
-

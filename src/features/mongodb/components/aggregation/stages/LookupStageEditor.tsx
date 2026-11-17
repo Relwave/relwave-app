@@ -9,11 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const LookupStageEditor: FC<StageEditorProps> = ({
-  stage,
-  onChange,
-  collections = [],
-}) => {
+export const LookupStageEditor: FC<StageEditorProps> = ({ stage, onChange, collections = [] }) => {
   const { from = "", localField = "", foreignField = "", as = "" } = stage.config;
 
   return (
@@ -21,10 +17,7 @@ export const LookupStageEditor: FC<StageEditorProps> = ({
       <div className="space-y-1">
         <label className="text-muted-foreground font-medium">Foreign Collection (from)</label>
         {collections.length > 0 ? (
-          <Select
-            value={from}
-            onValueChange={(val) => onChange({ ...stage.config, from: val })}
-          >
+          <Select value={from} onValueChange={(val) => onChange({ ...stage.config, from: val })}>
             <SelectTrigger className="h-8 text-xs font-mono">
               <SelectValue placeholder="Select collection" />
             </SelectTrigger>

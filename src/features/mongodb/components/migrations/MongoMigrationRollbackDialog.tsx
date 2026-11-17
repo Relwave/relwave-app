@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { RotateCcw, Loader2, AlertTriangle, ShieldAlert, Info } from "lucide-react";
+import { RotateCcw, Loader2, ShieldAlert, Info } from "lucide-react";
 import { useRollbackMongoMigration } from "../../hooks/useMongoMigrations";
 
 export const IRREVERSIBLE_ROLLBACK_ACKNOWLEDGMENT =
@@ -83,15 +83,22 @@ export function MongoMigrationRollbackDialog({
           <Alert className="py-2.5 bg-muted/40 border-border/60">
             <Info className="h-4 w-4 text-blue-500 shrink-0" />
             <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-              Rollback acquires a lock, checks that all steps can be safely compensated,
-              and writes compensation audit events. If inverse steps fail or non-empty collections
-              are encountered on createCollection compensation, execution halts with <code className="font-mono text-destructive">FAILED_MANUAL_INTERVENTION_REQUIRED</code>.
+              Rollback acquires a lock, checks that all steps can be safely compensated, and writes
+              compensation audit events. If inverse steps fail or non-empty collections are
+              encountered on createCollection compensation, execution halts with{" "}
+              <code className="font-mono text-destructive">
+                FAILED_MANUAL_INTERVENTION_REQUIRED
+              </code>
+              .
             </AlertDescription>
           </Alert>
 
           {/* Irreversibility Warning & Checkbox */}
           {isIrreversible ? (
-            <Alert variant="destructive" className="py-3 bg-destructive/10 border-destructive/30 space-y-2.5">
+            <Alert
+              variant="destructive"
+              className="py-3 bg-destructive/10 border-destructive/30 space-y-2.5"
+            >
               <div className="flex items-start gap-2">
                 <ShieldAlert className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                 <div>
@@ -99,9 +106,10 @@ export function MongoMigrationRollbackDialog({
                     Irreversible Steps Detected
                   </AlertTitle>
                   <AlertDescription className="text-[11px] text-destructive/90 leading-relaxed mt-0.5">
-                    This migration contains operations (such as <code className="font-mono font-semibold">dropCollection</code>)
-                    that cannot be automatically reversed. Any collections and indexes dropped during forward execution
-                    cannot have their historical data restored by rolling back.
+                    This migration contains operations (such as{" "}
+                    <code className="font-mono font-semibold">dropCollection</code>) that cannot be
+                    automatically reversed. Any collections and indexes dropped during forward
+                    execution cannot have their historical data restored by rolling back.
                   </AlertDescription>
                 </div>
               </div>

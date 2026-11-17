@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 
 export const LimitSkipStageEditor: FC<StageEditorProps> = ({ stage, onChange }) => {
   const isLimit = stage.type === "$limit";
-  const val = isLimit ? stage.config.limit ?? 10 : stage.config.skip ?? 0;
+  const val = isLimit ? (stage.config.limit ?? 10) : (stage.config.skip ?? 0);
 
   return (
     <div className="space-y-2">

@@ -21,10 +21,7 @@ describe("MongoDB Aggregation Pipeline Model", () => {
     const id1 = generateStageId();
     const id2 = generateStageId();
     assert.notStrictEqual(id1, id2);
-    assert.match(
-      id1,
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
+    assert.match(id1, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   const supportedTypes: SupportedStageType[] = [

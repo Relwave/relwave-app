@@ -85,7 +85,7 @@ export function tokenize(source: string): Token[] {
           "INVALID_SYNTAX",
           startLine,
           startCol,
-          startOffset
+          startOffset,
         );
       }
       continue;
@@ -104,7 +104,7 @@ export function tokenize(source: string): Token[] {
         "SECURITY_VIOLATION",
         startLine,
         startCol,
-        startOffset
+        startOffset,
       );
     }
 
@@ -180,7 +180,7 @@ export function tokenize(source: string): Token[] {
           "INVALID_SYNTAX",
           startLine,
           startCol,
-          startOffset
+          startOffset,
         );
       }
 
@@ -196,10 +196,8 @@ export function tokenize(source: string): Token[] {
     }
 
     // Numbers: optional leading +/- followed by digits, or decimal point followed by digits
-    const isNegativeOrPositiveDigit =
-      (ch === "-" || ch === "+") && /\d/.test(peek(1));
-    const isDigitOrLeadingDot =
-      /\d/.test(ch) || (ch === "." && /\d/.test(peek(1)));
+    const isNegativeOrPositiveDigit = (ch === "-" || ch === "+") && /\d/.test(peek(1));
+    const isDigitOrLeadingDot = /\d/.test(ch) || (ch === "." && /\d/.test(peek(1)));
 
     if (isNegativeOrPositiveDigit || isDigitOrLeadingDot) {
       if (ch === "-" || ch === "+") {
@@ -286,7 +284,7 @@ export function tokenize(source: string): Token[] {
       "INVALID_SYNTAX",
       startLine,
       startCol,
-      startOffset
+      startOffset,
     );
   }
 

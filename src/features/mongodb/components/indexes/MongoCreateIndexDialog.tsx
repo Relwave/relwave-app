@@ -19,11 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Plus,
   Trash2,
@@ -39,11 +35,7 @@ import {
   MongoIndexOptions,
   MongoIndexCollation,
 } from "@/services/bridge/databaseBridge";
-import {
-  generateIndexName,
-  validateIndexSpec,
-  IndexKeyField,
-} from "../../utils/indexHelpers";
+import { generateIndexName, validateIndexSpec, IndexKeyField } from "../../utils/indexHelpers";
 import { useMongoSchema } from "@/features/project/hooks/useDbQueries";
 import { useMongoIndexes } from "../../hooks/useMongoIndexes";
 
@@ -62,9 +54,7 @@ export function MongoCreateIndexDialog({
   collection,
   onSuccess,
 }: MongoCreateIndexDialogProps) {
-  const [fields, setFields] = useState<IndexKeyField[]>([
-    { field: "", direction: 1 },
-  ]);
+  const [fields, setFields] = useState<IndexKeyField[]>([{ field: "", direction: 1 }]);
   const [customName, setCustomName] = useState<string>("");
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
 
@@ -157,7 +147,7 @@ export function MongoCreateIndexDialog({
     try {
       const parsed = JSON.parse(val);
       if (typeof parsed !== "object" || Array.isArray(parsed) || parsed === null) {
-        setPartialJsonError("Must be a JSON object (e.g. {\"status\": \"active\"})");
+        setPartialJsonError('Must be a JSON object (e.g. {"status": "active"})');
       } else {
         setPartialJsonError(null);
       }
@@ -232,7 +222,8 @@ export function MongoCreateIndexDialog({
       const collation: MongoIndexCollation = {
         locale: collationLocale.trim(),
       };
-      if (collationStrength !== undefined) collation.strength = collationStrength as 1 | 2 | 3 | 4 | 5;
+      if (collationStrength !== undefined)
+        collation.strength = collationStrength as 1 | 2 | 3 | 4 | 5;
       if (collationCaseLevel) collation.caseLevel = true;
       if (collationNumericOrdering) collation.numericOrdering = true;
       options.collation = collation;
@@ -322,8 +313,8 @@ export function MongoCreateIndexDialog({
                           val === "1"
                             ? 1
                             : val === "-1"
-                            ? -1
-                            : (val as "text" | "2dsphere" | "hashed");
+                              ? -1
+                              : (val as "text" | "2dsphere" | "hashed");
                         handleDirectionChange(idx, parsedDir);
                       }}
                     >
@@ -602,10 +593,7 @@ export function MongoCreateIndexDialog({
 
               <div className="flex items-center justify-between border-t border-border/30 pt-2">
                 <span className="text-[11px]">Case Level</span>
-                <Switch
-                  checked={collationCaseLevel}
-                  onCheckedChange={setCollationCaseLevel}
-                />
+                <Switch checked={collationCaseLevel} onCheckedChange={setCollationCaseLevel} />
               </div>
 
               <div className="flex items-center justify-between border-t border-border/30 pt-2">

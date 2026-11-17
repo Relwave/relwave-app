@@ -14,7 +14,6 @@ import React, { useState, useRef, useCallback } from "react";
 import { databaseService } from "@/services/bridge/database";
 import { defaultMongoBulkOperationsStore } from "./useMongoBulkOperationsStore";
 import type {
-  TrackedSyncBulkMutation,
   MongoBulkUpdateRequest,
   MongoBulkUpdateResult,
   MongoBulkDeleteRequest,
@@ -76,7 +75,7 @@ export function useMongoBulkMutations(
 ) {
   const inReact = Boolean(
     typeof React !== "undefined" &&
-      (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?.H,
+    (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?.H,
   );
 
   const [isSubmitting, setIsSubmittingState] = inReact ? useState(false) : [false, () => {}];
@@ -94,7 +93,8 @@ export function useMongoBulkMutations(
   };
 
   const getStore = wrapCallback(() => {
-    if (options?.store) return options.store.getSnapshot ? options.store.getSnapshot() : options.store;
+    if (options?.store)
+      return options.store.getSnapshot ? options.store.getSnapshot() : options.store;
     if (service?.bulkStore) {
       return service.bulkStore.getSnapshot ? service.bulkStore.getSnapshot() : service.bulkStore;
     }
@@ -141,7 +141,8 @@ export function useMongoBulkMutations(
       });
 
       try {
-        const dispatchFn = service.bulkUpdateMongoDocuments || databaseService.bulkUpdateMongoDocuments;
+        const dispatchFn =
+          service.bulkUpdateMongoDocuments || databaseService.bulkUpdateMongoDocuments;
         const res = await dispatchFn({
           dbId: targetDbId,
           collection: params.collection,
@@ -217,7 +218,8 @@ export function useMongoBulkMutations(
       });
 
       try {
-        const dispatchFn = service.bulkDeleteMongoDocuments || databaseService.bulkDeleteMongoDocuments;
+        const dispatchFn =
+          service.bulkDeleteMongoDocuments || databaseService.bulkDeleteMongoDocuments;
         const res = await dispatchFn({
           dbId: targetDbId,
           collection: params.collection,
@@ -316,7 +318,8 @@ export function useMongoBulkMutations(
       });
 
       try {
-        const dispatchFn = service.bulkInsertMongoDocuments || databaseService.bulkInsertMongoDocuments;
+        const dispatchFn =
+          service.bulkInsertMongoDocuments || databaseService.bulkInsertMongoDocuments;
         const res = await dispatchFn({
           dbId: targetDbId,
           collection: params.collection,
@@ -356,7 +359,8 @@ export function useMongoBulkMutations(
         if (res.insertedCount + res.failedCount !== params.documents.length) {
           store.updateSyncMutation(mutationId, {
             status: "failed",
-            error: "Malformed bridge response: insertedCount + failedCount does not match total documents",
+            error:
+              "Malformed bridge response: insertedCount + failedCount does not match total documents",
           });
           return { status: "failed" as const, error: "Malformed bridge response: count mismatch" };
         }
@@ -388,7 +392,10 @@ export function useMongoBulkMutations(
             failedCount: res.failedCount,
             errors: sanitizedErrors,
             totalErrors: totalErrors > 0 ? totalErrors : res.failedCount,
-            error: sanitizedErrors.length > 0 ? sanitizedErrors[0].message : "All documents failed to insert",
+            error:
+              sanitizedErrors.length > 0
+                ? sanitizedErrors[0].message
+                : "All documents failed to insert",
           });
           return { status: "failed" as const, result: res };
         }

@@ -8,7 +8,6 @@ import {
   assertValidManifest,
   computeManifestChecksum,
   validateSafeFilePath,
-  resolveMongoMigrationsDir,
   listMigrations,
   applyMigration,
   rollbackMigration,
@@ -46,9 +45,7 @@ function createMockEngineDb() {
 
   const getOrCreateCollIndexes = (name: string) => {
     if (!collectionsIndexes.has(name)) {
-      collectionsIndexes.set(name, [
-        { name: "_id_", key: { _id: 1 }, v: 2 },
-      ]);
+      collectionsIndexes.set(name, [{ name: "_id_", key: { _id: 1 }, v: 2 }]);
     }
     return collectionsIndexes.get(name)!;
   };
@@ -100,7 +97,7 @@ function createMockEngineDb() {
             const now = new Date();
 
             if (!existing) {
-              const fencingToken = (update.$inc?.fencingToken || 1);
+              const fencingToken = update.$inc?.fencingToken || 1;
               const newDoc: MongoMigrationLockDoc = {
                 _id: LOCK_DOC_ID,
                 ownerId: update.$set?.ownerId || null,
@@ -116,7 +113,8 @@ function createMockEngineDb() {
 
             const ownerMatch = filter.$or?.some((cond: any) => {
               if ("ownerId" in cond && cond.ownerId === existing.ownerId) return true;
-              if ("ownerId" in cond && cond.ownerId === null && existing.ownerId === null) return true;
+              if ("ownerId" in cond && cond.ownerId === null && existing.ownerId === null)
+                return true;
               if (
                 cond.expiresAt?.$lt &&
                 existing.expiresAt &&
@@ -131,8 +129,12 @@ function createMockEngineDb() {
               const fencingToken = (existing.fencingToken || 0) + (update.$inc?.fencingToken || 1);
               const updatedDoc: MongoMigrationLockDoc = {
                 ...existing,
-                ownerId: update.$set?.ownerId !== undefined ? update.$set.ownerId : existing.ownerId,
-                migrationId: update.$set?.migrationId !== undefined ? update.$set.migrationId : existing.migrationId,
+                ownerId:
+                  update.$set?.ownerId !== undefined ? update.$set.ownerId : existing.ownerId,
+                migrationId:
+                  update.$set?.migrationId !== undefined
+                    ? update.$set.migrationId
+                    : existing.migrationId,
                 acquiredAt: update.$set?.acquiredAt || now,
                 heartbeatAt: update.$set?.heartbeatAt || now,
                 expiresAt: update.$set?.expiresAt || existing.expiresAt,
@@ -155,9 +157,13 @@ function createMockEngineDb() {
               const doc = locks.get(LOCK_DOC_ID);
               if (!doc) return null;
               if (filter.ownerId && doc.ownerId !== filter.ownerId) return null;
-              if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken) return null;
+              if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken)
+                return null;
               if (filter.expiresAt?.$gt) {
-                if (!doc.expiresAt || new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()) {
+                if (
+                  !doc.expiresAt ||
+                  new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()
+                ) {
                   return null;
                 }
               }
@@ -169,12 +175,16 @@ function createMockEngineDb() {
           async updateOne(filter: any, update: any) {
             const doc = locks.get(LOCK_DOC_ID);
             if (!doc) return { matchedCount: 0, modifiedCount: 0 };
-            if (filter.ownerId && doc.ownerId !== filter.ownerId) return { matchedCount: 0, modifiedCount: 0 };
+            if (filter.ownerId && doc.ownerId !== filter.ownerId)
+              return { matchedCount: 0, modifiedCount: 0 };
             if (filter.fencingToken !== undefined && doc.fencingToken !== filter.fencingToken) {
               return { matchedCount: 0, modifiedCount: 0 };
             }
             if (filter.expiresAt?.$gt) {
-              if (!doc.expiresAt || new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()) {
+              if (
+                !doc.expiresAt ||
+                new Date(doc.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()
+              ) {
                 return { matchedCount: 0, modifiedCount: 0 };
               }
             }
@@ -261,7 +271,7 @@ function createMockEngineDb() {
             return { matchedCount: doc ? 1 : 0, modifiedCount: 1 };
           },
 
-          async replaceOne(filter: any, doc: any, options?: any) {
+          async replaceOne(filter: any, doc: any, _options?: any) {
             summaries.set(filter._id, { ...doc });
             return { matchedCount: 1, modifiedCount: 1 };
           },
@@ -350,7 +360,11 @@ function createMockEngineDb() {
 
         async createIndex(key: any, options?: any) {
           const idxs = getOrCreateCollIndexes(name);
-          const indexName = options?.name || Object.entries(key).map(([k, v]) => `${k}_${v}`).join("_");
+          const indexName =
+            options?.name ||
+            Object.entries(key)
+              .map(([k, v]) => `${k}_${v}`)
+              .join("_");
           idxs.push({
             name: indexName,
             key,
@@ -442,7 +456,12 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         name: "setup_users",
         up: [
           { type: "createCollection", collection: "users" },
-          { type: "createIndex", collection: "users", key: { email: 1 }, options: { unique: true } },
+          {
+            type: "createIndex",
+            collection: "users",
+            key: { email: 1 },
+            options: { unique: true },
+          },
           {
             type: "updateMany",
             collection: "users",
@@ -485,9 +504,7 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         version: "1.0",
         id: "20261031120000",
         name: "delete_test",
-        up: [
-          { type: "deleteMany", collection: "users", filter: { old: true } },
-        ],
+        up: [{ type: "deleteMany", collection: "users", filter: { old: true } }],
       };
       const result = validateManifest(manifest);
       expect(result.valid).toBe(false);
@@ -603,13 +620,13 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
   // =========================================================================
   describe("Filesystem Security & Discovery", () => {
     test("rejects path traversal containing '..' or null bytes", () => {
-      expect(() =>
-        validateSafeFilePath(path.join(mongoDir, "../secret.json"), mongoDir),
-      ).toThrow(MongoApiError);
+      expect(() => validateSafeFilePath(path.join(mongoDir, "../secret.json"), mongoDir)).toThrow(
+        MongoApiError,
+      );
 
-      expect(() =>
-        validateSafeFilePath(path.join(mongoDir, "manifest\0.json"), mongoDir),
-      ).toThrow(MongoApiError);
+      expect(() => validateSafeFilePath(path.join(mongoDir, "manifest\0.json"), mongoDir)).toThrow(
+        MongoApiError,
+      );
     });
 
     test("rejects files outside migration directory", () => {
@@ -625,9 +642,9 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
       const buffer = Buffer.alloc(MAX_MANIFEST_SIZE_BYTES + 10, "x");
       fs.writeFileSync(bigFile, buffer);
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow(MongoApiError);
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow(
+        MongoApiError,
+      );
 
       try {
         await applyMigration(mockEngine.db, tempDir, "20261031120000");
@@ -667,7 +684,12 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         name: "setup_app",
         up: [
           { type: "createCollection", collection: "users" },
-          { type: "createIndex", collection: "users", key: { email: 1 }, options: { unique: true } },
+          {
+            type: "createIndex",
+            collection: "users",
+            key: { email: 1 },
+            options: { unique: true },
+          },
           {
             type: "setValidator",
             collection: "users",
@@ -716,9 +738,9 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
 
       await applyMigration(mockEngine.db, tempDir, "20261031120000");
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow(MongoApiError);
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow(
+        MongoApiError,
+      );
 
       try {
         await applyMigration(mockEngine.db, tempDir, "20261031120000");
@@ -742,9 +764,9 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
       manifest.name = "tampered_name";
       fs.writeFileSync(file, JSON.stringify(manifest, null, 2));
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow(MongoApiError);
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow(
+        MongoApiError,
+      );
 
       try {
         await applyMigration(mockEngine.db, tempDir, "20261031120000");
@@ -766,16 +788,19 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         name: "partial_fail",
         up: [
           { type: "createCollection", collection: "accounts" },
-          { type: "createIndex", collection: "accounts", key: { username: 1 }, options: { name: "idx_user" } },
+          {
+            type: "createIndex",
+            collection: "accounts",
+            key: { username: 1 },
+            options: { name: "idx_user" },
+          },
           // Step 3 will fail because collection "nonexistent" is missing for dropIndex
           { type: "dropIndex", collection: "nonexistent_collection", indexName: "nonexistent_idx" },
         ],
       };
       fs.writeFileSync(file, JSON.stringify(manifest, null, 2));
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow();
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow();
 
       // Check summary
       const summary = mockEngine.summaries.get("20261031120000");
@@ -819,9 +844,7 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         return res;
       };
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow();
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow();
 
       // Summary must transition to FAILED_MANUAL_INTERVENTION_REQUIRED
       const summary = mockEngine.summaries.get("20261031120000");
@@ -890,7 +913,12 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         name: "for_rollback",
         up: [
           { type: "createCollection", collection: "books" },
-          { type: "createIndex", collection: "books", key: { isbn: 1 }, options: { name: "idx_isbn" } },
+          {
+            type: "createIndex",
+            collection: "books",
+            key: { isbn: 1 },
+            options: { name: "idx_isbn" },
+          },
         ],
       };
       fs.writeFileSync(file, JSON.stringify(manifest, null, 2));
@@ -1258,7 +1286,9 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         }),
       );
 
-      const result = await applyMigration(mockEngine.db, tempDir, "20261031120000", { dryRun: true });
+      const result = await applyMigration(mockEngine.db, tempDir, "20261031120000", {
+        dryRun: true,
+      });
       expect(result.success).toBe(true);
       expect(result.results[0].status).toBe("PENDING");
 
@@ -1297,13 +1327,15 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         return origCreateCollection.call(this, name, options);
       };
 
-      await expect(
-        applyMigration(mockEngine.db, tempDir, "20261031120000"),
-      ).rejects.toThrow("Simulated failure on second step");
+      await expect(applyMigration(mockEngine.db, tempDir, "20261031120000")).rejects.toThrow(
+        "Simulated failure on second step",
+      );
 
       const summary = mockEngine.summaries.get("20261031120000");
       expect(summary?.status).toBe("FAILED_MANUAL_INTERVENTION_REQUIRED");
-      expect((summary?.error as any)?.message).toContain("contains 1 documents added after creation");
+      expect((summary?.error as any)?.message).toContain(
+        "contains 1 documents added after creation",
+      );
 
       // guard_coll must NOT be dropped
       expect(mockEngine.collectionsData.has("guard_coll")).toBe(true);
@@ -1329,7 +1361,9 @@ describe("mongoMigrationEngine Unit Tests (M6 Spec §4-§8)", () => {
         );
       } catch (err: any) {
         expect(err.code).toBe("COMPENSATION_FAILED");
-        expect(err.message).toContain("pre-state missing and no matching createIndex found in down steps");
+        expect(err.message).toContain(
+          "pre-state missing and no matching createIndex found in down steps",
+        );
       }
     });
 

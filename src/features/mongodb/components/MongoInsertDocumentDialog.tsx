@@ -200,7 +200,7 @@ export function MongoInsertDocumentDialog({
           <Textarea
             value={jsonText}
             onChange={(e) => handleTextChange(e.target.value)}
-            placeholder="{\n  &quot;name&quot;: &quot;Example&quot;\n}"
+            placeholder='{\n  "name": "Example"\n}'
             className="flex-1 font-mono text-xs leading-relaxed resize-none bg-background/50 border-border/50 min-h-[240px]"
             spellCheck={false}
           />

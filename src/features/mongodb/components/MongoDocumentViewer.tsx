@@ -140,7 +140,9 @@ export function MongoDocumentViewer({
               size="sm"
               onClick={onImportClick}
               disabled={isLoading || !collection || isReadOnly || isSystemCollection}
-              title={isSystemCollection ? "System collections are protected against imports" : undefined}
+              title={
+                isSystemCollection ? "System collections are protected against imports" : undefined
+              }
               data-testid="toolbar-bulk-import-button"
               className="h-9 gap-1.5 text-xs"
             >
@@ -234,7 +236,9 @@ export function MongoDocumentViewer({
             sortDirection={sortDirection === 1 ? "asc" : sortDirection === -1 ? "desc" : undefined}
             onSort={onSort}
             onEditRow={!isReadOnly && onEditDocument ? (row) => onEditDocument(row) : undefined}
-            onDeleteRow={!isReadOnly && onDeleteDocument ? (row) => onDeleteDocument(row) : undefined}
+            onDeleteRow={
+              !isReadOnly && onDeleteDocument ? (row) => onDeleteDocument(row) : undefined
+            }
             renderCell={(val, col, row) => <MongoDocumentCell value={val} column={col} row={row} />}
           />
         )}

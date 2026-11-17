@@ -97,7 +97,10 @@ export function MongoRelationshipsPanel({
   const confirmed = useMemo(() => data?.confirmed || [], [data?.confirmed]);
   const manual = useMemo(() => data?.manual || [], [data?.manual]);
   const rejectedIds = useMemo(() => new Set(data?.rejectedIds || []), [data?.rejectedIds]);
-  const insufficient = useMemo(() => data?.insufficientEvidence || [], [data?.insufficientEvidence]);
+  const insufficient = useMemo(
+    () => data?.insufficientEvidence || [],
+    [data?.insufficientEvidence],
+  );
 
   const awaitingReviewCount = useMemo(
     () => inferred.filter((r) => r.status === "inferred").length,
@@ -187,7 +190,10 @@ export function MongoRelationshipsPanel({
       }
 
       if (collectionFilter !== "all") {
-        if (!row.source.startsWith(`${collectionFilter}.`) && !row.target.startsWith(`${collectionFilter}.`)) {
+        if (
+          !row.source.startsWith(`${collectionFilter}.`) &&
+          !row.target.startsWith(`${collectionFilter}.`)
+        ) {
           return false;
         }
       }
@@ -409,7 +415,8 @@ export function MongoRelationshipsPanel({
             <Network className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm font-semibold">No relationships found</p>
             <p className="text-xs text-muted-foreground max-w-sm">
-              Discover candidate references by running inference or add manual relationship metadata.
+              Discover candidate references by running inference or add manual relationship
+              metadata.
             </p>
             <div className="flex gap-2 pt-2">
               <Button size="sm" variant="outline" onClick={() => setManualDialogOpen(true)}>

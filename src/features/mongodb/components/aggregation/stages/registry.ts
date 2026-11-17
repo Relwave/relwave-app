@@ -269,7 +269,8 @@ export const STAGE_DEFINITIONS: Record<SupportedStageType, StageDefinition> = {
   $unwind: {
     type: "$unwind",
     label: "Unwind",
-    description: "Deconstructs an array field from the input documents to output a document for each element",
+    description:
+      "Deconstructs an array field from the input documents to output a document for each element",
     createDefaultConfig: () => ({
       path: "$items",
       preserveNullAndEmptyArrays: false,

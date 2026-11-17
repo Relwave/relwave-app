@@ -117,8 +117,7 @@ export class ConnectionPool {
   private triggerDeferredCleanup(entry: PoolEntry): void {
     if (this._isForcedTeardownInitiated) return;
 
-    let cleanupPromise: Promise<void>;
-    cleanupPromise = (async () => {
+    const cleanupPromise: Promise<void> = (async () => {
       try {
         if (this._isForcedTeardownInitiated) return;
         if (entry.tunnel) {
@@ -130,10 +129,7 @@ export class ConnectionPool {
           await this.safeCloseMongoClient(entry.conn);
         }
       } catch (err: any) {
-        logger.warn(
-          { err: safeMongoError(err) },
-          "Deferred cleanup error in ConnectionPool",
-        );
+        logger.warn({ err: safeMongoError(err) }, "Deferred cleanup error in ConnectionPool");
       } finally {
         this.inProgressCleanups.delete(cleanupPromise);
       }
@@ -147,10 +143,15 @@ export class ConnectionPool {
     const clientKey = getClientKey(cfg);
 
     const inPool = Array.from(this.pool.values()).some(
-      (e) => !e.disposed && e.dbType === DBType.MONGODB && e.conn && getClientKey(e.conn) === clientKey,
+      (e) =>
+        !e.disposed && e.dbType === DBType.MONGODB && e.conn && getClientKey(e.conn) === clientKey,
     );
     const inPending = Array.from(this.pendingDisposal).some(
-      (e) => e.activeOperations > 0 && e.dbType === DBType.MONGODB && e.conn && getClientKey(e.conn) === clientKey,
+      (e) =>
+        e.activeOperations > 0 &&
+        e.dbType === DBType.MONGODB &&
+        e.conn &&
+        getClientKey(e.conn) === clientKey,
     );
     const buildingCount = this.buildingClientKeys.get(clientKey) || 0;
 

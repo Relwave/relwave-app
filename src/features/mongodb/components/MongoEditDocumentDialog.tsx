@@ -10,15 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Loader2,
-  Edit,
-  FileCode,
-  Check,
-  AlertCircle,
-  AlertTriangle,
-  Lock,
-} from "lucide-react";
+import { Loader2, Edit, FileCode, Check, AlertCircle, AlertTriangle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { EJSONDocument } from "../types";
 import { useUpdateMongoDocument, useReplaceMongoDocument } from "../hooks/useMongoMutations";
@@ -126,7 +118,9 @@ export function MongoEditDocumentDialog({
       if (mode === "patch") {
         const diff = computeDocumentDiff(document, editedDoc);
         if (!diff.hasChanges || !diff.updateDoc) {
-          toast.info("No changes made", { description: "The document already contained the specified values." });
+          toast.info("No changes made", {
+            description: "The document already contained the specified values.",
+          });
           onOpenChange(false);
           return;
         }
@@ -139,7 +133,8 @@ export function MongoEditDocumentDialog({
 
         if (res.matchedCount === 0) {
           toast.error("Document not found", {
-            description: "The target document no longer exists. It may have been deleted concurrently.",
+            description:
+              "The target document no longer exists. It may have been deleted concurrently.",
           });
           onRefreshView();
           onOpenChange(false);
@@ -164,7 +159,8 @@ export function MongoEditDocumentDialog({
 
         if (res.matchedCount === 0) {
           toast.error("Document not found", {
-            description: "The target document no longer exists. It may have been deleted concurrently.",
+            description:
+              "The target document no longer exists. It may have been deleted concurrently.",
           });
           onRefreshView();
           onOpenChange(false);
@@ -236,8 +232,8 @@ export function MongoEditDocumentDialog({
           <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
             <span>
-              <strong>Warning:</strong> Full Replacement mode replaces the entire document.
-              Fields omitted from this editor will be permanently deleted.
+              <strong>Warning:</strong> Full Replacement mode replaces the entire document. Fields
+              omitted from this editor will be permanently deleted.
             </span>
           </div>
         )}
@@ -293,13 +289,14 @@ export function MongoEditDocumentDialog({
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={
-              Boolean(
-                isSaving ||
-                error ||
-                (mode === "patch" && diffResult && "hasChanges" in diffResult && !diffResult.hasChanges)
-              )
-            }
+            disabled={Boolean(
+              isSaving ||
+              error ||
+              (mode === "patch" &&
+                diffResult &&
+                "hasChanges" in diffResult &&
+                !diffResult.hasChanges),
+            )}
             className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
           >
             {isSaving ? (

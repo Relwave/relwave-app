@@ -26,7 +26,6 @@ import {
   parseAndValidateUpdate,
   sanitizeErrorMessage,
   sanitizeMutationErrors,
-  hasPrototypePollution,
 } from "../utils/mongoSemanticEmpty";
 import {
   useMongoBulkMutations,
@@ -226,7 +225,8 @@ describe("useMongoBulkMutations and mongoSemanticEmpty Tests", () => {
   // 6. Defensive Error Sanitization
   it("6. bounds retained errors to 10 items, truncates messages, strips control characters, and redacts credentials", () => {
     // Credential redaction
-    const uriMsg = "Connection failed: mongodb://admin:secretPass123@cluster0.mongodb.net/test?ssl=true";
+    const uriMsg =
+      "Connection failed: mongodb://admin:secretPass123@cluster0.mongodb.net/test?ssl=true";
     const sanitizedUri = sanitizeErrorMessage(uriMsg);
     assert.ok(!sanitizedUri.includes("secretPass123"));
     assert.ok(sanitizedUri.includes("<credentials>@"));
