@@ -1,6 +1,44 @@
 import { DBType, Rpc, QueryParams } from "../types";
 import { getConnector } from "./connectorRegistry";
 import logger from "./logger";
+import { mongoConnector, MongoApiError } from "../connectors/mongo";
+import {
+  MongoConfig,
+  MongoExecutionContext,
+  MongoCollectionInfo,
+  MongoInferSchemaRequest,
+  MongoCollectionSchema,
+  MongoFindRequest,
+  MongoFindResult,
+  MongoInsertRequest,
+  MongoInsertResult,
+  MongoUpdateRequest,
+  MongoUpdateResult,
+  MongoDeleteRequest,
+  MongoDeleteResult,
+  MongoReplaceRequest,
+  MongoReplaceResult,
+  MongoCreateCollectionRequest,
+  MongoCreateCollectionResult,
+  MongoDropCollectionRequest,
+  MongoDropCollectionResult,
+  MongoAggregationRequest,
+  MongoAggregationResult,
+  MongoMqlExecuteRequest,
+  MongoMqlExecuteResult,
+  MongoExplainRequest,
+  MongoExplainResult,
+  MongoIndexListRequest,
+  MongoIndexListResult,
+  MongoIndexCreateRequest,
+  MongoIndexCreateResult,
+  MongoIndexDropRequest,
+  MongoIndexDropResult,
+  MongoIndexStatsRequest,
+  MongoIndexStatsResult,
+  MongoIndexHideRequest,
+  MongoIndexHideResult,
+} from "../types/mongo";
 
 // Concurrency limit for parallel processing
 const PARALLEL_LIMIT = 5;
@@ -168,5 +206,255 @@ export class QueryExecutor {
         : (conn as any).database;
 
     return { name: dbName, schemas: finalSchemas.filter(Boolean) };
+  }
+
+  // ---- M2: MongoDB document engine (docs/MONGODB_M2_SPEC.md §13) ----
+
+  async findDocuments(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoFindRequest,
+  ): Promise<MongoFindResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.findDocuments(conn, req);
+  }
+
+  async insertDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoInsertRequest,
+  ): Promise<MongoInsertResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.insertDocument(conn, req);
+  }
+
+  async updateDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoUpdateRequest,
+  ): Promise<MongoUpdateResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.updateDocument(conn, req);
+  }
+
+  async replaceDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoReplaceRequest,
+  ): Promise<MongoReplaceResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.replaceDocument(conn, req);
+  }
+
+  async createCollection(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoCreateCollectionRequest,
+  ): Promise<MongoCreateCollectionResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Collection operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.createCollection(conn, req);
+  }
+
+  async dropCollection(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoDropCollectionRequest,
+  ): Promise<MongoDropCollectionResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Collection operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.dropCollection(conn, req);
+  }
+
+  async deleteDocument(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoDeleteRequest,
+  ): Promise<MongoDeleteResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "Document operations require a MongoDB connection",
+      );
+    }
+    return mongoConnector.deleteDocument(conn, req);
+  }
+
+  async runAggregation(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoAggregationRequest,
+  ): Promise<MongoAggregationResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "runAggregation requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.runAggregation(conn, req);
+  }
+
+  async listCollections(
+    conn: MongoConfig,
+    dbType: DBType,
+    _req?: { collectionFilter?: string },
+  ): Promise<{ collections: MongoCollectionInfo[] }> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "listCollections requires a MongoDB connection",
+      );
+    }
+    const collections = await mongoConnector.listCollections(conn);
+    return { collections };
+  }
+
+  async inferCollectionSchema(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoInferSchemaRequest,
+  ): Promise<MongoCollectionSchema> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "inferCollectionSchema requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.inferCollectionSchema(conn, req);
+  }
+
+  async executeMql(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoMqlExecuteRequest,
+    context?: MongoExecutionContext,
+  ): Promise<MongoMqlExecuteResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "executeMql requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.executeMql(conn, req, context);
+  }
+
+  async explainMql(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoExplainRequest,
+    context?: MongoExecutionContext,
+  ): Promise<MongoExplainResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "explainMql requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.explainMql(conn, req, context);
+  }
+
+  // ===========================================================================
+  // M6 — Secondary Index Management (docs/MONGODB_M6_SPEC.md §3)
+  // ===========================================================================
+
+  async listIndexes(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexListRequest,
+  ): Promise<MongoIndexListResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "listIndexes requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.listIndexes(conn, req);
+  }
+
+  async createIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexCreateRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexCreateResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "createIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.createIndex(conn, req, options);
+  }
+
+  async dropIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexDropRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexDropResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "dropIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.dropIndex(conn, req, options);
+  }
+
+  async getIndexStats(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexStatsRequest,
+  ): Promise<MongoIndexStatsResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "getIndexStats requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.getIndexStats(conn, req);
+  }
+
+  async hideIndex(
+    conn: MongoConfig,
+    dbType: DBType,
+    req: MongoIndexHideRequest,
+    options?: { readOnly?: boolean },
+  ): Promise<MongoIndexHideResult> {
+    if (dbType !== DBType.MONGODB) {
+      throw new MongoApiError(
+        "MONGO_UNSUPPORTED_OPERATION",
+        "hideIndex requires a MongoDB connection",
+      );
+    }
+    return mongoConnector.hideIndex(conn, req, options);
   }
 }

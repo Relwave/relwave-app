@@ -1,5 +1,4 @@
 import {
-  Database,
   Zap,
   ExternalLink,
   MoreHorizontal,

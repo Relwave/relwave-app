@@ -1,9 +1,14 @@
 import { Rpc } from "./types";
 import { SessionManager } from "./sessionManager";
-import { DatabaseService } from "./services/databaseService";
+import { databaseServiceInstance } from "./services/databaseService";
 import { QueryExecutor } from "./services/queryExecutor";
 import { QueryHandlers } from "./handlers/queryHandlers";
 import { DatabaseHandlers } from "./handlers/databaseHandlers";
+import { IndexHandlers } from "./handlers/indexHandlers";
+import { MongoRelationshipEngine } from "./services/mongoRelationshipEngine";
+import { MongoRelationshipHandlers } from "./handlers/mongoRelationshipHandlers";
+import { MongoBulkEngine } from "./services/mongoBulkEngine";
+import { MongoBulkHandlers } from "./handlers/mongoBulkHandlers";
 import { SessionHandlers } from "./handlers/sessionHandlers";
 import { StatsHandlers } from "./handlers/statsHandlers";
 import { MigrationHandlers } from "./handlers/migrationHandlers";
@@ -24,7 +29,7 @@ import { Logger } from "pino";
  */
 export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionManager) {
   // Initialize services
-  const dbService = new DatabaseService();
+  const dbService = databaseServiceInstance;
   const queryExecutor = new QueryExecutor();
   const monitoringService = new MonitoringService();
   const monitoringWebSocketServer = new MonitoringWebSocketServer(
@@ -45,6 +50,15 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   const gitAdvancedHandlers = new GitAdvancedHandlers(rpc, logger);
   const monitoringHandlers = new MonitoringHandlers(rpc, logger, dbService, monitoringService);
   const aiHandlers = new (require("./handlers/aiHandlers").AIHandlers)(rpc, logger, dbService);
+  const indexHandlers = new IndexHandlers(rpc, logger, dbService, queryExecutor);
+  const mongoRelationshipEngine = new MongoRelationshipEngine(dbService);
+  const mongoRelationshipHandlers = new MongoRelationshipHandlers(
+    rpc,
+    logger,
+    mongoRelationshipEngine,
+  );
+  const mongoBulkEngine = new MongoBulkEngine(dbService);
+  const mongoBulkHandlers = new MongoBulkHandlers(rpc, logger, mongoBulkEngine);
 
   // ==========================================
   // SESSION MANAGEMENT HANDLERS
@@ -70,6 +84,17 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "query.updateRow", (p, id) => queryHandlers.handleUpdateRow(p, id));
   rpcRegister(rpc, "query.deleteRow", (p, id) => queryHandlers.handleDeleteRow(p, id));
   rpcRegister(rpc, "query.searchTable", (p, id) => queryHandlers.handleSearchTable(p, id));
+  // M2: MongoDB document engine (docs/MONGODB_M2_SPEC.md §13)
+  rpcRegister(rpc, "query.fetchDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
+  rpcRegister(rpc, "query.findDocuments", (p, id) => queryHandlers.handleFetchDocuments(p, id));
+  rpcRegister(rpc, "query.insertDocument", (p, id) => queryHandlers.handleInsertDocument(p, id));
+  rpcRegister(rpc, "query.updateDocument", (p, id) => queryHandlers.handleUpdateDocument(p, id));
+  rpcRegister(rpc, "query.replaceDocument", (p, id) => queryHandlers.handleReplaceDocument(p, id));
+  rpcRegister(rpc, "query.deleteDocument", (p, id) => queryHandlers.handleDeleteDocument(p, id));
+  rpcRegister(rpc, "query.runAggregation", (p, id) => queryHandlers.handleRunAggregation(p, id));
+  // M5: MongoDB MQL Workspace & Read-Only Engine (docs/MONGODB_M5_SPEC.md §5)
+  rpcRegister(rpc, "query.executeMql", (p, id) => queryHandlers.handleExecuteMql(p, id));
+  rpcRegister(rpc, "query.explainMql", (p, id) => queryHandlers.handleExplainMql(p, id));
 
   // ==========================================
   // DATABASE CRUD HANDLERS
@@ -87,6 +112,60 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   rpcRegister(rpc, "db.listTables", (p, id) => databaseHandlers.handleListTables(p, id));
   rpcRegister(rpc, "db.getSchema", (p, id) => databaseHandlers.handleGetSchema(p, id));
   rpcRegister(rpc, "db.listSchemas", (p, id) => databaseHandlers.handleListSchemas(p, id));
+  rpcRegister(rpc, "db.listCollections", (p, id) => queryHandlers.handleListCollections(p, id));
+  rpcRegister(rpc, "db.getInferredSchema", (p, id) => queryHandlers.handleGetInferredSchema(p, id));
+  rpcRegister(rpc, "db.createCollection", (p, id) => queryHandlers.handleCreateCollection(p, id));
+  rpcRegister(rpc, "db.dropCollection", (p, id) => queryHandlers.handleDropCollection(p, id));
+
+  // ==========================================
+  // INDEX MANAGEMENT HANDLERS (docs/MONGODB_M6_SPEC.md §11)
+  // ==========================================
+  rpcRegister(rpc, "index.list", (p, id) => indexHandlers.handleListIndexes(p, id));
+  rpcRegister(rpc, "index.create", (p, id) => indexHandlers.handleCreateIndex(p, id));
+  rpcRegister(rpc, "index.drop", (p, id) => indexHandlers.handleDropIndex(p, id));
+  rpcRegister(rpc, "index.getStats", (p, id) => indexHandlers.handleGetIndexStats(p, id));
+  rpcRegister(rpc, "index.hide", (p, id) => indexHandlers.handleHideIndex(p, id));
+
+  // ==========================================
+  // MONGO RELATIONSHIP HANDLERS (M7 Phase 1)
+  // ==========================================
+  rpcRegister(rpc, "mongo.relationship.infer", (p, id) =>
+    mongoRelationshipHandlers.handleInfer(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.list", (p, id) =>
+    mongoRelationshipHandlers.handleList(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.setStatus", (p, id) =>
+    mongoRelationshipHandlers.handleSetStatus(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.save", (p, id) =>
+    mongoRelationshipHandlers.handleSave(p, id),
+  );
+  rpcRegister(rpc, "mongo.relationship.delete", (p, id) =>
+    mongoRelationshipHandlers.handleDelete(p, id),
+  );
+
+  // ==========================================
+  // MONGO BULK OPERATIONS HANDLERS (M7 Phase 3)
+  // ==========================================
+  rpcRegister(rpc, "mongo.bulk.importStart", (p, id) => mongoBulkHandlers.handleImportStart(p, id));
+  rpcRegister(rpc, "mongo.bulk.importChunk", (p, id) => mongoBulkHandlers.handleImportChunk(p, id));
+  rpcRegister(rpc, "mongo.bulk.exportStart", (p, id) => mongoBulkHandlers.handleExportStart(p, id));
+  rpcRegister(rpc, "mongo.bulk.getOperationStatus", (p, id) =>
+    mongoBulkHandlers.handleGetOperationStatus(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.cancelOperation", (p, id) =>
+    mongoBulkHandlers.handleCancelOperation(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.cleanupOperation", (p, id) =>
+    mongoBulkHandlers.handleCleanupOperation(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.exportSaveTo", (p, id) =>
+    mongoBulkHandlers.handleExportSaveTo(p, id),
+  );
+  rpcRegister(rpc, "mongo.bulk.insert", (p, id) => mongoBulkHandlers.handleBulkInsert(p, id));
+  rpcRegister(rpc, "mongo.bulk.update", (p, id) => mongoBulkHandlers.handleBulkUpdate(p, id));
+  rpcRegister(rpc, "mongo.bulk.delete", (p, id) => mongoBulkHandlers.handleBulkDelete(p, id));
 
   // ==========================================
   // MIGRATION HANDLERS
@@ -99,6 +178,13 @@ export function registerDbHandlers(rpc: Rpc, logger: Logger, sessions: SessionMa
   );
   rpcRegister(rpc, "migration.generateDrop", (p, id) =>
     migrationHandlers.handleGenerateDropMigration(p, id),
+  );
+  rpcRegister(rpc, "migration.list", (p, id) => migrationHandlers.handleListMigrations(p, id));
+  rpcRegister(rpc, "migration.validate", (p, id) =>
+    migrationHandlers.handleValidateMigration(p, id),
+  );
+  rpcRegister(rpc, "migration.getStatus", (p, id) =>
+    migrationHandlers.handleGetMigrationStatus(p, id),
   );
   rpcRegister(rpc, "migration.apply", (p, id) => migrationHandlers.handleApplyMigration(p, id));
   rpcRegister(rpc, "migration.applyMigrations", (p, id) =>

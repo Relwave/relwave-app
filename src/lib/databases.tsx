@@ -5,6 +5,8 @@ import { Database } from "lucide-react";
 
 export type SupportedDatabaseType = DatabaseType | "mariadb";
 
+export type DatabaseKind = "sql" | "nosql";
+
 export interface DatatypeCategory {
   category: string;
   types: string[];
@@ -21,7 +23,8 @@ export interface DatabaseConfig {
   name: string;
   icon: ReactNode;
   deviconClass?: string;
-  category: "Relational" | "Embedded" | "OLAP";
+  kind?: DatabaseKind;
+  category: "Relational" | "Embedded" | "OLAP" | "Document";
   description: string;
   defaultPort?: string;
   defaultUser?: string;
@@ -280,6 +283,61 @@ export const databases: DatabaseConfig[] = [
       </svg>
     ),
   },
+  {
+    id: "mongodb",
+    type: "mongodb",
+    name: "MongoDB",
+    kind: "nosql",
+    category: "Document",
+    description: "Scalable document (NoSQL) database",
+    defaultPort: "27017",
+    defaultUser: "",
+    defaultDatabase: "",
+    placeholderUrl: "mongodb://localhost:27017/mydb",
+    supportsSsl: true,
+    supportsSsh: true,
+    deviconClass: "devicon-mongodb-plain colored",
+    foreignKeySupport: {
+      supported: false,
+      notes:
+        "Document store; relationships are embedded or referenced in application logic, not enforced by the database.",
+    },
+    acceptedDatatypes: [
+      {
+        category: "BSON Types",
+        types: [
+          "String",
+          "Int32",
+          "Int64/Long",
+          "Double",
+          "Decimal128",
+          "Bool",
+          "Date",
+          "ObjectId",
+          "Binary",
+          "Array",
+          "Object",
+          "Null",
+        ],
+      },
+    ],
+    icon: (
+      <svg viewBox="0 0 128 128" className="w-full h-full">
+        <path
+          fill="#47A248"
+          d="M64.004 0C64.004 0 35.12 36.216 35.12 73.186c0 23.364 15.65 44.57 38.884 54.814 1.455.642 2.879-1.026 2.083-2.399-5.187-8.95-12.087-21.722-12.087-52.415 0-27.787 0-45.727 0-73.186z"
+        />
+        <path
+          fill="#499D4A"
+          d="M63.996 0C63.996 0 92.88 36.216 92.88 73.186c0 23.364-15.65 44.57-38.884 54.814-1.455.642-2.879-1.026-2.083-2.399 5.187-8.95 12.087-21.722 12.087-52.415 0-27.787 0-45.727 0-73.186z"
+        />
+        <path
+          fill="#3FA037"
+          d="M64.246 128c-1.396 0-2.61-.837-3.13-2.128-4.908-12.196-8.95-26.688-8.95-52.686 0-28.784 10.975-52.022 11.453-53.023.284-.597.886-.977 1.547-.977.662 0 1.264.38 1.548.977.478 1.001 11.453 24.239 11.453 53.023 0 25.998-4.042 40.49-8.95 52.686-.52 1.291-1.734 2.128-3.13 2.128z"
+        />
+      </svg>
+    ),
+  },
 ];
 
 export const SUPPORTED_DATABASES = databases;
@@ -334,8 +392,18 @@ export function getAllAcceptedDatatypes(typeOrName?: string | null): string[] {
   return categories.flatMap((cat) => cat.types);
 }
 
+export function isDocumentDatabase(typeOrName?: string | null): boolean {
+  const normalized = typeOrName?.toLowerCase().trim();
+  return normalized === "mongodb";
+}
+
+export function getDatabaseKind(typeOrName?: string | null): DatabaseKind {
+  return isDocumentDatabase(typeOrName) ? "nosql" : "sql";
+}
+
 export function getDefaultColumnType(typeOrName?: string | null): string {
   const normalized = typeOrName?.toLowerCase().trim();
+  if (normalized === "mongodb") return "string";
   if (normalized === "clickhouse") return "String";
   if (normalized === "sqlite") return "INTEGER";
   return "VARCHAR";

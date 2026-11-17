@@ -2,7 +2,7 @@
 
 This document provides a comprehensive breakdown of all features and capabilities in RelWave. For installation and setup instructions, see the main [README](README.md).
 
-**Tech Stack:** Tauri + React 19 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3 + DuckDB + ClickHouse
+**Tech Stack:** Tauri + React 19 + TypeScript + Tailwind CSS + shadcn/ui + React Query + ReactFlow + Recharts + CodeMirror + better-sqlite3 + DuckDB + ClickHouse + MongoDB
 
 ---
 
@@ -31,6 +31,19 @@ This document provides a comprehensive breakdown of all features and capabilitie
 | SQLite     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
 | DuckDB     | Local file path | ✅              | ✅         | ✅            | ✅         | ✅   |
 | ClickHouse | Host/port + SSL | ✅              | ✅         | ✅            | ✅         | ✅   |
+| MongoDB    | URI / Host/port | ✅              | ✅         | ✅            | ✅         | ✅   |
+
+### MongoDB-Specific Features
+
+- **Document & Analytical Engine** — powered by official `mongodb` Node driver (^6.21.0), verified on MongoDB 6.0 and 7.0
+- **Flexible Connection Topologies** — connect via Standalone (`mongodb://`), Replica Sets (`replicaSet=rs0`), and MongoDB Atlas (`mongodb+srv://`)
+- **Secure Credentials & TLS** — OS-keyring protected authentication (SCRAM-SHA-1, SCRAM-SHA-256) with full TLS/SSL certificate support
+- **MQL Workspace & Visual Aggregations** — interactive aggregation pipeline builder with stage reordering, stage previews, and live query cancellation
+- **Strict BSON Fidelity** — canonical EJSON serialization preserving ObjectId, Date, Decimal128, Long (64-bit int), and Binary data
+- **Schema Intelligence & Visual ERD** — probabilistic schema inference with stratified sampling, field type distribution charts, and automatic relationship detection (ObjectId refs, DBRefs, and embedded arrays)
+- **Streaming Bulk Operations** — chunked mutations, document imports, and streaming exports (JSON, NDJSON, CSV) with automatic 2-hour orphan purge
+- **Safe Schema & Document Migrations** — dry-run previews, mutex lock acquisition (`_relwave_migrations_lock`), and auto-generated rollback scripts
+- **Production Safety Controls** — read-only connection enforcement and safe MQL operator blacklisting (`$where`, `$function`, `$accumulator`, `$out`, `$merge`)
 
 ### ClickHouse-Specific Features
 

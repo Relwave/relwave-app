@@ -1,12 +1,39 @@
 import { DBType, DatabaseConfig } from "../types";
 import { SQLiteConfig } from "../types/sqlite";
+import { MongoConfig } from "../types/mongo";
 import { isWindowsDriveRootPath, normalizeSQLitePath } from "../utils/sqlitePath";
 import { parseClickHouseUrl } from "../utils/clickhouseUrl";
+import { buildMongoConnectionUri } from "../utils/mongoUri";
 import { sshTunnelServiceInstance, TunnelInfo } from "./sshTunnelService";
+import { ConnectionPool } from "./connectionPool";
 
 export interface BuildResult {
-  config: DatabaseConfig | SQLiteConfig;
+  config: DatabaseConfig | SQLiteConfig | MongoConfig;
   tunnel?: TunnelInfo;
+}
+
+export async function cleanupStaleBuilderResources(
+  builtTunnel: any,
+  builtConfig: any,
+  builtDbType: DBType | undefined,
+  connectionPool: ConnectionPool,
+): Promise<void> {
+  // 1. Separate SSH Tunnel Adoption Check (Strict Object Identity Equality):
+  if (builtTunnel) {
+    const isTunnelAdopted = Array.from(connectionPool.getAllEntries()).some(
+      (entry) => entry.tunnel === builtTunnel,
+    );
+    if (!isTunnelAdopted) {
+      try {
+        builtTunnel.close();
+      } catch {}
+    }
+  }
+
+  // 2. Separate MongoClient Adoption Check (Canonical Client-Key Based):
+  if (builtConfig && builtDbType === DBType.MONGODB) {
+    await connectionPool.safeCloseMongoClient(builtConfig);
+  }
 }
 
 export class ConnectionBuilder {
@@ -50,6 +77,44 @@ export class ConnectionBuilder {
           ssl: db.ssl !== undefined ? db.ssl : parsed.ssl,
         } as any,
       };
+    }
+
+    if (dbType === DBType.MONGODB) {
+      if (db.ssh) {
+        const remoteHost = db.host || "127.0.0.1";
+        const remotePort = db.port || 27017;
+        const tunnel = await sshTunnelServiceInstance.createSSHTunnel(
+          db.ssh,
+          remoteHost,
+          remotePort,
+        );
+        const tunnelDb = { ...db, host: "127.0.0.1", port: tunnel.localPort };
+        const uri = buildMongoConnectionUri(tunnelDb, pwd);
+        const config: MongoConfig = {
+          uri,
+          database: db.database,
+          authSource: db.authSource,
+          replicaSet: db.replicaSet,
+          tls: db.tls,
+          directConnection: db.directConnection,
+          readonly: Boolean(db.readonly || db.readOnly),
+        };
+        return { config, tunnel };
+      }
+
+      // The persisted URI is credential-free; the runtime password is re-injected
+      // here (in memory only) via the sanitized URI + decrypted pwd.
+      const uri = buildMongoConnectionUri(db, pwd);
+      const config: MongoConfig = {
+        uri,
+        database: db.database,
+        authSource: db.authSource,
+        replicaSet: db.replicaSet,
+        tls: db.tls,
+        directConnection: db.directConnection,
+        readonly: Boolean(db.readonly || db.readOnly),
+      };
+      return { config };
     }
 
     const defaultPort = dbType === DBType.MYSQL || dbType === DBType.MARIADB ? 3306 : 5432;

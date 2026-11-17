@@ -1,13 +1,14 @@
 // pages/DatabaseDetail.tsx
 
 import { useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBridgeQuery } from "@/services/bridge/useBridgeQuery";
 import { useDatabaseDetails } from "@/features/database/hooks/useDatabaseDetails";
 import { useDatabaseDetailPage } from "@/features/database/hooks/useDatabaseDetailPage";
-import { useMigrations, useFullSchema } from "@/features/project/hooks/useDbQueries";
+import { useMigrations, useFullSchema, useDatabase } from "@/features/project/hooks/useDbQueries";
 import { useExport } from "@/features/database/hooks/useExport";
 import { useProjectSync } from "@/features/project/hooks/useProjectSync";
-import { useProjectDir } from "@/features/project/hooks/useProjectQueries";
+import { useProjectDir, useProjectByDatabaseId } from "@/features/project/hooks/useProjectQueries";
 import { useRowOperations } from "@/features/database/hooks/useRowOperations";
 import BridgeLoader from "@/components/feedback/BridgeLoader";
 import VerticalIconBar, { getDatabasePanelItems } from "@/components/layout/VerticalIconBar";
@@ -31,6 +32,14 @@ import AIWorkspacePanel from "@/features/database/components/AIWorkspacePanel";
 import { ShortcutsHelp } from "@/components/shared/ShortcutsHelp";
 import { ShortcutsTrigger } from "@/components/shared/ShortcutsTrigger";
 import { MigrationSyncDialog } from "@/features/project/components/MigrationSyncDialog";
+import { getDatabaseKind } from "@/lib/databases";
+import { MongoDataViewPanel } from "@/features/mongodb/components/MongoDataViewPanel";
+import { MongoWorkspacePanel } from "@/features/mongodb/components/workspace/MongoWorkspacePanel";
+import { MongoAggregationPanel } from "@/features/mongodb/components/aggregation/MongoAggregationPanel";
+import { MongoMigrationsPanel } from "@/features/mongodb/components/migrations/MongoMigrationsPanel";
+import { MongoRelationshipsPanel } from "@/features/mongodb/components/relationships";
+import { MongoBulkOperationsPanel } from "@/features/mongodb/components/bulk";
+import { defaultMongoBulkOperationsStore } from "@/features/mongodb/hooks/useMongoBulkOperationsStore";
 import { useState, useEffect } from "react";
 
 const DatabaseDetail = () => {
@@ -89,16 +98,66 @@ const DatabaseDetail = () => {
     databaseName: databaseName || "database",
   });
 
+  const isNosql = getDatabaseKind(databaseType) === "nosql";
+  const { data: dbConn } = useDatabase(isNosql ? dbId : undefined);
+  const isReadOnlyConnection = Boolean((dbConn as any)?.readOnly || (dbConn as any)?.readonly);
+
+  const queryClient = useQueryClient();
+
+  // Background bulk operations terminal cache invalidation (preserves captured target dbId across unmounts)
+  useEffect(() => {
+    if (!isNosql) return;
+
+    let prevOperationsByDb = defaultMongoBulkOperationsStore.getSnapshot().operationsByDb;
+
+    return defaultMongoBulkOperationsStore.subscribe(() => {
+      const currentOperationsByDb = defaultMongoBulkOperationsStore.getSnapshot().operationsByDb;
+
+      for (const [targetDbId, ops] of Object.entries(currentOperationsByDb)) {
+        const prevOps = prevOperationsByDb[targetDbId] || [];
+        for (const op of ops) {
+          if (op.kind === "sync") {
+            const prev = prevOps.find((p) => p.kind === "sync" && p.id === op.id);
+            if (
+              prev &&
+              prev.status === "running" &&
+              (op.status === "completed" || op.status === "partial_success")
+            ) {
+              queryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoCollections", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoSchema", op.dbId] });
+            }
+          } else if (op.kind === "async" && op.type === "import") {
+            const prev = prevOps.find(
+              (p) => p.kind === "async" && p.operationId === op.operationId,
+            );
+            const wasActive = prev && (prev.status === "pending" || prev.status === "in_progress");
+            const isTerminal =
+              op.status === "completed" || op.status === "failed" || op.status === "cancelled";
+            if (wasActive && isTerminal && op.successfulDocuments > 0) {
+              queryClient.invalidateQueries({ queryKey: ["mongoDocuments", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoCollections", op.dbId] });
+              queryClient.invalidateQueries({ queryKey: ["mongoSchema", op.dbId] });
+            }
+          }
+        }
+      }
+      prevOperationsByDb = currentOperationsByDb;
+    });
+  }, [isNosql, queryClient]);
+
   // Migrations
-  const { data: migrationsResponse } = useMigrations(dbId);
+  const { data: migrationsResponse } = useMigrations(isNosql ? undefined : dbId);
   const migrationsData = migrationsResponse?.migrations || { local: [], applied: [] };
   const baselined = migrationsResponse?.baselined || false;
 
   // Project sync
-  const { data: schemaData, refetch: refetchSchema } = useFullSchema(dbId);
+  const { data: schemaData, refetch: refetchSchema } = useFullSchema(isNosql ? undefined : dbId);
   const { projectId, importAnalysis, importAnalysisLoading, refetchImportAnalysis } =
-    useProjectSync(dbId, schemaData ?? undefined);
-  const { data: projectDir } = useProjectDir(projectId);
+    useProjectSync(isNosql ? undefined : dbId, isNosql ? undefined : (schemaData ?? undefined));
+  const { data: noSqlProject } = useProjectByDatabaseId(isNosql ? dbId : undefined);
+  const effectiveProjectId = isNosql ? (noSqlProject?.id ?? null) : projectId;
+  const { data: projectDir } = useProjectDir(effectiveProjectId ?? undefined);
   const [migrationSyncDismissed, setMigrationSyncDismissed] = useState(false);
 
   // Keyboard shortcut listener: Alt+1..9 switches active database panel
@@ -139,6 +198,80 @@ const DatabaseDetail = () => {
 
   // ---- Panel router ----
   const renderPanel = () => {
+    if (isNosql) {
+      switch (activePanel) {
+        case "mongo-workspace":
+          return (
+            <MongoWorkspacePanel
+              key={`mws-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-aggregation":
+          return (
+            <MongoAggregationPanel
+              key={`magg-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-migrations":
+          return (
+            <MongoMigrationsPanel
+              key={`mmig-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-relationships":
+          return (
+            <MongoRelationshipsPanel
+              key={`mrel-${dbId}`}
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "mongo-bulk":
+          return (
+            <MongoBulkOperationsPanel
+              key={`mbulk-${dbId}`}
+              dbId={dbId!}
+              databaseName={databaseName || ""}
+            />
+          );
+        case "er-diagram":
+          return (
+            <MongoRelationshipsPanel
+              key={`mrel-${dbId}`}
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+              initialView="diagram"
+            />
+          );
+        case "git-status":
+          return (
+            <GitStatusPanel
+              key={`git-${dbId}`}
+              projectDir={projectDir}
+              projectId={effectiveProjectId ?? ""}
+            />
+          );
+        case "data":
+        default:
+          return (
+            <MongoDataViewPanel
+              dbId={dbId!}
+              projectId={effectiveProjectId}
+              databaseName={databaseName || ""}
+              isReadOnly={isReadOnlyConnection}
+            />
+          );
+      }
+    }
+
     switch (activePanel) {
       case "sql-workspace":
         return <SQLWorkspacePanel key={`sql-${dbId}`} dbId={dbId || ""} />;

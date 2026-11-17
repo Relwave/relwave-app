@@ -10,7 +10,58 @@ import {
   SSHConfig,
   UpdateDatabaseParams,
 } from "@/features/database/types";
+import {
+  MongoCollectionInfo,
+  MongoCollectionSchema,
+  MongoCreateCollectionOptions,
+  MongoMigrationManifest,
+  MongoMigrationListResult,
+  MongoMigrationValidateResult,
+  MongoMigrationApplyResult,
+  MongoMigrationRollbackResult,
+  MongoMigrationGetStatusResult,
+  MongoInferRelationshipsRequest,
+  MongoInferRelationshipsResult,
+  MongoListRelationshipsRequest,
+  MongoListRelationshipsResult,
+  MongoSetRelationshipStatusRequest,
+  MongoSetRelationshipStatusResult,
+  MongoSaveRelationshipRequest,
+  MongoSaveRelationshipResult,
+  MongoDeleteRelationshipRequest,
+  MongoDeleteRelationshipResult,
+  MongoBulkImportStartRequest,
+  MongoBulkImportStartResult,
+  MongoBulkImportChunkRequest,
+  MongoBulkImportChunkResult,
+  MongoBulkExportStartRequest,
+  MongoBulkExportStartResult,
+  MongoBulkGetOperationStatusRequest,
+  MongoBulkOperationStatusResult,
+  MongoBulkCancelRequest,
+  MongoBulkCancelResult,
+  MongoBulkCleanupRequest,
+  MongoBulkCleanupResult,
+  MongoBulkInsertRequest,
+  MongoBulkInsertResult,
+  MongoBulkUpdateRequest,
+  MongoBulkUpdateResult,
+  MongoBulkDeleteRequest,
+  MongoBulkDeleteResult,
+  MongoBulkExportSaveToRequest,
+  MongoBulkExportSaveToResult,
+} from "@/features/mongodb/types";
 import { bridgeRequest } from "./bridgeClient";
+import {
+  databaseBridge,
+  MongoIndexDirection,
+  MongoIndexOptions,
+  MongoIndexListResult,
+  MongoIndexCreateResult,
+  MongoIndexDropResult,
+  MongoIndexStatsResult,
+  MongoIndexHideResult,
+} from "./databaseBridge";
 
 class DatabaseService {
   // ------------------------------------
@@ -67,11 +118,16 @@ class DatabaseService {
       // Validate required fields
       const isFileBasedDB = params.type === "sqlite" || params.type === "duckdb";
       const isClickHouse = params.type === "clickhouse";
+      const isMongo = params.type === "mongodb";
       const required = isFileBasedDB
         ? ["name", "type", "database"]
         : isClickHouse
           ? ["name", "type"]
-          : ["name", "type", "host", "port", "user", "database"];
+          : isMongo
+            ? params.url
+              ? ["name", "type"]
+              : ["name", "type", "host", "port"]
+            : ["name", "type", "host", "port", "user", "database"];
       for (const field of required) {
         if (!params[field as keyof AddDatabaseParams]) {
           throw new Error(`Missing required field: ${field}`);
@@ -593,6 +649,268 @@ class DatabaseService {
       console.error("Failed to discover databases:", error);
       return []; // Return empty array on error, don't throw
     }
+  }
+
+  /**
+   * List collections in a MongoDB database (db.listCollections)
+   */
+  async listMongoCollections(dbId: string): Promise<{ collections: MongoCollectionInfo[] }> {
+    try {
+      if (!dbId) throw new Error("Database ID is required");
+      const result = await bridgeRequest("db.listCollections", { dbId });
+      return result?.data || { collections: [] };
+    } catch (error: any) {
+      console.error("Failed to list MongoDB collections:", error);
+      throw new Error(`Failed to list collections: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get inferred schema for a MongoDB collection (db.getInferredSchema)
+   */
+  async getMongoInferredSchema(
+    dbId: string,
+    collection: string,
+    sampleSize?: number,
+    maxDepth?: number,
+  ): Promise<MongoCollectionSchema> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.getInferredSchema", {
+        dbId,
+        collection,
+        sampleSize,
+        maxDepth,
+      });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to get inferred MongoDB schema:", error);
+      throw new Error(`Failed to get inferred schema: ${error.message}`);
+    }
+  }
+
+  async createMongoCollection(
+    dbId: string,
+    collection: string,
+    options?: MongoCreateCollectionOptions,
+  ): Promise<{ ok: boolean; collection: string }> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.createCollection", { dbId, collection, options });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to create MongoDB collection:", error);
+      throw new Error(`Failed to create MongoDB collection: ${error.message}`);
+    }
+  }
+
+  async dropMongoCollection(
+    dbId: string,
+    collection: string,
+  ): Promise<{ ok: boolean; collection: string }> {
+    try {
+      if (!dbId || !collection) throw new Error("Database ID and collection name are required");
+      const result = await bridgeRequest("db.dropCollection", { dbId, collection });
+      return result?.data;
+    } catch (error: any) {
+      console.error("Failed to drop MongoDB collection:", error);
+      throw new Error(`Failed to drop MongoDB collection: ${error.message}`);
+    }
+  }
+
+  // ------------------------------------
+  // MONGO INDEX MANAGEMENT METHODS (index.*)
+  // ------------------------------------
+
+  /**
+   * List secondary indexes in a MongoDB collection (index.list)
+   */
+  async listMongoIndexes(dbId: string, collection: string): Promise<MongoIndexListResult> {
+    return databaseBridge.listIndexes(dbId, collection);
+  }
+
+  /**
+   * Create a secondary index in a MongoDB collection (index.create)
+   */
+  async createMongoIndex(
+    dbId: string,
+    collection: string,
+    key: Record<string, MongoIndexDirection>,
+    options?: MongoIndexOptions,
+  ): Promise<MongoIndexCreateResult> {
+    return databaseBridge.createIndex(dbId, collection, key, options);
+  }
+
+  /**
+   * Drop a secondary index in a MongoDB collection (index.drop)
+   */
+  async dropMongoIndex(
+    dbId: string,
+    collection: string,
+    indexName: string,
+  ): Promise<MongoIndexDropResult> {
+    return databaseBridge.dropIndex(dbId, collection, indexName);
+  }
+
+  /**
+   * Get index usage statistics for a MongoDB collection (index.getStats)
+   */
+  async getMongoIndexStats(dbId: string, collection: string): Promise<MongoIndexStatsResult> {
+    return databaseBridge.getIndexStats(dbId, collection);
+  }
+
+  /**
+   * Toggle index visibility in a MongoDB collection (index.hide)
+   */
+  async hideMongoIndex(
+    dbId: string,
+    collection: string,
+    indexName: string,
+    hidden: boolean,
+  ): Promise<MongoIndexHideResult> {
+    return databaseBridge.hideIndex(dbId, collection, indexName, hidden);
+  }
+
+  // ------------------------------------
+  // MongoDB Migration Engine Methods
+  // ------------------------------------
+
+  /**
+   * List applied and pending MongoDB migrations and lock state (migration.list)
+   */
+  async listMongoMigrations(dbId: string, projectRoot?: string): Promise<MongoMigrationListResult> {
+    return databaseBridge.listMongoMigrations(dbId, projectRoot);
+  }
+
+  /**
+   * Statically validate a MongoDB migration manifest (migration.validate)
+   */
+  async validateMongoMigration(
+    manifest: MongoMigrationManifest,
+    dbId?: string,
+  ): Promise<MongoMigrationValidateResult> {
+    return databaseBridge.validateMongoMigration(manifest, dbId);
+  }
+
+  /**
+   * Apply pending MongoDB migration(s) (migration.apply)
+   */
+  async applyMongoMigration(
+    dbId: string,
+    options?: { version?: string; dryRun?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationApplyResult> {
+    return databaseBridge.applyMongoMigration(dbId, options);
+  }
+
+  /**
+   * Rollback an applied MongoDB migration via inverse compensation (migration.rollback)
+   */
+  async rollbackMongoMigration(
+    dbId: string,
+    version: string,
+    options?: { force?: boolean; projectRoot?: string; ownerId?: string },
+  ): Promise<MongoMigrationRollbackResult> {
+    return databaseBridge.rollbackMongoMigration(dbId, version, options);
+  }
+
+  /**
+   * Get MongoDB migration status, lock details, and audit events (migration.getStatus)
+   */
+  async getMongoMigrationStatus(
+    dbId: string,
+    migrationId?: string,
+  ): Promise<MongoMigrationGetStatusResult> {
+    return databaseBridge.getMongoMigrationStatus(dbId, migrationId);
+  }
+
+  // ------------------------------------
+  // MongoDB Relationship Engine Methods
+  // ------------------------------------
+
+  async inferMongoRelationships(
+    request: MongoInferRelationshipsRequest,
+  ): Promise<MongoInferRelationshipsResult> {
+    return databaseBridge.inferMongoRelationships(request);
+  }
+
+  async listMongoRelationships(
+    request: MongoListRelationshipsRequest,
+  ): Promise<MongoListRelationshipsResult> {
+    return databaseBridge.listMongoRelationships(request);
+  }
+
+  async setMongoRelationshipStatus(
+    request: MongoSetRelationshipStatusRequest,
+  ): Promise<MongoSetRelationshipStatusResult> {
+    return databaseBridge.setMongoRelationshipStatus(request);
+  }
+
+  async saveMongoRelationship(
+    request: MongoSaveRelationshipRequest,
+  ): Promise<MongoSaveRelationshipResult> {
+    return databaseBridge.saveMongoRelationship(request);
+  }
+
+  async deleteMongoRelationship(
+    request: MongoDeleteRelationshipRequest,
+  ): Promise<MongoDeleteRelationshipResult> {
+    return databaseBridge.deleteMongoRelationship(request);
+  }
+
+  // ------------------------------------
+  // MongoDB Bulk Operations Engine Methods
+  // ------------------------------------
+
+  async startMongoBulkImport(
+    request: MongoBulkImportStartRequest,
+  ): Promise<MongoBulkImportStartResult> {
+    return databaseBridge.startMongoBulkImport(request);
+  }
+
+  async importMongoBulkChunk(
+    request: MongoBulkImportChunkRequest,
+  ): Promise<MongoBulkImportChunkResult> {
+    return databaseBridge.importMongoBulkChunk(request);
+  }
+
+  async startMongoBulkExport(
+    request: MongoBulkExportStartRequest,
+  ): Promise<MongoBulkExportStartResult> {
+    return databaseBridge.startMongoBulkExport(request);
+  }
+
+  async getMongoBulkOperationStatus(
+    request: MongoBulkGetOperationStatusRequest,
+  ): Promise<MongoBulkOperationStatusResult> {
+    return databaseBridge.getMongoBulkOperationStatus(request);
+  }
+
+  async cancelMongoBulkOperation(request: MongoBulkCancelRequest): Promise<MongoBulkCancelResult> {
+    return databaseBridge.cancelMongoBulkOperation(request);
+  }
+
+  async cleanupMongoBulkOperation(
+    request: MongoBulkCleanupRequest,
+  ): Promise<MongoBulkCleanupResult> {
+    return databaseBridge.cleanupMongoBulkOperation(request);
+  }
+
+  async bulkInsertMongoDocuments(request: MongoBulkInsertRequest): Promise<MongoBulkInsertResult> {
+    return databaseBridge.bulkInsertMongoDocuments(request);
+  }
+
+  async bulkUpdateMongoDocuments(request: MongoBulkUpdateRequest): Promise<MongoBulkUpdateResult> {
+    return databaseBridge.bulkUpdateMongoDocuments(request);
+  }
+
+  async bulkDeleteMongoDocuments(request: MongoBulkDeleteRequest): Promise<MongoBulkDeleteResult> {
+    return databaseBridge.bulkDeleteMongoDocuments(request);
+  }
+
+  async saveMongoBulkExportTo(
+    request: MongoBulkExportSaveToRequest,
+  ): Promise<MongoBulkExportSaveToResult> {
+    return databaseBridge.saveMongoBulkExportTo(request);
   }
 }
 
