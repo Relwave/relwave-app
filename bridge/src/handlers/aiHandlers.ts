@@ -20,7 +20,6 @@ import { buildSchemaAnalysisPrompt } from "../ai/prompts/schema-analysis";
 import { buildQueryExplanationPrompt } from "../ai/prompts/query-explanation";
 import { buildChartRecommendationPrompt } from "../ai/prompts/chart-recommendation";
 import { parseChartRecommendation } from "../ai/prompts/chart-recommendation";
-import fs from "fs/promises";
 import fsSync from "fs";
 import { AI_SETTINGS_FILE, CONFIG_FOLDER, ensureDir } from "../utils/config";
 

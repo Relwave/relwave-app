@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TableInfo } from "@/features/database/types";
+import type { MongoFindRequest } from "@/features/mongodb/types";
 import { isBridgeReady } from "@/services/bridge/bridgeClient";
 import { databaseService } from "@/services/bridge/database";
 import { queryService } from "@/services/bridge/query";
@@ -24,6 +25,21 @@ export const queryKeys = {
     ["tableDetails", dbId, schema, table] as const,
   primaryKeys: (dbId: string, schema: string, table: string) =>
     ["primaryKeys", dbId, schema, table] as const,
+
+  // MongoDB collections, documents, schema
+  mongoCollections: (dbId: string) => ["mongoCollections", dbId] as const,
+  mongoDocuments: (req: MongoFindRequest) =>
+    [
+      "mongoDocuments",
+      req.dbId,
+      req.collection,
+      req.page,
+      req.pageSize,
+      req.filter,
+      req.sort,
+    ] as const,
+  mongoSchema: (dbId: string, col: string, sampleSize?: number, maxDepth?: number) =>
+    ["mongoSchema", dbId, col, sampleSize ?? 100, maxDepth ?? 8] as const,
 };
 
 // ============================================
@@ -36,6 +52,9 @@ const STALE_TIMES = {
   stats: 30 * 1000, // 30 seconds - database stats
   schemas: 5 * 60 * 1000, // 5 minutes - schemas rarely change
   tableDetails: 60 * 1000, // 1 minute - column info
+  mongoCollections: 60 * 1000,
+  mongoDocuments: 30 * 1000,
+  mongoSchema: 5 * 60 * 1000,
 };
 
 // ============================================
@@ -94,7 +113,7 @@ export function useMigrations(dbId: string | undefined) {
  * - Returns cached data instantly if available
  * - Background refetch if stale
  */
-export function useTables(dbId: string | undefined, schema?: string) {
+export function useTables(dbId: string | undefined, schema?: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.tables(dbId!, schema),
     queryFn: async () => {
@@ -105,7 +124,7 @@ export function useTables(dbId: string | undefined, schema?: string) {
         type: item.type || "table",
       }));
     },
-    enabled: !!dbId,
+    enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.tables,
     gcTime: 5 * 60 * 1000,
   });
@@ -114,11 +133,11 @@ export function useTables(dbId: string | undefined, schema?: string) {
 /**
  * Fetch schema names for a database
  */
-export function useSchemaNames(dbId: string | undefined) {
+export function useSchemaNames(dbId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["schemaNames", dbId] as const,
     queryFn: () => databaseService.listSchemas(dbId!),
-    enabled: !!dbId,
+    enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.schemas,
   });
 }
@@ -141,6 +160,43 @@ export function useTableData(
     enabled: !!dbId && !!schema && !!table,
     staleTime: STALE_TIMES.tableData,
     placeholderData: (previousData) => previousData, // Keep showing old data while fetching
+  });
+}
+
+// ============================================
+// MongoDB Collection, Document, & Schema Hooks
+// ============================================
+
+export function useMongoCollections(dbId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.mongoCollections(dbId!),
+    queryFn: () => databaseService.listMongoCollections(dbId!),
+    enabled: !!dbId,
+    staleTime: STALE_TIMES.mongoCollections,
+  });
+}
+
+export function useMongoDocuments(req: MongoFindRequest | null, enabled = true) {
+  return useQuery({
+    queryKey: req ? queryKeys.mongoDocuments(req) : ["mongoDocuments", "none"],
+    queryFn: () => queryService.fetchMongoDocuments(req!),
+    enabled: !!req && !!req.dbId && !!req.collection && enabled,
+    staleTime: STALE_TIMES.mongoDocuments,
+  });
+}
+
+export function useMongoSchema(
+  dbId: string | undefined,
+  collection: string | undefined,
+  sampleSize?: number,
+  maxDepth?: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: queryKeys.mongoSchema(dbId!, collection!, sampleSize, maxDepth),
+    queryFn: () => databaseService.getMongoInferredSchema(dbId!, collection!, sampleSize, maxDepth),
+    enabled: !!dbId && !!collection && enabled,
+    staleTime: STALE_TIMES.mongoSchema,
   });
 }
 
@@ -339,6 +395,19 @@ export function usePrefetch() {
         staleTime: STALE_TIMES.schemas,
       });
     },
+
+    prefetchMongoNextPage: (req: MongoFindRequest) => {
+      if (!req.dbId || !req.collection) return;
+      const nextPageReq: MongoFindRequest = {
+        ...req,
+        page: (req.page || 1) + 1,
+      };
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.mongoDocuments(nextPageReq),
+        queryFn: () => queryService.fetchMongoDocuments(nextPageReq),
+        staleTime: STALE_TIMES.mongoDocuments,
+      });
+    },
   };
 }
 
@@ -364,6 +433,9 @@ export function useInvalidateCache() {
         queryClient.invalidateQueries({ queryKey: ["migrations", dbId] }), // Also invalidate migrations
         queryClient.invalidateQueries({ queryKey: ["tableData", dbId] }),
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["mongoCollections", dbId] }),
+        queryClient.invalidateQueries({ queryKey: ["mongoDocuments", dbId] }),
+        queryClient.invalidateQueries({ queryKey: ["mongoSchema", dbId] }),
       ]);
     },
 
@@ -378,6 +450,32 @@ export function useInvalidateCache() {
       // Invalidate all pages for this table
       queryClient.invalidateQueries({
         queryKey: ["tableData", dbId, schema, table],
+      });
+    },
+
+    invalidateMongoCollections: (dbId: string) => {
+      return queryClient.invalidateQueries({ queryKey: ["mongoCollections", dbId] });
+    },
+    invalidateMongoDocuments: (dbId: string, collection?: string) => {
+      return queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          if (key[0] !== "mongoDocuments") return false;
+          if (key[1] !== dbId) return false;
+          if (collection && key[2] !== collection) return false;
+          return true;
+        },
+      });
+    },
+    invalidateMongoSchema: (dbId: string, collection?: string) => {
+      return queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          if (key[0] !== "mongoSchema") return false;
+          if (key[1] !== dbId) return false;
+          if (collection && key[2] !== collection) return false;
+          return true;
+        },
       });
     },
 

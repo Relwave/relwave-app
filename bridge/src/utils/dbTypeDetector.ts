@@ -12,6 +12,7 @@ export class DBTypeDetector {
       if (normalized.includes("sqlite")) return DBType.SQLITE;
       if (normalized.includes("duckdb")) return DBType.DUCKDB;
       if (normalized.includes("clickhouse")) return DBType.CLICKHOUSE;
+      if (normalized.includes("mongo")) return DBType.MONGODB;
     }
     return DBType.POSTGRES; // default
   }

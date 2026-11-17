@@ -149,6 +149,7 @@ export function AddConnectionDialog({
       setFormData((prev) => ({
         ...prev,
         type: parsed.type,
+        url: parsed.type === "mongodb" ? parsed.originalUri || url : prev.url,
         host: parsed.host,
         port: parsed.port,
         user: parsed.user,
@@ -181,6 +182,17 @@ export function AddConnectionDialog({
       );
       return;
     }
+    if (formData.type === "mongodb") {
+      onSubmit(
+        {
+          ...formData,
+          url: connectionUrl || formData.url,
+        },
+        useUrl,
+        connectionUrl,
+      );
+      return;
+    }
     onSubmit(formData, useUrl, connectionUrl);
   };
 
@@ -196,7 +208,8 @@ export function AddConnectionDialog({
 
   const isFileBasedDB = formData.type === "sqlite" || formData.type === "duckdb";
   const isClickHouse = formData.type === "clickhouse";
-  const showSslOption = formData.type === "postgresql" || formData.type === "mariadb";
+  const showSslOption =
+    formData.type === "postgresql" || formData.type === "mariadb" || formData.type === "mongodb";
   const selectedDbMeta = getDatabaseMeta(formData.type);
 
   return (

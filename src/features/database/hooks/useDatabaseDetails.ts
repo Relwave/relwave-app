@@ -19,6 +19,7 @@ import {
 import { sessionService } from "@/services/bridge/session";
 import { queryService } from "@/services/bridge/query";
 import { analyticsService } from "@/services/analytics";
+import { isDocumentDatabase } from "@/lib/databases";
 
 interface UseDatabaseDetailsOptions {
   dbId: string | undefined;
@@ -67,8 +68,9 @@ export function useDatabaseDetails({
   const { data: dbDetails } = useDatabase(dbId);
   const databaseName = dbDetails?.name || "Database";
   const databaseType = dbDetails?.type;
+  const isNosql = isDocumentDatabase(databaseType);
 
-  const { data: schemas = [] } = useSchemaNames(dbId);
+  const { data: schemas = [] } = useSchemaNames(dbId, !isNosql);
   const [selectedSchema, setSelectedSchema] = useState<string>("public");
 
   // Auto-select first schema if current one is invalid
@@ -88,7 +90,7 @@ export function useDatabaseDetails({
     isLoading: loadingTables,
     refetch: refetchTables,
     isRefetching: isRefetchingTables,
-  } = useTables(dbId, selectedSchema);
+  } = useTables(dbId, selectedSchema, !isNosql);
 
   // Transform tables data
   const tables: TableInfo[] = tablesData.map((item: any) => ({
@@ -115,7 +117,7 @@ export function useDatabaseDetails({
   const { invalidateTable, invalidateDatabase } = useInvalidateCache();
 
   // Full schema for column metadata fallback
-  const { data: fullSchema } = useFullSchema(dbId);
+  const { data: fullSchema } = useFullSchema(isNosql ? undefined : dbId);
   const selectedTableColumns = useMemo(() => {
     if (!fullSchema?.schemas || !selectedTable) return [];
     const schema = fullSchema.schemas.find((s) => s.name === selectedTable.schema);
@@ -188,8 +190,9 @@ export function useDatabaseDetails({
   );
 
   const fetchTables = useCallback(async () => {
+    if (isNosql) return;
     await refetchTables();
-  }, [refetchTables]);
+  }, [refetchTables, isNosql]);
 
   const refetchTableData = useCallback(() => {
     if (!dbId || !selectedTable) return;

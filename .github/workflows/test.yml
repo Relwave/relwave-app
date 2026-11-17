@@ -77,6 +77,16 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })' || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     env:
       REAL_POSTGRES_HOST: localhost
       REAL_POSTGRES_PORT: 5432
@@ -116,6 +126,12 @@ jobs:
       REAL_CLICKHOUSE_DATABASE: testdb
       REAL_CLICKHOUSE_SSL: "false"
 
+      REAL_MONGODB_HOST: localhost
+      REAL_MONGODB_PORT: 27017
+      REAL_MONGODB_DATABASE: testdb
+      REAL_MONGODB_URI: mongodb://localhost:27017/testdb
+      MONGO_TEST_URI: mongodb://localhost:27017
+
       # SQLite — no env vars needed; tests use a temp file
 
     steps:
@@ -153,6 +169,10 @@ jobs:
       - name: Seed ClickHouse database
         run: |
           node bridge/scripts/seed-clickhouse.cjs
+
+      - name: Seed MongoDB database
+        run: |
+          node bridge/scripts/seed-mongodb.cjs
 
       - name: Run tests
         run: |

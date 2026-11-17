@@ -16,6 +16,9 @@ export * from "./postgres";
 export * from "./sqlite";
 export * from "./duckdb";
 export * from "./clickhouse";
+export * from "./mongo";
+export * from "./mongoMigration";
+export * from "./mongoBulk";
 export * from "./ai";
 export { SSHConfig } from "./common";
 
@@ -26,6 +29,7 @@ export enum DBType {
   SQLITE = "sqlite",
   DUCKDB = "duckdb",
   CLICKHOUSE = "clickhouse",
+  MONGODB = "mongodb",
 }
 
 export type Rpc = {
