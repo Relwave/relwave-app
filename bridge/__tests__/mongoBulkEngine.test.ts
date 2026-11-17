@@ -386,8 +386,12 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
 
       expect(res.operationId).toBeDefined();
 
-      // Wait briefly for background stream pipeline to complete
-      await new Promise((r) => setTimeout(r, 60));
+      // Wait for background stream pipeline to complete
+      for (let i = 0; i < 50; i++) {
+        const opStatus = await engine.getOperationStatus(res.operationId);
+        if (opStatus.status === "completed" || opStatus.status === "failed") break;
+        await new Promise((r) => setTimeout(r, 20));
+      }
 
       const status = await engine.getOperationStatus(res.operationId);
       expect(status.status).toBe("completed");
@@ -429,7 +433,12 @@ describe("MongoDB M7 Phase 3: Bulk Operations Bridge Engine", () => {
         format: "csv",
       });
 
-      await new Promise((r) => setTimeout(r, 60));
+      // Wait for background stream pipeline to complete
+      for (let i = 0; i < 50; i++) {
+        const opStatus = await engine.getOperationStatus(res.operationId);
+        if (opStatus.status === "completed" || opStatus.status === "failed") break;
+        await new Promise((r) => setTimeout(r, 20));
+      }
 
       const filePath = path.join(EXPORT_DIR, `export-${res.operationId}.csv`);
       expect(fs.existsSync(filePath)).toBe(true);

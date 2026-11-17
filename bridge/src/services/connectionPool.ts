@@ -117,7 +117,7 @@ export class ConnectionPool {
   private triggerDeferredCleanup(entry: PoolEntry): void {
     if (this._isForcedTeardownInitiated) return;
 
-    const cleanupPromise: Promise<void> = (async () => {
+    const cleanupPromise = (async () => {
       try {
         if (this._isForcedTeardownInitiated) return;
         if (entry.tunnel) {
@@ -130,12 +130,13 @@ export class ConnectionPool {
         }
       } catch (err: any) {
         logger.warn({ err: safeMongoError(err) }, "Deferred cleanup error in ConnectionPool");
-      } finally {
-        this.inProgressCleanups.delete(cleanupPromise);
       }
     })();
 
     this.inProgressCleanups.add(cleanupPromise);
+    cleanupPromise.finally(() => {
+      this.inProgressCleanups.delete(cleanupPromise);
+    });
   }
 
   async safeCloseMongoClient(cfg: any): Promise<void> {

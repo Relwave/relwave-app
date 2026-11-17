@@ -1277,12 +1277,23 @@ export class MongoBulkEngine {
         state.operation.fileSizeBytes = stat?.size ?? 0;
         state.operation.updatedAt = new Date().toISOString();
 
-        this.opManager.transition(operationId, "completed");
+        const currentOp = this.opManager.getOperation(operationId);
+        if (currentOp && currentOp.operation.status === "in_progress") {
+          this.opManager.transition(operationId, "completed");
+        }
       } catch (err: any) {
-        if (state.controller.signal.aborted || err?.code === "MONGO_OPERATION_CANCELLED") {
-          this.opManager.transition(operationId, "cancelled");
-        } else {
-          this.opManager.transition(operationId, "failed", err?.message || String(err));
+        const currentOp = this.opManager.getOperation(operationId);
+        if (
+          currentOp &&
+          currentOp.operation.status !== "completed" &&
+          currentOp.operation.status !== "failed" &&
+          currentOp.operation.status !== "cancelled"
+        ) {
+          if (state.controller.signal.aborted || err?.code === "MONGO_OPERATION_CANCELLED") {
+            this.opManager.transition(operationId, "cancelled");
+          } else {
+            this.opManager.transition(operationId, "failed", err?.message || String(err));
+          }
         }
         await fs.promises.unlink(tempFilePath).catch(() => {});
       } finally {
