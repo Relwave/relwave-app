@@ -381,9 +381,9 @@ This document records the foundational architectural decisions in the RelWave co
 - **Chosen Approach:**
   - The AI service introspects the active database schema and constructs a minimal, dialect-specific context (e.g., table columns and foreign keys for SQL; collection names, inferred field types, and sample structures for MongoDB).
   - System prompts instruct the LLM to output valid SQL for relational engines and valid MQL/mongosh code for MongoDB.
-  - In `NLSqlService.naturalLanguageToSQL`, the service computes a content hash and persists question-to-query history into SQLite via `aiHistoryStore.insert`, calling the provider directly on each query generation request.
+  - In `NLSqlService.naturalLanguageToSQL`, the service computes a content hash and calls the provider directly on each query generation request. Generated queries are persisted to SQLite via `aiHistoryStore.insert` only when execution reaches the post-execution recording step; valid write, destructive, and schema queries return early for user confirmation and are excluded from the persistent history table.
   - Cache-first AI features (such as schema analysis and query explanation) use `aiCacheService.getOrCall`, which checks the SQLite history via `aiHistoryStore.findByHash` and stores misses via `aiHistoryStore.insert`, persisting prompts and responses on disk.
 - **Consequences and Trade-offs:**
-  - _Pros:_ High query generation accuracy across diverse dialects; persistent audit and history log on local disk across restarts.
-  - _Cons:_ Natural-language to SQL calls invoke the provider on each request; schema prompt context must be trimmed for massive databases with hundreds of tables to avoid exceeding LLM context windows.
+  - _Pros:_ High query generation accuracy across diverse dialects; persistent history log on local disk across restarts for executed read queries.
+  - _Cons:_ Natural-language to SQL calls invoke the provider on each request; write, destructive, and schema queries return early without persisting to history; schema prompt context must be trimmed for massive databases with hundreds of tables to avoid exceeding LLM context windows.
 - **Current Status:** Implemented in `bridge/src/services/nlSqlService.ts` and `bridge/src/services/aiCacheService.ts`.

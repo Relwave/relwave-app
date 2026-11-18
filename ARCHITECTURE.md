@@ -642,8 +642,8 @@ The AI engine (`bridge/src/services/nlSqlService.ts`) injects dialect-specific s
 
 ### 7.3 Response Caching & Execution History
 
-- **Persistent Cache Storage:** `bridge/src/services/aiCacheService.ts` orchestrates cache-first AI invocations using local SQLite history storage (`aiHistoryStore.ts`). Its `getOrCall` workflow checks for cached entries via `aiHistoryStore.findByHash(hash, datasourceId)` using a deterministic SHA-256 hash of the feature, prompt, and schema context. On a cache miss, it calls the provider and stores the prompt, response, and token count via `aiHistoryStore.insert`.
-- **Execution History & Privacy:** Past natural language queries and generated outputs persist locally on disk with credentials redacted. When query interpretation is requested, `nlSqlService` sends non-empty query result sets to the configured cloud AI provider, but does not bypass provider calls via cached lookups.
+- **Persistent Cache Storage:** `bridge/src/services/aiCacheService.ts` orchestrates cache-first AI invocations using local SQLite history storage (`aiHistoryStore.ts`). Its `getOrCall` workflow checks for cached entries via `aiHistoryStore.findByHash(hash, datasourceId)` using a deterministic SHA-256 hash of the feature and normalized input payload (schema structure, query details, or table metadata). On a cache miss, it calls the provider and stores the prompt, response, and token count via `aiHistoryStore.insert`.
+- **Execution History & Privacy:** Past natural language queries and generated outputs persist locally in SQLite on disk; stored prompts and outputs reflect user inputs and may contain sensitive values if included in the query text. Note that valid write, destructive, and schema queries return early for user confirmation without being written to `aiHistoryStore`. When query interpretation is requested, `nlSqlService` sends non-empty query result sets to the configured cloud AI provider, but does not bypass provider calls via cached lookups.
 
 ---
 
@@ -673,7 +673,7 @@ flowchart TD
 
 - **Database Credentials:** Stored in `.credentials` within the user configuration folder. Encrypted using AES-256-CBC with an app-level 32-byte random secret (`relwave.key`, chmod 0o600 on POSIX). Database passwords are **not** stored in the OS keyring.
 - **SSH Credentials:** SSH private key passphrases and passwords are stored in the OS keyring via `@napi-rs/keyring` under the service name `relwave-ssh`.
-- **In-Flight Protection:** Connection URIs in error logs and exceptions are redacted via regex (`safeMongoError`).
+- **In-Flight Protection:** Connection URIs in error logs and exceptions pass through `safeMongoError`, which redacts URI userinfo (e.g. `username:password@`). Note that sensitive credentials passed in query parameters (such as `AWS_SESSION_TOKEN` in `authMechanismProperties`) are not stripped by this regex.
 
 ### 8.2 SSH Tunneling Architecture
 

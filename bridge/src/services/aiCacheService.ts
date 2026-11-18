@@ -34,7 +34,7 @@ export interface CachedResult {
  * The same input always produces the same hash.
  */
 export function generateContentHash(feature: AIFeature, data: unknown): string {
-  const payload = JSON.stringify({ feature, data }, Object.keys({ feature, data }).sort());
+  const payload = JSON.stringify({ feature, data });
   return crypto.createHash("sha256").update(payload, "utf-8").digest("hex");
 }
 
