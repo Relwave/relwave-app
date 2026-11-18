@@ -35,7 +35,7 @@ This document records the foundational architectural decisions in the RelWave co
   - [ADR-022: Isolated Background Bulk Operations Engine with Orphan Eviction](#adr-022-isolated-background-bulk-operations-engine-with-orphan-eviction)
 - [6. AI Integration](#6-ai-integration)
   - [ADR-023: Multi-Provider LLM Abstraction with Local-First Fallbacks](#adr-023-multi-provider-llm-abstraction-with-local-first-fallbacks)
-  - [ADR-024: Engine-Aware Schema Prompt Context and LRU Query Caching](#adr-024-engine-aware-schema-prompt-context-and-lru-query-caching)
+  - [ADR-024: Engine-Aware Schema Prompt Context and Persistent History Storage](#adr-024-engine-aware-schema-prompt-context-and-persistent-history-storage)
 
 ---
 
@@ -45,7 +45,7 @@ This document records the foundational architectural decisions in the RelWave co
 
 - **Decision:** Build RelWave as a cross-platform desktop application rather than a hosted web/cloud SaaS.
 - **Context / Problem:** Database management tools handle sensitive intellectual property, production credentials, internal schemas, and proprietary data. In SaaS-based database GUIs, database network ports must be opened to third-party cloud IPs or relayed through intermediate proxy servers, creating security, compliance (SOC2/GDPR/HIPAA), and latency concerns.
-- **Chosen Approach:** RelWave runs locally on the user's workstation using Tauri (Rust) and a local Node.js process. All database connections, SSH tunnels, Git commits, and file system operations execute locally within the user's private network or VPN perimeter. No query results or database credentials ever leave the local machine.
+- **Chosen Approach:** RelWave runs locally on the user's workstation using Tauri (Rust) and a local Node.js process. All database connections, SSH tunnels, Git commits, and file system operations execute locally within the user's private network or VPN perimeter. Database credentials and connection passwords never leave the local machine, and query execution is strictly local. When the optional natural language query interpretation feature is explicitly requested, `nlSqlService` sends non-empty query result sets to the configured cloud AI provider (e.g. Anthropic, OpenAI, Gemini, Groq, Mistral) for explanation; configuring a local Ollama model keeps interpretation entirely on-device.
 - **Consequences and Trade-offs:**
   - _Pros:_ Direct database access without exposing internal ports; zero SaaS hosting costs for users; offline functionality for SQLite and DuckDB; native OS integration (file picker, process lifecycle, local Git).
   - _Cons:_ Binary distribution complexity across Windows and Linux; platform-specific native binary packaging (`.node`, `.dll`, `.so`).
@@ -228,7 +228,7 @@ This document records the foundational architectural decisions in the RelWave co
 - **Decision:** Use cursor streaming for export and large result sets, but bounded skip/limit pagination for interactive UI document browsing.
 - **Context / Problem:** MongoDB cursors hold open server-side resources that timeout after 10 minutes (`CursorNotFound`). However, unbounded `skip()` on millions of documents has $O(N)$ performance degradation.
 - **Chosen Approach:**
-  - _Interactive Workspace:_ Uses page-based windowing with a hard limit (default 50 documents, maximum 500) and index-supported sort keys.
+  - _Interactive Workspace:_ Uses page-based windowing with a hard limit (default 50 documents, clamped to a maximum of 100 by the bridge) and index-supported sort keys.
   - _Bulk Export:_ Uses native driver cursors (`collection.find().stream()`) piped through Node.js transform streams directly to disk, avoiding client-side memory exhaustion.
 - **Consequences and Trade-offs:**
   - _Pros:_ Fast, responsive UI browsing; memory-bounded export streaming.
@@ -255,24 +255,24 @@ This document records the foundational architectural decisions in the RelWave co
 
 - **Decision:** Infer MongoDB collection schemas through statistical sampling rather than attempting full collection scans.
 - **Context / Problem:** MongoDB collections have no fixed DDL schema and may contain millions of polymorphic documents. Scanning every document to build a schema explorer or ER diagram would take minutes or hours and overload production clusters.
-- **Chosen Approach:** `bridge/src/connectors/mongo.ts` implements stratified sampling:
-  - Reads a configurable sample size (default 100 documents, maximum 1,000) using `$sample: { size: N }` or natural ordering.
+- **Chosen Approach:** `bridge/src/connectors/mongo.ts` implements schema sampling:
+  - Reads up to the configured sample size (default 100 documents, maximum 1,000) using `find()` with `limit` in natural collection order. The read is non-random, so fields that appear only in later documents can be missed or underreported.
   - Analyzes field paths, types, presence frequency, and polymorphism percentages.
   - Detects foreign key relationships by checking for `ObjectId` references matching target collection `_id` values, DBRefs, and embedded arrays.
 - **Consequences and Trade-offs:**
   - _Pros:_ Sub-second schema generation; zero noticeable impact on database CPU/IO.
-  - _Cons:_ Rare fields occurring in <1% of documents may not appear in the inferred schema preview.
+  - _Cons:_ Non-random natural scan may miss or underreport polymorphic fields appearing only in later documents.
 - **Current Status:** Implemented in `bridge/src/connectors/mongo.ts` and `bridge/src/services/mongoRelationshipEngine.ts`.
 
 ---
 
 ### ADR-017: Distinct Migration Paradigms: Relational SQL DDL vs. MongoDB Manifests
 
-- **Decision:** Retain SQL DDL files (`.sql` with `+up`/`+down`) for relational engines, while implementing a declarative JSON/YAML manifest migration engine for MongoDB.
+- **Decision:** Retain SQL DDL files (`.sql` with `+up`/`+down`) for relational engines, while implementing a declarative JSON manifest migration engine (`.mql.json`) for MongoDB.
 - **Context / Problem:** Relational databases have standard DDL statements (`CREATE TABLE`, `ALTER TABLE ADD COLUMN`). MongoDB has no DDL for adding document fields, and applying migrations requires collection operations, index changes, or bulk update pipelines.
 - **Chosen Approach:**
   - _SQL Databases:_ Sequential SQL scripts applied within a transaction where supported, tracked via `schema_migrations` table.
-  - _MongoDB:_ Declarative migration manifests specifying operations (`createCollection`, `dropCollection`, `createIndex`, `dropIndex`, `updateMany`, `deleteMany`) with automated dry-run validation, progress logging in `_relwave_migrations`, and auto-rollback execution.
+  - _MongoDB:_ Declarative `.mql.json` migration manifests specifying typed steps (`createCollection`, `dropCollection`, `createIndex`, `dropIndex`, `setValidator`, `updateMany`) with automated dry-run validation, progress logging in `_relwave_migrations`, and auto-rollback execution.
 - **Consequences and Trade-offs:**
   - _Pros:_ Idiomatic migration management for both database paradigms.
   - _Cons:_ Two migration UI cards and serialization engines in the frontend.
@@ -350,7 +350,7 @@ This document records the foundational architectural decisions in the RelWave co
 - **Context / Problem:** Importing or exporting gigabytes of data or running 50,000 document mutations can freeze client memory and crash if UI components unmount during upload.
 - **Chosen Approach:**
   - Bulk operations run as background tasks managed by `BulkOperationManager`.
-  - Imports are chunked (maximum 5,000 documents or 16 MB per batch) and dispatched sequentially.
+  - Imports are chunked into batches of at most 1,000 documents and 4 MB per chunk (with a 16 MB total cumulative import payload cap), while bulk mutations (`bulkInsert`) support batches up to 5,000 documents or 16 MB.
   - Exports stream directly from cursor to disk using Node.js filesystem streams (supporting JSON, NDJSON, and CSV with dot-notation flattening).
   - Operations are assigned a 2-hour TTL. An automatic background sweep evicts completed, failed, or orphaned operations and deletes temporary export files.
 - **Consequences and Trade-offs:**
@@ -374,15 +374,16 @@ This document records the foundational architectural decisions in the RelWave co
 
 ---
 
-### ADR-024: Engine-Aware Schema Prompt Context and LRU Query Caching
+### ADR-024: Engine-Aware Schema Prompt Context and Persistent History Storage
 
-- **Decision:** Inject dialect-specific schema context into LLM prompts and cache generated queries in an in-memory LRU cache.
-- **Context / Problem:** LLMs frequently produce syntax errors when unaware of the target database dialect (e.g., generating Postgres SQL for ClickHouse, or generating SQL for MongoDB). Furthermore, repeated natural language queries waste API credits and incur latency.
+- **Decision:** Inject dialect-specific schema context into LLM prompts and persist query generation history and cache records in a local SQLite store.
+- **Context / Problem:** LLMs frequently produce syntax errors when unaware of the target database dialect (e.g., generating Postgres SQL for ClickHouse, or generating SQL for MongoDB). Furthermore, inspecting past AI interactions requires persistent local history.
 - **Chosen Approach:**
   - The AI service introspects the active database schema and constructs a minimal, dialect-specific context (e.g., table columns and foreign keys for SQL; collection names, inferred field types, and sample structures for MongoDB).
   - System prompts instruct the LLM to output valid SQL for relational engines and valid MQL/mongosh code for MongoDB.
-  - `aiCacheService.ts` caches question-to-query results in an in-memory LRU cache with a 30-day TTL, hashed by provider, model, schema hash, and prompt.
+  - In `NLSqlService.naturalLanguageToSQL`, the service computes a content hash and persists question-to-query history into SQLite via `aiHistoryStore.insert`, calling the provider directly on each query generation request.
+  - Cache-first AI features (such as schema analysis and query explanation) use `aiCacheService.getOrCall`, which checks the SQLite history via `aiHistoryStore.findByHash` and stores misses via `aiHistoryStore.insert`, persisting prompts and responses on disk.
 - **Consequences and Trade-offs:**
-  - _Pros:_ High query generation accuracy across diverse dialects; near-instant responses for frequent queries.
-  - _Cons:_ Schema prompt context must be trimmed for massive databases with hundreds of tables to avoid exceeding LLM context windows.
+  - _Pros:_ High query generation accuracy across diverse dialects; persistent audit and history log on local disk across restarts.
+  - _Cons:_ Natural-language to SQL calls invoke the provider on each request; schema prompt context must be trimmed for massive databases with hundreds of tables to avoid exceeding LLM context windows.
 - **Current Status:** Implemented in `bridge/src/services/nlSqlService.ts` and `bridge/src/services/aiCacheService.ts`.

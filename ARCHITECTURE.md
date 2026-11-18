@@ -382,15 +382,15 @@ Handler functions retrieve the target connector via `getConnector(dbType)`, comp
 
 ### 5.1 Summary Matrix
 
-| Database Engine | Driver Package                 | Protocol / Transport                    | Primary Data Model          | Introspection Mechanism                 | Cancellation Mechanism           | Streaming Support        |
-| :-------------- | :----------------------------- | :-------------------------------------- | :-------------------------- | :-------------------------------------- | :------------------------------- | :----------------------- |
-| **PostgreSQL**  | `pg` (^8.16.3)                 | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema` + `pg_catalog`     | `client.cancel()`                | Yes (`pg-query-stream`)  |
-| **MySQL**       | `mysql2` (^3.15.3)             | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema`                    | `KILL QUERY <threadId>`          | Yes (Result stream)      |
-| **MariaDB**     | `mysql2` (^3.15.3)             | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema`                    | `KILL QUERY <threadId>`          | Yes (Result stream)      |
-| **SQLite**      | `better-sqlite3` (^11.9.0)     | Direct disk file                        | Relational (Row)            | `PRAGMA table_xinfo / foreign_key_list` | In-process execution limit       | Synchronous batching     |
-| **DuckDB**      | `@duckdb/node-api` (1.5.6-r.1) | In-process file / memory                | Relational (Columnar OLAP)  | `information_schema` + DuckDB catalog   | Abort / statement close          | Chunked vector stream    |
-| **ClickHouse**  | `@clickhouse/client` (^1.24.1) | HTTP / HTTPS (8123/8443)                | Relational (Columnar OLAP)  | `system.tables` + `system.columns`      | `AbortController` (HTTP abort)   | Yes (JSONEachRow stream) |
-| **MongoDB**     | `mongodb` (^6.21.0)            | TCP Socket (Standalone / Replica / SRV) | Document (Polymorphic BSON) | `$sample` stratified statistical scan   | `AbortController` + cursor close | Yes (`find().stream()`)  |
+| Database Engine | Driver Package                 | Protocol / Transport                    | Primary Data Model          | Introspection Mechanism                  | Cancellation Mechanism           | Streaming Support        |
+| :-------------- | :----------------------------- | :-------------------------------------- | :-------------------------- | :--------------------------------------- | :------------------------------- | :----------------------- |
+| **PostgreSQL**  | `pg` (^8.16.3)                 | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema` + `pg_catalog`      | `client.cancel()`                | Yes (`pg-query-stream`)  |
+| **MySQL**       | `mysql2` (^3.15.3)             | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema`                     | `KILL QUERY <threadId>`          | Yes (Result stream)      |
+| **MariaDB**     | `mysql2` (^3.15.3)             | TCP Socket (TLS/SSL)                    | Relational (Row)            | `information_schema`                     | `KILL QUERY <threadId>`          | Yes (Result stream)      |
+| **SQLite**      | `better-sqlite3` (^11.9.0)     | Direct disk file                        | Relational (Row)            | `PRAGMA table_xinfo / foreign_key_list`  | In-process execution limit       | Synchronous batching     |
+| **DuckDB**      | `@duckdb/node-api` (1.5.6-r.1) | In-process file / memory                | Relational (Columnar OLAP)  | `information_schema` + DuckDB catalog    | Abort / statement close          | Chunked vector stream    |
+| **ClickHouse**  | `@clickhouse/client` (^1.24.1) | HTTP / HTTPS (8123/8443)                | Relational (Columnar OLAP)  | `system.tables` + `system.columns`       | `AbortController` (HTTP abort)   | Yes (JSONEachRow stream) |
+| **MongoDB**     | `mongodb` (^6.21.0)            | TCP Socket (Standalone / Replica / SRV) | Document (Polymorphic BSON) | Natural-order `find()` with `limit` scan | `AbortController` + cursor close | Yes (`find().stream()`)  |
 
 ---
 
@@ -521,7 +521,7 @@ flowchart TD
 #### 5.8.3 Document Browsing, Filtering & Pagination
 
 - **Browsing:** Bounded query windowing via `findDocuments` using filter, projection, sort, and pagination.
-- **Pagination Strategy:** Interactive browsing uses offset windowing with a hard maximum of 500 documents per page (default 50). Deep pagination is discouraged in favor of targeted query filters.
+- **Pagination Strategy:** Interactive browsing uses offset windowing clamped by the bridge to a maximum of 100 documents per page (default 50). Deep pagination is discouraged in favor of targeted query filters.
 - **Dual Presentation:** Results can be toggled between an editable Canonical JSON editor and an interactive polymorphic Tree View (`MongoTreeViewer.tsx`) that allows expanding nested objects, arrays, and primitive type badges.
 
 #### 5.8.4 Guarded Document Mutations
@@ -547,7 +547,7 @@ flowchart TD
 #### 5.8.7 Probabilistic Schema Inference
 
 - **Implementation:** `bridge/src/connectors/mongo.ts` (`inferSchema`).
-- **Sampling Algorithm:** Reads a sample of 100 documents (up to 1,000) using MongoDB's `$sample` aggregation stage.
+- **Sampling Algorithm:** Reads the first N documents (default 100, maximum 1,000) in natural collection order using `find()` with `limit`. The sample is non-random, so fields that appear only in later documents can be missed or underreported.
 - **Statistical Output:** Computes field type distribution percentages, identifies polymorphic fields (e.g. `age: 80% integer, 20% string`), discovers sparse fields, and infers document schemas without blocking production databases.
 
 #### 5.8.8 Visual ER Diagrams & Relationship Detection
@@ -562,14 +562,14 @@ flowchart TD
 #### 5.8.9 Streaming Bulk Operations Engine
 
 - **Implementation:** `bridge/src/services/mongoBulkEngine.ts`.
-- **Bulk Import:** Supports JSON array, Newline-Delimited JSON (NDJSON), and CSV with automatic dot-notation nesting expansion (e.g. `user.address.zip`). Operations are chunked into 5,000 document or 16 MB batches to prevent memory bloat.
+- **Bulk Import:** Supports JSON array, Newline-Delimited JSON (NDJSON), and CSV with automatic dot-notation nesting expansion (e.g. `user.address.zip`). Import chunks are constrained to at most 1,000 documents and 4 MB per chunk with a 16 MB cumulative total import cap. Bulk mutation operations (`bulkInsert`) support batches of up to 5,000 documents or 16 MB.
 - **Bulk Export:** Streams documents directly from cursor to disk using Node.js filesystem streams (`fs.createWriteStream`). Supports JSON, NDJSON, and CSV formatting.
 - **Lifecycle & Cleanup:** `BulkOperationManager` tracks operation progress, handles client-side cancellation via `AbortController`, and automatically purges completed, failed, or orphaned jobs after 2 hours.
 
 #### 5.8.10 Declarative Migration Engine & Distributed Mutex
 
 - **Implementation:** `bridge/src/services/mongoMigrationEngine.ts` and `mongoMigrationLock.ts`.
-- **Manifest Format:** Versioned YAML/JSON migration manifests specifying declarative steps (`createCollection`, `dropCollection`, `createIndex`, `dropIndex`, `updateMany`, `deleteMany`).
+- **Manifest Format:** Declarative JSON migration manifests using the `.mql.json` filename suffix, specifying typed steps (`createCollection`, `dropCollection`, `createIndex`, `dropIndex`, `setValidator`, `updateMany`).
 - **Distributed Mutex Lock:** Protects against concurrent runs by acquiring a distributed lock in `_relwave_migrations_lock` with a 60-second lease, an automated 15-second heartbeat, and monotonic fencing tokens. Lock release clears ownership while preserving the monotonic token to guarantee safety against split-brain scenarios.
 - **Audit History:** Migration execution events and step outputs are logged to `_relwave_migrations`. If a step fails, the engine runs automatic reverse compensation steps.
 
@@ -642,8 +642,8 @@ The AI engine (`bridge/src/services/nlSqlService.ts`) injects dialect-specific s
 
 ### 7.3 Response Caching & Execution History
 
-- **In-Memory LRU Cache:** `bridge/src/services/aiCacheService.ts` caches question-to-query results with a 30-day TTL based on a hash of the provider, model, database dialect, and prompt text.
-- **Execution History:** Past natural language queries and generated outputs are persisted locally in `aiHistoryStore.ts` with credentials redacted.
+- **Persistent Cache Storage:** `bridge/src/services/aiCacheService.ts` orchestrates cache-first AI invocations using local SQLite history storage (`aiHistoryStore.ts`). Its `getOrCall` workflow checks for cached entries via `aiHistoryStore.findByHash(hash, datasourceId)` using a deterministic SHA-256 hash of the feature, prompt, and schema context. On a cache miss, it calls the provider and stores the prompt, response, and token count via `aiHistoryStore.insert`.
+- **Execution History & Privacy:** Past natural language queries and generated outputs persist locally on disk with credentials redacted. When query interpretation is requested, `nlSqlService` sends non-empty query result sets to the configured cloud AI provider, but does not bypass provider calls via cached lookups.
 
 ---
 
@@ -673,7 +673,7 @@ flowchart TD
 
 - **Database Credentials:** Stored in `.credentials` within the user configuration folder. Encrypted using AES-256-CBC with an app-level 32-byte random secret (`relwave.key`, chmod 0o600 on POSIX). Database passwords are **not** stored in the OS keyring.
 - **SSH Credentials:** SSH private key passphrases and passwords are stored in the OS keyring via `@napi-rs/keyring` under the service name `relwave-ssh`.
-- **In-Flight Protection:** Connection URIs in error logs and exceptions are redacted via regex (`redactMongoUri`).
+- **In-Flight Protection:** Connection URIs in error logs and exceptions are redacted via regex (`safeMongoError`).
 
 ### 8.2 SSH Tunneling Architecture
 

@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connection-level `readOnly` mode validation enforced at the JSON-RPC bridge boundary before driver dispatch.
 - Mandatory semantic empty filter validation (`allowUnrestricted: true`) blocking accidental whole-collection wipeouts.
 - Pipeline safety blacklisting preventing execution of dangerous server-side operators (`$where`, `$function`, `$accumulator`, `$out`, `$merge`).
-- Automated MongoDB URI credential sanitization in logs, exceptions, and error payloads (`redactMongoUri`).
+- Automated MongoDB URI credential sanitization in logs, exceptions, and error payloads (`safeMongoError` / `redactMongoUri`).
 - Windows Job Object containment (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) ensuring child process and socket teardown on host shutdown.
 - Request-scoped query cancellation via `AbortController` across cursor streams and bulk data transfers.
 

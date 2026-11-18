@@ -92,7 +92,7 @@ To add a new database engine:
 ### 3. Security Invariants
 
 - **Credential Storage Boundary:** Database passwords are encrypted via AES-256-CBC and stored in `.credentials`. Do **not** route database connection passwords through `@napi-rs/keyring`. Keyring access is strictly reserved for SSH credentials in `keyringService.ts`.
-- **Credential Redaction:** Any error message, exception, or log that may contain connection strings must pass through URI sanitization (e.g. `redactMongoUri`).
+- **Credential Redaction:** Any error message, exception, or log that may contain connection strings must pass through URI sanitization (e.g. `safeMongoError` / `redactMongoUri`).
 - **Read-Only Enforcement:** If `config.readOnly` is true, write operations (`insert`, `update`, `delete`, `drop`, `alter`, `migration.apply`, `bulk.mutate`) must be blocked in the bridge handler before reaching the driver.
 - **Dangerous Operator Blacklisting:** In document/NoSQL engines, dangerous code execution operators (`$where`, `$function`, `$accumulator`, `$out`, `$merge`) must be validated and rejected.
 - **Semantic Empty Filter Defense:** Massive mutations without filters (`{}`) must require an explicit user override flag (`allowUnrestricted: true`).
