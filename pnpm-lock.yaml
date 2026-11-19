@@ -134,6 +134,9 @@ importers:
       react:
         specifier: ^19.1.0
         version: 19.2.3
+      react-devicons:
+        specifier: ^2.16.2
+        version: 2.16.2
       react-dom:
         specifier: ^19.1.0
         version: 19.2.3(react@19.2.3)
@@ -3151,6 +3154,9 @@ packages:
   rbush@3.0.1:
     resolution: {integrity: sha512-XRaVO0YecOpEuIvbhbpTrZgoiI6xBlz6hnlr6EHhd+0x9ase6EmeN+hdwwUaJvLcsFFQ8iWVF1GAK1yB0BWi0w==}
 
+  react-devicons@2.16.2:
+    resolution: {integrity: sha512-oVNx7pRIW5UfvSZGlvUICvBL54DfL/rGJWyf/5qJFCG9Cd4zzul0yYE0cKJASvQDPzjARhOq07No9SoQlURrFA==}
+
   react-dom@19.2.3:
     resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
@@ -3230,6 +3236,10 @@ packages:
     peerDependencies:
       react: '>=16.6.0'
       react-dom: '>=16.6.0'
+
+  react@18.3.1:
+    resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
+    engines: {node: '>=0.10.0'}
 
   react@19.2.3:
     resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
@@ -6793,6 +6803,10 @@ snapshots:
     dependencies:
       quickselect: 2.0.0
 
+  react-devicons@2.16.2:
+    dependencies:
+      react: 18.3.1
+
   react-dom@19.2.3(react@19.2.3):
     dependencies:
       react: 19.2.3
@@ -6879,6 +6893,10 @@ snapshots:
       prop-types: 15.8.1
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
+
+  react@18.3.1:
+    dependencies:
+      loose-envify: 1.4.0
 
   react@19.2.3: {}
 
