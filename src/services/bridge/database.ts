@@ -284,7 +284,12 @@ class DatabaseService {
       }
       return data;
     } catch (error: any) {
-      if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|ehostunreach|enetunreach|database is offline/i.test(
+          error.message,
+        )
+      ) {
         console.warn(`Database ${id} is offline: ${error.message}`);
         const data: any[] = [];
         (data as any).isOffline = true;
@@ -304,7 +309,12 @@ class DatabaseService {
       const result = await bridgeRequest("db.listSchemas", { id });
       return result?.data || [];
     } catch (error: any) {
-      if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|ehostunreach|enetunreach|database is offline/i.test(
+          error.message,
+        )
+      ) {
         console.warn(`Database ${id} is offline: ${error.message}`);
         return [];
       }

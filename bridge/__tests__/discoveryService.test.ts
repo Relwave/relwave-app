@@ -330,6 +330,29 @@ describe("DiscoveryService", () => {
         containerPort: 27017,
       });
     });
+
+    test("should accept [::1] and ::1 IPv6 loopback bindings", () => {
+      expect(parsePortMapping(service, "[::1]:37017->27017/tcp", "mongodb")).toEqual({
+        hostPort: 37017,
+        containerPort: 27017,
+      });
+      expect(parsePortMapping(service, "::1:37017->27017/tcp", "mongodb")).toEqual({
+        hostPort: 37017,
+        containerPort: 27017,
+      });
+    });
+
+    test("should parse multiple port mappings and skip excluded MongoDB 28017 port", () => {
+      const multiPort = parsePortMapping(
+        service,
+        "0.0.0.0:28017->28017/tcp, 0.0.0.0:37017->27017/tcp",
+        "mongodb",
+      );
+      expect(multiPort).toEqual({ hostPort: 37017, containerPort: 27017 });
+
+      const singleExcluded = parsePortMapping(service, "0.0.0.0:28017->28017/tcp", "mongodb");
+      expect(singleExcluded).toBeNull();
+    });
   });
 
   describe("getDefaultPort (private)", () => {

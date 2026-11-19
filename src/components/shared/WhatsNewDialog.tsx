@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const GITHUB_REPO = "Relwave/relwave-app";
 
@@ -164,18 +165,36 @@ export function WhatsNewDialog() {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                h1: ({ children }) => (
-                  <h1 className="text-lg font-semibold text-foreground mt-5 mb-2 first:mt-0 tracking-tight">
+                h1: ({ className, children, ...props }) => (
+                  <h1
+                    {...props}
+                    className={cn(
+                      "text-lg font-semibold text-foreground mt-5 mb-2 first:mt-0 tracking-tight",
+                      className,
+                    )}
+                  >
                     {children}
                   </h1>
                 ),
-                h2: ({ children }) => (
-                  <h2 className="text-base font-semibold text-foreground mt-4 mb-2 first:mt-0 tracking-tight">
+                h2: ({ className, children, ...props }) => (
+                  <h2
+                    {...props}
+                    className={cn(
+                      "text-base font-semibold text-foreground mt-4 mb-2 first:mt-0 tracking-tight",
+                      className,
+                    )}
+                  >
                     {children}
                   </h2>
                 ),
-                h3: ({ children }) => (
-                  <h3 className="text-sm font-semibold text-foreground mt-3 mb-1.5 tracking-tight">
+                h3: ({ className, children, ...props }) => (
+                  <h3
+                    {...props}
+                    className={cn(
+                      "text-sm font-semibold text-foreground mt-3 mb-1.5 tracking-tight",
+                      className,
+                    )}
+                  >
                     {children}
                   </h3>
                 ),
@@ -187,8 +206,13 @@ export function WhatsNewDialog() {
                     {children}
                   </ol>
                 ),
-                li: ({ children }) => (
-                  <li className="text-sm text-foreground/85 leading-relaxed">{children}</li>
+                li: ({ className, children, ...props }) => (
+                  <li
+                    {...props}
+                    className={cn("text-sm text-foreground/85 leading-relaxed", className)}
+                  >
+                    {children}
+                  </li>
                 ),
                 p: ({ children }) => (
                   <p className="text-sm text-foreground/80 leading-relaxed mb-2.5">{children}</p>
@@ -213,16 +237,23 @@ export function WhatsNewDialog() {
                     </code>
                   );
                 },
-                a: ({ href, children }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2 hover:opacity-80 transition-opacity"
-                  >
-                    {children}
-                  </a>
-                ),
+                a: ({ href, className, children, ...props }) => {
+                  const isFragment = href?.startsWith("#");
+                  return (
+                    <a
+                      href={href}
+                      target={isFragment ? undefined : "_blank"}
+                      rel={isFragment ? undefined : "noopener noreferrer"}
+                      {...props}
+                      className={cn(
+                        "text-primary underline underline-offset-2 hover:opacity-80 transition-opacity",
+                        className,
+                      )}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
                 blockquote: ({ children }) => (
                   <blockquote className="border-l-2 border-primary/50 pl-3 text-sm text-foreground/70 italic my-2">
                     {children}

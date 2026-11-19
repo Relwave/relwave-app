@@ -388,14 +388,20 @@ export class DiscoveryService {
     ports: string,
     dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb",
   ): { hostPort: number; containerPort: number } | null {
-    const portMatch = ports.match(/(?:127\.0\.0\.1|0\.0\.0\.0|\[::\]|::):(\d+)->(\d+)/);
-    if (!portMatch) return null;
-    const hostPort = parseInt(portMatch[1], 10);
-    const containerPort = parseInt(portMatch[2], 10);
-    if (dbType === "mongodb" && containerPort === 28017) {
-      return null;
+    const mappings = ports.split(",");
+    for (const mapping of mappings) {
+      const portMatch = mapping.match(
+        /(?:127\.0\.0\.1|0\.0\.0\.0|\[::1\]|::1|\[::\]|::):(\d+)->(\d+)/,
+      );
+      if (!portMatch) continue;
+      const hostPort = parseInt(portMatch[1], 10);
+      const containerPort = parseInt(portMatch[2], 10);
+      if (dbType === "mongodb" && containerPort === 28017) {
+        continue;
+      }
+      return { hostPort, containerPort };
     }
-    return { hostPort, containerPort };
+    return null;
   }
 
   /**
