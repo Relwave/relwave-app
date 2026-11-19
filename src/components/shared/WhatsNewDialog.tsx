@@ -119,7 +119,7 @@ export function WhatsNewDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-2xl sm:max-w-3xl w-[90vw] p-0 gap-0 overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-5 border-b border-border/50 space-y-0">
           <div className="flex items-center gap-3">
@@ -148,7 +148,7 @@ export function WhatsNewDialog() {
         </DialogHeader>
 
         {/* Body */}
-        <div className="px-6 py-5 max-h-[480px] overflow-y-auto">
+        <div className="px-6 py-5 max-h-[65vh] sm:max-h-[520px] overflow-y-auto">
           {loading ? (
             <div className="space-y-3">
               {[80, 60, 90, 50, 70].map((w, i) => (
@@ -163,44 +163,48 @@ export function WhatsNewDialog() {
             <ReactMarkdown
               components={{
                 h1: ({ children }) => (
-                  <h1 className="text-base font-semibold text-foreground mt-5 mb-2 first:mt-0">
+                  <h1 className="text-lg font-semibold text-foreground mt-5 mb-2 first:mt-0 tracking-tight">
                     {children}
                   </h1>
                 ),
                 h2: ({ children }) => (
-                  <h2 className="text-sm font-semibold text-foreground mt-5 mb-2 first:mt-0">
+                  <h2 className="text-base font-semibold text-foreground mt-4 mb-2 first:mt-0 tracking-tight">
                     {children}
                   </h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-sm font-medium text-foreground/90 mt-4 mb-1.5">{children}</h3>
+                  <h3 className="text-sm font-semibold text-foreground mt-3 mb-1.5 tracking-tight">
+                    {children}
+                  </h3>
                 ),
-                ul: ({ children }) => <ul className="space-y-1.5 mb-3">{children}</ul>,
+                ul: ({ children }) => (
+                  <ul className="space-y-1.5 mb-3 list-disc pl-5 text-foreground/80">{children}</ul>
+                ),
                 ol: ({ children }) => (
-                  <ol className="space-y-1.5 mb-3 list-decimal pl-4">{children}</ol>
+                  <ol className="space-y-1.5 mb-3 list-decimal pl-5 text-foreground/80">{children}</ol>
                 ),
                 li: ({ children }) => (
-                  <li className="flex items-start gap-2.5 text-sm text-foreground/80 leading-relaxed">
-                    <span className="mt-[9px] w-1 h-1 rounded-full bg-muted-foreground/40 flex-shrink-0" />
-                    <span>{children}</span>
-                  </li>
+                  <li className="text-sm text-foreground/85 leading-relaxed">{children}</li>
                 ),
                 p: ({ children }) => (
-                  <p className="text-sm text-foreground/70 leading-relaxed mb-2">{children}</p>
+                  <p className="text-sm text-foreground/80 leading-relaxed mb-2.5">{children}</p>
                 ),
                 strong: ({ children }) => (
-                  <strong className="font-medium text-foreground">{children}</strong>
+                  <strong className="font-semibold text-foreground">{children}</strong>
                 ),
-                em: ({ children }) => <em className="italic text-foreground/60">{children}</em>,
+                em: ({ children }) => <em className="italic text-foreground/70">{children}</em>,
                 hr: () => <hr className="border-border/40 my-4" />,
+                pre: ({ children }) => (
+                  <pre className="my-3 overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs border border-border/40 font-mono text-foreground/90">
+                    {children}
+                  </pre>
+                ),
                 code: ({ children, className }) => {
                   const isBlock = !!className;
                   return isBlock ? (
-                    <code className="block text-xs bg-muted rounded-md px-3 py-2 font-mono text-foreground/80 my-2 overflow-x-auto">
-                      {children}
-                    </code>
+                    <code className="text-xs font-mono">{children}</code>
                   ) : (
-                    <code className="text-xs bg-muted rounded px-1.5 py-0.5 font-mono text-foreground/80">
+                    <code className="text-xs bg-muted/80 rounded px-1.5 py-0.5 font-mono text-foreground/90 border border-border/30">
                       {children}
                     </code>
                   );
@@ -216,9 +220,29 @@ export function WhatsNewDialog() {
                   </a>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-2 border-border pl-3 text-sm text-foreground/60 italic my-2">
+                  <blockquote className="border-l-2 border-primary/50 pl-3 text-sm text-foreground/70 italic my-2">
                     {children}
                   </blockquote>
+                ),
+                table: ({ children }) => (
+                  <div className="my-3 overflow-x-auto rounded-lg border border-border/40">
+                    <table className="w-full border-collapse text-xs text-left">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-muted/40 border-b border-border/40">{children}</thead>
+                ),
+                tbody: ({ children }) => (
+                  <tbody className="divide-y divide-border/30">{children}</tbody>
+                ),
+                tr: ({ children }) => (
+                  <tr className="hover:bg-muted/20 transition-colors">{children}</tr>
+                ),
+                th: ({ children }) => (
+                  <th className="px-3 py-2 font-semibold text-foreground">{children}</th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-3 py-2 text-foreground/80">{children}</td>
                 ),
               }}
             >
