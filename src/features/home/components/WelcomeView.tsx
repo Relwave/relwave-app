@@ -200,11 +200,11 @@ export function WelcomeView({
               </CardHeader>
             </Card>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[400px] sm:w-[540px] flex flex-col p-0">
-            <SheetHeader className="p-6 border-b border-border/30">
+          <SheetContent side="right" className="w-[400px] sm:w-[540px] flex flex-col gap-0 p-0">
+            <SheetHeader className="p-6 border-b border-border/30 shrink-0">
               <SheetTitle>All Tables</SheetTitle>
             </SheetHeader>
-            <ScrollArea className="flex-1 p-6">
+            <ScrollArea className="flex-1 min-h-0 overflow-hidden p-6">
               {databases.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No databases connected.</div>
               ) : (
