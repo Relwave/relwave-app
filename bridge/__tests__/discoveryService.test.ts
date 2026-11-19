@@ -49,6 +49,16 @@ describe("DiscoveryService", () => {
       expect(name).toMatch(/^[a-z]+-[a-z]+-3307$/);
     });
 
+    test("should not add port suffix for default MongoDB port", () => {
+      const name = service.generateFunName("mongodb", 27017);
+      expect(name).not.toContain("-27017");
+    });
+
+    test("should add port suffix for non-default MongoDB port", () => {
+      const name = service.generateFunName("mongodb", 27018);
+      expect(name).toMatch(/^[a-z]+-[a-z]+-27018$/);
+    });
+
     test("should generate different names on multiple calls", () => {
       // Given the randomness, most calls should produce different names
       const names = new Set<string>();
@@ -64,7 +74,7 @@ describe("DiscoveryService", () => {
     // Access private method via prototype for testing
     const extractCredentials = (
       svc: DiscoveryService,
-      dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse",
+      dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb",
       envVars: Map<string, string>,
     ) => {
       return (svc as any).extractCredentialsFromEnv(dbType, envVars);
@@ -230,6 +240,32 @@ describe("DiscoveryService", () => {
         expect(result.database).toBe("default");
       });
     });
+
+    describe("MongoDB", () => {
+      test("should extract MongoDB credentials from env vars", () => {
+        const envVars = new Map<string, string>([
+          ["MONGO_INITDB_ROOT_USERNAME", "mongouser"],
+          ["MONGO_INITDB_ROOT_PASSWORD", "mongopass"],
+          ["MONGO_INITDB_DATABASE", "customdb"],
+        ]);
+
+        const result = extractCredentials(service, "mongodb", envVars);
+
+        expect(result.user).toBe("mongouser");
+        expect(result.password).toBe("mongopass");
+        expect(result.database).toBe("customdb");
+      });
+
+      test("should use defaults when MongoDB env vars are missing", () => {
+        const envVars = new Map<string, string>();
+
+        const result = extractCredentials(service, "mongodb", envVars);
+
+        expect(result.user).toBe("");
+        expect(result.password).toBe("");
+        expect(result.database).toBe("admin");
+      });
+    });
   });
 
   describe("getDefaultPort (private)", () => {
@@ -251,6 +287,10 @@ describe("DiscoveryService", () => {
 
     test("should return 8123 for clickhouse", () => {
       expect(getDefaultPort(service, "clickhouse")).toBe(8123);
+    });
+
+    test("should return 27017 for mongodb", () => {
+      expect(getDefaultPort(service, "mongodb")).toBe(27017);
     });
 
     test("should return 0 for unknown type", () => {
@@ -279,6 +319,10 @@ describe("DiscoveryService", () => {
       expect(getDefaultUser(service, "clickhouse")).toBe("default");
     });
 
+    test("should return empty string for mongodb", () => {
+      expect(getDefaultUser(service, "mongodb")).toBe("");
+    });
+
     test("should return empty string for unknown type", () => {
       expect(getDefaultUser(service, "unknown")).toBe("");
     });
@@ -303,6 +347,10 @@ describe("DiscoveryService", () => {
 
     test("should return default for clickhouse", () => {
       expect(getDefaultDatabase(service, "clickhouse")).toBe("default");
+    });
+
+    test("should return admin for mongodb", () => {
+      expect(getDefaultDatabase(service, "mongodb")).toBe("admin");
     });
 
     test("should return empty string for unknown type", () => {
@@ -392,10 +440,21 @@ describe("DiscoveryService", () => {
         defaultDatabase: "default",
       };
 
+      const mongoDb: DiscoveredDatabase = {
+        type: "mongodb",
+        host: "localhost",
+        port: 27017,
+        source: "local",
+        suggestedName: "mongo-db",
+        defaultUser: "",
+        defaultDatabase: "admin",
+      };
+
       expect(pgDb.type).toBe("postgresql");
       expect(mysqlDb.type).toBe("mysql");
       expect(mariaDb.type).toBe("mariadb");
       expect(clickhouseDb.type).toBe("clickhouse");
+      expect(mongoDb.type).toBe("mongodb");
     });
   });
 
@@ -412,7 +471,7 @@ describe("DiscoveryService", () => {
 
       for (const db of result) {
         expect(db.type).toBeDefined();
-        expect(["postgresql", "mysql", "mariadb", "clickhouse"]).toContain(db.type);
+        expect(["postgresql", "mysql", "mariadb", "clickhouse", "mongodb"]).toContain(db.type);
         expect(db.host).toBeDefined();
         expect(typeof db.port).toBe("number");
         expect(db.source).toBeDefined();

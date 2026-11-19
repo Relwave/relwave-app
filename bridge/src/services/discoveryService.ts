@@ -17,6 +17,7 @@ const DATABASE_PORTS: Record<string, number[]> = {
   mysql: [3306, 3307, 3308],
   mariadb: [3306, 3307, 3308],
   clickhouse: [8123, 8124],
+  mongodb: [27017, 27018, 27019],
 };
 
 // Fun adjectives and nouns for generating database names
@@ -91,7 +92,7 @@ const NOUNS = [
 ];
 
 export interface DiscoveredDatabase {
-  type: "postgresql" | "mysql" | "mariadb" | "clickhouse";
+  type: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb";
   host: string;
   port: number;
   source: "local" | "docker";
@@ -127,6 +128,8 @@ export class DiscoveryService {
         return 3306;
       case "clickhouse":
         return 8123;
+      case "mongodb":
+        return 27017;
       default:
         return 0;
     }
@@ -144,6 +147,8 @@ export class DiscoveryService {
         return "root";
       case "clickhouse":
         return "default";
+      case "mongodb":
+        return "";
       default:
         return "";
     }
@@ -161,6 +166,8 @@ export class DiscoveryService {
         return "mysql";
       case "clickhouse":
         return "default";
+      case "mongodb":
+        return "admin";
       default:
         return "";
     }
@@ -213,7 +220,8 @@ export class DiscoveryService {
             scannedPorts.add(key);
 
             // Determine the actual type based on the port
-            let actualType: "postgresql" | "mysql" | "mariadb" | "clickhouse" = dbType as any;
+            let actualType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb" =
+              dbType as any;
             if (port >= 5432 && port <= 5434) {
               actualType = "postgresql";
             } else if (port >= 3306 && port <= 3308) {
@@ -221,6 +229,8 @@ export class DiscoveryService {
               actualType = "mysql";
             } else if (port === 8123 || port === 8124) {
               actualType = "clickhouse";
+            } else if (port >= 27017 && port <= 27019) {
+              actualType = "mongodb";
             }
 
             discovered.push({
@@ -272,7 +282,7 @@ export class DiscoveryService {
    * Extract database credentials from container environment variables
    */
   private extractCredentialsFromEnv(
-    dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse",
+    dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb",
     envVars: Map<string, string>,
   ): { user: string; password: string; database: string } {
     if (dbType === "postgresql") {
@@ -280,6 +290,12 @@ export class DiscoveryService {
         user: envVars.get("POSTGRES_USER") || "postgres",
         password: envVars.get("POSTGRES_PASSWORD") || "",
         database: envVars.get("POSTGRES_DB") || envVars.get("POSTGRES_USER") || "postgres",
+      };
+    } else if (dbType === "mongodb") {
+      return {
+        user: envVars.get("MONGO_INITDB_ROOT_USERNAME") || "",
+        password: envVars.get("MONGO_INITDB_ROOT_PASSWORD") || "",
+        database: envVars.get("MONGO_INITDB_DATABASE") || "admin",
       };
     } else if (dbType === "mysql") {
       // MySQL can use MYSQL_USER or root with MYSQL_ROOT_PASSWORD
@@ -333,7 +349,7 @@ export class DiscoveryService {
         const [containerName, image, ports] = line.split("|");
 
         // Determine database type from image name
-        let dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | null = null;
+        let dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb" | null = null;
         if (image.includes("postgres") || image.includes("pg") || image.includes("postgresql")) {
           dbType = "postgresql";
         } else if (image.includes("mariadb")) {
@@ -342,6 +358,8 @@ export class DiscoveryService {
           dbType = "mysql";
         } else if (image.includes("clickhouse")) {
           dbType = "clickhouse";
+        } else if (image.includes("mongo") || image.includes("mongodb")) {
+          dbType = "mongodb";
         }
 
         if (dbType && ports) {
