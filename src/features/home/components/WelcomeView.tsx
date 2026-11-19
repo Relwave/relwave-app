@@ -32,13 +32,7 @@ function getDbColors(type: string) {
   return DB_COLORS[type] || { bg: "bg-primary/10", text: "text-primary" };
 }
 
-function ConnectionSizeItem({
-  db,
-  isOnline,
-}: {
-  db: DatabaseConnection;
-  isOnline: boolean;
-}) {
+function ConnectionSizeItem({ db, isOnline }: { db: DatabaseConnection; isOnline: boolean }) {
   const { data: stats, isLoading } = useDbStats(db.id, isOnline);
   const sizeStr = !isOnline ? "Offline" : stats?.sizeBytes ? bytesToMBString(stats.sizeBytes) : "—";
   return (
@@ -59,13 +53,7 @@ function ConnectionSizeItem({
   );
 }
 
-function ConnectionTablesList({
-  db,
-  isOnline,
-}: {
-  db: DatabaseConnection;
-  isOnline: boolean;
-}) {
+function ConnectionTablesList({ db, isOnline }: { db: DatabaseConnection; isOnline: boolean }) {
   const { data: tables, isLoading } = useTables(db.id, undefined, isOnline);
 
   if (!isOnline) {

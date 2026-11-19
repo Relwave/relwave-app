@@ -3,7 +3,7 @@
 // ----------------------------
 
 import { Rpc } from "../types";
-import { DatabaseService } from "../services/databaseService";
+import { DatabaseService, isOfflineError } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
 import { Logger } from "pino";
 
@@ -38,6 +38,14 @@ export class StatsHandlers {
       const rawStats = await this.queryExecutor.getStats(conn, dbType);
       this.rpc.sendResponse(id, { ok: true, data: parseStats(rawStats) });
     } catch (e: any) {
+      if (isOfflineError(e)) {
+        this.logger.warn({ e, dbId: params?.id }, "db.getStats skipped: database is offline");
+        return this.rpc.sendResponse(id, {
+          ok: true,
+          data: { tables: 0, rows: 0, sizeBytes: 0 },
+          isOffline: true,
+        });
+      }
       this.logger.error({ e }, "db.getStats failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }

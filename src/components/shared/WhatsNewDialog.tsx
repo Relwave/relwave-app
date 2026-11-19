@@ -181,7 +181,9 @@ export function WhatsNewDialog() {
                   <ul className="space-y-1.5 mb-3 list-disc pl-5 text-foreground/80">{children}</ul>
                 ),
                 ol: ({ children }) => (
-                  <ol className="space-y-1.5 mb-3 list-decimal pl-5 text-foreground/80">{children}</ol>
+                  <ol className="space-y-1.5 mb-3 list-decimal pl-5 text-foreground/80">
+                    {children}
+                  </ol>
                 ),
                 li: ({ children }) => (
                   <li className="text-sm text-foreground/85 leading-relaxed">{children}</li>
@@ -241,9 +243,7 @@ export function WhatsNewDialog() {
                 th: ({ children }) => (
                   <th className="px-3 py-2 font-semibold text-foreground">{children}</th>
                 ),
-                td: ({ children }) => (
-                  <td className="px-3 py-2 text-foreground/80">{children}</td>
-                ),
+                td: ({ children }) => <td className="px-3 py-2 text-foreground/80">{children}</td>,
               }}
             >
               {releaseInfo?.body ?? ""}

@@ -19,6 +19,54 @@ import {
 } from "../connectors/mongo";
 import logger from "./logger";
 
+export function isOfflineError(err: any): boolean {
+  if (!err) return false;
+  const code = String(err.code || "").toUpperCase();
+  const name = String(err.name || "");
+  const msg = String(err.message || err);
+
+  const offlineCodes = new Set([
+    "ENOTFOUND",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "ECONNRESET",
+    "EAI_AGAIN",
+    "EPIPE",
+    "PROTOCOL_CONNECTION_LOST",
+  ]);
+
+  if (offlineCodes.has(code)) return true;
+
+  if (
+    name === "MongoServerSelectionError" ||
+    name === "MongoNetworkError" ||
+    name === "MongoNetworkTimeoutError" ||
+    name === "MongoTopologyClosedError"
+  ) {
+    return true;
+  }
+
+  const lowerMsg = msg.toLowerCase();
+  return (
+    lowerMsg.includes("enotfound") ||
+    lowerMsg.includes("econnrefused") ||
+    lowerMsg.includes("etimedout") ||
+    lowerMsg.includes("ehostunreach") ||
+    lowerMsg.includes("enetunreach") ||
+    lowerMsg.includes("econnreset") ||
+    lowerMsg.includes("eai_again") ||
+    lowerMsg.includes("server selection timed out") ||
+    lowerMsg.includes("topology is closed") ||
+    lowerMsg.includes("connection reset by peer") ||
+    lowerMsg.includes("connection terminated unexpectedly") ||
+    lowerMsg.includes("failed to fetch") ||
+    lowerMsg.includes("connect timeout") ||
+    lowerMsg.includes("offline")
+  );
+}
+
 export class DatabaseService {
   private dbGenerations = new Map<string, number>();
   private inFlightConnections = new Map<string, Promise<void>>();
@@ -142,20 +190,7 @@ export class DatabaseService {
   }
 
   isFatalConnectionError(err: any): boolean {
-    if (!err) return false;
-    const name = err.name || "";
-    const msg = err.message || "";
-    return (
-      name === "MongoServerSelectionError" ||
-      name === "MongoNetworkError" ||
-      name === "MongoNetworkTimeoutError" ||
-      name === "MongoTopologyClosedError" ||
-      msg.includes("connection reset by peer") ||
-      msg.includes("ECONNRESET") ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("ETIMEDOUT") ||
-      msg.includes("Topology is closed")
-    );
+    return isOfflineError(err);
   }
 
   async withConnection<T>(
