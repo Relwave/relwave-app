@@ -34,6 +34,12 @@ describe("safeMongoError and redactMongoUri", () => {
     expect(safeMongoError("mongodb+srv://cluster.net/mydb?authSource=user@admin")).toBe(
       "mongodb+srv://cluster.net/mydb?authSource=user@admin",
     );
+    expect(safeMongoError("mongodb://db-host/?readPreference=primary&authSource=user@admin")).toBe(
+      "mongodb://db-host/?readPreference=primary&authSource=user@admin",
+    );
+    expect(
+      safeMongoError("mongodb+srv://cluster.net/mydb?readPreference=primary&authSource=user@admin"),
+    ).toBe("mongodb+srv://cluster.net/mydb?readPreference=primary&authSource=user@admin");
   });
 
   test("handles URI with credentials and @ in query parameter", () => {
@@ -53,6 +59,21 @@ describe("safeMongoError and redactMongoUri", () => {
     );
     expect(safeMongoError("mongodb://host1:27017,host2:27017/?authSource=user@admin")).toBe(
       "mongodb://host1:27017,host2:27017/?authSource=user@admin",
+    );
+  });
+
+  test("masks credentials in malformed comma-separated hosts or hostnames with underscores", () => {
+    expect(safeMongoError("mongodb+srv://user:secret@host1,host2/db")).toBe(
+      "mongodb+srv://<credentials>@host1,host2/db",
+    );
+    expect(safeMongoError("mongodb+srv://user:secret@my_host_name.net/db")).toBe(
+      "mongodb+srv://<credentials>@my_host_name.net/db",
+    );
+    expect(safeMongoError("mongodb://user:secret@host1,host2:27017/db")).toBe(
+      "mongodb://<credentials>@host1,host2:27017/db",
+    );
+    expect(safeMongoError("mongodb://user:secret@my_host_name:27017/db")).toBe(
+      "mongodb://<credentials>@my_host_name:27017/db",
     );
   });
 
