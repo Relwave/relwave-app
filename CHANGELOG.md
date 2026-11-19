@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-11-19
+
+### Added
+
+- **MongoDB Local & Docker Discovery:**
+  - Automated local MongoDB socket and wire-protocol discovery (`localhost:27017` / `127.0.0.1:27017`).
+  - Automated Docker container discovery inspecting running containers (`mongo`, `mongodb`, `percona`, `bitnami`) with mapped host ports.
+  - One-click connection prefilling via the frontend `useDiscoveredDatabases` hook and discovered connections dashboard card.
+- **Tree-Shaken Database Icons:**
+  - Migrated PostgreSQL, MySQL, MariaDB, SQLite, DuckDB, ClickHouse, and MongoDB iconography to `react-devicons`.
+  - Dropped external Devicon CDN stylesheet from `index.html`, eliminating render-blocking network dependencies.
+
+### Changed
+
+- **Enhanced What's New Dialog:**
+  - Expanded modal layout to `max-w-4xl` and `max-h-[85vh]` for desktop reading comfort.
+  - Added comprehensive GitHub Flavored Markdown (GFM) styling for headers, lists, code syntax highlighting, markdown tables, and blockquotes.
+  - Added localStorage release notes caching with fallback rendering.
+- **Welcome View Navigation & Scrolling:**
+  - Integrated `ScrollArea` into the "Total Tables" sheet to resolve content truncation and ensure fluid vertical scrolling.
+
+### Fixed
+
+- **Graceful Offline Database Handling:**
+  - Added `isOfflineError` classifier across bridge database handlers (`db.listTables`, `db.listSchemas`, `db.getStats`, `db.connect`), returning structured `{ isOffline: true }` responses and logging warnings instead of throwing disruptive `IO_ERROR` exceptions to the webview.
+  - Refined error classification to require connection-specific indicators, preventing SQL identifiers (e.g. `offline_orders`) or MySQL permission errors from triggering false offline states.
+  - Added recursive `err.cause` unwrapping for wrapped driver exceptions.
+- **Connection Status Lifecycle & Pending State Isolation:**
+  - Separated initial pending connection checks (`isPending: true`) from confirmed offline results in `WelcomeView`.
+  - Displayed checking status indicators during cold startup to eliminate false "Offline" flickers.
+  - Propagated top-level `isOffline` flag through `getDataBaseStats` and `ConnectionSizeItem`, correctly distinguishing genuine zero statistics (`0.00 MB`) from unavailable offline statistics (`Offline`).
+
 ## [1.3.0] - 2026-11-17
 
 ### Added

@@ -29,7 +29,9 @@ export const useDatabaseStats = (bridgeReady: boolean, hasDatabases: boolean) =>
     queryFn: async () => {
       const res = await databaseService.testAllConnections();
       const statusMap = new Map<string, string>();
-      res.forEach((r) => statusMap.set(r.id, r.result.status));
+      res.forEach((r) =>
+        statusMap.set(r.id, r.result.status || (r.result.ok ? "connected" : "disconnected")),
+      );
       updateStatusCache(statusMap);
       return statusMap;
     },

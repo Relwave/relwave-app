@@ -118,11 +118,15 @@ export function useTables(dbId: string | undefined, schema?: string, enabled = t
     queryKey: queryKeys.tables(dbId!, schema),
     queryFn: async () => {
       const result = await databaseService.listTables(dbId!, schema);
-      return result.map((item: any): TableInfo => ({
+      const mapped = result.map((item: any): TableInfo => ({
         schema: item.schema || "public",
         name: item.name || "unknown",
         type: item.type || "table",
       }));
+      if ((result as any)?.isOffline) {
+        (mapped as any).isOffline = true;
+      }
+      return mapped;
     },
     enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.tables,
@@ -208,13 +212,13 @@ export function useMongoSchema(
  * Fetch database statistics
  * - Short cache time since stats change frequently
  */
-export function useDbStats(dbId: string | undefined) {
+export function useDbStats(dbId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: queryKeys.stats(dbId!),
     queryFn: () => databaseService.getDataBaseStats(dbId!),
-    enabled: !!dbId,
+    enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.stats,
-    refetchInterval: 60 * 1000, // Auto-refresh every minute
+    refetchInterval: enabled ? 60 * 1000 : false, // Auto-refresh every minute when enabled
   });
 }
 

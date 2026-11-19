@@ -1,5 +1,5 @@
 import { Rpc } from "../types";
-import { DatabaseService } from "../services/databaseService";
+import { DatabaseService, isOfflineError } from "../services/databaseService";
 import { QueryExecutor } from "../services/queryExecutor";
 import { ConnectionBuilder } from "../services/connectionBuilder";
 import { Logger } from "pino";
@@ -90,6 +90,10 @@ export class DatabaseHandlers {
       );
       this.rpc.sendResponse(id, { ok: true, data: tables });
     } catch (e: any) {
+      if (isOfflineError(e)) {
+        this.logger?.warn({ e, dbId: params?.id }, "db.listTables skipped: database is offline");
+        return this.rpc.sendResponse(id, { ok: true, data: [], isOffline: true });
+      }
       this.logger?.error({ e }, "db.listTables failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
@@ -109,6 +113,10 @@ export class DatabaseHandlers {
       );
       this.rpc.sendResponse(id, { ok: true, data: schemas });
     } catch (e: any) {
+      if (isOfflineError(e)) {
+        this.logger?.warn({ e, dbId: params?.id }, "db.listSchemas skipped: database is offline");
+        return this.rpc.sendResponse(id, { ok: true, data: [], isOffline: true });
+      }
       this.logger?.error({ e }, "db.listSchemas failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
@@ -128,6 +136,10 @@ export class DatabaseHandlers {
       );
       this.rpc.sendResponse(id, { ok: true, data: dbSchema });
     } catch (e: any) {
+      if (isOfflineError(e)) {
+        this.logger?.warn({ e, dbId: params?.id }, "db.getSchema skipped: database is offline");
+        return this.rpc.sendResponse(id, { ok: true, data: [], isOffline: true });
+      }
       this.logger?.error({ e }, "db.getSchema failed");
       this.rpc.sendError(id, { code: "IO_ERROR", message: String(e) });
     }
@@ -208,6 +220,14 @@ export class DatabaseHandlers {
       }
       this.rpc.sendResponse(id, { ok: true, data: result });
     } catch (err: any) {
+      if (isOfflineError(err)) {
+        this.logger.warn({ err }, "[Handler] testConnection: database is offline");
+        this.rpc.sendResponse(id, {
+          ok: true,
+          data: { ok: false, status: "disconnected", message: String(err), isOffline: true },
+        });
+        return;
+      }
       this.logger.error({ err }, "[Handler] testConnection error");
       this.rpc.sendResponse(id, { ok: false, message: String(err) });
     } finally {

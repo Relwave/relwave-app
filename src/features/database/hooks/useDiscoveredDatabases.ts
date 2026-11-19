@@ -12,7 +12,7 @@ interface UseDiscoveredDatabasesReturn {
 
 /**
  * Hook for discovering locally running databases
- * Scans localhost ports and Docker containers for PostgreSQL, MySQL, and MariaDB
+ * Scans localhost ports and Docker containers for PostgreSQL, MySQL, MariaDB, and MongoDB
  */
 export function useDiscoveredDatabases(): UseDiscoveredDatabasesReturn {
   const [databases, setDatabases] = useState<DiscoveredDatabase[]>([]);

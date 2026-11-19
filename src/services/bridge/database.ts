@@ -216,9 +216,12 @@ class DatabaseService {
       }
 
       const result = await bridgeRequest("db.connectTest", { id });
-      console.log(result);
       return result?.data || { ok: false, message: "Unknown error" };
     } catch (error: any) {
+      if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
+        console.warn(`Database ${id} is offline: ${error.message}`);
+        return { ok: false, message: error.message, status: "disconnected" };
+      }
       console.error("Failed to test connection:", error);
       return { ok: false, message: error.message, status: "disconnected" };
     }
@@ -255,6 +258,10 @@ class DatabaseService {
       const result = await bridgeRequest("db.connectTest", { connection });
       return result?.data || { ok: false, message: "Unknown error" };
     } catch (error: any) {
+      if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
+        console.warn(`Connection is offline: ${error.message}`);
+        return { ok: false, message: error.message, status: "disconnected" };
+      }
       console.error("Failed to test connection:", error);
       return { ok: false, message: error.message, status: "disconnected" };
     }
@@ -271,8 +278,23 @@ class DatabaseService {
       }
 
       const result = await bridgeRequest("db.listTables", { id, schema });
-      return result?.data || [];
+      const data = result?.data || [];
+      if (result?.isOffline) {
+        (data as any).isOffline = true;
+      }
+      return data;
     } catch (error: any) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|ehostunreach|enetunreach|database is offline/i.test(
+          error.message,
+        )
+      ) {
+        console.warn(`Database ${id} is offline: ${error.message}`);
+        const data: any[] = [];
+        (data as any).isOffline = true;
+        return data;
+      }
       console.error("Failed to list tables:", error);
       throw new Error(`Failed to list tables: ${error.message}`);
     }
@@ -287,6 +309,15 @@ class DatabaseService {
       const result = await bridgeRequest("db.listSchemas", { id });
       return result?.data || [];
     } catch (error: any) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|ehostunreach|enetunreach|database is offline/i.test(
+          error.message,
+        )
+      ) {
+        console.warn(`Database ${id} is offline: ${error.message}`);
+        return [];
+      }
       console.error("Failed to list schemas:", error);
       throw new Error(`Failed to list schemas: ${error.message}`);
     }
@@ -301,8 +332,19 @@ class DatabaseService {
         throw new Error("Database ID is required");
       }
       const result = await bridgeRequest("db.getStats", { id });
-      return result?.data || { tables: 0, rows: 0, sizeBytes: 0 };
+      const stats = result?.data || { tables: 0, rows: 0, sizeBytes: 0 };
+      if (result?.isOffline) {
+        return { ...stats, isOffline: true };
+      }
+      return stats;
     } catch (error: any) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|database is offline/i.test(error.message)
+      ) {
+        console.warn(`Database ${id} is offline: ${error.message}`);
+        return { tables: 0, rows: 0, sizeBytes: 0, isOffline: true };
+      }
       console.error("Failed to get database stats:", error);
       throw new Error(`Failed to get database stats: ${error.message}`);
     }
