@@ -35,9 +35,9 @@ This document provides a comprehensive breakdown of all features and capabilitie
 
 ### MongoDB-Specific Features
 
-- **Document & Analytical Engine** — powered by official `mongodb` Node driver (^6.21.0), verified on MongoDB 6.0 and 7.0
+- **Document & Analytical Engine** — powered by official `mongodb` Node driver (^6.21.0), verified on MongoDB 7.0
 - **Flexible Connection Topologies** — connect via Standalone (`mongodb://`), Replica Sets (`replicaSet=rs0`), and MongoDB Atlas (`mongodb+srv://`)
-- **Secure Credentials & TLS** — OS-keyring protected authentication (SCRAM-SHA-1, SCRAM-SHA-256) with full TLS/SSL certificate support
+- **Secure Credentials & TLS** — AES-256-CBC encrypted credential storage with SCRAM-SHA-1 / SCRAM-SHA-256 authentication and full TLS/SSL certificate support
 - **MQL Workspace & Visual Aggregations** — interactive aggregation pipeline builder with stage reordering, stage previews, and live query cancellation
 - **Strict BSON Fidelity** — canonical EJSON serialization preserving ObjectId, Date, Decimal128, Long (64-bit int), and Binary data
 - **Schema Intelligence & Visual ERD** — probabilistic schema inference with stratified sampling, field type distribution charts, and automatic relationship detection (ObjectId refs, DBRefs, and embedded arrays)
@@ -806,6 +806,6 @@ All database and Git operations use a JSON-RPC protocol over stdin/stdout. The b
 
 ---
 
-**Last Updated:** October 2026 (v1.2.0)
+**Last Updated:** November 2026 (v1.3.0)
 
 This document is maintained alongside the application and updated with each release.

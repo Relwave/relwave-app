@@ -28,3 +28,6 @@ src-tauri/resources/
 *.sw?
 
 ~
+
+# Internal engineering progress & scratch tracking
+PROGRESS.md

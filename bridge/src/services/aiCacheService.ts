@@ -14,6 +14,7 @@ import {
   SchemaAnalysisInput,
   QueryExplanationInput,
   ChartRecommendationInput,
+  SchemaColumn,
 } from "../types/ai";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -30,11 +31,30 @@ export interface CachedResult {
 // ── Hashing ───────────────────────────────────────────────────────────────
 
 /**
+ * Recursively sort object keys canonically for deterministic JSON serialization.
+ * Preserves primitive types, null/undefined, and array element ordering,
+ * while ensuring object keys are always ordered alphabetically without dropping undeclared fields.
+ */
+export function canonicalize(val: unknown): unknown {
+  if (val === null || typeof val !== "object") {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map(canonicalize);
+  }
+  const sortedObj: Record<string, unknown> = {};
+  for (const key of Object.keys(val as Record<string, unknown>).sort()) {
+    sortedObj[key] = canonicalize((val as Record<string, unknown>)[key]);
+  }
+  return sortedObj;
+}
+
+/**
  * Generate a deterministic SHA-256 hash for the given feature and input.
  * The same input always produces the same hash.
  */
 export function generateContentHash(feature: AIFeature, data: unknown): string {
-  const payload = JSON.stringify({ feature, data }, Object.keys({ feature, data }).sort());
+  const payload = JSON.stringify(canonicalize({ feature, data }));
   return crypto.createHash("sha256").update(payload, "utf-8").digest("hex");
 }
 
@@ -52,7 +72,9 @@ export function hashSchemaAnalysis(input: SchemaAnalysisInput, datasourceName?: 
         nullable: c.nullable ?? null,
         isPrimaryKey: c.isPrimaryKey ?? null,
         isForeignKey: c.isForeignKey ?? null,
-        references: c.references ?? null,
+        references: c.references
+          ? (canonicalize(c.references) as SchemaColumn["references"])
+          : null,
       })),
       indexes: t.indexes ?? [],
       foreignKeys: t.foreignKeys ?? [],

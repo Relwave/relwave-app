@@ -60,7 +60,7 @@ _RelWave brings the power of native Git versioning, visual ER diagrams, and seam
       <b>Secure & Private</b>
       <br />
       <br />
-      Local-first design. Encrypted credentials stored securely in your system's keyring.
+      Local-first design. Encrypted credentials stored securely with AES-256-CBC and OS keyring for SSH.
     </td>
     <td align="center" width="25%">
       <br />
