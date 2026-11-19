@@ -32,24 +32,63 @@ function getDbColors(type: string) {
   return DB_COLORS[type] || { bg: "bg-primary/10", text: "text-primary" };
 }
 
-function ConnectionSizeItem({ db }: { db: DatabaseConnection }) {
-  const { data: stats, isLoading } = useDbStats(db.id);
-  const sizeStr = stats?.sizeBytes ? bytesToMBString(stats.sizeBytes) : "—";
+function ConnectionSizeItem({
+  db,
+  isOnline,
+}: {
+  db: DatabaseConnection;
+  isOnline: boolean;
+}) {
+  const { data: stats, isLoading } = useDbStats(db.id, isOnline);
+  const sizeStr = !isOnline ? "Offline" : stats?.sizeBytes ? bytesToMBString(stats.sizeBytes) : "—";
   return (
     <div className="flex justify-between items-center py-2 px-3 hover:bg-accent/50 rounded-md transition-colors">
       <div className="flex items-center gap-2 overflow-hidden">
         <DatabaseLogo type={db.type} className="w-3.5 h-3.5 shrink-0" />
         <span className="text-sm font-medium truncate">{db.name}</span>
       </div>
-      <span className="text-sm text-muted-foreground tabular-nums shrink-0 ml-4">
-        {isLoading ? "..." : sizeStr}
+      <span
+        className={cn(
+          "text-sm tabular-nums shrink-0 ml-4",
+          !isOnline ? "text-muted-foreground/60 text-xs italic" : "text-muted-foreground",
+        )}
+      >
+        {isOnline && isLoading ? "..." : sizeStr}
       </span>
     </div>
   );
 }
 
-function ConnectionTablesList({ db }: { db: DatabaseConnection }) {
-  const { data: tables, isLoading } = useTables(db.id);
+function ConnectionTablesList({
+  db,
+  isOnline,
+}: {
+  db: DatabaseConnection;
+  isOnline: boolean;
+}) {
+  const { data: tables, isLoading } = useTables(db.id, undefined, isOnline);
+
+  if (!isOnline) {
+    return (
+      <div className="mb-6 opacity-60">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className={cn("p-1.5 rounded-md", getDbColors(db.type).bg)}>
+              <DatabaseLogo type={db.type} className="w-4 h-4" />
+            </div>
+            <h4 className="font-semibold text-sm">{db.name}</h4>
+          </div>
+          <span className="text-[10px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+            Offline
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground/70 italic pl-3.5 border-l-2 border-border/30 ml-3.5">
+          Database is offline. Tables cannot be listed.
+        </p>
+      </div>
+    );
+  }
+
   if (isLoading)
     return (
       <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
@@ -208,7 +247,13 @@ export function WelcomeView({
               {databases.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No databases connected.</div>
               ) : (
-                databases.map((db) => <ConnectionTablesList key={db.id} db={db} />)
+                databases.map((db) => (
+                  <ConnectionTablesList
+                    key={db.id}
+                    db={db}
+                    isOnline={status.get(db.id) === "connected"}
+                  />
+                ))
               )}
             </ScrollArea>
           </SheetContent>
@@ -240,7 +285,13 @@ export function WelcomeView({
             {databases.length === 0 ? (
               <div className="text-sm text-muted-foreground p-2">No databases connected.</div>
             ) : (
-              databases.map((db) => <ConnectionSizeItem key={db.id} db={db} />)
+              databases.map((db) => (
+                <ConnectionSizeItem
+                  key={db.id}
+                  db={db}
+                  isOnline={status.get(db.id) === "connected"}
+                />
+              ))
             )}
           </DropdownMenuContent>
         </DropdownMenu>

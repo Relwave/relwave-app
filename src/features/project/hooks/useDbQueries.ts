@@ -208,13 +208,13 @@ export function useMongoSchema(
  * Fetch database statistics
  * - Short cache time since stats change frequently
  */
-export function useDbStats(dbId: string | undefined) {
+export function useDbStats(dbId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: queryKeys.stats(dbId!),
     queryFn: () => databaseService.getDataBaseStats(dbId!),
-    enabled: !!dbId,
+    enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.stats,
-    refetchInterval: 60 * 1000, // Auto-refresh every minute
+    refetchInterval: enabled ? 60 * 1000 : false, // Auto-refresh every minute when enabled
   });
 }
 
