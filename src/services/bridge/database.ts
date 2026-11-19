@@ -316,11 +316,18 @@ class DatabaseService {
         throw new Error("Database ID is required");
       }
       const result = await bridgeRequest("db.getStats", { id });
-      return result?.data || { tables: 0, rows: 0, sizeBytes: 0 };
+      const stats = result?.data || { tables: 0, rows: 0, sizeBytes: 0 };
+      if (result?.isOffline) {
+        return { ...stats, isOffline: true };
+      }
+      return stats;
     } catch (error: any) {
-      if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
+      if (
+        error?.message &&
+        /enotfound|econnrefused|etimedout|database is offline/i.test(error.message)
+      ) {
         console.warn(`Database ${id} is offline: ${error.message}`);
-        return { tables: 0, rows: 0, sizeBytes: 0 };
+        return { tables: 0, rows: 0, sizeBytes: 0, isOffline: true };
       }
       console.error("Failed to get database stats:", error);
       throw new Error(`Failed to get database stats: ${error.message}`);

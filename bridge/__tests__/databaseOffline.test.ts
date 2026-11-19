@@ -32,16 +32,35 @@ describe("isOfflineError helper", () => {
       ),
     ).toBe(true);
     expect(isOfflineError(new Error("connect ECONNREFUSED 127.0.0.1:3306"))).toBe(true);
+    expect(
+      isOfflineError(
+        new Error("Failed to fetch MySQL database stats: connect ECONNREFUSED 127.0.0.1:3306"),
+      ),
+    ).toBe(true);
     expect(isOfflineError(new Error("Server selection timed out after 30000 ms"))).toBe(true);
     expect(isOfflineError(new Error("Topology is closed"))).toBe(true);
     expect(isOfflineError(new Error("Connection terminated unexpectedly"))).toBe(true);
     expect(isOfflineError("Database is offline")).toBe(true);
   });
 
+  test("identifies cause error as offline when cause matches", () => {
+    const errorWithCause = new Error("Wrapper");
+    (errorWithCause as any).cause = { code: "ECONNREFUSED" };
+    expect(isOfflineError(errorWithCause)).toBe(true);
+  });
+
   test("returns false for non-offline errors", () => {
     expect(isOfflineError(null)).toBe(false);
     expect(isOfflineError(undefined)).toBe(false);
     expect(isOfflineError(new Error("Table 'users' does not exist"))).toBe(false);
+    expect(isOfflineError(new Error("Table 'offline_orders' does not exist"))).toBe(false);
+    expect(
+      isOfflineError(
+        new Error(
+          "Failed to fetch MySQL database stats: Access denied for user 'root'@'localhost'",
+        ),
+      ),
+    ).toBe(false);
     expect(isOfflineError(new Error("Syntax error in SQL statement"))).toBe(false);
     expect(
       isOfflineError({ code: "ER_PARSE_ERROR", message: "You have an error in your SQL" }),

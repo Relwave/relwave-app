@@ -194,6 +194,7 @@ export interface DatabaseStats {
   rows: number;
   sizeBytes: number;
   tables: number;
+  isOffline?: boolean;
 }
 
 export interface MonitoringActiveQuery {

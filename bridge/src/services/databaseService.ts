@@ -49,7 +49,7 @@ export function isOfflineError(err: any): boolean {
   }
 
   const lowerMsg = msg.toLowerCase();
-  return (
+  if (
     lowerMsg.includes("enotfound") ||
     lowerMsg.includes("econnrefused") ||
     lowerMsg.includes("etimedout") ||
@@ -61,10 +61,17 @@ export function isOfflineError(err: any): boolean {
     lowerMsg.includes("topology is closed") ||
     lowerMsg.includes("connection reset by peer") ||
     lowerMsg.includes("connection terminated unexpectedly") ||
-    lowerMsg.includes("failed to fetch") ||
     lowerMsg.includes("connect timeout") ||
-    lowerMsg.includes("offline")
-  );
+    lowerMsg.includes("database is offline")
+  ) {
+    return true;
+  }
+
+  if (err?.cause && typeof err.cause === "object") {
+    return isOfflineError(err.cause);
+  }
+
+  return false;
 }
 
 export class DatabaseService {
