@@ -127,7 +127,12 @@ import {
 /** Redact any embedded credentials if a message ever echoes the connection URI. */
 export function safeMongoError(err: unknown): string {
   const base = err instanceof Error ? err.message : String(err);
-  return base.replace(/(mongodb(?:\+srv)?:\/\/)[^@/\s?#]+@/gi, "$1<credentials>@");
+  return base
+    .replace(
+      /(mongodb\+srv:\/\/)(?:(?!\?[^@\s]*=)[^@\s])+@(?=[a-zA-Z0-9.-]+(?::\d+)?(?:[/?\s"'<>]|$))/gi,
+      "$1<credentials>@",
+    )
+    .replace(/(mongodb:\/\/)[^@/\s?#]+@/gi, "$1<credentials>@");
 }
 
 export const redactMongoUri = safeMongoError;
