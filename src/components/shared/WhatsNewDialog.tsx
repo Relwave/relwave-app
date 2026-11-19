@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Sparkles, ArrowRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Dialog,
   DialogContent,
@@ -161,6 +162,7 @@ export function WhatsNewDialog() {
             </div>
           ) : (
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => (
                   <h1 className="text-lg font-semibold text-foreground mt-5 mb-2 first:mt-0 tracking-tight">

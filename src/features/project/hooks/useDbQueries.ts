@@ -118,11 +118,15 @@ export function useTables(dbId: string | undefined, schema?: string, enabled = t
     queryKey: queryKeys.tables(dbId!, schema),
     queryFn: async () => {
       const result = await databaseService.listTables(dbId!, schema);
-      return result.map((item: any): TableInfo => ({
+      const mapped = result.map((item: any): TableInfo => ({
         schema: item.schema || "public",
         name: item.name || "unknown",
         type: item.type || "table",
       }));
+      if ((result as any)?.isOffline) {
+        (mapped as any).isOffline = true;
+      }
+      return mapped;
     },
     enabled: !!dbId && enabled,
     staleTime: STALE_TIMES.tables,

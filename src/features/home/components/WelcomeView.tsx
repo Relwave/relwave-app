@@ -87,6 +87,7 @@ function ConnectionTablesList({
 }) {
   const isConfirmedOffline = !isPending && !isOnline;
   const { data: tables, isLoading } = useTables(db.id, undefined, !isConfirmedOffline);
+  const isTableOffline = Boolean((tables as any)?.isOffline);
 
   if (isPending) {
     return (
@@ -109,7 +110,7 @@ function ConnectionTablesList({
     );
   }
 
-  if (isConfirmedOffline) {
+  if (isConfirmedOffline || isTableOffline) {
     return (
       <div className="mb-6 opacity-60">
         <div className="flex items-center justify-between mb-2">

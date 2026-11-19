@@ -278,11 +278,17 @@ class DatabaseService {
       }
 
       const result = await bridgeRequest("db.listTables", { id, schema });
-      return result?.data || [];
+      const data = result?.data || [];
+      if (result?.isOffline) {
+        (data as any).isOffline = true;
+      }
+      return data;
     } catch (error: any) {
       if (error?.message && /enotfound|econnrefused|etimedout|offline/i.test(error.message)) {
         console.warn(`Database ${id} is offline: ${error.message}`);
-        return [];
+        const data: any[] = [];
+        (data as any).isOffline = true;
+        return data;
       }
       console.error("Failed to list tables:", error);
       throw new Error(`Failed to list tables: ${error.message}`);

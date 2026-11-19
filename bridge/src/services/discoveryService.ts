@@ -292,11 +292,36 @@ export class DiscoveryService {
         database: envVars.get("POSTGRES_DB") || envVars.get("POSTGRES_USER") || "postgres",
       };
     } else if (dbType === "mongodb") {
-      return {
-        user: envVars.get("MONGO_INITDB_ROOT_USERNAME") || "",
-        password: envVars.get("MONGO_INITDB_ROOT_PASSWORD") || "",
-        database: envVars.get("MONGO_INITDB_DATABASE") || "admin",
-      };
+      const rootUser =
+        envVars.get("MONGO_INITDB_ROOT_USERNAME") ||
+        envVars.get("MONGODB_ROOT_USER") ||
+        (envVars.has("MONGODB_ROOT_PASSWORD") ? "root" : "");
+      const rootPassword =
+        envVars.get("MONGO_INITDB_ROOT_PASSWORD") || envVars.get("MONGODB_ROOT_PASSWORD") || "";
+      const normalUser = envVars.get("MONGODB_USERNAME") || "";
+      const normalPassword = envVars.get("MONGODB_PASSWORD") || "";
+
+      if (rootUser || rootPassword) {
+        return {
+          user: rootUser,
+          password: rootPassword,
+          database: "admin",
+        };
+      } else if (normalUser || normalPassword) {
+        return {
+          user: normalUser,
+          password: normalPassword,
+          database:
+            envVars.get("MONGODB_DATABASE") || envVars.get("MONGO_INITDB_DATABASE") || "admin",
+        };
+      } else {
+        return {
+          user: "",
+          password: "",
+          database:
+            envVars.get("MONGO_INITDB_DATABASE") || envVars.get("MONGODB_DATABASE") || "admin",
+        };
+      }
     } else if (dbType === "mysql") {
       // MySQL can use MYSQL_USER or root with MYSQL_ROOT_PASSWORD
       const user = envVars.get("MYSQL_USER") || "root";
@@ -332,6 +357,48 @@ export class DiscoveryService {
   }
 
   /**
+   * Determine database type from Docker image name
+   */
+  private matchImageType(
+    image: string,
+  ): "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb" | null {
+    const isMongo =
+      /(?:^|\/)(?:mongo|mongodb|mongodb-community-server|mongodb-enterprise-server|percona-server-mongodb)(?::|$)/i.test(
+        image,
+      ) && !image.toLowerCase().includes("mongo-express");
+
+    if (image.includes("postgres") || image.includes("pg") || image.includes("postgresql")) {
+      return "postgresql";
+    } else if (image.includes("mariadb")) {
+      return "mariadb";
+    } else if (image.includes("mysql")) {
+      return "mysql";
+    } else if (image.includes("clickhouse")) {
+      return "clickhouse";
+    } else if (isMongo) {
+      return "mongodb";
+    }
+    return null;
+  }
+
+  /**
+   * Parse port mapping string and filter out excluded ports
+   */
+  private parsePortMapping(
+    ports: string,
+    dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb",
+  ): { hostPort: number; containerPort: number } | null {
+    const portMatch = ports.match(/(?:127\.0\.0\.1|0\.0\.0\.0|\[::\]|::):(\d+)->(\d+)/);
+    if (!portMatch) return null;
+    const hostPort = parseInt(portMatch[1], 10);
+    const containerPort = parseInt(portMatch[2], 10);
+    if (dbType === "mongodb" && containerPort === 28017) {
+      return null;
+    }
+    return { hostPort, containerPort };
+  }
+
+  /**
    * Discover databases running in Docker containers
    */
   private async discoverDockerDatabases(): Promise<DiscoveredDatabase[]> {
@@ -348,25 +415,12 @@ export class DiscoveryService {
       for (const line of lines) {
         const [containerName, image, ports] = line.split("|");
 
-        // Determine database type from image name
-        let dbType: "postgresql" | "mysql" | "mariadb" | "clickhouse" | "mongodb" | null = null;
-        if (image.includes("postgres") || image.includes("pg") || image.includes("postgresql")) {
-          dbType = "postgresql";
-        } else if (image.includes("mariadb")) {
-          dbType = "mariadb";
-        } else if (image.includes("mysql")) {
-          dbType = "mysql";
-        } else if (image.includes("clickhouse")) {
-          dbType = "clickhouse";
-        } else if (image.includes("mongo") || image.includes("mongodb")) {
-          dbType = "mongodb";
-        }
+        const dbType = this.matchImageType(image);
 
         if (dbType && ports) {
-          // Parse port mappings like "0.0.0.0:5432->5432/tcp"
-          const portMatch = ports.match(/0\.0\.0\.0:(\d+)->(\d+)/);
-          if (portMatch) {
-            const hostPort = parseInt(portMatch[1], 10);
+          const portMapping = this.parsePortMapping(ports, dbType);
+          if (portMapping) {
+            const hostPort = portMapping.hostPort;
 
             // Get environment variables from the container
             const envVars = await this.getContainerEnvVars(containerName);
